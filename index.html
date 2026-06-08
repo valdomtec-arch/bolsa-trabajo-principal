@@ -55,7 +55,7 @@
             font-size: 1.2rem;
         }
 
-        /* --- NUEVA SECCIÓN: GALERÍA DE IMÁGENES --- */
+        /* --- GALERÍA DINÁMICA CON CARRUSEL --- */
         .gallery-section {
             margin-bottom: 35px;
         }
@@ -67,33 +67,91 @@
             text-align: center;
         }
 
-        .image-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
+        .gallery-container {
+            position: relative;
+            overflow: hidden;
+            background: #fafafa;
+            padding: 20px 0;
+            border-radius: 8px;
+        }
+
+        .gallery-wrapper {
+            display: flex;
+            transition: transform 0.5s ease-in-out;
         }
 
         .image-card {
+            min-width: calc(33.333% - 14px);
             background: #fff;
-            padding: 10px;
+            padding: 15px;
             border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
             border: 1px solid #e1e1e1;
             text-align: center;
+            margin: 0 10px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .image-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.15);
         }
 
         .image-card img {
             max-width: 100%;
-            height: auto;
+            height: 180px;
+            object-fit: cover;
             border-radius: 6px;
             display: block;
             margin: 0 auto 10px auto;
         }
 
         .image-card span {
-            font-size: 0.9rem;
+            font-size: 0.95rem;
             font-weight: bold;
             color: var(--secondary-blue);
+            display: block;
+        }
+
+        /* Botones de navegación */
+        .gallery-nav {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        .nav-btn {
+            background-color: var(--primary-orange);
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.2rem;
+            transition: background-color 0.3s ease;
+            width: 45px;
+            height: 45px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .nav-btn:hover {
+            background-color: var(--secondary-blue);
+        }
+
+        .nav-btn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        /* Indicador de página */
+        .gallery-indicator {
+            text-align: center;
+            margin-top: 15px;
+            color: var(--secondary-blue);
+            font-weight: bold;
         }
 
         /* Sección de Botones de Enlace */
@@ -196,6 +254,32 @@
             width: 24px;
             height: 24px;
         }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .image-card {
+                min-width: calc(50% - 14px);
+            }
+
+            header h1 {
+                font-size: 1.5rem;
+            }
+
+            .container {
+                padding: 15px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .image-card {
+                min-width: 100%;
+                margin: 0 5px;
+            }
+
+            header h1 {
+                font-size: 1.2rem;
+            }
+        }
     </style>
 </head>
 <body>
@@ -208,29 +292,35 @@
 
     <section class="gallery-section">
         <h2>Ofertas de Empleo Disponibles</h2>
-        <div class="image-grid">
-            
-            <div class="image-card">
-                <img src="imagen-soriana.jpg" alt="Vacantes Soriana Tlaquepaque">
-                <span>Soriana Tlaquepaque</span>
-            </div>
+        <div class="gallery-container">
+            <div class="gallery-wrapper" id="galleryWrapper">
+                <div class="image-card">
+                    <img src="imagen-soriana.jpg" alt="Vacantes Soriana Tlaquepaque">
+                    <span>Soriana Tlaquepaque</span>
+                </div>
 
-            <div class="image-card">
-                <img src="imagen-topband.jpg" alt="Vacantes Top Band">
-                <span>Top Band</span>
-            </div>
+                <div class="image-card">
+                    <img src="imagen-topband.jpg" alt="Vacantes Top Band">
+                    <span>Top Band</span>
+                </div>
 
-            <div class="image-card">
-                <img src="imagen-fimex.jpg" alt="Vacantes FIMEX">
-                <span>FIMEX</span>
-            </div>
+                <div class="image-card">
+                    <img src="imagen-fimex.jpg" alt="Vacantes FIMEX">
+                    <span>FIMEX</span>
+                </div>
 
-            <div class="image-card">
-                <img src="imagen-macor.jpg" alt="Vacantes Macor de México">
-                <span>Macor de México</span>
+                <div class="image-card">
+                    <img src="imagen-macor.jpg" alt="Vacantes Macor de México">
+                    <span>Macor de México</span>
+                </div>
             </div>
-
         </div>
+
+        <div class="gallery-nav">
+            <button class="nav-btn" id="prevBtn" onclick="previousGroup()" title="Anterior">◀</button>
+            <button class="nav-btn" id="nextBtn" onclick="nextGroup()" title="Siguiente">▶</button>
+        </div>
+        <div class="gallery-indicator" id="indicator">Grupo 1 de 2</div>
     </section>
 
     <section class="links-section">
@@ -284,7 +374,7 @@
 
             <button type="button" class="btn-whatsapp" onclick="enviarWhatsApp()">
                 <svg viewBox="0 0 24 24">
-                    <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.513 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657[...]
+                    <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.513 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.355 12.04-11.974 12.04h-.006c-2.206 0-4.35-.528-6.297-1.524l-4.752 1.64z"/>
                 </svg>
                 Enviar Postulación por WhatsApp
             </button>
@@ -293,6 +383,39 @@
 </div>
 
 <script>
+    let currentPage = 0;
+    const itemsPerPage = 3;
+    const totalItems = document.querySelectorAll('.image-card').length;
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+
+    function updateGallery() {
+        const wrapper = document.getElementById('galleryWrapper');
+        const offset = currentPage * itemsPerPage * -1;
+        wrapper.style.transform = `translateX(${offset * 100 / itemsPerPage}%)`;
+        
+        document.getElementById('indicator').textContent = `Grupo ${currentPage + 1} de ${totalPages}`;
+        
+        document.getElementById('prevBtn').disabled = currentPage === 0;
+        document.getElementById('nextBtn').disabled = currentPage === totalPages - 1;
+    }
+
+    function nextGroup() {
+        if (currentPage < totalPages - 1) {
+            currentPage++;
+            updateGallery();
+        }
+    }
+
+    function previousGroup() {
+        if (currentPage > 0) {
+            currentPage--;
+            updateGallery();
+        }
+    }
+
+    // Inicializar galería
+    updateGallery();
+
     function enviarWhatsApp() {
         const telefonoReclutador = "526461974763"; 
 
