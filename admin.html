@@ -163,7 +163,7 @@
 
     <div id="tabPrincipal" class="tab-content active">
         <div class="form-admin">
-            <div class="section-divider">Alta de Empresa en el Catálogo</div>
+            <div class="section-divider">Alta / Edición de Empresa en el Catálogo</div>
             <div class="form-group">
                 <label>Identificador Único (ID en minúsculas y sin espacios):</label>
                 <input type="text" id="admId" placeholder="Ej: soriana, katcon, taehwa">
@@ -188,7 +188,7 @@
                 <label>Etiquetas de Búsqueda (Separadas por espacios):</label>
                 <input type="text" id="admTags" placeholder="Ej: soriana tlaquepaque jalisco">
             </div>
-            <button class="btn-add" onclick="agregarEmpresaPrincipal()"><i class="fas fa-plus"></i> Publicar Empresa en la Página Principal</button>
+            <button class="btn-add" onclick="agregarEmpresaPrincipal()"><i class="fas fa-save"></i> Guardar Empresa en la Página Principal</button>
         </div>
 
         <h2>Empresas Activas en la Página Principal</h2>
@@ -332,7 +332,7 @@
         }
     }
 
-    // --- ACCIONES PESTAÑA 1 ---
+    // --- ACCIONES PESTAÑA 1: AGREGAR O EDITAR PRINCIPAL ---
     window.agregarEmpresaPrincipal = function() {
         const id = document.getElementById('admId').value.trim().toLowerCase();
         const nombre = document.getElementById('admNombre').value.trim();
@@ -344,11 +344,29 @@
         if(!id || !nombre || !ubicacion || !link || !imagen || !tags) { alert("Rellena todos los campos."); return; }
 
         set(ref(db, 'empresas/' + id), { id, nombre, ubicacion, link, imagen, tags }).then(() => {
-            alert("¡Empresa publicada!");
-            document.getElementById('admId').value = ''; document.getElementById('admNombre').value = '';
-            document.getElementById('admUbicacion').value = ''; document.getElementById('admLink').value = '';
-            document.getElementById('admImagen').value = ''; document.getElementById('admTags').value = '';
+            alert("¡Empresa guardada/actualizada con éxito en el catálogo!");
+            document.getElementById('admId').disabled = false; // Desbloquear ID tras guardar
+            limpiarFormularioPrincipal();
         });
+    }
+
+    // CARGAR DATOS EN FORMULARIO PARA EDITAR DIRECTAMENTE
+    window.prepararEdicionPrincipal = function(id) {
+        onValue(ref(db, 'empresas/' + id), (snapshot) => {
+            const emp = snapshot.val();
+            if(emp) {
+                document.getElementById('admId').value = emp.id;
+                document.getElementById('admId').disabled = true; // Bloqueamos el ID clave para evitar alteraciones erróneas
+                document.getElementById('admNombre').value = emp.nombre;
+                document.getElementById('admUbicacion').value = emp.ubicacion;
+                document.getElementById('admLink').value = emp.link;
+                document.getElementById('admImagen').value = emp.imagen;
+                document.getElementById('admTags').value = emp.tags;
+                
+                // Efecto de subida suave al formulario
+                window.scrollTo({top: 0, behavior: 'smooth'});
+            }
+        }, { onlyOnce: true });
     }
 
     window.eliminarEmpresaCompleta = function(id) {
@@ -358,6 +376,7 @@
         }
     }
 
+    // Escuchar la BD y pintar la tabla incluyendo el botón azul de Edición Directa
     onValue(referenciasPrincipal, (snapshot) => {
         const tbody = document.getElementById('adminTablaEmpresas');
         const select = document.getElementById('secEmpresaSelect');
@@ -367,15 +386,25 @@
         if(data) {
             Object.keys(data).forEach(key => {
                 const emp = data[key];
-                tbody.innerHTML += `<tr><td><img src="${emp.imagen}" onerror="this.src='imagen-logo.jpg'"></td><td><code>/${emp.id}</code></td><td><strong>${emp.nombre}</strong></td><td>${emp.ubicacion}</td><td><button class="btn-delete" onclick="eliminarEmpresaCompleta('${emp.id}')"><i class="fas fa-trash"></i> Eliminar</button></td></tr>`;
+                tbody.innerHTML += `
+                    <tr>
+                        <td><img src="${emp.imagen}" onerror="this.src='imagen-logo.jpg'"></td>
+                        <td><code>/${emp.id}</code></td>
+                        <td><strong>${emp.nombre}</strong></td>
+                        <td>${emp.ubicacion}</td>
+                        <td>
+                            <button class="btn-add" style="padding: 6px 12px; font-size:0.85rem; background:#0ea5e9; margin-right:5px; width:auto; display:inline-block;" onclick="prepararEdicionPrincipal('${emp.id}')"><i class="fas fa-edit"></i> Editar</button>
+                            <button class="btn-delete" onclick="eliminarEmpresaCompleta('${emp.id}')"><i class="fas fa-trash"></i> Eliminar</button>
+                        </td>
+                    </tr>`;
                 select.innerHTML += `<option value="${emp.id}">${emp.nombre} (/${emp.id})</option>`;
             });
         } else {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No hay empresas.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No hay empresas dadas de alta.</td></tr>';
         }
     });
 
-    // --- ACCIONES PESTAÑA 2 ---
+    // --- ACCIONES PESTAÑA 2: EDICIÓN EN TIEMPO REAL AL SELECCIONAR ---
     window.cargarDetallesAlCambiar = function() {
         const idSeleccionado = document.getElementById('secEmpresaSelect').value;
         if(!idSeleccionado) { limpiarFormularioSecundario(); return; }
@@ -416,7 +445,13 @@
 
         if(!vacanteNombre || !salario) { alert("Vacante y Salario obligatorios."); return; }
 
-        set(ref(db, 'vacantes_detalles/' + id), { id, estatus, logoUrl, bannerUrl, vacanteNombre, edad, salario, lugarOrigen, turnos, sexo, experiencia, escolaridad, actividades }).then(() => { alert("¡Sincronizado con éxito!"); });
+        set(ref(db, 'vacantes_detalles/' + id), { id, estatus, logoUrl, bannerUrl, vacanteNombre, edad, salario, lugarOrigen, turnos, sexo, experiencia, escolaridad, actividades }).then(() => { alert("¡Requisitos actualizados con éxito!"); });
+    }
+
+    function limpiarFormularioPrincipal() {
+        document.getElementById('admId').value = ''; document.getElementById('admNombre').value = '';
+        document.getElementById('admUbicacion').value = ''; document.getElementById('admLink').value = '';
+        document.getElementById('admImagen').value = ''; document.getElementById('admTags').value = '';
     }
 
     function limpiarFormularioSecundario() {
