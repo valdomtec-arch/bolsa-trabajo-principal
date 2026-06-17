@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Administración - Bolsa de Trabajo</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-orange: #ff6600;
+            --secondary-blue: #0f2a4a;
+            --bg-page: #050b14;          
+            --container-bg: #111e30;     
+            --card-bg: #18273c;          
+            --white: #ffffff;
+            --text-light: #f1f5f9;       
+            --text-muted: #94a3b8;       
+            --border-color: #243854;     
+        }
+        body {
+            background-color: var(--bg-page);
+            color: var(--text-light);
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            padding: 30px 10px;
+            margin: 0;
+        }
+        .admin-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: var(--container-bg);
+            padding: 30px;
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+        }
+        h1, h2 { color: var(--white); text-align: center; }
+        .form-admin {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 30px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        .form-group { display: flex; flex-direction: column; }
+        .form-group label { margin-bottom: 5px; font-weight: 600; font-size: 0.9rem;}
+        .form-group input {
+            padding: 10px;
+            background: #1d2e47;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: white;
+        }
+        .full-width { grid-column: 1 / -1; }
+        .btn-add {
+            background: var(--primary-orange);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: 700;
+            cursor: pointer;
+            grid-column: 1 / -1;
+            transition: 0.3s;
+        }
+        .btn-add:hover { background: #e05500; }
+        
+        .empresas-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .empresas-table th, .empresas-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .empresas-table th { background-color: #0d1724; color: var(--primary-orange); }
+        .empresas-table td img { width: 50px; height: auto; border-radius: 4px; background: white; padding: 2px;}
+        .btn-delete {
+            background: #dc2626;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .btn-delete:hover { background: #b91c1c; }
+    </style>
+</head>
+<body>
+
+<div class="admin-container">
+    <h1><i class="fas fa-cogs"></i> Panel de Control de Empresas</h1>
+    <p style="text-align: center; color: var(--text-muted)">Agrega o elimina empresas del carrusel y de las bolsas oficiales online.</p>
+    
+    <div class="form-admin">
+        <div class="form-group">
+            <label>Nombre de la Empresa:</label>
+            <input type="text" id="admNombre" placeholder="Ej. Soriana Tlaquepaque">
+        </div>
+        <div class="form-group">
+            <label>Ubicación (Texto visible):</label>
+            <input type="text" id="admUbicacion" placeholder="Ej. Tlaquepaque, Jalisco">
+        </div>
+        <div class="form-group">
+            <label>URL de la Imagen/Logo:</label>
+            <input type="text" id="admImagen" placeholder="Ej. imagen-soriana.jpg o URL de internet">
+        </div>
+        <div class="form-group">
+            <label>Enlace de Bolsa Oficial:</label>
+            <input type="text" id="admLink" placeholder="Ej. https://valdomtec-arch.github.io/...">
+        </div>
+        <div class="form-group full-width">
+            <label>Etiquetas de Búsqueda (Filtro - en minúsculas y sin acentos):</label>
+            <input type="text" id="admTags" placeholder="Ej. soriana tlaquepaque jalisco">
+        </div>
+        <button class="btn-add" onclick="agregarEmpresa()"><i class="fas fa-plus"></i> Guardar y Publicar Empresa</button>
+    </div>
+
+    <h2>Empresas Activas en el Sitio</h2>
+    <div style="overflow-x: auto;">
+        <table class="empresas-table">
+            <thead>
+                <tr>
+                    <th>Logo</th>
+                    <th>Empresa</th>
+                    <th>Ubicación</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="adminTablaEmpresas">
+                </tbody>
+        </table>
+    </div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, set, push, onValue, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    // Enlace directo e integración online con tu base de datos Firebase
+    const firebaseConfig = {
+        databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com/"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const dbRef = ref(db, 'empresas');
+
+    // Función para agregar empresa
+    window.agregarEmpresa = function() {
+        const nombre = document.getElementById('admNombre').value.trim();
+        const ubicacion = document.getElementById('admUbicacion').value.trim();
+        const imagen = document.getElementById('admImagen').value.trim();
+        const link = document.getElementById('admLink').value.trim();
+        const tags = document.getElementById('admTags').value.trim();
+
+        if(!nombre || !ubicacion || !imagen || !link || !tags) {
+            alert("Por favor, llena todos los campos.");
+            return;
+        }
+
+        const nuevaEmpresaRef = push(dbRef);
+        set(nuevaEmpresaRef, {
+            nombre, ubicacion, imagen, link, tags
+        }).then(() => {
+            alert("¡Empresa agregada con éxito!");
+            // Limpiar formulario
+            document.getElementById('admNombre').value = '';
+            document.getElementById('admUbicacion').value = '';
+            document.getElementById('admImagen').value = '';
+            document.getElementById('admLink').value = '';
+            document.getElementById('admTags').value = '';
+        });
+    }
+
+    // Escuchar cambios y pintar la tabla de administración
+    onValue(dbRef, (snapshot) => {
+        const tbody = document.getElementById('adminTablaEmpresas');
+        tbody.innerHTML = '';
+        const data = snapshot.val();
+        
+        if(data) {
+            Object.keys(data).forEach(key => {
+                const emp = data[key];
+                tbody.innerHTML += `
+                    <tr>
+                        <td><img src="${emp.imagen}" onerror="this.src='imagen-logo.jpg'"></td>
+                        <td><strong>${emp.nombre}</strong></td>
+                        <td>${emp.ubicacion}</td>
+                        <td><button class="btn-delete" onclick="eliminarEmpresa('${key}')"><i class="fas fa-trash"></i> Eliminar</button></td>
+                    </tr>
+                `;
+            });
+        } else {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">No hay empresas dadas de alta.</td></tr>';
+        }
+    });
+
+    // Función para borrar empresa
+    window.eliminarEmpresa = function(key) {
+        if(confirm("¿Estás seguro de que deseas eliminar esta empresa? Se borrará del carrusel y del formulario de inmediato.")) {
+            remove(ref(db, 'empresas/' + key));
+        }
+    }
+</script>
+</body>
+</html>
