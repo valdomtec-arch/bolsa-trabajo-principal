@@ -183,6 +183,7 @@
         <button class="tab-btn" id="btnTab2"><i class="fas fa-briefcase"></i> 2. Control de Vacantes Masivo</button>
     </div>
 
+    <!-- PESTAÑA 1 -->
     <div id="tabPrincipal" class="tab-content active">
         <div class="form-admin">
             <div class="section-divider">Alta / Edición de Empresa Base</div>
@@ -229,20 +230,22 @@
         </div>
     </div>
 
+    <!-- PESTAÑA 2 -->
     <div id="tabSecundarias" class="tab-content">
         <div class="form-admin">
             <div class="section-divider">Configuración de Destino</div>
             <div class="form-group">
                 <label>Selecciona la Empresa:</label>
-                <select id="secEmpresaSelect" onchange="actualizarSelectorVacantes()">
+                <select id="secEmpresaSelect">
                     <option value="">-- Elige una Empresa --</option>
                 </select>
             </div>
             <div class="form-group">
                 <label>ID Clave de este Puesto:</label>
-                <input text" id="secPuestoId" placeholder="Ej: ayudante, montacargas">
+                <input type="text" id="secPuestoId" placeholder="Ej: ayudante, montacargas">
             </div>
 
+            <!-- EXTRACTOR INTELIGENTE V4.0 -->
             <div class="ia-box">
                 <label style="color: var(--purple-ia); font-weight: bold; display: block; margin-bottom: 5px;">
                     <i class="fas fa-bolt"></i> Extractor de Patrones V4.0 (Congelador de Salario Directo + Info General)
@@ -262,7 +265,8 @@
                     </label>
                     
                     <select id="selectorVacantesDetectadas" class="selector-puestos-verde" onchange="cambiarVacanteVerdeSeleccionada()">
-                        </select>
+                        <!-- Dinámico -->
+                    </select>
 
                     <textarea id="codigoJsonVerde" readonly style="background: #061c15; color: #34d399; border: 1px solid var(--green-success); font-family: monospace; font-size: 0.85rem; width: 100%; min-height: 150px; margin-bottom: 10px; padding: 10px; box-sizing: border-box; border-radius: 8px;"></textarea>
                     
@@ -330,6 +334,7 @@
                 <textarea id="secActividades"></textarea>
             </div>
 
+            <!-- CAMPO DE INFORMACIÓN GENERAL -->
             <div class="form-group full-width" style="border: 1px solid var(--primary-orange); padding: 15px; border-radius: 8px; background: rgba(255,102,0,0.05);">
                 <label style="color: var(--primary-orange); font-weight: bold;"><i class="fas fa-info-circle"></i> Información General de la Plaza / Reglas de Reingreso y Entrevista:</label>
                 <textarea id="secInfoGeneral" style="min-height: 120px; border-color: var(--primary-orange);" placeholder="Ej: No reingresos de KIA, consideraciones de nómina, etc."></textarea>
@@ -350,6 +355,21 @@
 
     let vacantesProcesadasGlobal = [];
 
+    // Lógica para cambiar de pestaña incorporada correctamente
+    const tab1 = document.getElementById('btnTab1');
+    const tab2 = document.getElementById('btnTab2');
+    const content1 = document.getElementById('tabPrincipal');
+    const content2 = document.getElementById('tabSecundarias');
+
+    tab1.addEventListener('click', () => {
+        tab1.classList.add('active'); tab2.classList.remove('active');
+        content1.classList.add('active'); content2.classList.remove('active');
+    });
+    tab2.addEventListener('click', () => {
+        tab2.classList.add('active'); tab1.classList.remove('active');
+        content2.classList.add('active'); content1.classList.remove('active');
+    });
+
     window.procesarTxtWhatsAppV4 = function() {
         try {
             const input = document.getElementById('archivoTxtInput');
@@ -367,7 +387,6 @@
                     const cuerpoTexto = e.target.result;
                     const lineas = cuerpoTexto.split('\n').map(l => l.trim()).filter(l => l !== "");
                     
-                    // --- EXTRAER INFO GENERAL (REINGRESOS, CONDICIONES, ENTREVISTAS) ---
                     let infoGeneralBloque = [];
                     let capturarResto = false;
 
@@ -382,7 +401,6 @@
                     });
                     let infoGeneralTexto = infoGeneralBloque.join("\n") || "Sin restricciones específicas mencionadas.";
 
-                    // --- DETECTAR UBICACIÓN BASE ---
                     let zonaDetectada = "Zona Industrial"; 
                     for (let i = 0; i < lineas.length; i++) {
                         let lLower = lineas[i].toLowerCase();
@@ -392,7 +410,6 @@
                         }
                     }
 
-                    // --- DETECTAR HORARIOS Y PRESTACIONES ---
                     let horarioComun = "Turnos rotativos de empresa";
                     let beneficiosArray = [];
                     lineas.forEach(l => {
@@ -409,7 +426,6 @@
                     let puestoActual = null;
                     const disparadoresPuesto = ["ayudante", "ayudantes", "montacarguista", "tecnico", "técnico", "inspector", "calidad", "operador", "guardia", "auxiliar", "limpieza"];
 
-                    // --- ANÁLISIS POR LÍNEA ---
                     for (let i = 0; i < lineas.length; i++) {
                         let linea = lineas[i];
                         let lLower = linea.toLowerCase();
@@ -431,10 +447,9 @@
                                 experiencia: "No necesaria",
                                 escolaridad: "Primaria / Secundaria",
                                 actividades: beneficiosArray.slice(0,10).join(" / "),
-                                informacionGeneral: infoGeneralTexto // INYECCIÓN DE LA INFO GENERAL AQUÍ
+                                informacionGeneral: infoGeneralTexto
                             };
                             
-                            // Si la misma línea del puesto trae el salario pegado (Ej: Fimex Operador $2800)
                             if (lLower.includes("$")) {
                                 let partes = linea.split('$');
                                 if(partes[1]) puestoActual.salario = "$" + partes[1].trim();
@@ -442,23 +457,17 @@
                         }
 
                         if (puestoActual) {
-                            // CONGELADOR DE SALARIO REAL DE ALTA PRIORIDAD
-                            // Si la línea explícitamente dice "salario diario", "salario semanal", o "sueldo"
                             if ((lLower.includes("salario") || lLower.includes("sueldo") || lLower.includes("semanal libres")) && lLower.includes("$")) {
-                                // Evitamos guardar si es un bono o apoyo secundario
                                 if (!lLower.includes("bono") && !lLower.includes("apoyo") && !lLower.includes("vales")) {
-                                    
                                     let acumuladoSueldo = linea;
-                                    // REGLA GLOVIS: Si la línea de abajo es la continuación directa del sueldo semanal (ej. Salario Semanal $2,362.36)
                                     if (i + 1 < lineas.length && lineas[i+1].toLowerCase().includes("salario semanal")) {
                                         acumuladoSueldo += " / " + lineas[i+1];
-                                        i++; // Saltamos la siguiente para no procesarla doble
+                                        i++;
                                     }
                                     puestoActual.salario = acumuladoSueldo.replace(/[💲🔰*•\-]/g, '').trim();
                                 }
                             }
 
-                            // Si el salario sigue vacío y la línea contiene '$', pero no es bono/apoyo
                             if (!puestoActual.salario && lLower.includes("$") && !lLower.includes("bono") && !lLower.includes("apoyo") && !lLower.includes("vales")) {
                                 puestoActual.salario = linea.replace(/[💲🔰*•\-]/g, '').trim();
                             }
@@ -479,7 +488,6 @@
 
                     if (puestoActual) puestosEncontrados.push(puestoActual);
 
-                    // Fallback por si acaso
                     if (puestosEncontrados.length === 0) {
                         puestosEncontrados.push({
                             vacanteNombre: "AYUDANTE GENERAL",
@@ -529,10 +537,10 @@
     }
 
     window.procesarTextoBrutoTxt = function() {
-        const textoRaw = document.getElementById('iaTextoPegar').value.trim();
-        if(!textoRaw) return;
+        const textRaw = document.getElementById('iaTextoPegar').value.trim();
+        if(!textRaw) return;
         try {
-            const data = JSON.parse(textoRaw);
+            const data = JSON.parse(textRaw);
             document.getElementById('secVacanteNombre').value = data.vacanteNombre || '';
             document.getElementById('secEdad').value = data.edad || '';
             document.getElementById('secSalario').value = data.salario || '';
@@ -542,7 +550,7 @@
             document.getElementById('secEscolaridad').value = data.escolaridad || '';
             document.getElementById('secActividades').value = data.actividades || '';
             document.getElementById('secSexo').value = data.sexo || 'Indistinto';
-            document.getElementById('secInfoGeneral').value = data.informacionGeneral || ''; // INYECCIÓN EN TEXTAREA
+            document.getElementById('secInfoGeneral').value = data.informacionGeneral || '';
             
             const idSugerido = data.vacanteNombre.toLowerCase().split(' ')[0].normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
             document.getElementById('secPuestoId').value = idSugerido;
@@ -570,13 +578,26 @@
             escolaridad: document.getElementById('secEscolaridad').value,
             bannerUrl: document.getElementById('secBannerUrl').value,
             actividades: document.getElementById('secActividades').value,
-            informacionGeneral: document.getElementById('secInfoGeneral').value // SUBIDA COMPLETA A FIREBASE
+            informacionGeneral: document.getElementById('secInfoGeneral').value
         }).then(() => {
             alert("¡Vacante guardada en Firebase exitosamente!");
         });
     }
 
-    // Listar empresas existentes
+    window.agregarEmpresaPrincipal = function() {
+        const id = document.getElementById('admId').value.trim().toLowerCase();
+        const nombre = document.getElementById('admNombre').value.trim();
+        const ubicacion = document.getElementById('admUbicacion').value.trim();
+        const link = document.getElementById('admLink').value.trim();
+        const imagen = document.getElementById('admImagen').value.trim();
+        const tags = document.getElementById('admTags').value.trim();
+
+        if(!id || !nombre) { alert("ID y Nombre son obligatorios."); return; }
+
+        set(ref(db, `empresas/${id}`), { id, nombre, ubicacion, link, imagen, tags })
+        .then(() => { alert("¡Empresa registrada exitosamente!"); });
+    }
+
     onValue(ref(db, 'empresas'), (snapshot) => {
         const tbody = document.getElementById('adminTablaEmpresas');
         const select = document.getElementById('secEmpresaSelect');
