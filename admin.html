@@ -344,7 +344,7 @@
         event.currentTarget.classList.add('active');
     }
 
-    // --- PROCESADOR CON MOTOR DE IA LOCAL (SIN PESTAÑAS) ---
+    // --- PROCESADOR CON MOTOR DE IA LOCAL (TODOTERRENO INTEGRADO) ---
     window.procesarTxtConIaLocal = async function() {
         const input = document.getElementById('archivoTxtInput');
         const indicadorNombre = document.getElementById('nombreArchivoCargado');
@@ -361,18 +361,30 @@
             const contenidoTexto = e.target.result.trim();
             if(!contenidoTexto) { alert("El archivo está vacío."); return; }
             
-            // Verificar si el navegador soporta el motor de IA integrado (window.ai)
-            if (!window.ai || !window.ai.textModel) {
-                alert("⚠️ Para procesar localmente, necesitas activar la función 'AI de Navegador' en Google Chrome (Instrucciones adjuntas abajo de tu chat).");
+            // Detectar cuál de los nombres de la API de Chrome está activo
+            const aiObject = window.ai || window.model || navigator.ai;
+            if (!aiObject) {
+                alert("⚠️ El navegador aún no expone la IA. Asegúrate de cerrar TODAS las ventanas de Chrome por completo y volver a abrir tu panel.");
                 return;
             }
 
-            cuadroVerde.value = "🤖 Pensando y estructurando datos... Por favor, espera un momento.";
+            cuadroVerde.value = "🤖 Pensando y estructurando datos localmente... Por favor, espera un momento.";
             contenedorVerde.style.display = 'block';
 
             try {
-                const session = await window.ai.textModel.create();
-                const promptCompleto = `Extrae los datos de esta vacante y devuélvelos estrictamente como un objeto JSON plano, sin formato markdown y sin texto extra. Formato requerido:
+                // Conectar con el modelo usando las variantes de Google Chrome
+                let session;
+                if (aiObject.languageModel) {
+                    session = await aiObject.languageModel.create();
+                } else if (aiObject.textModel) {
+                    session = await aiObject.textModel.create();
+                } else if (aiObject.createTextSession) {
+                    session = await aiObject.createTextSession();
+                } else {
+                    throw new Error("La API local existe pero cambió de nombre en tu versión de Chrome.");
+                }
+
+                const promptCompleto = `Extrae los datos de esta vacante y devuélvelos estrictamente como un objeto JSON plano, sin formato markdown ni texto extra. Formato requerido:
                 {
                   "vacanteNombre": "puesto",
                   "salario": "sueldo",
@@ -387,9 +399,16 @@
                 Texto de la vacante a procesar: ${contenidoTexto}`;
 
                 const respuestaIa = await session.prompt(promptCompleto);
-                cuadroVerde.value = respuestaIa.trim();
+                
+                // Limpiar la respuesta por si la IA mete símbolos raros de markdown
+                let jsonLimpio = respuestaIa.trim();
+                if(jsonLimpio.includes("```")) {
+                    jsonLimpio = jsonLimpio.replace(/```json/g, '').replace(/```/g, '').trim();
+                }
+                
+                cuadroVerde.value = jsonLimpio;
             } catch (error) {
-                cuadroVerde.value = "❌ Ocurrió un inconveniente con el motor interno de IA: " + error.message;
+                cuadroVerde.value = "❌ Error al conectar con el motor: " + error.message + "\n\nPrueba cerrar por completo Chrome (todas tus pestañas abiertas) y vuelve a ingresar para asentar los componentes.";
             }
         };
         lector.readAsText(archivo);
@@ -405,7 +424,7 @@
         alert("📥 ¡Código JSON transferido con éxito al espacio morado!");
     }
 
-    // --- PROCESADOR DE RESPUESTA INTELIGENTE DE GEMINI / IA LOCAL ---
+    // --- PROCESADOR DE RESPUESTA INTELIGENTE ---
     window.procesarTextoBrutoTxt = function() {
         const textoRaw = document.getElementById('iaTextoPegar').value.trim();
         if(!textoRaw) { alert("El espacio morado está vacío. Asegúrate de transferir o pegar el código primero."); return; }
@@ -421,7 +440,7 @@
                 inyectarCamposEnFormulario(data);
                 alert("✨ ¡Campos del formulario rellenados automáticamente con éxito!");
             } catch(err) {
-                alert("❌ Formato JSON inválido. Asegúrate de que el bloque transferido sea un JSON limpio.");
+                alert("❌ Formato JSON inválido. Asegúrate de que el bloque sea un JSON limpio.");
             }
         }
     }
@@ -495,7 +514,7 @@
                 const emp = data[key];
                 tbody.innerHTML += `
                     <tr>
-                        <td><img src="${emp.imagen}" onerror="this.src='https://placehold.co/100'"></td>
+                        <td><img src="${emp.imagen}" onerror="this.src='[https://placehold.co/100](https://placehold.co/100)'"></td>
                         <td><code>/${emp.id}</code></td>
                         <td><strong>${emp.nombre}</strong></td>
                         <td>${emp.ubicacion}</td>
