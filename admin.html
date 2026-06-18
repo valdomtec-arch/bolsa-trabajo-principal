@@ -241,7 +241,8 @@
                     <i class="fas fa-file-upload"></i> Alimentación Directa desde Archivo .txt
                 </label>
                 <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 10px;">
-                    Selecciona el archivo .txt de la vacante directamente desde tu equipo. El sistema leerá su contenido y abrirá Gemini de forma automática para estructurarlo.
+                    1. Selecciona el archivo .txt de la vacante directamente desde tu equipo.<br>
+                    2. Haz clic en el botón morado que aparecerá abajo para abrir Gemini sin bloqueos del navegador.
                 </p>
                 
                 <div style="display: flex; gap: 15px; align-items: center; margin-bottom: 15px; flex-wrap: wrap;">
@@ -250,6 +251,12 @@
                         <input type="file" id="archivoTxtInput" accept=".txt" onchange="leerArchivoTxtYPrepararIA()">
                     </div>
                     <span id="nombreArchivoCargado" style="font-size: 0.9rem; color: var(--primary-orange); font-weight: bold;">Ningún archivo seleccionado</span>
+                </div>
+
+                <div id="contenedorBotonEnviarIa" style="margin-bottom: 15px; display: none;">
+                    <button type="button" class="btn-ia" id="btnEnviarManualIa" style="background: #6d28d9; margin-top:0; width: 100%;">
+                        <i class="fab fa-google"></i> 🚀 Enviar datos cargados a Gemini ahora
+                    </button>
                 </div>
 
                 <textarea id="iaTextoPegar" placeholder="Pega aquí el código estructurado que te regresó Gemini..." style="border-color: var(--purple-ia); min-height: 90px;"></textarea>
@@ -332,10 +339,12 @@
         event.currentTarget.classList.add('active');
     }
 
-    // --- LECTOR DE ARCHIVOS .TXT AUTOMÁTICO CON REDIRECCIÓN DE IA ---
+    // --- LECTOR DE ARCHIVOS .TXT AUTOMÁTICO CON ENTRADA MANUAL COMPORTAMIENTO SEGURO ---
     window.leerArchivoTxtYPrepararIA = function() {
         const input = document.getElementById('archivoTxtInput');
         const indicadorNombre = document.getElementById('nombreArchivoCargado');
+        const contenedorBtn = document.getElementById('contenedorBotonEnviarIa');
+        const btnManual = document.getElementById('btnEnviarManualIa');
         
         if (!input.files || input.files.length === 0) return;
         
@@ -347,27 +356,31 @@
             const contenidoBrutoTxt = e.target.result.trim();
             if(!contenidoBrutoTxt) { alert("El archivo seleccionado está vacío."); return; }
             
-            // Armamos el prompt conteniendo directamente la lectura del archivo exportado
-            const instruccionPrompt = "Hola Gemini, soy el administrador de la Bolsa de Trabajo. Acabo de subir un archivo .txt y mi sistema te está enviando su texto íntegro en bruto abajo. Tu único trabajo es leerlo, procesar y extraer la información, y devolvérmela estrictamente en este formato JSON limpio, sin saludos, sin texto extra y sin explicaciones de ningún tipo. Solo el JSON plano:\n\n" +
-            "{\n" +
-            '  "vacanteNombre": "Nombre del puesto",\n' +
-            '  "salario": "Sueldo diario o semanal con prestaciones",\n' +
-            '  "edad": "Rango de edad requerido",\n' +
-            '  "lugarOrigen": "Zonas o rutas que cubre",\n' +
-            '  "turnos": "Horarios o rotación",\n' +
-            '  "sexo": "Masculino, Femenino o Indistinto",\n' +
-            '  "experiencia": "Tiempo o conocimiento requerido",\n' +
-            '  "escolaridad": "Nivel de estudios",\n' +
-            '  "actividades": "Lista detallada de actividades y beneficios en texto continuo"\n' +
-            "}\n\n" +
-            "TEXTO DEL ARCHIVO .TXT APORTADO:\n" +
-            "=========================================\n" +
-            contenidoBrutoTxt + "\n" +
+            const instruccionPrompt = "Hola Gemini, soy el administrador de la Bolsa de Trabajo. Acabo de subir un archivo .txt y mi sistema te está enviando su texto íntegro en bruto abajo. Tu único trabajo es leerlo, procesar y extraer la información, y devolvérmela estrictamente en este formato JSON limpio, sin saludos, sin texto extra y sin explicaciones de ningún tipo. Solo el JSON plano:\\n\\n" +
+            "{\\n" +
+            '  "vacanteNombre": "Nombre del puesto",\\n' +
+            '  "salario": "Sueldo diario o semanal con prestaciones",\\n' +
+            '  "edad": "Rango de edad requerido",\\n' +
+            '  "lugarOrigen": "Zonas o rutas que cubre",\\n' +
+            '  "turnos": "Horarios o rotación",\\n' +
+            '  "sexo": "Masculino, Femenino o Indistinto",\\n' +
+            '  "experiencia": "Tiempo o conocimiento requerido",\\n' +
+            '  "escolaridad": "Nivel de estudios",\\n' +
+            '  "actividades": "Lista detallada de actividades y beneficios en texto continuo"\\n' +
+            "}\\n\\n" +
+            "TEXTO DEL ARCHIVO .TXT APORTADO:\\n" +
+            "=========================================\\n" +
+            contenidoBrutoTxt + "\\n" +
             "=========================================";
 
-            // Abrimos de inmediato la pestaña de Gemini con el archivo ya inyectado adentro
-            const urlGemini = `https://gemini.google.com/app?prompt=${encodeURIComponent(instruccionPrompt)}`;
-            window.open(urlGemini, '_blank');
+            // Mostrar el botón morado de disparo manual para evitar bloqueos del navegador
+            contenedorBtn.style.display = 'block';
+            
+            // Acción directa del usuario: El navegador lo identifica como legítimo y no lo bloquea
+            btnManual.onclick = () => {
+                const urlGemini = `https://gemini.google.com/app?prompt=${encodeURIComponent(instruccionPrompt)}`;
+                window.open(urlGemini, '_blank');
+            };
         };
         lector.readAsText(archivo);
     }
@@ -541,6 +554,7 @@
             document.getElementById('iaTextoPegar').value = '';
             document.getElementById('archivoTxtInput').value = '';
             document.getElementById('nombreArchivoCargado').innerText = 'Ningún archivo seleccionado';
+            document.getElementById('contenedorBotonEnviarIa').style.display = 'none';
         });
     }
 
