@@ -468,6 +468,7 @@
             .replace(/[^a-z0-9]/g, "");
     };
 
+    // SOLUCIÓN 2: Doble asignación para evitar problemas de alcance en scripts de tipo módulo
     window.leerArchivoLocalTxt = function() {
         const input = document.getElementById('archivoTxtInput');
         const indicadorNombre = document.getElementById('nombreArchivoCargado');
@@ -480,22 +481,26 @@
         const lector = new FileReader();
         lector.onload = function(e) {
             textoArchivoTxtCargado = e.target.result;
+            window.textoArchivoTxtCargado = e.target.result; // Forzar alcance en objeto global window
             btnGemini.style.display = "inline-block";
         };
         lector.readAsText(archivo);
     }
 
-    // CORRECCIÓN TOTAL DE SINTAXIS HTTP: Usando snake_case para JSON nativo
+    // SOLUCIÓN 1: Empaquetamiento seguro en objeto de payload para evitar JSON Payload inválido
     window.enviarTxtAGeminiWeb = async function() {
         const apiKey = document.getElementById('geminiApiKey').value.trim();
         const btnProcesar = document.getElementById('btnProcesarGemini');
+        
+        // Extraer texto de forma segura desde cualquier alcance
+        const textoBruto = window.textoArchivoTxtCargado || textoArchivoTxtCargado;
         
         if(!apiKey) {
             alert("⚠️ Introduce tu API Key de Gemini arriba para poder procesar.");
             return;
         }
-        if(!textoArchivoTxtCargado) {
-            alert("⚠️ Carga un archivo .txt válido primero.");
+        if(!textoBruto) {
+            alert("⚠️ Carga un archivo .txt válido primero o asegúrate de que no esté vacío.");
             return;
         }
 
@@ -503,58 +508,60 @@
             btnProcesar.disabled = true;
             btnProcesar.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Gemini procesando...`;
 
-            const prompt = `
-            Actúa como un extractor inteligente experto en Recursos Humanos para la industria logística y de manufactura. 
-            Analiza el siguiente texto bruto de una vacante y conviértelo obligatoriamente en un Array de objetos JSON.
-            Cada objeto del array debe seguir de forma estricta el siguiente esquema exacto:
-            {
-                "vacanteNombre": "Nombre de la vacante o puesto en MAYÚSCULAS",
-                "salario": "Especifica el salario neto junto a notas adicionales de bonos o vales si existen",
-                "edad": "Rango de edad permitido",
-                "lugarOrigen": "Parque Industrial o zona exacta de ubicación",
-                "turnos": "Horarios explicados en el texto",
-                "sexo": "Masculino, Femenino o Indistinto",
-                "experiencia": "Experiencia requerida o No necesaria",
-                "escolaridad": "Escolaridad mínima requerida",
-                "actividades": "Funciones físicas y prestaciones recibidas separadas por barras /",
-                "informacionGeneral": "REGLAS CRÍTICAS DE REINGRESO, restricciones de marcas aliadas, bancos asignados, semanas de fondo, documentación o reglas de entrevista"
-            }
+            const promptBase = `Actúa como un extractor inteligente experto en Recursos Humanos para la industria logística y de manufactura. 
+Analiza el siguiente texto bruto de una vacante y conviértelo obligatoriamente en un Array de objetos JSON.
+Cada objeto del array debe seguir de forma estricta el siguiente esquema exacto:
+{
+    "vacanteNombre": "Nombre de la vacante o puesto en MAYÚSCULAS",
+    "salario": "Especifica el salario neto junto a notas adicionales de bonos o vales si existen",
+    "edad": "Rango de edad permitido",
+    "lugarOrigen": "Parque Industrial o zona exacta de ubicación",
+    "turnos": "Horarios explicados en el texto",
+    "sexo": "Masculino, Femenino o Indistinto",
+    "experiencia": "Experiencia requerida o No necesaria",
+    "escolaridad": "Escolaridad mínima requerida",
+    "actividades": "Funciones físicas y prestaciones recibidas separadas por barras /",
+    "informacionGeneral": "REGLAS CRÍTICAS DE REINGRESO, restricciones de marcas aliadas, bancos asignados, semanas de fondo, documentación o reglas de entrevista"
+}
 
-            Texto bruto a formatear:
-            ${textoArchivoTxtCargado}
-            `;
+Texto bruto a formatear:
+${textoBruto}`;
 
             const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
             
-            // CORRECCIÓN CLAVE: "response_mime_type" en snake_case junto al esquema estructurado estricto
+            // Estructura limpia y tipada para la API v1 nativa
+            const payload = {
+                contents: [{ 
+                    parts: [{ text: promptBase }] 
+                }],
+                generationConfig: { 
+                    response_mime_type: "application/json",
+                    response_schema: {
+                        type: "ARRAY",
+                        items: {
+                            type: "OBJECT",
+                            properties: {
+                                vacanteNombre: { type: "STRING" },
+                                salario: { type: "STRING" },
+                                edad: { type: "STRING" },
+                                lugarOrigen: { type: "STRING" },
+                                turnos: { type: "STRING" },
+                                sexo: { type: "STRING" },
+                                experiencia: { type: "STRING" },
+                                escolaridad: { type: "STRING" },
+                                actividades: { type: "STRING" },
+                                informacionGeneral: { type: "STRING" }
+                            },
+                            required: ["vacanteNombre", "salario", "edad", "lugarOrigen", "turnos", "sexo", "experiencia", "escolaridad", "actividades", "informacionGeneral"]
+                        }
+                    }
+                }
+            };
+            
             const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: prompt }] }],
-                    generationConfig: { 
-                        response_mime_type: "application/json",
-                        response_schema: {
-                            type: "ARRAY",
-                            items: {
-                                type: "OBJECT",
-                                properties: {
-                                    vacanteNombre: { type: "STRING" },
-                                    salario: { type: "STRING" },
-                                    edad: { type: "STRING" },
-                                    lugarOrigen: { type: "STRING" },
-                                    turnos: { type: "STRING" },
-                                    sexo: { type: "STRING" },
-                                    experiencia: { type: "STRING" },
-                                    escolaridad: { type: "STRING" },
-                                    actividades: { type: "STRING" },
-                                    informacionGeneral: { type: "STRING" }
-                                },
-                                required: ["vacanteNombre", "salario", "edad", "lugarOrigen", "turnos", "sexo", "experiencia", "escolaridad", "actividades", "informacionGeneral"]
-                            }
-                        }
-                    }
-                })
+                body: JSON.stringify(payload) // JS escapa automáticamente comillas y saltos de línea aquí
             });
             
             if (!response.ok) {
