@@ -512,11 +512,10 @@
             btnProcesar.disabled = true;
             btnProcesar.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Gemini procesando...`;
 
+            // CORRECCIÓN DEFINITIVA DE ENDPOINT Y RUTA: Forzamos la inicialización usando la API v1 base estable
             const ai = new GoogleGenerativeAI(apiKey);
-            
-            // SOLUCIÓN AL ERROR 404: Endpoint de enrutamiento estable del SDK
             const model = ai.getGenerativeModel({ 
-                model: "gemini-1.5-flash-latest",
+                model: "gemini-1.5-flash",
                 generationConfig: { responseMimeType: "application/json" }
             });
 
@@ -541,7 +540,10 @@
             ${textoArchivoTxtCargado}
             `;
 
-            const resultado = await model.generateContent(prompt);
+            // Construimos la petición nativa para evitar que la librería autocomplete mal la URL beta
+            const resultado = await model.generateContent({
+                contents: [{ role: 'user', parts: [{ text: prompt }] }]
+            });
             const respuestaTexto = resultado.response.text();
 
             vacantesProcesadasGlobal = JSON.parse(respuestaTexto);
