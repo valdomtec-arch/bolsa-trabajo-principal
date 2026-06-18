@@ -468,7 +468,7 @@
             .replace(/[^a-z0-9]/g, "");
     };
 
-    // SOLUCIÓN 2: Doble asignación para evitar problemas de alcance en scripts de tipo módulo
+    // Lectura persistente compartida en objeto window global
     window.leerArchivoLocalTxt = function() {
         const input = document.getElementById('archivoTxtInput');
         const indicadorNombre = document.getElementById('nombreArchivoCargado');
@@ -481,18 +481,17 @@
         const lector = new FileReader();
         lector.onload = function(e) {
             textoArchivoTxtCargado = e.target.result;
-            window.textoArchivoTxtCargado = e.target.result; // Forzar alcance en objeto global window
+            window.textoArchivoTxtCargado = e.target.result; 
             btnGemini.style.display = "inline-block";
         };
         lector.readAsText(archivo);
     }
 
-    // SOLUCIÓN 1: Empaquetamiento seguro en objeto de payload para evitar JSON Payload inválido
+    // Configuración definitiva estructurada según especificaciones REST de Google (camelCase)
     window.enviarTxtAGeminiWeb = async function() {
         const apiKey = document.getElementById('geminiApiKey').value.trim();
         const btnProcesar = document.getElementById('btnProcesarGemini');
         
-        // Extraer texto de forma segura desde cualquier alcance
         const textoBruto = window.textoArchivoTxtCargado || textoArchivoTxtCargado;
         
         if(!apiKey) {
@@ -529,14 +528,13 @@ ${textoBruto}`;
 
             const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
             
-            // Estructura limpia y tipada para la API v1 nativa
             const payload = {
                 contents: [{ 
                     parts: [{ text: promptBase }] 
                 }],
                 generationConfig: { 
-                    response_mime_type: "application/json",
-                    response_schema: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
                         type: "ARRAY",
                         items: {
                             type: "OBJECT",
@@ -561,7 +559,7 @@ ${textoBruto}`;
             const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload) // JS escapa automáticamente comillas y saltos de línea aquí
+                body: JSON.stringify(payload)
             });
             
             if (!response.ok) {
