@@ -375,7 +375,7 @@ const firebaseConfig = { databaseURL: "https://bolsa-de-trabajo-a52e4-default-rt
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// Guardar y recuperar la llave API del LocalStorage automáticamente para conveniencia del admin
+// Guardar y recuperar la llave API del LocalStorage
 const apiKeyInput = document.getElementById('geminiApiKeyInput');
 if(localStorage.getItem('gemini_api_key')) {
   apiKeyInput.value = localStorage.getItem('gemini_api_key');
@@ -385,11 +385,10 @@ apiKeyInput.addEventListener('input', (e) => {
 });
 
 // ============================================================
-// ⭐ NUEVO MOTOR DE INTELIGENCIA CON GEMINI API
+// ⭐ MOTOR DE INTELIGENCIA CON GEMINI API & AUTO-RETRY
 // ============================================================
 const IA_V6 = {
-  // Esquema JSON Estricto mapeando tus 14 variantes exactas solicitadas
-  esquemaBolsa: {
+  esquemaBols: {
     type: Type.OBJECT,
     properties: {
       vacanteNombre: { type: Type.STRING },
@@ -402,7 +401,7 @@ const IA_V6 = {
       escolaridad: { type: Type.STRING },
       actividades: { type: Type.STRING },
       beneficios: { type: Type.STRING },
-      informacionGeneral: { type: Type.STRING, description: "Aquí debes concentrar las reglas, reingresos, detalles de entrevista y notas generales combinadas con saltos de línea o viñetas si es necesario." }
+      informacionGeneral: { type: Type.STRING, description: "Aquí debes concentrar las reglas, reingresos, detalles de entrevista y notas generales combinadas con saltos de línea o viñetas." }
     },
     required: [
       "vacanteNombre", "salario", "edad", "lugarOrigen", "turnos", "sexo", 
@@ -429,17 +428,41 @@ const IA_V6 = {
     TEXTO A EVALUAR:
     ${textoOriginal}`;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
-      config: {
-        systemInstruction: "Eres un extractor de datos de alta precisión para una bolsa de trabajo. Tu tarea es mapear textos desordenados en un JSON limpio. En la propiedad 'sexo' debes elegir únicamente entre 'Indistinto', 'Masculino' o 'Femenino'. En 'informacionGeneral' concatena de forma legible lo relacionado a reglas, reingresos, condiciones de entrevista y notas.",
-        responseMimeType: "application/json",
-        responseSchema: this.esquemaBolsa,
-      }
-    });
+    // --- MANEJO DE ALTA DEMANDA (ERROR 503) CON REINTENTOS AUTOMÁTICOS ---
+    const maxReintentos = 3;
+    let tiempoEspera = 1500; 
 
-    return JSON.parse(response.text);
+    for (let intento = 1; intento <= maxReintentos; intento++) {
+      try {
+        const response = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: prompt,
+          config: {
+            systemInstruction: "Eres un extractor de datos de alta precisión para una bolsa de trabajo. Tu tarea es mapear textos desordenados en un JSON limpio. En la propiedad 'sexo' debes elegir únicamente entre 'Indistinto', 'Masculino' o 'Femenino'. En 'informacionGeneral' concatena de forma legible lo relacionado a reglas, reingresos, condiciones de entrevista y notas.",
+            responseMimeType: "application/json",
+            responseSchema: this.esquemaBols,
+          }
+        });
+
+        // Si es correcto, retornamos el JSON parseado
+        return JSON.parse(response.text);
+
+      } catch (error) {
+        const msg = error.message ? error.message.toLowerCase() : "";
+        const esErrorSaturacion = msg.includes("503") || msg.includes("unavailable") || msg.includes("demand") || msg.includes("overloaded");
+
+        if (esErrorSaturacion && intento < maxReintentos) {
+          console.warn(`[IA_V6] Servidor de Google saturado (Intento ${intento}/${maxReintentos}). Reintentando automático en ${tiempoEspera / 1000}s...`);
+          
+          // Espera asíncrona antes del siguiente intento
+          await new Promise(resolve => setTimeout(resolve, tiempoEspera));
+          tiempoEspera *= 2; // Multiplicación exponencial
+        } else {
+          // Si es otro error (Ej: API Key inválida) o agotó reintentos, se expulsa
+          throw error;
+        }
+      }
+    }
   }
 };
 
@@ -462,7 +485,7 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
 });
 
 // ============================================================
-// FUNCIONES PRINCIPALES
+// FUNCIONES FIREBASE & GESTIÓN
 // ============================================================
 window.escucharVacantesExistentes = function(empresaId){
   const box = document.getElementById('boxGestionVacantes');
@@ -516,7 +539,7 @@ window.limpiarFormularioVacantes = function(){
 };
 
 // ============================================================
-// ⭐ PROCESAMIENTO REESTRUCTURADO MEDIANTE GEMINI
+// PROCESAMIENTO REESTRUCTURADO MEDIANTE GEMINI
 // ============================================================
 window.procesarTxtWhatsAppV6 = async function(){
   const input = document.getElementById('archivoTxtInput');
@@ -536,10 +559,10 @@ window.procesarTxtWhatsAppV6 = async function(){
       
       const texto = ev.target.result;
       
-      // Llamada directa a Gemini con el texto extraído del archivo plano
+      // Llamada directa con reintentos integrados
       const jsonInterpretado = await IA_V6.llamarInterprete(texto);
       
-      vacantesProcesadasGlobal = [jsonInterpretado]; // El motor ahora procesa directo la estructura limpia
+      vacantesProcesadasGlobal = [jsonInterpretado]; 
       
       const sel = document.getElementById('selectorVacantesDetectadas');
       sel.innerHTML = `<option value="0">${jsonInterpretado.vacanteNombre}</option>`;
@@ -580,17 +603,15 @@ window.procesarTextoBrutoTxt = async function(){
   
   try {
     let datos;
-    // Si ya es un JSON de la caja verde, lo lee directo
     if (raw.startsWith('{')) {
       datos = JSON.parse(raw);
     } else {
-      // Si es texto plano pegado de WhatsApp, llama a la API de Gemini
       btnIa.disabled = true;
-      btnIa.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Pensando...';
+      btnIa.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando con IA...';
       datos = await IA_V6.llamarInterprete(raw);
     }
     
-    // Mapeo perfecto a las variantes del formulario de tu panel
+    // Asignación limpia a tus campos visuales
     document.getElementById('secVacanteNombre').value = datos.vacanteNombre || '';
     document.getElementById('secSalario').value = datos.salario || '';
     document.getElementById('secEdad').value = datos.edad || '';
@@ -602,7 +623,6 @@ window.procesarTextoBrutoTxt = async function(){
     document.getElementById('secBeneficios').value = datos.beneficios || '';
     document.getElementById('secInfoGeneral').value = datos.informacionGeneral || '';
     
-    // Ajustar selectores de sexo con tolerancia de mayúsculas/minúsculas
     const sexoNormalizado = datos.sexo ? datos.sexo.charAt(0).toUpperCase() + datos.sexo.slice(1).toLowerCase() : 'Indistinto';
     if(['Indistinto','Masculino','Femenino'].includes(sexoNormalizado)) {
       document.getElementById('secSexo').value = sexoNormalizado;
@@ -610,7 +630,6 @@ window.procesarTextoBrutoTxt = async function(){
       document.getElementById('secSexo').value = 'Indistinto';
     }
     
-    // Sugerencia de ID Clave inteligente basada en el nombre de la vacante interpretada
     if(datos.vacanteNombre){
       const idSug = datos.vacanteNombre.toLowerCase().split(' ')[0].normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'').slice(0,20);
       document.getElementById('secPuestoId').value = idSug;
@@ -627,7 +646,7 @@ window.procesarTextoBrutoTxt = async function(){
 };
 
 // ============================================================
-// FIREBASE — GUARDADO
+// FIREBASE — GUARDADO Y ALTA
 // ============================================================
 function sanitizarId(s){ return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[.#$\[\]\/\s]/g,'-').replace(/-+/g,'-').slice(0,50); }
 
@@ -657,7 +676,7 @@ window.guardarComoNuevaVacante = async function(){
   if(!emp || !datos.puestoId || !datos.vacanteNombre) return alert('⚠️ Empresa, ID y nombre son obligatorios');
   try{
     await set(ref(db,`vacantes_detalles/${emp}/${datos.puestoId}`), datos);
-    alert(`... Vacante NUEVA guardada:\n${datos.vacanteNombre}`);
+    alert(`✅ Vacante NUEVA guardada:\n${datos.vacanteNombre}`);
   }catch(e){ alert('❌ Error: '+e.message); }
 };
 
@@ -667,7 +686,7 @@ window.guardarActualizacionVacante = async function(){
   if(!emp || !datos.puestoId) return alert('⚠️ Carga primero una vacante');
   try{
     await set(ref(db,`vacantes_detalles/${emp}/${datos.puestoId}`), datos);
-    alert(`... Actualizada: ${datos.vacanteNombre}`);
+    alert(`✅ Actualizada correctamente: ${datos.vacanteNombre}`);
   }catch(e){ alert('❌ Error: '+e.message); }
 };
 
@@ -685,7 +704,7 @@ window.agregarEmpresaPrincipal = async function(){
   };
   try{
     await set(ref(db,`empresas/${id}`), payload);
-    alert('... Empresa guardada');
+    alert('✅ Empresa guardada');
     ['admId','admNombre','admUbicacion','admLink','admImagen','admTags'].forEach(x=>document.getElementById(x).value='');
   }catch(e){ alert('❌ Error: '+e.message); }
 };
