@@ -18,6 +18,7 @@
             --border-color: #243854;     
             --green-whatsapp: #25D366;
             --purple-ia: #8b5cf6;
+            --green-success: #10b981;
         }
         body {
             background-color: var(--bg-page);
@@ -238,37 +239,34 @@
 
             <div class="ia-box">
                 <label style="color: var(--purple-ia); font-weight: bold; display: block; margin-bottom: 5px;">
-                    <i class="fas fa-file-upload"></i> Alimentación Directa desde Archivo .txt
+                    <i class="fas fa-robot"></i> Inteligencia Artificial Integrada (Camino Local Abierto)
                 </label>
                 <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 10px;">
-                    1. Selecciona el archivo .txt de la vacante.<br>
-                    2. Copia las instrucciones generadas y pégalas en Gemini de forma segura.
+                    1. Carga el archivo .txt de la vacante. El motor interno de IA extraerá los datos en tiempo real sin abrir pestañas externas.
                 </p>
                 
                 <div style="display: flex; gap: 15px; align-items: center; margin-bottom: 15px; flex-wrap: wrap;">
                     <div class="file-input-wrapper">
                         <div class="btn-file-custom"><i class="fas fa-folder-open"></i> 1. Cargar Archivo .txt</div>
-                        <input type="file" id="archivoTxtInput" accept=".txt" onchange="leerArchivoTxtYPrepararIA()">
+                        <input type="file" id="archivoTxtInput" accept=".txt" onchange="procesarTxtConIaLocal()">
                     </div>
                     <span id="nombreArchivoCargado" style="font-size: 0.9rem; color: var(--primary-orange); font-weight: bold;">Ningún archivo seleccionado</span>
                 </div>
 
-                <div id="contenedorBotonEnviarIa" style="margin-bottom: 15px; display: none;">
-                    <textarea id="promptOcultoGenerado" readonly style="background: #0d1724; color: #a7f3d0; border-color: #059669; font-family: monospace; font-size: 0.85rem; width: 100%; min-height: 120px; margin-bottom: 10px; padding: 10px; box-sizing: border-box;"></textarea>
+                <div id="contenedorResultadoVerde" style="margin-bottom: 15px; display: none;">
+                    <label style="color: var(--green-success); font-weight: bold; display: block; margin-bottom: 5px; font-size: 0.9rem;">
+                        <i class="fas fa-check-circle"></i> Código JSON Estructurado por IA Interna:
+                    </label>
+                    <textarea id="codigoJsonVerde" readonly style="background: #061c15; color: #34d399; border: 1px solid var(--green-success); font-family: monospace; font-size: 0.85rem; width: 100%; min-height: 140px; margin-bottom: 10px; padding: 10px; box-sizing: border-box; border-radius: 8px;"></textarea>
                     
-                    <div style="display: flex; gap: 10px;">
-                        <button type="button" class="btn-ia" onclick="copiarPromptAlPortapapeles()" style="background: #059669; flex: 1; margin-top:0;">
-                            <i class="fas fa-copy"></i> 2. Copiar Instrucciones Obtenidas
-                        </button>
-                        <button type="button" class="btn-ia" onclick="abrirGeminiLimpio()" style="background: #6d28d9; flex: 1; margin-top:0;">
-                            <i class="fab fa-google"></i> 3. Abrir Gemini e ir a Pegar
-                        </button>
-                    </div>
+                    <button type="button" class="btn-ia" onclick="transferirAlEspacioMorado()" style="background: var(--green-success); width: 100%; margin-top:0; font-size: 0.95rem;">
+                        <i class="fas fa-arrow-alt-circle-down"></i> 2. Transferir al Espacio Morado
+                    </button>
                 </div>
 
-                <textarea id="iaTextoPegar" placeholder="Pega aquí el código estructurado que te regresó Gemini..." style="border-color: var(--purple-ia); min-height: 90px; margin-top: 15px;"></textarea>
+                <textarea id="iaTextoPegar" placeholder="El código transferido aparecerá aquí de forma automática..." style="border-color: var(--purple-ia); min-height: 90px; margin-top: 15px;"></textarea>
                 <button type="button" class="btn-ia" onclick="procesarTextoBrutoTxt()">
-                    <i class="fas fa-magic"></i> 4. Rellenar Formulario Automáticamente
+                    <i class="fas fa-magic"></i> 3. Rellenar Formulario Automáticamente
                 </button>
             </div>
 
@@ -346,12 +344,12 @@
         event.currentTarget.classList.add('active');
     }
 
-    // --- NUEVO LECTOR FLUIDO SIN PÉRDIDA DE DATOS POR URL ---
-    window.leerArchivoTxtYPrepararIA = function() {
+    // --- PROCESADOR CON MOTOR DE IA LOCAL (SIN PESTAÑAS) ---
+    window.procesarTxtConIaLocal = async function() {
         const input = document.getElementById('archivoTxtInput');
         const indicadorNombre = document.getElementById('nombreArchivoCargado');
-        const contenedorBtn = document.getElementById('contenedorBotonEnviarIa');
-        const txtAreaPrompt = document.getElementById('promptOcultoGenerado');
+        const contenedorVerde = document.getElementById('contenedorResultadoVerde');
+        const cuadroVerde = document.getElementById('codigoJsonVerde');
         
         if (!input.files || input.files.length === 0) return;
         
@@ -359,63 +357,71 @@
         indicadorNombre.innerText = `📄 ${archivo.name}`;
         
         const lector = new FileReader();
-        lector.onload = function(e) {
-            const contenidoBrutoTxt = e.target.result.trim();
-            if(!contenidoBrutoTxt) { alert("El archivo seleccionado está vacío."); return; }
+        lector.onload = async function(e) {
+            const contenidoTexto = e.target.result.trim();
+            if(!contenidoTexto) { alert("El archivo está vacío."); return; }
             
-            const instruccionPrompt = "Hola Gemini, soy el administrador de la Bolsa de Trabajo. Acabo de subir un archivo .txt y mi sistema te está enviando su texto íntegro en bruto abajo. Tu único trabajo es leerlo, procesar y extraer la información, y devolvérmela estrictamente en este formato JSON limpio, sin saludos, sin texto extra y sin explicaciones de ningún tipo. Solo el JSON plano:\n\n" +
-            "{\n" +
-            '  "vacanteNombre": "Nombre del puesto",\n' +
-            '  "salario": "Sueldo diario o semanal con prestaciones",\n' +
-            '  "edad": "Rango de edad requerido",\n' +
-            '  "lugarOrigen": "Zonas o rutas que cubre",\n' +
-            '  "turnos": "Horarios o rotación",\n' +
-            '  "sexo": "Masculino, Femenino o Indistinto",\n' +
-            '  "experiencia": "Tiempo o conocimiento requerido",\n' +
-            '  "escolaridad": "Nivel de estudios",\n' +
-            '  "actividades": "Lista detallada de actividades y beneficios en texto continuo"\n' +
-            "}\n\n" +
-            "TEXTO DEL ARCHIVO .TXT APORTADO:\n" +
-            "=========================================\n" +
-            contenidoBrutoTxt + "\n" +
-            "=========================================";
+            // Verificar si el navegador soporta el motor de IA integrado (window.ai)
+            if (!window.ai || !window.ai.textModel) {
+                alert("⚠️ Para procesar localmente, necesitas activar la función 'AI de Navegador' en Google Chrome (Instrucciones adjuntas abajo de tu chat).");
+                return;
+            }
 
-            // Inyectar el texto completo de forma segura en la pantalla
-            txtAreaPrompt.value = instruccionPrompt;
-            contenedorBtn.style.display = 'block';
+            cuadroVerde.value = "🤖 Pensando y estructurando datos... Por favor, espera un momento.";
+            contenedorVerde.style.display = 'block';
+
+            try {
+                const session = await window.ai.textModel.create();
+                const promptCompleto = `Extrae los datos de esta vacante y devuélvelos estrictamente como un objeto JSON plano, sin formato markdown y sin texto extra. Formato requerido:
+                {
+                  "vacanteNombre": "puesto",
+                  "salario": "sueldo",
+                  "edad": "rango",
+                  "lugarOrigen": "zonas",
+                  "turnos": "horarios",
+                  "sexo": "Indistinto",
+                  "experiencia": "tiempo",
+                  "escolaridad": "estudios",
+                  "actividades": "actividades y beneficios continuos"
+                }
+                Texto de la vacante a procesar: ${contenidoTexto}`;
+
+                const respuestaIa = await session.prompt(promptCompleto);
+                cuadroVerde.value = respuestaIa.trim();
+            } catch (error) {
+                cuadroVerde.value = "❌ Ocurrió un inconveniente con el motor interno de IA: " + error.message;
+            }
         };
         lector.readAsText(archivo);
     }
 
-    window.copiarPromptAlPortapapeles = function() {
-        const txtArea = document.getElementById('promptOcultoGenerado');
-        txtArea.select();
-        txtArea.setSelectionRange(0, 99999); // Para móviles
-        navigator.clipboard.writeText(txtArea.value);
-        alert("📋 ¡Instrucciones y texto del archivo copiados al portapapeles con éxito!");
+    window.transferirAlEspacioMorado = function() {
+        const codigoVerde = document.getElementById('codigoJsonVerde').value.trim();
+        if(!codigoVerde || codigoVerde.startsWith("🤖") || codigoVerde.startsWith("❌")) {
+            alert("No hay ningún código JSON válido listo para transferir.");
+            return;
+        }
+        document.getElementById('iaTextoPegar').value = codigoVerde;
+        alert("📥 ¡Código JSON transferido con éxito al espacio morado!");
     }
 
-    window.abrirGeminiLimpio = function() {
-        window.open('https://gemini.google.com/app', '_blank');
-    }
-
-    // --- PROCESADOR DE RESPUESTA INTELIGENTE DE GEMINI ---
+    // --- PROCESADOR DE RESPUESTA INTELIGENTE DE GEMINI / IA LOCAL ---
     window.procesarTextoBrutoTxt = function() {
         const textoRaw = document.getElementById('iaTextoPegar').value.trim();
-        if(!textoRaw) { alert("Pega aquí el código que te generó Gemini al procesar tu archivo."); return; }
+        if(!textoRaw) { alert("El espacio morado está vacío. Asegúrate de transferir o pegar el código primero."); return; }
         
         try {
             const data = JSON.parse(textoRaw);
             inyectarCamposEnFormulario(data);
-            alert("✨ ¡Archivo .txt interpretado y distribuido en las casillas con éxito!");
+            alert("✨ ¡Campos del formulario rellenados automáticamente con éxito!");
         } catch(e) {
             try {
                 const limpio = textoRaw.replace(/```json/g, '').replace(/```/g, '').trim();
                 const data = JSON.parse(limpio);
                 inyectarCamposEnFormulario(data);
-                alert("✨ ¡Campos del archivo procesados con éxito!");
+                alert("✨ ¡Campos del formulario rellenados automáticamente con éxito!");
             } catch(err) {
-                alert("❌ Error de lectura. Asegúrate de copiar el bloque de código JSON completo que te dio Gemini en la otra pestaña.");
+                alert("❌ Formato JSON inválido. Asegúrate de que el bloque transferido sea un JSON limpio.");
             }
         }
     }
@@ -478,7 +484,6 @@
         }
     }
 
-    // Escuchar cambios en la BD para pintar la tabla y actualizar selectores
     onValue(ref(db, 'empresas'), (snapshot) => {
         const tbody = document.getElementById('adminTablaEmpresas');
         const select = document.getElementById('secEmpresaSelect');
@@ -506,7 +511,6 @@
         }
     });
 
-    // --- ACCIONES PESTAÑA 2: CONTROL MULTIVACANTE ---
     window.actualizarSelectorVacantes = function() {
         document.getElementById('secPuestoId').value = '';
         limpiarFormularioSecundario();
@@ -568,7 +572,7 @@
             document.getElementById('iaTextoPegar').value = '';
             document.getElementById('archivoTxtInput').value = '';
             document.getElementById('nombreArchivoCargado').innerText = 'Ningún archivo seleccionado';
-            document.getElementById('contenedorBotonEnviarIa').style.display = 'none';
+            document.getElementById('contenedorResultadoVerde').style.display = 'none';
         });
     }
 
