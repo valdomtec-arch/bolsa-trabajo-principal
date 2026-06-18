@@ -434,7 +434,6 @@
     let baseVacantesActualesEnFirebase = {};
     let textoArchivoTxtCargado = "";
 
-    // Cargar API Key si ya existe guardada
     document.addEventListener("DOMContentLoaded", () => {
         const savedKey = localStorage.getItem("gemini_key");
         if(savedKey) {
@@ -486,7 +485,7 @@
         lector.readAsText(archivo);
     }
 
-    // SOLUCIÓN ESTABLE NATIVA CON FETCH DIRECTO A LA API V1
+    // CORRECCIÓN TOTAL DE SINTAXIS HTTP: Usando snake_case para JSON nativo
     window.enviarTxtAGeminiWeb = async function() {
         const apiKey = document.getElementById('geminiApiKey').value.trim();
         const btnProcesar = document.getElementById('btnProcesarGemini');
@@ -506,34 +505,55 @@
 
             const prompt = `
             Actúa como un extractor inteligente experto en Recursos Humanos para la industria logística y de manufactura. 
-            Analiza el siguiente texto bruto de una vacante y conviértelo obligatoriamente en un Array/Lista de objetos JSON de JavaScript.
+            Analiza el siguiente texto bruto de una vacante y conviértelo obligatoriamente en un Array de objetos JSON.
             Cada objeto del array debe seguir de forma estricta el siguiente esquema exacto:
             {
                 "vacanteNombre": "Nombre de la vacante o puesto en MAYÚSCULAS",
-                "salario": "Especifica el salario neto con claridad (ej: $2,362.36 semanales libres) junto a notas adicionales de bonos o vales si existen",
-                "edad": "Rango de edad permitido (ej: 18 a 55 años)",
-                "lugarOrigen": "Parque Industrial o zona exacta donde se ubica la planta",
-                "turnos": "Agrupa de manera legible todos los horarios explicados en el texto (ej: Turnos rotativos día/noche)",
-                "sexo": "Masculino, Femenino o Indistinto según indique el texto",
+                "salario": "Especifica el salario neto junto a notas adicionales de bonos o vales si existen",
+                "edad": "Rango de edad permitido",
+                "lugarOrigen": "Parque Industrial o zona exacta de ubicación",
+                "turnos": "Horarios explicados en el texto",
+                "sexo": "Masculino, Femenino o Indistinto",
                 "experiencia": "Experiencia requerida o No necesaria",
                 "escolaridad": "Escolaridad mínima requerida",
-                "actividades": "Unifica de forma ordenada con barras '/' las funciones físicas (ej: trabajo de pie) y el listado de prestaciones superiores recibidas",
-                "informacionGeneral": "REGLAS CRÍTICAS DE REINGRESO, restricciones de KIA u otros Hyundai, bancos asignados, semanas de fondo, documentación o reglas de entrevista"
+                "actividades": "Funciones físicas y prestaciones recibidas separadas por barras /",
+                "informacionGeneral": "REGLAS CRÍTICAS DE REINGRESO, restricciones de marcas aliadas, bancos asignados, semanas de fondo, documentación o reglas de entrevista"
             }
 
             Texto bruto a formatear:
             ${textoArchivoTxtCargado}
             `;
 
-            // Construcción manual de la URL HTTP apuntando a la versión 1 de producción estable
             const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
             
+            // CORRECCIÓN CLAVE: "response_mime_type" en snake_case junto al esquema estructurado estricto
             const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     contents: [{ parts: [{ text: prompt }] }],
-                    generationConfig: { responseMimeType: "application/json" }
+                    generationConfig: { 
+                        response_mime_type: "application/json",
+                        response_schema: {
+                            type: "ARRAY",
+                            items: {
+                                type: "OBJECT",
+                                properties: {
+                                    vacanteNombre: { type: "STRING" },
+                                    salario: { type: "STRING" },
+                                    edad: { type: "STRING" },
+                                    lugarOrigen: { type: "STRING" },
+                                    turnos: { type: "STRING" },
+                                    sexo: { type: "STRING" },
+                                    experiencia: { type: "STRING" },
+                                    escolaridad: { type: "STRING" },
+                                    actividades: { type: "STRING" },
+                                    informacionGeneral: { type: "STRING" }
+                                },
+                                required: ["vacanteNombre", "salario", "edad", "lugarOrigen", "turnos", "sexo", "experiencia", "escolaridad", "actividades", "informacionGeneral"]
+                            }
+                        }
+                    }
                 })
             });
             
