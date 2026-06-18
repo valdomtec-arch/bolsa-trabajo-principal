@@ -293,13 +293,13 @@
 
             <div class="ia-box">
                 <label style="color: var(--purple-ia); font-weight: bold; display: block; margin-bottom: 5px;">
-                    <i class="fas fa-bolt"></i> Extractor de Patrones V4.0 (Congelador de Salario Directo + Info General)
+                    <i class="fas fa-bolt"></i> Extractor de Patrones V5.0 (Análisis Avanzado de Horarios e Información de Reingreso)
                 </label>
                 
                 <div style="display: flex; gap: 15px; align-items: center; margin-bottom: 15px; flex-wrap: wrap;">
                     <div class="file-input-wrapper">
                         <div class="btn-file-custom"><i class="fas fa-folder-open"></i> 1. Cargar Archivo .txt</div>
-                        <input type="file" id="archivoTxtInput" accept=".txt" onchange="procesarTxtWhatsAppV4()">
+                        <input type="file" id="archivoTxtInput" accept=".txt" onchange="procesarTxtWhatsAppV5()">
                     </div>
                     <span id="nombreArchivoCargado" style="font-size: 0.9rem; color: var(--primary-orange); font-weight: bold;">Ningún archivo seleccionado</span>
                 </div>
@@ -426,12 +426,14 @@
             selectorFirebase.innerHTML = "";
             baseVacantesActualesEnFirebase = snapshot.val() || {};
             
-            const keys = Object.keys(baseVacantesActualesEnFirebase);
-            if (keys.length === 0) {
+            const keys = Object.keys(baseVacalesActualesEnFirebase);
+            const keysFiltradas = keys.filter(k => k !== "undefined" && k !== "");
+            
+            if (keysFiltradas.length === 0) {
                 selectorFirebase.innerHTML = '<option value="">-- No hay vacantes registradas en esta empresa --</option>';
             } else {
                 selectorFirebase.innerHTML = '<option value="">-- Selecciona una vacante para Editar o Borrar --</option>';
-                keys.forEach(puestoKey => {
+                keysFiltradas.forEach(puestoKey => {
                     const vac = baseVacantesActualesEnFirebase[puestoKey];
                     selectorFirebase.innerHTML += `<option value="${puestoKey}">[ID: ${puestoKey}] ${vac.vacanteNombre || 'Sin nombre'}</option>`;
                 });
@@ -490,7 +492,7 @@
         }
     }
 
-    window.procesarTxtWhatsAppV4 = function() {
+    window.procesarTxtWhatsAppV5 = function() {
         try {
             const input = document.getElementById('archivoTxtInput');
             const indicadorNombre = document.getElementById('nombreArchivoCargado');
@@ -507,40 +509,60 @@
                     const cuerpoTexto = e.target.result;
                     const lineas = cuerpoTexto.split('\n').map(l => l.trim()).filter(l => l !== "");
                     
+                    // --- 1. EXTRACCIÓN INTELIGENTE DE TURNOS ---
+                    let turnosDetectados = [];
+                    let capturandoTurnosEspeciales = false;
+
+                    lineas.forEach(l => {
+                        let lLow = l.toLowerCase();
+                        if (lLow.includes("turno rotativo") || lLow.includes("turnos rotativos") || lLow.includes("turno día") || lLow.includes("turno noche") || lLow.includes("se rotan") || lLow.includes("rotativo 4x3")) {
+                            turnosDetectados.push(l.replace(/[🔰*•\-‼️]/g, '').trim());
+                            capturandoTurnosEspeciales = true;
+                        }
+                    });
+                    let horarioFinalSugerido = turnosDetectados.join(" / ") || "Turnos rotativos de empresa";
+
+                    // --- 2. EXTRACCIÓN ROBUSTA DE INFORMACIÓN GENERAL SIN PÉRDIDAS ---
                     let infoGeneralBloque = [];
                     let capturarResto = false;
 
                     lineas.forEach(l => {
                         let lLow = l.toLowerCase();
-                        if (lLow.includes("reingreso") || lLow.includes("consideraciones para pago") || lLow.includes("datos para agendar") || lLow.includes("no reingresos")) {
+                        if (lLow.includes("reingreso") || lLow.includes("consideraciones para pago") || lLow.includes("datos para agendar") || lLow.includes("no reingresos") || lLow.includes("semana desfasada") || lLow.includes("banco") || lLow.includes("examen médico") || lLow.includes("tatuajes") || lLow.includes("familiares") || lLow.includes("ingresar el mismo día")) {
                             capturarResto = true;
                         }
-                        if (capturarResto) {
-                            infoGeneralBloque.push(l);
+                        if (capturarResto || lLow.includes("mismo día") || lLow.includes("doping") || lLow.includes("bbva")) {
+                            if(!infoGeneralBloque.includes(l)) {
+                                infoGeneralBloque.push(l.replace(/[🔰*•\-]/g, '').trim());
+                            }
                         }
                     });
                     let infoGeneralTexto = infoGeneralBloque.join("\n") || "Sin restricciones específicas mencionadas.";
 
+                    // --- 3. EXTRACCIÓN DE ZONA ---
                     let zonaDetectada = "Zona Industrial"; 
                     for (let i = 0; i < lineas.length; i++) {
                         let lLower = lineas[i].toLowerCase();
-                        if (lLower.includes("parque") || lLower.includes("ciénega") || lLower.includes("pesquería") || lLower.includes("tlaquepaque") || lLower.includes("📍")) {
+                        if (lLower.includes("parque kia") || lLower.includes("pesquería")) {
+                            zonaDetectada = "Parque KIA, Pesquería";
+                            break;
+                        } else if (lLower.includes("parque") || lLower.includes("ciénega") || lLower.includes("tlaquepaque") || lLower.includes("📍")) {
                             zonaDetectada = lineas[i].replace(/[📍🏭🔰*•\-✅]/g, '').trim();
                             break;
                         }
                     }
 
-                    let horarioComun = "Turnos rotativos de empresa";
-                    let beneficiosArray = [];
+                    // --- 4. EXTRACCIÓN DE ACTIVIDADES Y PRESTACIONES ---
+                    let beneficiosYActividades = [];
                     lineas.forEach(l => {
                         const lLower = l.toLowerCase();
-                        if (lLower.includes("turno rotativo") || lLower.includes("turno día") || lLower.includes("se rotan")) {
-                            horarioComun = l.trim();
-                        }
-                        if (lLower.includes("prestaciones") || lLower.includes("vales") || lLower.includes("comedor") || lLower.includes("fondo de ahorro") || lLower.includes("aguinaldo")) {
-                            if(!lLower.includes("solicita")) beneficiosArray.push(l);
+                        if (lLower.includes("prestaciones") || lLower.includes("vales") || lLower.includes("comedor") || lLower.includes("fondo de ahorro") || lLower.includes("aguinaldo") || lLower.includes("acomodar") || lLower.includes("llantas") || lLower.includes("rines") || lLower.includes("de pie") || lLower.includes("descansa")) {
+                            if(!lLower.includes("solicita")) {
+                                beneficiosYActividades.push(l.replace(/[💠☑️✔️💲➕*•\-]/g, '').trim());
+                            }
                         }
                     });
+                    let actividadesYBeneficiosTexto = beneficiosYActividades.join(" / ");
 
                     let puestosEncontrados = [];
                     let puestoActual = null;
@@ -562,11 +584,11 @@
                                 salario: "", 
                                 edad: "18 a 55 años",
                                 lugarOrigen: zonaDetectada,
-                                turnos: horarioComun,
+                                turnos: horarioFinalSugerido,
                                 sexo: "Indistinto",
                                 experiencia: "No necesaria",
                                 escolaridad: "Primaria / Secundaria",
-                                actividades: beneficiosArray.slice(0,10).join(" / "),
+                                actividades: actividadesYBeneficiosTexto,
                                 informacionGeneral: infoGeneralTexto
                             };
                             
@@ -614,11 +636,11 @@
                             salario: "Ver detalles en planta",
                             edad: "18 a 55 años",
                             lugarOrigen: zonaDetectada,
-                            turnos: horarioComun,
+                            turnos: horarioFinalSugerido,
                             sexo: "Indistinto",
                             experiencia: "No necesaria",
-                            escolaridad: "Primaria",
-                            actividades: beneficiosArray.join(" / "),
+                            escolaridad: "Primaria / Secundaria",
+                            actividades: actividadesYBeneficiosTexto,
                             informacionGeneral: infoGeneralTexto
                         });
                     }
