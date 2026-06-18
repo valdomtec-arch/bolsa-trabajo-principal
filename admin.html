@@ -422,18 +422,9 @@
     </div>
 </div>
 
-<script type="importmap">
-  {
-    "imports": {
-      "@google/generative-ai": "https://esm.run/@google/generative-ai"
-    }
-  }
-</script>
-
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getDatabase, ref, set, onValue, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-    import { GoogleGenerativeAI } from "@google/generative-ai";
 
     const firebaseConfig = { databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com/" };
     const app = initializeApp(firebaseConfig);
@@ -495,6 +486,7 @@
         lector.readAsText(archivo);
     }
 
+    // SOLUCIÓN ESTABLE NATIVA CON FETCH DIRECTO A LA API V1
     window.enviarTxtAGeminiWeb = async function() {
         const apiKey = document.getElementById('geminiApiKey').value.trim();
         const btnProcesar = document.getElementById('btnProcesarGemini');
@@ -511,13 +503,6 @@
         try {
             btnProcesar.disabled = true;
             btnProcesar.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Gemini procesando...`;
-
-            // CORRECCIÓN DEFINITIVA DE ENDPOINT Y RUTA: Forzamos la inicialización usando la API v1 base estable
-            const ai = new GoogleGenerativeAI(apiKey);
-            const model = ai.getGenerativeModel({ 
-                model: "gemini-1.5-flash",
-                generationConfig: { responseMimeType: "application/json" }
-            });
 
             const prompt = `
             Actúa como un extractor inteligente experto en Recursos Humanos para la industria logística y de manufactura. 
@@ -540,11 +525,25 @@
             ${textoArchivoTxtCargado}
             `;
 
-            // Construimos la petición nativa para evitar que la librería autocomplete mal la URL beta
-            const resultado = await model.generateContent({
-                contents: [{ role: 'user', parts: [{ text: prompt }] }]
+            // Construcción manual de la URL HTTP apuntando a la versión 1 de producción estable
+            const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+            
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: { responseMimeType: "application/json" }
+                })
             });
-            const respuestaTexto = resultado.response.text();
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error?.message || `HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+            const respuestaTexto = data.candidates[0].content.parts[0].text;
 
             vacantesProcesadasGlobal = JSON.parse(respuestaTexto);
             
