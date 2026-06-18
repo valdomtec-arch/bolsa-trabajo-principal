@@ -469,6 +469,15 @@
         content2.classList.add('active'); content1.classList.remove('active');
     });
 
+    window.textToId = function(texto) {
+        return texto.toLowerCase()
+            .trim()
+            .split(' ')[0]
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/[^a-z0-9]/g, "");
+    };
+
     window.leerArchivoLocalTxt = function() {
         const input = document.getElementById('archivoTxtInput');
         const indicadorNombre = document.getElementById('nombreArchivoCargado');
@@ -504,8 +513,10 @@
             btnProcesar.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Gemini procesando...`;
 
             const ai = new GoogleGenerativeAI(apiKey);
+            
+            // SOLUCIÓN AL ERROR 404: Endpoint de enrutamiento estable del SDK
             const model = ai.getGenerativeModel({ 
-                model: "gemini-1.5-flash",
+                model: "gemini-1.5-flash-latest",
                 generationConfig: { responseMimeType: "application/json" }
             });
 
@@ -585,8 +596,9 @@
             document.getElementById('secSexo').value = data.sexo || 'Indistinto';
             document.getElementById('secInfoGeneral').value = data.informacionGeneral || '';
             
-            const idSugerido = data.vacanteNombre.toLowerCase().split(' ')[0].normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
-            document.getElementById('secPuestoId').value = idSugerido;
+            if (data.vacanteNombre) {
+                document.getElementById('secPuestoId').value = window.textToId(data.vacanteNombre);
+            }
             alert("✨ ¡Formulario auto-rellenado con éxito!");
         } catch(e) {
             alert("JSON inválido.");
@@ -660,7 +672,13 @@
 
     window.guardarComoNuevaVacante = function() {
         const empresaId = document.getElementById('secEmpresaSelect').value;
-        const puestoId = document.getElementById('secPuestoId').value.trim().toLowerCase();
+        let puestoId = document.getElementById('secPuestoId').value.trim().toLowerCase();
+        
+        if (!puestoId && document.getElementById('secVacanteNombre').value) {
+            puestoId = window.textToId(document.getElementById('secVacanteNombre').value);
+            document.getElementById('secPuestoId').value = puestoId;
+        }
+
         if(!empresaId || !puestoId) { alert("Completa la empresa y el ID del puesto."); return; }
 
         set(ref(db, `vacantes_detalles/${empresaId}/${puestoId}`), obtenerDatosFormulario(puestoId)).then(() => {
@@ -671,7 +689,7 @@
     window.guardarActualizacionVacante = function() {
         const empresaId = document.getElementById('secEmpresaSelect').value;
         const puestoId = document.getElementById('secPuestoId').value.trim().toLowerCase();
-        if(!empresaId || !puestoId) return;
+        if(!empresaId || !puestoId) { alert("No hay un ID de puesto válido seleccionado."); return; }
 
         set(ref(db, `vacantes_detalles/${empresaId}/${puestoId}`), obtenerDatosFormulario(puestoId)).then(() => {
             alert("🔄 Cambios de vacante actualizados.");
@@ -704,8 +722,8 @@
         const imagen = document.getElementById('admImagen').value.trim();
         const tags = document.getElementById('admTags').value.trim();
 
-        if(!id || !nombre) return;
-        set(ref(db, `empresas/${id}`), { id, nombre, ubicacion, link, imagen, tags }).then(() => { alert("Empresa guardada."); });
+        if(!id || !nombre) { alert("ID y Nombre de empresa son obligatorios."); return; }
+        set(ref(db, `empresas/${id}`), { id, nombre, ubicacion, link, imagen, tags }).then(() => { alert("Empresa guardada con éxito."); });
     }
 
     onValue(ref(db, 'empresas'), (snapshot) => {
