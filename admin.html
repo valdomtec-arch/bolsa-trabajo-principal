@@ -255,12 +255,17 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
 <div class="admin-container"> 
 <h1><i class="fas fa-sliders-h"></i> Panel de Administración Global</h1> 
 
+<div class="ia-box" style="margin-bottom: 15px; background: rgba(255, 102, 0, 0.05); border-color: var(--primary-orange);">
+  <label style="color:var(--primary-orange);font-weight:bold;display:block;margin-bottom:5px;"><i class="fas fa-key"></i> Configuración de API Key (Gemini)</label>
+  <input type="password" id="geminiApiKeyInput" placeholder="Pega aquí tu tu clave API de Gemini..." style="width:100%; padding:8px 12px; background:#1d2e47; border:1px solid var(--border-color); border-radius:6px; color:white;">
+  <span style="font-size:0.75rem; color:var(--text-muted);">Nota: Tu clave se guarda únicamente de forma local en tu navegador por seguridad.</span>
+</div>
+
 <div class="tabs-menu"> 
 <button class="tab-btn active" data-tab="tabPrincipal"><i class="fas fa-building"></i> 1. Registrar Empresa</button> 
 <button class="tab-btn" data-tab="tabSecundarias"><i class="fas fa-briefcase"></i> 2. Control de Vacantes Masivo</button>
 </div> 
 
-<!-- PESTAÑA 1 -->
 <div id="tabPrincipal" class="tab-content active"> 
   <div class="form-admin"> 
     <div class="section-divider">Alta / Edición de Empresa Base</div> 
@@ -282,7 +287,6 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
   </div> 
 </div> 
 
-<!-- PESTAÑA 2 -->
 <div id="tabSecundarias" class="tab-content"> 
   <div class="form-admin"> 
     <div class="section-divider">Configuración de Destino</div> 
@@ -306,9 +310,8 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
 
     <div class="form-group"><label>ID Clave Puesto:</label><input type="text" id="secPuestoId" placeholder="ayudante-general, montacargas"></div>
 
-    <!-- ⭐ NUEVO MOTOR V6.0 -->
     <div class="ia-box">
-      <label style="color:var(--purple-ia);font-weight:bold;display:block;margin-bottom:8px;"><i class="fas fa-bolt"></i> EXTRACTOR INTELIGENTE V6.0 — Interpreta cualquier .txt / WhatsApp</label>
+      <label style="color:var(--purple-ia);font-weight:bold;display:block;margin-bottom:8px;"><i class="fas fa-bolt"></i> EXTRACTOR INTELIGENTE INTEGRADO — Interpreta cualquier .txt / WhatsApp con IA</label>
       <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
         <div class="file-input-wrapper">
           <div class="btn-file-custom"><i class="fas fa-file-alt"></i> Cargar archivo .txt</div>
@@ -318,7 +321,7 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
       </div>
 
       <div id="contenedorResultadoVerde" style="display:none;margin-top:10px;">
-        <label style="color:var(--green-success);font-weight:bold;display:block;margin-bottom:6px;font-size:.88rem;"><i class="fas fa-list-check"></i> Vacantes detectadas:</label>
+        <label style="color:var(--green-success);font-weight:bold;display:block;margin-bottom:6px;font-size:.88rem;"><i class="fas fa-list-check"></i> Vacantes detectadas por Gemini:</label>
         <select id="selectorVacantesDetectadas" class="selector-puestos-verde" onchange="cambiarVacanteVerdeSeleccionada()"></select>
         <pre id="codigoJsonVerde" class="json-view"></pre>
         <button class="btn-ia" onclick="transferirAlEspacioMorado()" style="background:var(--green-success);width:100%;"><i class="fas fa-arrow-down"></i> Usar esta vacante</button>
@@ -326,7 +329,7 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
 
       <textarea id="iaTextoPegar" placeholder="Pega aquí texto directo de WhatsApp o usa el botón de arriba..." style="width:100%;min-height:80px;margin-top:10px;border-color:var(--purple-ia);background:#1a1033;color:#e9d5ff;border-radius:6px;padding:10px;"></textarea>
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
-        <button class="btn-ia" onclick="procesarTextoBrutoTxt()"><i class="fas fa-wand-magic-sparkles"></i> Rellenar automáticamente</button>
+        <button class="btn-ia" id="btnInterpretarIa" onclick="procesarTextoBrutoTxt()"><i class="fas fa-wand-magic-sparkles"></i> Rellenar automáticamente con IA</button>
         <button class="btn-ia" style="background:#475569;" onclick="document.getElementById('contenedorResultadoVerde').style.display='none';document.getElementById('iaTextoPegar').value='';document.getElementById('nombreArchivoCargado').textContent='Ningún archivo';document.getElementById('archivoTxtInput').value='';"><i class="fas fa-broom"></i> Limpiar IA</button>
       </div>
     </div>
@@ -365,152 +368,78 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getDatabase, ref, set, onValue, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
+// IMPORTACIÓN DEL SDK DE GOOGLE GEN AI PARA FRONTEND
+import { GoogleGenAI, Type } from "https://esm.run/@google/genai";
+
 const firebaseConfig = { databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com/" };
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
+// Guardar y recuperar la llave API del LocalStorage automáticamente para conveniencia del admin
+const apiKeyInput = document.getElementById('geminiApiKeyInput');
+if(localStorage.getItem('gemini_api_key')) {
+  apiKeyInput.value = localStorage.getItem('gemini_api_key');
+}
+apiKeyInput.addEventListener('input', (e) => {
+  localStorage.setItem('gemini_api_key', e.target.value.trim());
+});
+
 // ============================================================
-// ⭐ MOTOR DE INTELIGENCIA V6.0 — EL NÚCLEO MEJORADO
+// ⭐ NUEVO MOTOR DE INTELIGENCIA CON GEMINI API
 // ============================================================
 const IA_V6 = {
-  limpiarTexto(raw){
-    let t = raw.replace(/^\uFEFF/,''); // quita BOM
-    t = t.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
-    t = t.normalize("NFC");
-    t = t.replace(/[\u200B-\u200D\uFEFF]/g,'');
-    return t;
-  },
-  soloLineasUtiles(t){
-    return t.split('\n').map(l=>l.trim()).filter(l=> l.length>1 && !/^[-=*_•]+$/.test(l));
-  },
-  sinSimbolos(l){ return l.replace(/[✨✅⚡⚠️🚀💼💰🎁🛠️📌📍⭐➡️•●■▪️*\-+>·:]/g,' ').replace(/\s{2,}/g,' ').trim(); },
-
-  detectarTurnos(lineas){
-    const res=[];
-    const rxHora = /(\d{1,2}[:.]\d{2})\s*a\s*(\d{1,2}[:.]\d{2})/i;
-    const mapa = {matutino:'Matutino',vespertino:'Vespertino',nocturno:'Nocturno',mixto:'Mixto',continuo:'Continuo','12x24':'12 x 24','4x3':'Rotativo 4 x 3','4x2':'Rotativo 4 x 2','5x2':'5 días x 2','6x1':'6 días x 1','rotativo':'Rotativo','partido':'Jornada partida','domingo':'Incluye domingos'};
-    lineas.forEach(l=>{
-      const low=l.toLowerCase();
-      const h = l.match(rxHora);
-      if(h) res.push(`${h[1]} a ${h[2]}`);
-      Object.keys(mapa).forEach(k=>{ if(low.includes(k) && !res.includes(mapa[k])) res.push(mapa[k]); });
-    });
-    return res.length ? res.join(' · ') : 'Turno según disponibilidad de planta';
+  // Esquema JSON Estricto mapeando tus 14 variantes exactas solicitadas
+  esquemaBolsa: {
+    type: Type.OBJECT,
+    properties: {
+      vacanteNombre: { type: Type.STRING },
+      salario: { type: Type.STRING },
+      edad: { type: Type.STRING },
+      lugarOrigen: { type: Type.STRING },
+      turnos: { type: Type.STRING },
+      sexo: { type: Type.STRING },
+      experiencia: { type: Type.STRING },
+      escolaridad: { type: Type.STRING },
+      actividades: { type: Type.STRING },
+      beneficios: { type: Type.STRING },
+      informacionGeneral: { type: Type.STRING, description: "Aquí debes concentrar las reglas, reingresos, detalles de entrevista y notas generales combinadas con saltos de línea o viñetas si es necesario." }
+    },
+    required: [
+      "vacanteNombre", "salario", "edad", "lugarOrigen", "turnos", "sexo", 
+      "experiencia", "escolaridad", "actividades", "beneficios", "informacionGeneral"
+    ]
   },
 
-  detectarSalario(lineas){
-    const montos = [];
-    const rx = /\$\s?[\d.,]+/g;
-    lineas.forEach(l=>{
-      const low=l.toLowerCase();
-      const m = l.match(rx);
-      if(!m) return;
-      const tipo = low.includes('hora')||low.includes('por hora')?'/hora':
-                   low.includes('diario')||low.includes('por día')?'/día':
-                   low.includes('semanal')||low.includes('a la semana')?'/semana':
-                   low.includes('quincenal')||low.includes('quincena')?'/quincena':
-                   low.includes('mensual')||low.includes('al mes')?'/mes':'';
-      m.forEach(x=> montos.push(`${x.replace(/\s/g,'')} ${tipo}`.trim()));
-    });
-    if(montos.length) return [...new Set(montos)].join(' + ');
-    return 'Según entrevista y experiencia';
-  },
-
-  detectarEdad(lineas){
-    const todo = lineas.join(' ').toLowerCase();
-    const rango = todo.match(/(\d{1,2})\s*(?:a|‑|-|y)\s*(\d{1,2})\s*(?:años|años de edad)/);
-    if(rango) return `${rango[1]} a ${rango[2]} años`;
-    const min = todo.match(/(?:mayores|mayor|desde|mínimo)\s+de\s+(\d{1,2})/);
-    const max = todo.match(/hasta\s+(\d{1,2})\s*(?:años)?/);
-    if(min && max) return `${min[1]} a ${max[1]} años`;
-    if(min) return `Desde ${min[1]} años`;
-    if(max) return `Hasta ${max[1]} años`;
-    return '18 a 55 años';
-  },
-
-  detectarSexo(lineas){
-    const t = lineas.join(' ').toLowerCase();
-    if(/hombres y mujeres|ambos sexos|indistinto|sin distinci/.test(t)) return 'Indistinto';
-    if(/\b(hombre|hombres|varones|solo hombres)\b/.test(t)) return 'Masculino';
-    if(/\b(mujer|mujeres|femenino|solo mujeres)\b/.test(t)) return 'Femenino';
-    return 'Indistinto';
-  },
-
-  detectarEscolaridad(lineas){
-    const t = lineas.join(' ').toLowerCase();
-    const niveles = [
-      {k:'maestria|maestría',v:'Maestría'},
-      {k:'ingenier[íi]a|licenciatura|carrera trunca|carrera terminada',v:'Carrera / Licenciatura'},
-      {k:'preparatoria|prepa|bachillerato',v:'Preparatoria / Bachillerato'},
-      {k:'secundaria',v:'Secundaria completa'},
-      {k:'primaria',v:'Primaria completa'}
-    ];
-    for(const n of niveles) if(new RegExp(n.k).test(t)) return n.v;
-    return 'Primaria / Secundaria';
-  },
-
-  detectarExperiencia(lineas){
-    const t = lineas.join(' ').toLowerCase();
-    const m = t.match(/(\d+)\s*(meses|mes|años|año)/);
-    if(m) return `${m[1]} ${m[2]}`;
-    if(/experiencia (no |no se |no )?requerida|sin experiencia|independientemente de la experiencia/.test(t)) return 'No requerida';
-    if(/experiencia (indispensable|obligatoria|necesaria)/.test(t)) return 'Indispensable';
-    return 'Deseable';
-  },
-
-  detectarZona(lineas){
-    const claves = ['parque kia','pesquería','ciénega','tlaquepaque','zona industrial','parque industrial','carretera','colonia','municipio'];
-    for(const l of lineas){
-      const low=l.toLowerCase();
-      for(const c of claves){
-        if(low.includes(c)) return this.sinSimbolos(l);
-      }
+  obtenerInstanciaAI() {
+    const key = localStorage.getItem('gemini_api_key') || apiKeyInput.value.trim();
+    if (!key) {
+      alert("⚠️ Por favor, ingresa tu API Key de Gemini en la parte superior del panel.");
+      throw new Error("Falta API Key");
     }
-    return 'Zona Industrial';
+    return new GoogleGenAI({ apiKey: key });
   },
 
-  extraerGrupo(lineas, palabras){
-    const arr=[];
-    lineas.forEach(l=>{
-      const low=l.toLowerCase();
-      if(palabras.some(p=>low.includes(p))){
-        const limpia = this.sinSimbolos(l);
-        if(limpia.length>3 && !arr.includes(limpia)) arr.push(limpia);
+  async llamarInterprete(textoOriginal) {
+    const ai = this.obtenerInstanciaAI();
+    
+    const prompt = `Analiza detalladamente la siguiente descripción de vacante proveniente de un archivo plano o chat de WhatsApp. 
+    Extrae la información pertinente y ordénala estrictamente según el esquema JSON indicado. 
+    Si alguna variante o dato no viene mencionado de ninguna forma en el texto, coloca "No especificado".
+    
+    TEXTO A EVALUAR:
+    ${textoOriginal}`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+      config: {
+        systemInstruction: "Eres un extractor de datos de alta precisión para una bolsa de trabajo. Tu tarea es mapear textos desordenados en un JSON limpio. En la propiedad 'sexo' debes elegir únicamente entre 'Indistinto', 'Masculino' o 'Femenino'. En 'informacionGeneral' concatena de forma legible lo relacionado a reglas, reingresos, condiciones de entrevista y notas.",
+        responseMimeType: "application/json",
+        responseSchema: this.esquemaBolsa,
       }
     });
-    return arr;
-  },
 
-  extraerTodo(textoCrudo){
-    const lineas = this.soloLineasUtiles(this.limpiarTexto(textoCrudo));
-    return {
-      turnos: this.detectarTurnos(lineas),
-      salario: this.detectarSalario(lineas),
-      edad: this.detectarEdad(lineas),
-      sexo: this.detectarSexo(lineas),
-      escolaridad: this.detectarEscolaridad(lineas),
-      experiencia: this.detectarExperiencia(lineas),
-      lugarOrigen: this.detectarZona(lineas),
-      actividades: this.extraerGrupo(lineas,['realiza','hace','trabaja','operar','manejar','armar','controlar','revisar','cargar','descargar','limpiar','ordenar','actividades','funciones','tareas']).join(' • ') || 'Realizar actividades generales del puesto',
-      beneficios: this.extraerGrupo(lineas,['prestaciones','vale','vales','comedor','transporte','casa','habitaci','fondo de ahorro','aguinaldo','prima','bono','seguro','capacitaci','uniforme','herramienta','crecimiento','desarrollo']).join(' • ') || 'Prestaciones de ley',
-      informacionGeneral: this.extraerGrupo(lineas,['reingreso','no reingresa','examen m','doping','antidoping','tatuaje','documento','identificaci','curp','rfc','comprobante','banco','bbva','banorte','nómina','semana desfasada','entrevista','misma planta','familiares']).join(' • ') || 'Sin restricciones adicionales'
-    };
-  },
-
-  buscarPuestos(lineas){
-    const nombres = ['ayudante','montacarguista','operador','técnico','tecnico','inspector','calidad','guardia','vigilante','auxiliar','limpieza','mecánico','mecanico','electricista','soldador','ensamble','empaque','supervisor','jefe','gerente','recepcionista','analista','ingeniero'];
-    const puestos=[];
-    let actual=null;
-    lineas.forEach((l,i)=>{
-      const low=l.toLowerCase();
-      if(nombres.some(p=>low.includes(p))){
-        if(actual) puestos.push(actual);
-        const nombre = this.sinSimbolos(l.split('$')[0]).toUpperCase();
-        actual = { vacanteNombre: nombre || 'PUESTO GENERAL' };
-      }
-    });
-    if(actual) puestos.push(actual);
-    return puestos.length ? puestos : [{vacanteNombre:'AYUDANTE GENERAL'}];
+    return JSON.parse(response.text);
   }
 };
 
@@ -587,37 +516,54 @@ window.limpiarFormularioVacantes = function(){
 };
 
 // ============================================================
-// ⭐ LLAMADAS AL MOTOR V6.0
+// ⭐ PROCESAMIENTO REESTRUCTURADO MEDIANTE GEMINI
 // ============================================================
-window.procesarTxtWhatsAppV6 = function(){
+window.procesarTxtWhatsAppV6 = async function(){
   const input = document.getElementById('archivoTxtInput');
   const lbl = document.getElementById('nombreArchivoCargado');
   const caja = document.getElementById('contenedorResultadoVerde');
-  const sel = document.getElementById('selectorVacantesDetectadas');
+  const btnIa = document.getElementById('btnInterpretarIa');
+  
   if(!input.files.length) return;
   const arch = input.files[0];
   lbl.textContent = arch.name;
+  
   const lector = new FileReader();
-  lector.onload = ev=>{
+  lector.onload = async ev=>{
     try{
+      btnIa.disabled = true;
+      btnIa.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Interpretando Archivo...';
+      
       const texto = ev.target.result;
-      const lineas = IA_V6.soloLineasUtiles(IA_V6.limpiarTexto(texto));
-      const encontrados = IA_V6.buscarPuestos(lineas);
-      const datosBase = IA_V6.extraerTodo(texto);
-      vacantesProcesadasGlobal = encontrados.map(p => ({...datosBase, ...p}));
-      sel.innerHTML='';
-      vacantesProcesadasGlobal.forEach((v,i)=> sel.innerHTML += `<option value="${i}">${v.vacanteNombre}</option>`);
+      
+      // Llamada directa a Gemini con el texto extraído del archivo plano
+      const jsonInterpretado = await IA_V6.llamarInterprete(texto);
+      
+      vacantesProcesadasGlobal = [jsonInterpretado]; // El motor ahora procesa directo la estructura limpia
+      
+      const sel = document.getElementById('selectorVacantesDetectadas');
+      sel.innerHTML = `<option value="0">${jsonInterpretado.vacanteNombre}</option>`;
+      
       cambiarVacanteVerdeSeleccionada();
       caja.style.display='block';
-      alert(`✅ V6.0: detectadas ${vacantesProcesadasGlobal.length} vacante(s)`);
-    }catch(err){ alert('❌ Error al procesar: '+err.message); }
+      
+      alert(`✅ IA Gemini: Archivo interpretado con éxito.`);
+    }catch(err){ 
+      console.error(err);
+      alert('❌ Error al invocar el motor de IA: ' + err.message); 
+    } finally {
+      btnIa.disabled = false;
+      btnIa.innerHTML = '<i class="fas fa-wand-magic-sparkles"></i> Rellenar automáticamente con IA';
+    }
   };
   lector.readAsText(arch,'UTF-8');
 };
 
 window.cambiarVacanteVerdeSeleccionada = function(){
   const i = document.getElementById('selectorVacantesDetectadas').value;
-  document.getElementById('codigoJsonVerde').textContent = JSON.stringify(vacantesProcesadasGlobal[i],null,2);
+  if(vacantesProcesadasGlobal[i]) {
+    document.getElementById('codigoJsonVerde').textContent = JSON.stringify(vacantesProcesadasGlobal[i],null,2);
+  }
 };
 
 window.transferirAlEspacioMorado = function(){
@@ -626,19 +572,58 @@ window.transferirAlEspacioMorado = function(){
   document.getElementById('iaTextoPegar').value = j;
 };
 
-window.procesarTextoBrutoTxt = function(){
+window.procesarTextoBrutoTxt = async function(){
   const raw = document.getElementById('iaTextoPegar').value.trim();
-  if(!raw) return alert('Pega texto o carga un archivo');
-  try{
-    const datos = raw.startsWith('{') ? JSON.parse(raw) : IA_V6.extraerTodo(raw);
-    const mapa = {secVacanteNombre:'vacanteNombre',secSalario:'salario',secEdad:'edad',secLugarOrigen:'lugarOrigen',secTurnos:'turnos',secSexo:'sexo',secExperiencia:'experiencia',secEscolaridad:'escolaridad',secActividades:'actividades',secBeneficios:'beneficios',secInfoGeneral:'informacionGeneral'};
-    Object.entries(mapa).forEach(([id,llave])=> document.getElementById(id).value = datos[llave]||'');
+  if(!raw) return alert('Pega texto de WhatsApp o carga un archivo .txt primero');
+  
+  const btnIa = document.getElementById('btnInterpretarIa');
+  
+  try {
+    let datos;
+    // Si ya es un JSON de la caja verde, lo lee directo
+    if (raw.startsWith('{')) {
+      datos = JSON.parse(raw);
+    } else {
+      // Si es texto plano pegado de WhatsApp, llama a la API de Gemini
+      btnIa.disabled = true;
+      btnIa.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Pensando...';
+      datos = await IA_V6.llamarInterprete(raw);
+    }
+    
+    // Mapeo perfecto a las variantes del formulario de tu panel
+    document.getElementById('secVacanteNombre').value = datos.vacanteNombre || '';
+    document.getElementById('secSalario').value = datos.salario || '';
+    document.getElementById('secEdad').value = datos.edad || '';
+    document.getElementById('secLugarOrigen').value = datos.lugarOrigen || '';
+    document.getElementById('secTurnos').value = datos.turnos || '';
+    document.getElementById('secExperiencia').value = datos.experiencia || '';
+    document.getElementById('secEscolaridad').value = datos.escolaridad || '';
+    document.getElementById('secActividades').value = datos.actividades || '';
+    document.getElementById('secBeneficios').value = datos.beneficios || '';
+    document.getElementById('secInfoGeneral').value = datos.informacionGeneral || '';
+    
+    // Ajustar selectores de sexo con tolerancia de mayúsculas/minúsculas
+    const sexoNormalizado = datos.sexo ? datos.sexo.charAt(0).toUpperCase() + datos.sexo.slice(1).toLowerCase() : 'Indistinto';
+    if(['Indistinto','Masculino','Femenino'].includes(sexoNormalizado)) {
+      document.getElementById('secSexo').value = sexoNormalizado;
+    } else {
+      document.getElementById('secSexo').value = 'Indistinto';
+    }
+    
+    // Sugerencia de ID Clave inteligente basada en el nombre de la vacante interpretada
     if(datos.vacanteNombre){
       const idSug = datos.vacanteNombre.toLowerCase().split(' ')[0].normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'').slice(0,20);
       document.getElementById('secPuestoId').value = idSug;
     }
-    alert('✨ Formulario rellenado por IA');
-  }catch(err){ alert('⚠️ Texto no válido: '+err.message); }
+    
+    alert('✨ ¡Formulario completado perfectamente por Gemini!');
+  }catch(err){ 
+    console.error(err);
+    alert('⚠️ No se pudo interpretar el texto: '+err.message); 
+  } finally {
+    btnIa.disabled = false;
+    btnIa.innerHTML = '<i class="fas fa-wand-magic-sparkles"></i> Rellenar automáticamente con IA';
+  }
 };
 
 // ============================================================
@@ -672,7 +657,7 @@ window.guardarComoNuevaVacante = async function(){
   if(!emp || !datos.puestoId || !datos.vacanteNombre) return alert('⚠️ Empresa, ID y nombre son obligatorios');
   try{
     await set(ref(db,`vacantes_detalles/${emp}/${datos.puestoId}`), datos);
-    alert(`✅ Vacante NUEVA guardada:\n${datos.vacanteNombre}`);
+    alert(`... Vacante NUEVA guardada:\n${datos.vacanteNombre}`);
   }catch(e){ alert('❌ Error: '+e.message); }
 };
 
@@ -682,7 +667,7 @@ window.guardarActualizacionVacante = async function(){
   if(!emp || !datos.puestoId) return alert('⚠️ Carga primero una vacante');
   try{
     await set(ref(db,`vacantes_detalles/${emp}/${datos.puestoId}`), datos);
-    alert(`🔄 Actualizada: ${datos.vacanteNombre}`);
+    alert(`... Actualizada: ${datos.vacanteNombre}`);
   }catch(e){ alert('❌ Error: '+e.message); }
 };
 
@@ -700,7 +685,7 @@ window.agregarEmpresaPrincipal = async function(){
   };
   try{
     await set(ref(db,`empresas/${id}`), payload);
-    alert('✅ Empresa guardada');
+    alert('... Empresa guardada');
     ['admId','admNombre','admUbicacion','admLink','admImagen','admTags'].forEach(x=>document.getElementById(x).value='');
   }catch(e){ alert('❌ Error: '+e.message); }
 };
