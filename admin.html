@@ -118,6 +118,23 @@
         }
         .btn-ia:hover { background: #7c3aed; }
         
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+            margin-top: 5px;
+        }
+        .file-input-wrapper input[type="file"] {
+            position: absolute;
+            left: 0; top: 0; opacity: 0;
+            width: 100%; height: 100%;
+            cursor: pointer;
+        }
+        .btn-file-custom {
+            background: #0284c7; color: white; padding: 10px 20px;
+            font-weight: 700; border-radius: 6px; display: inline-block; transition: 0.3s;
+        }
+        .btn-file-custom:hover { background: #0369a1; }
+
         .section-divider {
             grid-column: 1 / -1;
             border-bottom: 1px dashed var(--border-color);
@@ -221,19 +238,21 @@
 
             <div class="ia-box">
                 <label style="color: var(--purple-ia); font-weight: bold; display: block; margin-bottom: 5px;">
-                    <i class="fas fa-robot"></i> Extractor Automático Inteligente con Gemini
+                    <i class="fas fa-file-upload"></i> Alimentación Directa desde Archivo .txt
                 </label>
                 <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 10px;">
-                    ¿Tienes un texto de vacante desordenado? Haz clic en el botón verde para abrir el chat de Gemini, pégale la información de tu archivo .txt y él te dará el código estructurado para poner aquí abajo.
+                    Selecciona el archivo .txt de la vacante directamente desde tu equipo. El sistema leerá su contenido y abrirá Gemini de forma automática para estructurarlo.
                 </p>
                 
-                <div style="margin-bottom: 15px;">
-                    <button type="button" class="btn-ia" style="background: #10b981; margin-top: 0;" onclick="abrirEnlaceAsistenteGemini()">
-                        <i class="fab fa-google"></i> 1. Abrir Asistente IA (Gemini)
-                    </button>
+                <div style="display: flex; gap: 15px; align-items: center; margin-bottom: 15px; flex-wrap: wrap;">
+                    <div class="file-input-wrapper">
+                        <div class="btn-file-custom"><i class="fas fa-folder-open"></i> 1. Cargar Archivo .txt</div>
+                        <input type="file" id="archivoTxtInput" accept=".txt" onchange="leerArchivoTxtYPrepararIA()">
+                    </div>
+                    <span id="nombreArchivoCargado" style="font-size: 0.9rem; color: var(--primary-orange); font-weight: bold;">Ningún archivo seleccionado</span>
                 </div>
 
-                <textarea id="iaTextoPegar" placeholder="Pega aquí el código estructurado que te generó Gemini..." style="border-color: var(--purple-ia); min-height: 90px;"></textarea>
+                <textarea id="iaTextoPegar" placeholder="Pega aquí el código estructurado que te regresó Gemini..." style="border-color: var(--purple-ia); min-height: 90px;"></textarea>
                 <button type="button" class="btn-ia" onclick="procesarTextoBrutoTxt()">
                     <i class="fas fa-magic"></i> 2. Rellenar Formulario Automáticamente
                 </button>
@@ -313,44 +332,63 @@
         event.currentTarget.classList.add('active');
     }
 
-    // --- PUENTE DIRECTO AL ASISTENTE GEMINI ---
-    window.abrirEnlaceAsistenteGemini = function() {
-        const instruccionPrompt = "Hola Gemini, soy el administrador de la Bolsa de Trabajo. Te voy a pegar un texto en bruto de un archivo .txt con los requisitos de una vacante. Tu único trabajo es leerlo, extraer la información y devolvérmela estrictamente en este formato JSON, limpio, sin texto extra, sin saludos ni explicaciones, ni comillas invertidas de código markdown. Solo el JSON plano:\n\n" +
-        "{\n" +
-        '  "vacanteNombre": "Nombre del puesto",\n' +
-        '  "salario": "Sueldo diario o semanal con prestaciones",\n' +
-        '  "edad": "Rango de edad requerido",\n' +
-        '  "lugarOrigen": "Zonas o rutas que cubre",\n' +
-        '  "turnos": "Horarios o rotación",\n' +
-        '  "sexo": "Masculino, Femenino o Indistinto",\n' +
-        '  "experiencia": "Tiempo o conocimiento requerido",\n' +
-        '  "escolaridad": "Nivel de estudios",\n' +
-        '  "actividades": "Lista detallada de actividades y beneficios en texto continuo"\n' +
-        "}\n\n" +
-        "Por favor, responde 'Entendido, pégame el texto del archivo .txt:' y queda a la espera.";
+    // --- LECTOR DE ARCHIVOS .TXT AUTOMÁTICO CON REDIRECCIÓN DE IA ---
+    window.leerArchivoTxtYPrepararIA = function() {
+        const input = document.getElementById('archivoTxtInput');
+        const indicadorNombre = document.getElementById('nombreArchivoCargado');
+        
+        if (!input.files || input.files.length === 0) return;
+        
+        const archivo = input.files[0];
+        indicadorNombre.innerText = `📄 ${archivo.name}`;
+        
+        const lector = new FileReader();
+        lector.onload = function(e) {
+            const contenidoBrutoTxt = e.target.result.trim();
+            if(!contenidoBrutoTxt) { alert("El archivo seleccionado está vacío."); return; }
+            
+            // Armamos el prompt conteniendo directamente la lectura del archivo exportado
+            const instruccionPrompt = "Hola Gemini, soy el administrador de la Bolsa de Trabajo. Acabo de subir un archivo .txt y mi sistema te está enviando su texto íntegro en bruto abajo. Tu único trabajo es leerlo, procesar y extraer la información, y devolvérmela estrictamente en este formato JSON limpio, sin saludos, sin texto extra y sin explicaciones de ningún tipo. Solo el JSON plano:\n\n" +
+            "{\n" +
+            '  "vacanteNombre": "Nombre del puesto",\n' +
+            '  "salario": "Sueldo diario o semanal con prestaciones",\n' +
+            '  "edad": "Rango de edad requerido",\n' +
+            '  "lugarOrigen": "Zonas o rutas que cubre",\n' +
+            '  "turnos": "Horarios o rotación",\n' +
+            '  "sexo": "Masculino, Femenino o Indistinto",\n' +
+            '  "experiencia": "Tiempo o conocimiento requerido",\n' +
+            '  "escolaridad": "Nivel de estudios",\n' +
+            '  "actividades": "Lista detallada de actividades y beneficios en texto continuo"\n' +
+            "}\n\n" +
+            "TEXTO DEL ARCHIVO .TXT APORTADO:\n" +
+            "=========================================\n" +
+            contenidoBrutoTxt + "\n" +
+            "=========================================";
 
-        const urlGemini = `https://gemini.google.com/app?prompt=${encodeURIComponent(instruccionPrompt)}`;
-        window.open(urlGemini, '_blank');
+            // Abrimos de inmediato la pestaña de Gemini con el archivo ya inyectado adentro
+            const urlGemini = `https://gemini.google.com/app?prompt=${encodeURIComponent(instruccionPrompt)}`;
+            window.open(urlGemini, '_blank');
+        };
+        lector.readAsText(archivo);
     }
 
-    // --- PROCESADOR DE RESPUESTA INTELIGENTE ---
+    // --- PROCESADOR DE RESPUESTA INTELIGENTE DE GEMINI ---
     window.procesarTextoBrutoTxt = function() {
         const textoRaw = document.getElementById('iaTextoPegar').value.trim();
-        if(!textoRaw) { alert("Pega el código estructurado que te dio Gemini."); return; }
+        if(!textoRaw) { alert("Pega aquí el código que te generó Gemini al procesar tu archivo."); return; }
         
         try {
             const data = JSON.parse(textoRaw);
             inyectarCamposEnFormulario(data);
-            alert("✨ ¡Campos estructurados distribuidos en las casillas con éxito!");
+            alert("✨ ¡Archivo .txt interpretado y distribuido en las casillas con éxito!");
         } catch(e) {
-            // Intento de rescate si trae comillas markdown accidentales
             try {
                 const limpio = textoRaw.replace(/```json/g, '').replace(/```/g, '').trim();
                 const data = JSON.parse(limpio);
                 inyectarCamposEnFormulario(data);
-                alert("✨ ¡Campos corregidos y mapeados con éxito!");
+                alert("✨ ¡Campos del archivo procesados con éxito!");
             } catch(err) {
-                alert("❌ El texto ingresado no es un JSON válido. Asegúrate de copiar el bloque de código completo que te dio Gemini.");
+                alert("❌ Error de lectura. Asegúrate de copiar el bloque de código JSON completo que te dio Gemini en la otra pestaña.");
             }
         }
     }
@@ -497,12 +535,12 @@
         if(!vacanteNombre || !salario) { alert("El nombre del puesto y el salario son obligatorios."); return; }
 
         set(ref(db, `vacantes_detalles/${empresaId}/${puestoId}`), {
-            puestoId, estatus, vacanteNombre, salario, edad, lugarOrigen, turnos, sexo, experiencia, escolaridad, bannerUrl, activities: actividades // Se mantiene consistencia con mapeo viejo si es necesario o actividades directamente
+            puestoId, estatus, vacanteNombre, salario, edad, lugarOrigen, turnos, sexo, experiencia, escolaridad, bannerUrl, actividades
         }).then(() => {
-            // Nota: Para corregir la propiedad que lee vacante.html, nos aseguramos de que use "actividades"
-            set(ref(db, `vacantes_detalles/${empresaId}/${puestoId}/actividades`), actividades);
-            alert(`¡Vacante "${vacanteNombre}" sincronizada de forma segura en Firebase!`);
+            alert(`¡Vacante "${vacanteNombre}" sincronizada con éxito en Firebase!`);
             document.getElementById('iaTextoPegar').value = '';
+            document.getElementById('archivoTxtInput').value = '';
+            document.getElementById('nombreArchivoCargado').innerText = 'Ningún archivo seleccionado';
         });
     }
 
