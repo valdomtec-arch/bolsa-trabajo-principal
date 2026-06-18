@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel de Control Centralizado - Bolsa de Trabajo</title>
+    <title>Panel de Control Centralizado - Bolsa de Trabajo (AI Powered)</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
@@ -136,7 +136,7 @@
         }
         .btn-ia {
             background: var(--purple-ia);
-            color: white; border: none; padding: 10px 20px; font-weight: 700;
+            color: white; border: none; padding: 12px 20px; font-weight: 700;
             border-radius: 6px; cursor: pointer; transition: 0.3s; margin-top: 10px;
         }
         .btn-ia:hover { background: #7c3aed; }
@@ -225,8 +225,15 @@
 <body>
 
 <div class="admin-container">
-    <h1><i class="fas fa-sliders-h"></i> Panel de Administración Global</h1>
+    <h1><i class="fas fa-sliders-h"></i> Panel de Control - Conexión IA</h1>
     
+    <div class="form-admin" style="border: 1px solid var(--purple-ia); background: rgba(139, 92, 246, 0.05); margin-bottom: 20px; padding: 15px;">
+        <div class="form-group full-width">
+            <label style="color: var(--purple-ia); font-weight: bold;"><i class="fas fa-key"></i> Configuración de Conexión Web de Gemini (API Key):</label>
+            <input type="password" id="geminiApiKey" placeholder="Tu API Key se guardará localmente..." style="border-color: var(--purple-ia); background: #0c1524;" onchange="guardarApiKeyLocal(this.value)">
+        </div>
+    </div>
+
     <div class="tabs-menu">
         <button class="tab-btn active" id="btnTab1"><i class="fas fa-building"></i> 1. Registrar Empresa</button>
         <button class="tab-btn" id="btnTab2"><i class="fas fa-briefcase"></i> 2. Control de Vacantes Masivo</button>
@@ -293,7 +300,7 @@
                     <i class="fas fa-folder-minus"></i> Modificar o Eliminar Vacantes Existentes en la Web
                 </label>
                 <p style="margin: 0 0 10px 0; font-size: 0.85rem; color: var(--text-muted);">
-                    Si una vacante se subió con errores, selecciónala aquí abajo para cargar sus datos actuales o borrarla definitivamente.
+                    Selecciona una vacante existente si necesitas corregirla o eliminarla definitivamente de internet.
                 </p>
                 <select id="selectorVacantesEnFirebase" style="width: 100%; padding: 11px; background: #221317; border: 1px solid var(--red-danger); color: #fca5a5; border-radius: 8px;">
                     </select>
@@ -314,20 +321,23 @@
 
             <div class="ia-box">
                 <label style="color: var(--purple-ia); font-weight: bold; display: block; margin-bottom: 5px;">
-                    <i class="fas fa-bolt"></i> Extractor de Patrones V5.0 (Análisis Avanzado de Horarios e Información de Reingreso)
+                    <i class="fas fa-robot"></i> Extractor de Archivos .txt mediante Inteligencia Artificial (Gemini API)
                 </label>
                 
                 <div style="display: flex; gap: 15px; align-items: center; margin-bottom: 15px; flex-wrap: wrap;">
                     <div class="file-input-wrapper">
-                        <div class="btn-file-custom"><i class="fas fa-folder-open"></i> 1. Cargar Archivo .txt</div>
-                        <input type="file" id="archivoTxtInput" accept=".txt" onchange="procesarTxtWhatsAppV5()">
+                        <div class="btn-file-custom" style="background: var(--purple-ia);"><i class="fas fa-file-alt"></i> 1. Cargar Archivo .txt vacante</div>
+                        <input type="file" id="archivoTxtInput" accept=".txt" onchange="leerArchivoLocalTxt()">
                     </div>
-                    <span id="nombreArchivoCargado" style="font-size: 0.9rem; color: var(--primary-orange); font-weight: bold;">Ningún archivo seleccionado</span>
+                    <span id="nombreArchivoCargado" style="font-size: 0.9rem; color: var(--purple-ia); font-weight: bold;">Ningún archivo cargado</span>
+                    <button type="button" class="btn-ia" id="btnProcesarGemini" onclick="enviarTxtAGeminiWeb()" style="margin: 0; display: none;">
+                        <i class="fas fa-brain"></i> 2. Transformar a JSON con Gemini
+                    </button>
                 </div>
 
                 <div id="contenedorResultadoVerde" style="margin-bottom: 15px; display: none;">
                     <label style="color: var(--green-success); font-weight: bold; display: block; margin-bottom: 5px; font-size: 0.9rem;">
-                        <i class="fas fa-list-ol"></i> Selecciona la vacante para auto-rellenar:
+                        <i class="fas fa-check-circle"></i> Vacantes Interpretadas con Éxito por Gemini:
                     </label>
                     
                     <select id="selectorVacantesDetectadas" class="selector-puestos-verde" onchange="cambiarVacanteVerdeSeleccionada()">
@@ -336,13 +346,13 @@
                     <textarea id="codigoJsonVerde" readonly style="background: #061c15; color: #34d399; border: 1px solid var(--green-success); font-family: monospace; font-size: 0.85rem; width: 100%; min-height: 150px; margin-bottom: 10px; padding: 10px; box-sizing: border-box; border-radius: 8px;"></textarea>
                     
                     <button type="button" class="btn-ia" onclick="transferirAlEspacioMorado()" style="background: var(--green-success); width: 100%; margin-top:0;">
-                        <i class="fas fa-arrow-alt-circle-down"></i> 2. Transferir al Espacio Morado
+                        <i class="fas fa-arrow-alt-circle-down"></i> 3. Copiar a Zona de Pre-carga
                     </button>
                 </div>
 
-                <textarea id="iaTextoPegar" placeholder="El código aparecerá aquí..." style="border-color: var(--purple-ia); min-height: 80px; margin-top: 15px;"></textarea>
+                <textarea id="iaTextoPegar" placeholder="El código JSON definitivo se cargará aquí..." style="border-color: var(--purple-ia); min-height: 80px; margin-top: 15px;"></textarea>
                 <button type="button" class="btn-ia" onclick="procesarTextoBrutoTxt()">
-                    <i class="fas fa-magic"></i> 3. Rellenar Formulario Automáticamente
+                    <i class="fas fa-magic"></i> 4. Auto-Rellenar Todo el Formulario
                 </button>
             </div>
 
@@ -401,7 +411,7 @@
 
             <div class="form-group full-width" style="border: 1px solid var(--primary-orange); padding: 15px; border-radius: 8px; background: rgba(255,102,0,0.05);">
                 <label style="color: var(--primary-orange); font-weight: bold;"><i class="fas fa-info-circle"></i> Información General de la Plaza / Reglas de Reingreso y Entrevista:</label>
-                <textarea id="secInfoGeneral" style="min-height: 120px; border-color: var(--primary-orange);" placeholder="Ej: No reingresos de KIA, consideraciones de nómina, etc."></textarea>
+                <textarea id="secInfoGeneral" style="min-height: 120px; border-color: var(--primary-orange);" placeholder="Reglas críticas analizadas cognitivamente por Gemini..."></textarea>
             </div>
 
             <div class="dual-buttons-layout">
@@ -412,9 +422,18 @@
     </div>
 </div>
 
+<script type="importmap">
+  {
+    "imports": {
+      "@google/generative-ai": "https://esm.run/@google/generative-ai"
+    }
+  }
+</script>
+
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getDatabase, ref, set, onValue, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { GoogleGenerativeAI } from "@google/generative-ai";
 
     const firebaseConfig = { databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com/" };
     const app = initializeApp(firebaseConfig);
@@ -422,6 +441,19 @@
 
     let vacantesProcesadasGlobal = [];
     let baseVacantesActualesEnFirebase = {};
+    let textoArchivoTxtCargado = "";
+
+    // Cargar API Key si ya existe guardada
+    document.addEventListener("DOMContentLoaded", () => {
+        const savedKey = localStorage.getItem("gemini_key");
+        if(savedKey) {
+            document.getElementById("geminiApiKey").value = savedKey;
+        }
+    });
+
+    window.guardarApiKeyLocal = function(val) {
+        localStorage.setItem("gemini_key", val.trim());
+    }
 
     const tab1 = document.getElementById('btnTab1');
     const tab2 = document.getElementById('btnTab2');
@@ -437,247 +469,89 @@
         content2.classList.add('active'); content1.classList.remove('active');
     });
 
-    window.escucharVacantesExistentes = function(empresaId) {
-        const boxGestion = document.getElementById('boxGestionVacantes');
-        const selectorFirebase = document.getElementById('selectorVacantesEnFirebase');
+    window.leerArchivoLocalTxt = function() {
+        const input = document.getElementById('archivoTxtInput');
+        const indicadorNombre = document.getElementById('nombreArchivoCargado');
+        const btnGemini = document.getElementById('btnProcesarGemini');
+
+        if (!input.files || input.files.length === 0) return;
+        const archivo = input.files[0];
+        indicadorNombre.innerText = `📄 ${archivo.name}`;
+
+        const lector = new FileReader();
+        lector.onload = function(e) {
+            textoArchivoTxtCargado = e.target.result;
+            btnGemini.style.display = "inline-block";
+        };
+        lector.readAsText(archivo);
+    }
+
+    window.enviarTxtAGeminiWeb = async function() {
+        const apiKey = document.getElementById('geminiApiKey').value.trim();
+        const btnProcesar = document.getElementById('btnProcesarGemini');
         
-        if (!empresaId) {
-            boxGestion.style.display = "none";
+        if(!apiKey) {
+            alert("⚠️ Introduce tu API Key de Gemini arriba para poder procesar.");
+            return;
+        }
+        if(!textoArchivoTxtCargado) {
+            alert("⚠️ Carga un archivo .txt válido primero.");
             return;
         }
 
-        onValue(ref(db, `vacantes_detalles/${empresaId}`), (snapshot) => {
-            selectorFirebase.innerHTML = "";
-            baseVacantesActualesEnFirebase = snapshot.val() || {};
-            
-            const keys = Object.keys(baseVacantesActualesEnFirebase);
-            const keysFiltradas = keys.filter(k => k !== "undefined" && k !== "");
-            
-            if (keysFiltradas.length === 0) {
-                selectorFirebase.innerHTML = '<option value="">-- No hay vacantes registradas en esta empresa --</option>';
-            } else {
-                selectorFirebase.innerHTML = '<option value="">-- Selecciona una vacante para Editar o Borrar --</option>';
-                keysFiltradas.forEach(puestoKey => {
-                    const vac = baseVacantesActualesEnFirebase[puestoKey];
-                    selectorFirebase.innerHTML += `<option value="${puestoKey}">[ID: ${puestoKey}] ${vac.vacanteNombre || 'Sin nombre'}</option>`;
-                });
-            }
-            boxGestion.style.display = "block";
-        });
-    }
-
-    window.cargarVacanteParaEditar = function() {
-        const puestoKey = document.getElementById('selectorVacantesEnFirebase').value;
-        if (!puestoKey || !baseVacantesActualesEnFirebase[puestoKey]) {
-            alert("Por favor, selecciona una vacante válida de la lista.");
-            return;
-        }
-
-        const vacante = baseVacantesActualesEnFirebase[puestoKey];
-        
-        document.getElementById('secPuestoId').value = puestoKey;
-        document.getElementById('secEstatus').value = vacante.estatus || 'disponible';
-        document.getElementById('secVacanteNombre').value = vacante.vacanteNombre || '';
-        document.getElementById('secSalario').value = vacante.salario || '';
-        document.getElementById('secEdad').value = vacante.edad || '';
-        document.getElementById('secLugarOrigen').value = vacante.lugarOrigen || '';
-        document.getElementById('secTurnos').value = vacante.turnos || '';
-        document.getElementById('secSexo').value = vacante.sexo || 'Indistinto';
-        document.getElementById('secExperiencia').value = vacante.experiencia || '';
-        document.getElementById('secEscolaridad').value = vacante.escolaridad || '';
-        document.getElementById('secBannerUrl').value = vacante.bannerUrl || '';
-        document.getElementById('secActividades').value = vacante.actividades || '';
-        document.getElementById('secInfoGeneral').value = vacante.informacionGeneral || '';
-        
-        alert(`✏️ Datos de "${vacante.vacanteNombre}" cargados con éxito. Realiza los cambios necesarios y presiona "ACTUALIZAR Cambios de Edición".`);
-    }
-
-    window.eliminarVacanteWeb = function() {
-        const empresaId = document.getElementById('secEmpresaSelect').value;
-        const puestoKey = document.getElementById('selectorVacantesEnFirebase').value;
-        
-        if (!empresaId || !puestoKey) {
-            alert("Selecciona la empresa y la vacante que deseas remover.");
-            return;
-        }
-
-        const vacante = baseVacantesActualesEnFirebase[puestoKey];
-        const confirmacion = confirm(`⚠️ ¿ESTÁS SEGURO?\n\nVas a eliminar definitivamente la vacante "${vacante.vacanteNombre}" de la plataforma web.`);
-        
-        if (confirmacion) {
-            remove(ref(db, `vacantes_detalles/${empresaId}/${puestoKey}`))
-            .then(() => {
-                alert("🗑️ ¡Vacante eliminada con éxito de la plataforma web!");
-                document.getElementById('secPuestoId').value = "";
-            })
-            .catch((error) => {
-                alert("Error al eliminar: " + error.message);
-            });
-        }
-    }
-
-    window.procesarTxtWhatsAppV5 = function() {
         try {
-            const input = document.getElementById('archivoTxtInput');
-            const indicadorNombre = document.getElementById('nombreArchivoCargado');
-            const contenedorVerde = document.getElementById('contenedorResultadoVerde');
+            btnProcesar.disabled = true;
+            btnProcesar.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Gemini procesando...`;
+
+            const ai = new GoogleGenerativeAI(apiKey);
+            const model = ai.getGenerativeModel({ 
+                model: "gemini-1.5-flash",
+                generationConfig: { responseMimeType: "application/json" }
+            });
+
+            const prompt = `
+            Actúa como un extractor inteligente experto en Recursos Humanos para la industria logística y de manufactura. 
+            Analiza el siguiente texto bruto de una vacante y conviértelo obligatoriamente en un Array/Lista de objetos JSON de JavaScript.
+            Cada objeto del array debe seguir de forma estricta el siguiente esquema exacto:
+            {
+                "vacanteNombre": "Nombre de la vacante o puesto en MAYÚSCULAS",
+                "salario": "Especifica el salario neto con claridad (ej: $2,362.36 semanales libres) junto a notas adicionales de bonos o vales si existen",
+                "edad": "Rango de edad permitido (ej: 18 a 55 años)",
+                "lugarOrigen": "Parque Industrial o zona exacta donde se ubica la planta",
+                "turnos": "Agrupa de manera legible todos los horarios explicados en el texto (ej: Turnos rotativos día/noche)",
+                "sexo": "Masculino, Femenino o Indistinto según indique el texto",
+                "experiencia": "Experiencia requerida o No necesaria",
+                "escolaridad": "Escolaridad mínima requerida",
+                "actividades": "Unifica de forma ordenada con barras '/' las funciones físicas (ej: trabajo de pie) y el listado de prestaciones superiores recibidas",
+                "informacionGeneral": "REGLAS CRÍTICAS DE REINGRESO, restricciones de KIA u otros Hyundai, bancos asignados, semanas de fondo, documentación o reglas de entrevista"
+            }
+
+            Texto bruto a formatear:
+            ${textoArchivoTxtCargado}
+            `;
+
+            const resultado = await model.generateContent(prompt);
+            const respuestaTexto = resultado.response.text();
+
+            vacantesProcesadasGlobal = JSON.parse(respuestaTexto);
+            
             const selectorPuestos = document.getElementById('selectorVacantesDetectadas');
+            selectorPuestos.innerHTML = "";
             
-            if (!input.files || input.files.length === 0) return;
-            const archivo = input.files[0];
-            indicadorNombre.innerText = `📄 ${archivo.name}`;
-            
-            const lector = new FileReader();
-            lector.onload = function(e) {
-                try {
-                    const cuerpoTexto = e.target.result;
-                    const lineas = cuerpoTexto.split('\n').map(l => l.trim()).filter(l => l !== "");
-                    
-                    let turnosDetectados = [];
-                    lineas.forEach(l => {
-                        let lLow = l.toLowerCase();
-                        if (lLow.includes("turno rotativo") || lLow.includes("turnos rotativos") || lLow.includes("turno día") || lLow.includes("turno noche") || lLow.includes("se rotan") || lLow.includes("rotativo 4x3")) {
-                            turnosDetectados.push(l.replace(/[🔰*•\-‼️]/g, '').trim());
-                        }
-                    });
-                    let horarioFinalSugerido = turnosDetectados.join(" / ") || "Turnos rotativos de empresa";
+            vacantesProcesadasGlobal.forEach((vac, index) => {
+                selectorPuestos.innerHTML += `<option value="${index}">🤖 Gemini Procesó: ${vac.vacanteNombre}</option>`;
+            });
 
-                    let infoGeneralBloque = [];
-                    let capturarResto = false;
+            cambiarVacanteVerdeSeleccionada();
+            document.getElementById('contenedorResultadoVerde').style.display = 'block';
+            alert("✨ ¡Gemini ha estructurado el archivo en JSON correctamente!");
 
-                    lineas.forEach(l => {
-                        let lLow = l.toLowerCase();
-                        if (lLow.includes("reingreso") || lLow.includes("consideraciones para pago") || lLow.includes("datos para agendar") || lLow.includes("no reingresos") || lLow.includes("semana desfasada") || lLow.includes("banco") || lLow.includes("examen médico") || lLow.includes("tatuajes") || lLow.includes("familiares") || lLow.includes("ingresar el mismo día")) {
-                            capturarResto = true;
-                        }
-                        if (capturarResto || lLow.includes("mismo día") || lLow.includes("doping") || lLow.includes("bbva")) {
-                            if(!infoGeneralBloque.includes(l)) {
-                                infoGeneralBloque.push(l.replace(/[🔰*•\-]/g, '').trim());
-                            }
-                        }
-                    });
-                    let infoGeneralTexto = infoGeneralBloque.join("\n") || "Sin restricciones específicas mencionadas.";
-
-                    let zonaDetectada = "Zona Industrial"; 
-                    for (let i = 0; i < lineas.length; i++) {
-                        let lLower = lineas[i].toLowerCase();
-                        if (lLower.includes("parque kia") || lLower.includes("pesquería")) {
-                            zonaDetectada = "Parque KIA, Pesquería";
-                            break;
-                        } else if (lLower.includes("parque") || lLower.includes("ciénega") || lLower.includes("tlaquepaque") || lLower.includes("📍")) {
-                            zonaDetectada = lineas[i].replace(/[📍🏭🔰*•\-✅]/g, '').trim();
-                            break;
-                        }
-                    }
-
-                    let beneficiosYActividades = [];
-                    lineas.forEach(l => {
-                        const lLower = l.toLowerCase();
-                        if (lLower.includes("prestaciones") || lLower.includes("vales") || lLower.includes("comedor") || lLower.includes("fondo de ahorro") || lLower.includes("aguinaldo") || lLower.includes("acomodar") || lLower.includes("llantas") || lLower.includes("rines") || lLower.includes("de pie") || lLower.includes("descansa")) {
-                            if(!lLower.includes("solicita")) {
-                                beneficiosYActividades.push(l.replace(/[💠☑️✔️💲➕*•\-]/g, '').trim());
-                            }
-                        }
-                    });
-                    let actividadesYBeneficiosTexto = beneficiosYActividades.join(" / ");
-
-                    let puestosEncontrados = [];
-                    let puestoActual = null;
-                    const disparadoresPuesto = ["ayudante", "ayudantes", "montacarguista", "tecnico", "técnico", "inspector", "calidad", "operador", "guardia", "auxiliar", "limpieza"];
-
-                    for (let i = 0; i < lineas.length; i++) {
-                        let linea = lineas[i];
-                        let lLower = linea.toLowerCase();
-
-                        let esLineaDePuesto = disparadoresPuesto.some(p => lLower.includes(p)) && 
-                                              (lLower.includes("🔰") || lLower.includes("*") || lLower.includes("solicita"));
-
-                        if (esLineaDePuesto) {
-                            if (puestoActual) puestosEncontrados.push(puestoActual);
-
-                            let nombreLimpio = linea.replace(/[🔰*Solicita:👷🏻‍♂️👨🏻‍🔧👷🏻‍♀️()•\-]/g, '').split('$')[0].trim();
-                            puestoActual = {
-                                vacanteNombre: nombreLimpio.toUpperCase(),
-                                salario: "", 
-                                edad: "18 a 55 años",
-                                lugarOrigen: zonaDetectada,
-                                turnos: horarioFinalSugerido,
-                                sexo: "Indistinto",
-                                experiencia: "No necesaria",
-                                escolaridad: "Primaria / Secundaria",
-                                actividades: actividadesYBeneficiosTexto,
-                                informacionGeneral: infoGeneralTexto
-                            };
-                            
-                            if (lLower.includes("$")) {
-                                let partes = linea.split('$');
-                                if(partes[1]) puestoActual.salario = "$" + partes[1].trim();
-                            }
-                        }
-
-                        if (puestoActual) {
-                            if ((lLower.includes("salario") || lLower.includes("sueldo") || lLower.includes("semanal libres")) && lLower.includes("$")) {
-                                if (!lLower.includes("bono") && !lLower.includes("apoyo") && !lLower.includes("vales")) {
-                                    let acumuladoSueldo = linea;
-                                    if (i + 1 < lineas.length && lineas[i+1].toLowerCase().includes("salario semanal")) {
-                                        acumuladoSueldo += " / " + lineas[i+1];
-                                        i++;
-                                    }
-                                    puestoActual.salario = acumuladoSueldo.replace(/[💲🔰*•\-]/g, '').trim();
-                                }
-                            }
-
-                            if (!puestoActual.salario && lLower.includes("$") && !lLower.includes("bono") && !lLower.includes("apoyo") && !lLower.includes("vales")) {
-                                puestoActual.salario = linea.replace(/[💲🔰*•\-]/g, '').trim();
-                            }
-
-                            if (lLower.includes("edad") || lLower.includes("años")) {
-                                const matchEdad = linea.match(/[0-9]+\s*(a|-\s*)[0-9]+/);
-                                if (matchEdad) puestoActual.edad = matchEdad[0] + " años";
-                            }
-                            if (lLower.includes("hombres y mujeres") || lLower.includes("ambos sexos")) puestoActual.sexo = "Indistinto";
-                            else if (lLower.includes("hombre") || lLower.includes("solo hombres")) puestoActual.sexo = "Masculino";
-                            else if (lLower.includes("femenino") || lLower.includes("mujer")) puestoActual.sexo = "Femenino";
-
-                            if (lLower.includes("preparatoria") || lLower.includes("prepa")) puestoActual.escolaridad = "Preparatoria Técnica";
-                            else if (lLower.includes("secundaria")) puestoActual.escolaridad = "Secundaria Mínima";
-                            else if (lLower.includes("primaria")) puestoActual.escolaridad = "Primaria Mínima";
-                        }
-                    }
-
-                    if (puestoActual) puestosEncontrados.push(puestoActual);
-
-                    if (puestosEncontrados.length === 0) {
-                        puestosEncontrados.push({
-                            vacanteNombre: "AYUDANTE GENERAL",
-                            salario: "Ver detalles en planta",
-                            edad: "18 a 55 años",
-                            lugarOrigen: zonaDetectada,
-                            turnos: horarioFinalSugerido,
-                            sexo: "Indistinto",
-                            experiencia: "No necesaria",
-                            escolaridad: "Primaria / Secundaria",
-                            actividades: actividadesYBeneficiosTexto,
-                            informacionGeneral: infoGeneralTexto
-                        });
-                    }
-
-                    vacantesProcesadasGlobal = puestosEncontrados;
-                    selectorPuestos.innerHTML = "";
-                    vacantesProcesadasGlobal.forEach((vac, index) => {
-                        selectorPuestos.innerHTML += `<option value="${index}">📌 Puesto: ${vac.vacanteNombre}</option>`;
-                    });
-
-                    cambiarVacanteVerdeSeleccionada();
-                    contenedorVerde.style.display = 'block';
-
-                } catch (errInner) {
-                    alert("Error en procesamiento: " + errInner.message);
-                }
-            };
-            lector.readAsText(archivo);
-        } catch (errOuter) {
-            alert("Error general: " + errOuter.message);
+        } catch (error) {
+            console.error(error);
+            alert("Error de conexión con Gemini: " + error.message);
+        } finally {
+            btnProcesar.disabled = false;
+            btnProcesar.innerHTML = `<i class="fas fa-brain"></i> 2. Transformar a JSON con Gemini`;
         }
     }
 
@@ -719,45 +593,96 @@
         }
     }
 
-    // BOTÓN 1: ENVIAR NUEVA VACANTE
-    window.guardarComoNuevaVacante = function() {
-        const empresaId = document.getElementById('secEmpresaSelect').value;
-        const puestoId = document.getElementById('secPuestoId').value.trim().toLowerCase();
-        if(!empresaId || !puestoId) { alert("Error: Debes elegir una empresa e ingresar un ID para el puesto."); return; }
+    window.escucharVacantesExistentes = function(empresaId) {
+        const boxGestion = document.getElementById('boxGestionVacantes');
+        const selectorFirebase = document.getElementById('selectorVacantesEnFirebase');
+        
+        if (!empresaId) {
+            boxGestion.style.display = "none";
+            return;
+        }
 
-        const nombreVacante = document.getElementById('secVacanteNombre').value;
-
-        set(ref(db, `vacantes_detalles/${empresaId}/${puestoId}`), {
-            puestoId,
-            estatus: document.getElementById('secEstatus').value,
-            vacanteNombre: nombreVacante,
-            salario: document.getElementById('secSalario').value,
-            edad: document.getElementById('secEdad').value,
-            lugarOrigen: document.getElementById('secLugarOrigen').value,
-            turnos: document.getElementById('secTurnos').value,
-            sexo: document.getElementById('secSexo').value,
-            experiencia: document.getElementById('secExperiencia').value,
-            escolaridad: document.getElementById('secEscolaridad').value,
-            bannerUrl: document.getElementById('secBannerUrl').value,
-            actividades: document.getElementById('secActividades').value,
-            informacionGeneral: document.getElementById('secInfoGeneral').value
-        }).then(() => {
-            alert(`🚀 ¡Éxito! Nueva vacante "${nombreVacante}" registrada correctamente.`);
+        onValue(ref(db, `vacantes_detalles/${empresaId}`), (snapshot) => {
+            selectorFirebase.innerHTML = "";
+            baseVacantesActualesEnFirebase = snapshot.val() || {};
+            const keys = Object.keys(baseVacantesActualesEnFirebase).filter(k => k !== "undefined" && k !== "");
+            
+            if (keys.length === 0) {
+                selectorFirebase.innerHTML = '<option value="">-- No hay vacantes registradas en esta empresa --</option>';
+            } else {
+                selectorFirebase.innerHTML = '<option value="">-- Selecciona una vacante para Editar o Borrar --</option>';
+                keys.forEach(puestoKey => {
+                    const vac = baseVacantesActualesEnFirebase[puestoKey];
+                    selectorFirebase.innerHTML += `<option value="${puestoKey}">[ID: ${puestoKey}] ${vac.vacanteNombre || 'Sin nombre'}</option>`;
+                });
+            }
+            boxGestion.style.display = "block";
         });
     }
 
-    // BOTÓN 2: ACTUALIZAR VACANTE EXISTENTE
+    window.cargarVacanteParaEditar = function() {
+        const puestoKey = document.getElementById('selectorVacantesEnFirebase').value;
+        if (!puestoKey || !baseVacantesActualesEnFirebase[puestoKey]) {
+            alert("Selecciona una vacante válida.");
+            return;
+        }
+
+        const vacante = baseVacantesActualesEnFirebase[puestoKey];
+        document.getElementById('secPuestoId').value = puestoKey;
+        document.getElementById('secEstatus').value = vacante.estatus || 'disponible';
+        document.getElementById('secVacanteNombre').value = vacante.vacanteNombre || '';
+        document.getElementById('secSalario').value = vacante.salario || '';
+        document.getElementById('secEdad').value = vacante.edad || '';
+        document.getElementById('secLugarOrigen').value = vacante.lugarOrigen || '';
+        document.getElementById('secTurnos').value = vacante.turnos || '';
+        document.getElementById('secSexo').value = vacante.sexo || 'Indistinto';
+        document.getElementById('secExperiencia').value = vacante.experiencia || '';
+        document.getElementById('secEscolaridad').value = vacante.escolaridad || '';
+        document.getElementById('secBannerUrl').value = vacante.bannerUrl || '';
+        document.getElementById('secActividades').value = vacante.actividades || '';
+        document.getElementById('secInfoGeneral').value = vacante.informacionGeneral || '';
+        
+        alert(`✏️ Datos de "${vacante.vacanteNombre}" listos para editar.`);
+    }
+
+    window.eliminarVacanteWeb = function() {
+        const empresaId = document.getElementById('secEmpresaSelect').value;
+        const puestoKey = document.getElementById('selectorVacantesEnFirebase').value;
+        
+        if (!empresaId || !puestoKey) return;
+        const vacante = baseVacantesActualesEnFirebase[puestoKey];
+        if (confirm(`⚠️ ¿Seguro que deseas eliminar definitivamente "${vacante.vacanteNombre}"?`)) {
+            remove(ref(db, `vacantes_detalles/${empresaId}/${puestoKey}`)).then(() => {
+                alert("🗑️ Vacante eliminada con éxito.");
+            });
+        }
+    }
+
+    window.guardarComoNuevaVacante = function() {
+        const empresaId = document.getElementById('secEmpresaSelect').value;
+        const puestoId = document.getElementById('secPuestoId').value.trim().toLowerCase();
+        if(!empresaId || !puestoId) { alert("Completa la empresa y el ID del puesto."); return; }
+
+        set(ref(db, `vacantes_detalles/${empresaId}/${puestoId}`), obtenerDatosFormulario(puestoId)).then(() => {
+            alert("🚀 Nueva vacante registrada con éxito.");
+        });
+    }
+
     window.guardarActualizacionVacante = function() {
         const empresaId = document.getElementById('secEmpresaSelect').value;
         const puestoId = document.getElementById('secPuestoId').value.trim().toLowerCase();
-        if(!empresaId || !puestoId) { alert("Error: No hay datos cargados para actualizar. Selecciona una empresa y puesto válidos."); return; }
+        if(!empresaId || !puestoId) return;
 
-        const nombreVacante = document.getElementById('secVacanteNombre').value;
+        set(ref(db, `vacantes_detalles/${empresaId}/${puestoId}`), obtenerDatosFormulario(puestoId)).then(() => {
+            alert("🔄 Cambios de vacante actualizados.");
+        });
+    }
 
-        set(ref(db, `vacantes_detalles/${empresaId}/${puestoId}`), {
+    function obtenerDatosFormulario(puestoId) {
+        return {
             puestoId,
             estatus: document.getElementById('secEstatus').value,
-            vacanteNombre: nombreVacante,
+            vacanteNombre: document.getElementById('secVacanteNombre').value,
             salario: document.getElementById('secSalario').value,
             edad: document.getElementById('secEdad').value,
             lugarOrigen: document.getElementById('secLugarOrigen').value,
@@ -768,9 +693,7 @@
             bannerUrl: document.getElementById('secBannerUrl').value,
             actividades: document.getElementById('secActividades').value,
             informacionGeneral: document.getElementById('secInfoGeneral').value
-        }).then(() => {
-            alert(`🔄 ¡Sincronizado! Los cambios de la vacante "${nombreVacante}" han sido guardados en la web.`);
-        });
+        };
     }
 
     window.agregarEmpresaPrincipal = function() {
@@ -781,10 +704,8 @@
         const imagen = document.getElementById('admImagen').value.trim();
         const tags = document.getElementById('admTags').value.trim();
 
-        if(!id || !nombre) { alert("ID y Nombre son obligatorios."); return; }
-
-        set(ref(db, `empresas/${id}`), { id, nombre, ubicacion, link, imagen, tags })
-        .then(() => { alert("¡Empresa registrada exitosamente!"); });
+        if(!id || !nombre) return;
+        set(ref(db, `empresas/${id}`), { id, nombre, ubicacion, link, imagen, tags }).then(() => { alert("Empresa guardada."); });
     }
 
     onValue(ref(db, 'empresas'), (snapshot) => {
