@@ -220,10 +220,23 @@
             </div>
 
             <div class="ia-box">
-                <label style="color: var(--purple-ia); font-weight: bold; display: block; margin-bottom: 5px;"><i class="fas fa-file-alt"></i> Extractor Automático desde Archivos .txt</label>
-                <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 10px;">Abre tu archivo .txt, copia todo su contenido interno, pégalo aquí abajo y presiona el botón procesador.</p>
-                <textarea id="iaTextoPegar" placeholder="Pega los datos en bruto de tu block de notas aquí..." style="border-color: var(--purple-ia); min-height: 90px;"></textarea>
-                <button type="button" class="btn-ia" onclick="procesarTextoBrutoTxt()"><i class="fas fa-magic"></i> Procesar y Rellenar Formulario</button>
+                <label style="color: var(--purple-ia); font-weight: bold; display: block; margin-bottom: 5px;">
+                    <i class="fas fa-robot"></i> Extractor Automático Inteligente con Gemini
+                </label>
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 10px;">
+                    ¿Tienes un texto de vacante desordenado? Haz clic en el botón verde para abrir el chat de Gemini, pégale la información de tu archivo .txt y él te dará el código estructurado para poner aquí abajo.
+                </p>
+                
+                <div style="margin-bottom: 15px;">
+                    <button type="button" class="btn-ia" style="background: #10b981; margin-top: 0;" onclick="abrirEnlaceAsistenteGemini()">
+                        <i class="fab fa-google"></i> 1. Abrir Asistente IA (Gemini)
+                    </button>
+                </div>
+
+                <textarea id="iaTextoPegar" placeholder="Pega aquí el código estructurado que te generó Gemini..." style="border-color: var(--purple-ia); min-height: 90px;"></textarea>
+                <button type="button" class="btn-ia" onclick="procesarTextoBrutoTxt()">
+                    <i class="fas fa-magic"></i> 2. Rellenar Formulario Automáticamente
+                </button>
             </div>
 
             <div class="section-divider">Datos Específicos del Puesto</div>
@@ -300,55 +313,45 @@
         event.currentTarget.classList.add('active');
     }
 
-    // --- ALGORITMO REGEX PARA PROCESAR EL TEXTO DEL ARCHIVO .TXT DE FORMA INTELIGENTE ---
-    window.parsearCamposBrutos = function(texto) {
-        const mapeo = {
-            vacanteNombre: [/puesto[:\s]+/i, /vacante[:\s]+/i, /nombre del puesto[:\s]+/i],
-            salario: [/salario[:\s]+/i, /sueldo[:\s]+/i, /pago[:\s]+/i, /ofrecemos[:\s]+/i],
-            edad: [/edad[:\s]+/i, /rango de edad[:\s]+/i],
-            lugarOrigen: [/zona[:\s]+/i, /lugar[:\s]+/i, /ubicacion[:\s]+/i, /origen[:\s]+/i],
-            turnos: [/turno[:\s]+/i, /horario[:\s]+/i, /jornada[:\s]+/i],
-            sexo: [/sexo[:\s]+/i, /genero[:\s]+/i],
-            experiencia: [/experiencia[:\s]+/i, /requisitos[:\s]+/i],
-            escolaridad: [/escolaridad[:\s]+/i, /estudios[:\s]+/i, /minimo de estudios[:\s]+/i]
-        };
+    // --- PUENTE DIRECTO AL ASISTENTE GEMINI ---
+    window.abrirEnlaceAsistenteGemini = function() {
+        const instruccionPrompt = "Hola Gemini, soy el administrador de la Bolsa de Trabajo. Te voy a pegar un texto en bruto de un archivo .txt con los requisitos de una vacante. Tu único trabajo es leerlo, extraer la información y devolvérmela estrictamente en este formato JSON, limpio, sin texto extra, sin saludos ni explicaciones, ni comillas invertidas de código markdown. Solo el JSON plano:\n\n" +
+        "{\n" +
+        '  "vacanteNombre": "Nombre del puesto",\n' +
+        '  "salario": "Sueldo diario o semanal con prestaciones",\n' +
+        '  "edad": "Rango de edad requerido",\n' +
+        '  "lugarOrigen": "Zonas o rutas que cubre",\n' +
+        '  "turnos": "Horarios o rotación",\n' +
+        '  "sexo": "Masculino, Femenino o Indistinto",\n' +
+        '  "experiencia": "Tiempo o conocimiento requerido",\n' +
+        '  "escolaridad": "Nivel de estudios",\n' +
+        '  "actividades": "Lista detallada de actividades y beneficios en texto continuo"\n' +
+        "}\n\n" +
+        "Por favor, responde 'Entendido, pégame el texto del archivo .txt:' y queda a la espera.";
 
-        const resultado = {};
-        const lineas = texto.split('\n');
+        const urlGemini = `https://gemini.google.com/app?prompt=${encodeURIComponent(instruccionPrompt)}`;
+        window.open(urlGemini, '_blank');
+    }
 
-        for (const [campo, regexes] of Object.entries(mapeo)) {
-            for (const linea of lineas) {
-                for (const regex of regexes) {
-                    if (regex.test(linea)) {
-                        let valor = linea.replace(regex, '').trim();
-                        if (valor.length > 2) {
-                            resultado[campo] = valor;
-                            break;
-                        }
-                    }
-                }
-                if (resultado[campo]) break;
-            }
-        }
-        return resultado;
-    };
-
+    // --- PROCESADOR DE RESPUESTA INTELIGENTE ---
     window.procesarTextoBrutoTxt = function() {
         const textoRaw = document.getElementById('iaTextoPegar').value.trim();
-        if(!textoRaw) { alert("Pega el texto de tu archivo .txt para analizarlo."); return; }
+        if(!textoRaw) { alert("Pega el código estructurado que te dio Gemini."); return; }
         
-        // Primero intentamos ver si es un JSON directo enviado por el chat
         try {
             const data = JSON.parse(textoRaw);
             inyectarCamposEnFormulario(data);
-            alert("✨ ¡Campos estructurados mapeados con éxito!");
-            return;
+            alert("✨ ¡Campos estructurados distribuidos en las casillas con éxito!");
         } catch(e) {
-            // Si no es un JSON, el algoritmo Regex analiza línea por línea el bloque de texto bruto del .txt
-            const datosExtraidos = window.parsearCamposBrutos(textoRaw);
-            datosExtraidos.actividades = textoRaw; // Las actividades se alimentan del texto íntegro por seguridad
-            inyectarCamposEnFormulario(datosExtraidos);
-            alert("⚙️ El sistema leyó el archivo .txt en bruto y extrajo las variables encontradas. Revisa y completa los campos vacíos.");
+            // Intento de rescate si trae comillas markdown accidentales
+            try {
+                const limpio = textoRaw.replace(/```json/g, '').replace(/```/g, '').trim();
+                const data = JSON.parse(limpio);
+                inyectarCamposEnFormulario(data);
+                alert("✨ ¡Campos corregidos y mapeados con éxito!");
+            } catch(err) {
+                alert("❌ El texto ingresado no es un JSON válido. Asegúrate de copiar el bloque de código completo que te dio Gemini.");
+            }
         }
     }
 
@@ -438,7 +441,7 @@
         }
     });
 
-    // --- ACCIONES PESTAÑA 2: CONTROL MULTIVACANTE INTELIGENTE ---
+    // --- ACCIONES PESTAÑA 2: CONTROL MULTIVACANTE ---
     window.actualizarSelectorVacantes = function() {
         document.getElementById('secPuestoId').value = '';
         limpiarFormularioSecundario();
@@ -465,7 +468,6 @@
                 document.getElementById('secBannerUrl').value = data.bannerUrl || '';
                 document.getElementById('secActividades').value = data.actividades || '';
             } else {
-                // Si la vacante no existe, dejamos listos los campos limpios conservando los nombres para nueva creación
                 const vNombreTemp = document.getElementById('secVacanteNombre').value;
                 limpiarFormularioSecundario();
                 document.getElementById('secVacanteNombre').value = vNombreTemp;
@@ -494,10 +496,11 @@
 
         if(!vacanteNombre || !salario) { alert("El nombre del puesto y el salario son obligatorios."); return; }
 
-        // Guardamos de manera estructurada en: vacantes_detalles/id_empresa/id_puesto
         set(ref(db, `vacantes_detalles/${empresaId}/${puestoId}`), {
-            puestoId, estatus, vacanteNombre, salario, edad, lugarOrigen, turnos, sexo, experiencia, escolaridad, bannerUrl, actividades
+            puestoId, estatus, vacanteNombre, salario, edad, lugarOrigen, turnos, sexo, experiencia, escolaridad, bannerUrl, activities: actividades // Se mantiene consistencia con mapeo viejo si es necesario o actividades directamente
         }).then(() => {
+            // Nota: Para corregir la propiedad que lee vacante.html, nos aseguramos de que use "actividades"
+            set(ref(db, `vacantes_detalles/${empresaId}/${puestoId}/actividades`), actividades);
             alert(`¡Vacante "${vacanteNombre}" sincronizada de forma segura en Firebase!`);
             document.getElementById('iaTextoPegar').value = '';
         });
