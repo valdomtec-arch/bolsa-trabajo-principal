@@ -411,7 +411,7 @@
 
             <div class="form-group full-width" style="border: 1px solid var(--primary-orange); padding: 15px; border-radius: 8px; background: rgba(255,102,0,0.05);">
                 <label style="color: var(--primary-orange); font-weight: bold;"><i class="fas fa-info-circle"></i> Información General de la Plaza / Reglas de Reingreso y Entrevista:</label>
-                <textarea id="secInfoGeneral" style="min-height: 120px; border-color: var(--primary-orange);" placeholder="Reglas críticas analizadas cognitivamente por Gemini..."></textarea>
+                <textarea id="secInfoGeneral" style="min-height: 120px; border-color: var(--primary-orange);" placeholder="Reglas críticas analizadas por la IA..."></textarea>
             </div>
 
             <div class="dual-buttons-layout">
@@ -468,7 +468,6 @@
             .replace(/[^a-z0-9]/g, "");
     };
 
-    // Lectura persistente compartida en objeto window global
     window.leerArchivoLocalTxt = function() {
         const input = document.getElementById('archivoTxtInput');
         const indicadorNombre = document.getElementById('nombreArchivoCargado');
@@ -487,7 +486,7 @@
         lector.readAsText(archivo);
     }
 
-    // Configuración definitiva estructurada según especificaciones REST de Google (camelCase)
+    // SOLUCIÓN DEFINITIVA: Petición limpia sin parámetros conflictivos. Estructuración controlada por prompt + regex extractor.
     window.enviarTxtAGeminiWeb = async function() {
         const apiKey = document.getElementById('geminiApiKey').value.trim();
         const btnProcesar = document.getElementById('btnProcesarGemini');
@@ -499,7 +498,7 @@
             return;
         }
         if(!textoBruto) {
-            alert("⚠️ Carga un archivo .txt válido primero o asegúrate de que no esté vacío.");
+            alert("⚠️ Carga un archivo .txt válido primero.");
             return;
         }
 
@@ -507,9 +506,10 @@
             btnProcesar.disabled = true;
             btnProcesar.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Gemini procesando...`;
 
-            const promptBase = `Actúa como un extractor inteligente experto en Recursos Humanos para la industria logística y de manufactura. 
-Analiza el siguiente texto bruto de una vacante y conviértelo obligatoriamente en un Array de objetos JSON.
-Cada objeto del array debe seguir de forma estricta el siguiente esquema exacto:
+            // Prompt maestro de ingeniería inversa
+            const promptBase = `Genera obligatoriamente un Array de objetos JSON como respuesta. No agregues explicaciones fuera del JSON, devuelve únicamente el JSON válido encerrado entre bloques de código de tres comillas invertidas de tipo json.
+
+Cada objeto debe seguir este esquema exacto:
 {
     "vacanteNombre": "Nombre de la vacante o puesto en MAYÚSCULAS",
     "salario": "Especifica el salario neto junto a notas adicionales de bonos o vales si existen",
@@ -523,37 +523,16 @@ Cada objeto del array debe seguir de forma estricta el siguiente esquema exacto:
     "informacionGeneral": "REGLAS CRÍTICAS DE REINGRESO, restricciones de marcas aliadas, bancos asignados, semanas de fondo, documentación o reglas de entrevista"
 }
 
-Texto bruto a formatear:
+Texto bruto a procesar:
 ${textoBruto}`;
 
             const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
             
+            // Payload básico HTTP compatible universalmente
             const payload = {
                 contents: [{ 
                     parts: [{ text: promptBase }] 
-                }],
-                generationConfig: { 
-                    responseMimeType: "application/json",
-                    responseSchema: {
-                        type: "ARRAY",
-                        items: {
-                            type: "OBJECT",
-                            properties: {
-                                vacanteNombre: { type: "STRING" },
-                                salario: { type: "STRING" },
-                                edad: { type: "STRING" },
-                                lugarOrigen: { type: "STRING" },
-                                turnos: { type: "STRING" },
-                                sexo: { type: "STRING" },
-                                experiencia: { type: "STRING" },
-                                escolaridad: { type: "STRING" },
-                                actividades: { type: "STRING" },
-                                informacionGeneral: { type: "STRING" }
-                            },
-                            required: ["vacanteNombre", "salario", "edad", "lugarOrigen", "turnos", "sexo", "experiencia", "escolaridad", "actividades", "informacionGeneral"]
-                        }
-                    }
-                }
+                }]
             };
             
             const response = await fetch(url, {
@@ -568,9 +547,17 @@ ${textoBruto}`;
             }
 
             const data = await response.json();
-            const respuestaTexto = data.candidates[0].content.parts[0].text;
+            let respuestaTexto = data.candidates[0].content.parts[0].text;
 
-            vacantesProcesadasGlobal = JSON.parse(respuestaTexto);
+            // Limpieza inteligente de bloques markdown ```json ... ``` si la IA los incluye
+            const regexJson = /\[\s*\{[\s\S]*\}\s*\]/g; 
+            const coincidencia = respuestaTexto.match(regexJson);
+            
+            if (coincidencia) {
+                respuestaTexto = coincidencia[0];
+            }
+
+            vacantesProcesadasGlobal = JSON.parse(respuestaTexto.trim());
             
             const selectorPuestos = document.getElementById('selectorVacantesDetectadas');
             selectorPuestos.innerHTML = "";
@@ -581,11 +568,11 @@ ${textoBruto}`;
 
             cambiarVacanteVerdeSeleccionada();
             document.getElementById('contenedorResultadoVerde').style.display = 'block';
-            alert("✨ ¡Gemini ha estructurado el archivo en JSON correctamente!");
+            alert("✨ ¡Gemini procesó y estructuró las vacantes correctamente!");
 
         } catch (error) {
             console.error(error);
-            alert("Error de conexión con Gemini: " + error.message);
+            alert("Error de procesamiento con Gemini: " + error.message);
         } finally {
             btnProcesar.disabled = false;
             btnProcesar.innerHTML = `<i class="fas fa-brain"></i> 2. Transformar a JSON con Gemini`;
