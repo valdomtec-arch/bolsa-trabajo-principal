@@ -20,6 +20,7 @@
             --purple-ia: #8b5cf6;
             --green-success: #10b981;
             --red-danger: #ef4444;
+            --blue-update: #0284c7;
         }
         body {
             background-color: var(--bg-page);
@@ -99,11 +100,31 @@
             border-radius: 8px;
             font-weight: 700;
             cursor: pointer;
-            grid-column: 1 / -1;
             transition: 0.3s;
             font-size: 1rem;
         }
         .btn-add:hover { background: #e05500; }
+
+        .btn-update-final {
+            background: var(--blue-update);
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 8px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.3s;
+            font-size: 1rem;
+        }
+        .btn-update-final:hover { background: #0369a1; }
+
+        .dual-buttons-layout {
+            grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 10px;
+        }
 
         .ia-box {
             background: rgba(139, 92, 246, 0.1);
@@ -238,7 +259,7 @@
                 <label>Tags:</label>
                 <input type="text" id="admTags" placeholder="Tags...">
             </div>
-            <button class="btn-add" onclick="agregarEmpresaPrincipal()"><i class="fas fa-save"></i> Guardar Empresa</button>
+            <button class="btn-add" style="grid-column: 1 / -1;" onclick="agregarEmpresaPrincipal()"><i class="fas fa-save"></i> Guardar Empresa</button>
         </div>
 
         <h2>Directorio de Empresas</h2>
@@ -383,7 +404,10 @@
                 <textarea id="secInfoGeneral" style="min-height: 120px; border-color: var(--primary-orange);" placeholder="Ej: No reingresos de KIA, consideraciones de nómina, etc."></textarea>
             </div>
 
-            <button class="btn-add" onclick="guardarDetallesSecundaria()"><i class="fas fa-cloud-upload-alt"></i> Sincronizar Vacante en Firebase</button>
+            <div class="dual-buttons-layout">
+                <button type="button" class="btn-add" onclick="guardarComoNuevaVacante()"><i class="fas fa-cloud-upload-alt"></i> Subir como NUEVA Vacante</button>
+                <button type="button" class="btn-update-final" onclick="guardarActualizacionVacante()"><i class="fas fa-sync-alt"></i> ACTUALIZAR Cambios de Edición</button>
+            </div>
         </div>
     </div>
 </div>
@@ -426,7 +450,7 @@
             selectorFirebase.innerHTML = "";
             baseVacantesActualesEnFirebase = snapshot.val() || {};
             
-            const keys = Object.keys(baseVacalesActualesEnFirebase);
+            const keys = Object.keys(baseVacantesActualesEnFirebase);
             const keysFiltradas = keys.filter(k => k !== "undefined" && k !== "");
             
             if (keysFiltradas.length === 0) {
@@ -465,7 +489,7 @@
         document.getElementById('secActividades').value = vacante.actividades || '';
         document.getElementById('secInfoGeneral').value = vacante.informacionGeneral || '';
         
-        alert(`✏️ Datos de "${vacante.vacanteNombre}" cargados con éxito.`);
+        alert(`✏️ Datos de "${vacante.vacanteNombre}" cargados con éxito. Realiza los cambios necesarios y presiona "ACTUALIZAR Cambios de Edición".`);
     }
 
     window.eliminarVacanteWeb = function() {
@@ -509,20 +533,15 @@
                     const cuerpoTexto = e.target.result;
                     const lineas = cuerpoTexto.split('\n').map(l => l.trim()).filter(l => l !== "");
                     
-                    // --- 1. EXTRACCIÓN INTELIGENTE DE TURNOS ---
                     let turnosDetectados = [];
-                    let capturandoTurnosEspeciales = false;
-
                     lineas.forEach(l => {
                         let lLow = l.toLowerCase();
                         if (lLow.includes("turno rotativo") || lLow.includes("turnos rotativos") || lLow.includes("turno día") || lLow.includes("turno noche") || lLow.includes("se rotan") || lLow.includes("rotativo 4x3")) {
                             turnosDetectados.push(l.replace(/[🔰*•\-‼️]/g, '').trim());
-                            capturandoTurnosEspeciales = true;
                         }
                     });
                     let horarioFinalSugerido = turnosDetectados.join(" / ") || "Turnos rotativos de empresa";
 
-                    // --- 2. EXTRACCIÓN ROBUSTA DE INFORMACIÓN GENERAL SIN PÉRDIDAS ---
                     let infoGeneralBloque = [];
                     let capturarResto = false;
 
@@ -539,7 +558,6 @@
                     });
                     let infoGeneralTexto = infoGeneralBloque.join("\n") || "Sin restricciones específicas mencionadas.";
 
-                    // --- 3. EXTRACCIÓN DE ZONA ---
                     let zonaDetectada = "Zona Industrial"; 
                     for (let i = 0; i < lineas.length; i++) {
                         let lLower = lineas[i].toLowerCase();
@@ -552,7 +570,6 @@
                         }
                     }
 
-                    // --- 4. EXTRACCIÓN DE ACTIVIDADES Y PRESTACIONES ---
                     let beneficiosYActividades = [];
                     lineas.forEach(l => {
                         const lLower = l.toLowerCase();
@@ -702,15 +719,18 @@
         }
     }
 
-    window.guardarDetallesSecundaria = function() {
+    // BOTÓN 1: ENVIAR NUEVA VACANTE
+    window.guardarComoNuevaVacante = function() {
         const empresaId = document.getElementById('secEmpresaSelect').value;
         const puestoId = document.getElementById('secPuestoId').value.trim().toLowerCase();
-        if(!empresaId || !puestoId) { alert("Empresa e ID de puesto son requeridos."); return; }
+        if(!empresaId || !puestoId) { alert("Error: Debes elegir una empresa e ingresar un ID para el puesto."); return; }
+
+        const nombreVacante = document.getElementById('secVacanteNombre').value;
 
         set(ref(db, `vacantes_detalles/${empresaId}/${puestoId}`), {
             puestoId,
             estatus: document.getElementById('secEstatus').value,
-            vacanteNombre: document.getElementById('secVacanteNombre').value,
+            vacanteNombre: nombreVacante,
             salario: document.getElementById('secSalario').value,
             edad: document.getElementById('secEdad').value,
             lugarOrigen: document.getElementById('secLugarOrigen').value,
@@ -722,7 +742,34 @@
             actividades: document.getElementById('secActividades').value,
             informacionGeneral: document.getElementById('secInfoGeneral').value
         }).then(() => {
-            alert("¡Vacante guardada en Firebase exitosamente!");
+            alert(`🚀 ¡Éxito! Nueva vacante "${nombreVacante}" registrada correctamente.`);
+        });
+    }
+
+    // BOTÓN 2: ACTUALIZAR VACANTE EXISTENTE
+    window.guardarActualizacionVacante = function() {
+        const empresaId = document.getElementById('secEmpresaSelect').value;
+        const puestoId = document.getElementById('secPuestoId').value.trim().toLowerCase();
+        if(!empresaId || !puestoId) { alert("Error: No hay datos cargados para actualizar. Selecciona una empresa y puesto válidos."); return; }
+
+        const nombreVacante = document.getElementById('secVacanteNombre').value;
+
+        set(ref(db, `vacantes_detalles/${empresaId}/${puestoId}`), {
+            puestoId,
+            estatus: document.getElementById('secEstatus').value,
+            vacanteNombre: nombreVacante,
+            salario: document.getElementById('secSalario').value,
+            edad: document.getElementById('secEdad').value,
+            lugarOrigen: document.getElementById('secLugarOrigen').value,
+            turnos: document.getElementById('secTurnos').value,
+            sexo: document.getElementById('secSexo').value,
+            experiencia: document.getElementById('secExperiencia').value,
+            escolaridad: document.getElementById('secEscolaridad').value,
+            bannerUrl: document.getElementById('secBannerUrl').value,
+            actividades: document.getElementById('secActividades').value,
+            informacionGeneral: document.getElementById('secInfoGeneral').value
+        }).then(() => {
+            alert(`🔄 ¡Sincronizado! Los cambios de la vacante "${nombreVacante}" han sido guardados en la web.`);
         });
     }
 
