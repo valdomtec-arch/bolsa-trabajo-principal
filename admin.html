@@ -251,7 +251,7 @@
 
             <div class="ia-box">
                 <label style="color: var(--purple-ia); font-weight: bold; display: block; margin-bottom: 5px;">
-                    <i class="fas fa-bolt"></i> Extractor de Patrones de WhatsApp V3.1 (Multi-Puesto)
+                    <i class="fas fa-bolt"></i> Extractor de Patrones de WhatsApp V3.2 (Filtro Geográfico Pulido)
                 </label>
                 
                 <div style="display: flex; gap: 15px; align-items: center; margin-bottom: 15px; flex-wrap: wrap;">
@@ -304,7 +304,7 @@
                 <input type="text" id="secEdad">
             </div>
             <div class="form-group">
-                <label>Zonas de Reclutamiento:</label>
+                <label>Zonas de Reclutamiento / Ubicación:</label>
                 <input type="text" id="secLugarOrigen">
             </div>
             <div class="form-group">
@@ -351,7 +351,7 @@
 
     let vacantesProcesadasGlobal = [];
 
-    // Manejo manual de pestañas seguro para módulos
+    // Control manual de pestañas
     document.getElementById('btnTab1').addEventListener('click', () => {
         document.getElementById('tabPrincipal').classList.add('active');
         document.getElementById('tabSecundarias').classList.remove('active');
@@ -381,57 +381,78 @@
             lector.onload = function(e) {
                 try {
                     const cuerpoTexto = e.target.result;
-                    // Limpieza profunda de espacios y tabuladores locos de WhatsApp
+                    
+                    // Separamos por renglones, colapsando espacios múltiples pero manteniendo palabras juntas
                     const lineas = cuerpoTexto.split('\n')
                                              .map(l => l.trim().replace(/\s+/g, ' '))
                                              .filter(l => l !== "");
                     
-                    let zonaDetectada = "Ciénega de Flores";
-                    let horarioComun = "Turnos rotativos 4x3 de 6:30 a 6:30";
+                    // --- ALGORITMO GEOGRÁFICO MEJORADO ---
+                    let zonaDetectada = "Zona Industrial"; 
+                    
+                    for (let i = 0; i < lineas.length; i++) {
+                        let lLower = lineas[i].toLowerCase();
+                        
+                        // Si la línea contiene marcadores clave de ubicación o nombres conocidos
+                        if (lLower.includes("parque") || lLower.includes("ciénega") || lLower.includes("cienega") || lLower.includes("📍") || lLower.includes("municipio") || lLower.includes("ubicacion") || lLower.includes("ubicación") || lLower.includes("tlaquepaque") || lLower.includes("el salto")) {
+                            
+                            // Limpiamos los caracteres especiales, iconos de mapas o emojis industriales
+                            let limpia = lineas[i].replace(/[📍🏭🔰*•\-✅]/g, '').trim();
+                            
+                            // Si el renglón es muy corto (ej: "Empresa"), combinamos con el renglón de abajo para capturar el nombre completo
+                            if (limpia.toLowerCase() === "empresa" && i + 1 < lineas.length) {
+                                limpia = lineas[i+1].replace(/[📍🏭🔰*•\-✅]/g, '').trim();
+                            }
+                            
+                            if (limpia.length > 3) {
+                                zonaDetectada = limpia;
+                                break; // En cuanto encuentra la ubicación principal en la cabecera, se detiene
+                            }
+                        }
+                    }
+
+                    let horarioComun = "Turnos rotativos de trabajo";
                     let beneficiosArray = [];
 
-                    // Primer barrido: Ubicación global y beneficios comunes
+                    // Barrido de datos comunes
                     lineas.forEach(l => {
                         const lLower = l.toLowerCase();
-                        if(lLower.includes("parque") || lLower.includes("ciénega") || lLower.includes("📍") || lLower.includes("municipio")) {
-                            let limpia = l.replace(/[📍🏭🔰*•-]/g, '').trim();
-                            if(limpia.length > 5 && limpia.length < 60) zonaDetectada = limpia;
+                        if(lLower.includes("6:30") || lLower.includes("4x3") || lLower.includes("turno rotativo") || lLower.includes("horario")) {
+                            horarioComun = l.replace(/[❇️*•\-]/g, '').trim();
                         }
-                        if(lLower.includes("prestaciones") || lLower.includes("vales") || lLower.includes("comedor") || lLower.includes("bono") || lLower.includes("ahorro")) {
-                            beneficiosArray.push(l.replace(/[💠✅*•-]/g, '').trim());
+                        if(lLower.includes("prestaciones") || lLower.includes("vales") || lLower.includes("comedor") || lLower.includes("bono") || lLower.includes("ahorro") || lLower.includes("seguro")) {
+                            beneficiosArray.push(l.replace(/[💠✅*•\-]/g, '').trim());
                         }
                     });
 
                     let puestosEncontrados = [];
                     let puestoActual = null;
 
-                    const disparadoresPuesto = ["ayudante", "montacarguista", "tecnico", "técnico", "inspector", "calidad", "operador", "guardia", "auxiliar", "limpieza"];
+                    const disparadoresPuesto = ["ayudante", "montacarguista", "tecnico", "técnico", "inspector", "calidad", "operador", "guardia", "auxiliar", "limpieza", "almacenista"];
 
-                    // Segundo barrido: Detección y armado de bloques cruzados
+                    // Segmentación por bloques de plaza
                     lineas.forEach((linea) => {
                         const lLower = linea.toLowerCase();
                         
-                        // Si la línea tiene un puesto comercial, disparamos bloque nuevo
                         let esLineaDePuesto = disparadoresPuesto.some(p => lLower.includes(p)) && 
-                                              (lLower.includes("🔰") || lLower.includes("*") || lLower.includes("$") || lLower.includes("hombre"));
+                                              (lLower.includes("🔰") || lLower.includes("*") || lLower.includes("$") || lLower.includes("hombre") || lLower.includes("sexo"));
 
                         if (esLineaDePuesto) {
                             if (puestoActual) puestosEncontrados.push(puestoActual);
 
-                            let nombreLimpio = linea.replace(/[🔰*👷🏻‍♂️👨🏻‍🔧👷🏻‍♀️()•-]/g, '').split('$')[0].split('(')[0].trim();
+                            let nombreLimpio = linea.replace(/[🔰*👷🏻‍♂️👨🏻‍🔧👷🏻‍♀️()•\-]/g, '').split('$')[0].split('(')[0].trim();
                             
                             puestoActual = {
                                 vacanteNombre: nombreLimpio.toUpperCase(),
-                                salario: lLower.includes("$") ? linea.match(/\$[0-9,]+/)?.[0] || "$2,300 libres" : "$2,300 libres semanales",
-                                edad: "20 a 55 años",
-                                lugarOrigen: zonaDetectada,
+                                salario: lLower.includes("$") ? linea.match(/\$[0-9,]+/)?.[0] || "$2,300" : "$2,300 libres semanales",
+                                edad: "18 a 55 años",
+                                lugarOrigen: zonaDetectada, // Inyección automática de la zona pulida
                                 turnos: horarioComun,
                                 sexo: "Indistinto",
-                                experiencia: "No necesaria / Experiencia según puesto",
+                                experiencia: "No necesaria / Experiencia básica",
                                 escolaridad: "Secundaria Mínima"
                             };
 
-                            // Evaluamos cruzado en el mismo renglón del título
                             if (lLower.includes("hombre") || lLower.includes("solo hombres")) puestoActual.sexo = "Masculino";
                             if (lLower.includes("ambos sexos")) puestoActual.sexo = "Indistinto";
                             if (lLower.includes("primaria")) puestoActual.escolaridad = "Primaria Mínima";
@@ -439,29 +460,29 @@
                         }
 
                         if (puestoActual) {
-                            // Captura de datos en renglones posteriores del bloque
                             if (lLower.includes("$") || lLower.includes("sueldo") || lLower.includes("libres")) {
                                 const dinero = linea.match(/\$[0-9,.]+/);
                                 if (dinero) puestoActual.salario = dinero[0] + " libres semanales";
                             }
-                            if (lLower.includes("edad") || lLower.includes("años")) {
+                            if (lLower.includes("edad") || lLower.includes("años") || lLower.includes("rango")) {
                                 const numeros = lLower.match(/[0-9]+\s*(a|to|-)\s*[0-9]+/);
                                 if (numeros) puestoActual.edad = numeros[0] + " años";
                             }
                             if (lLower.includes("hombre") || lLower.includes("masculino")) puestoActual.sexo = "Masculino";
-                            if (lLower.includes("ambos sexos")) puestoActual.sexo = "Indistinto";
+                            if (lLower.includes("femenino") || lLower.includes("mujer")) puestoActual.sexo = "Femenino";
+                            if (lLower.includes("ambos sexos") || lLower.includes("indistinto")) puestoActual.sexo = "Indistinto";
                             
                             if (lLower.includes("preparatoria") || lLower.includes("prepa") || lLower.includes("técnica")) {
                                 puestoActual.escolaridad = "Preparatoria Técnica Mínima";
-                            } else if (lLower.includes("primaria")) {
+                            } else if (lLower.includes("primaria") || lLower.includes("primaria minima")) {
                                 puestoActual.escolaridad = "Primaria Mínima";
-                            } else if (lLower.includes("secundaria")) {
+                            } else if (lLower.includes("secundaria") || lLower.includes("secundaria minima")) {
                                 puestoActual.escolaridad = "Secundaria Mínima";
-                            } else if (lLower.includes("superior") || lLower.includes("nivel superior")) {
-                                puestoActual.escolaridad = "Nivel Superior / Carrera Trunca o Terminada";
+                            } else if (lLower.includes("superior") || lLower.includes("universidad") || lLower.includes("licenciatura")) {
+                                puestoActual.escolaridad = "Nivel Superior Mínimo";
                             }
 
-                            if (lLower.includes("experiencia") || lLower.includes("licencia") || lLower.includes("dc3") || lLower.includes("herramientas")) {
+                            if (lLower.includes("experiencia") || lLower.includes("licencia") || lLower.includes("dc3") || lLower.includes("herramientas") || lLower.includes("certificado")) {
                                 puestoActual.experiencia = linea.replace(/[-•*]/g, '').trim();
                             }
                         }
@@ -469,7 +490,6 @@
 
                     if (puestoActual) puestosEncontrados.push(puestoActual);
 
-                    // Si falló el algoritmo por estructura rara, forzar el parseo manual del primero
                     if (puestosEncontrados.length === 0) {
                         puestosEncontrados.push({
                             vacanteNombre: "AYUDANTE GENERAL",
@@ -477,13 +497,13 @@
                             edad: "20 a 55 años",
                             lugarOrigen: zonaDetectada,
                             turnos: horarioComun,
-                            sexo: "Masculino",
+                            sexo: "Indistinto",
                             experiencia: "No necesaria",
                             escolaridad: "Secundaria Mínima"
                         });
                     }
 
-                    const textoBeneficiosUnificados = beneficiosArray.slice(0, 12).join(" / ") || "Prestaciones de Ley / Comedor Gratuito / Transporte / Fondo de ahorro";
+                    const textoBeneficiosUnificados = beneficiosArray.slice(0, 15).join(" / ") || "Prestaciones de Ley / Comedor Gratuito / Transporte Eficiente";
 
                     puestosEncontrados.forEach(p => {
                         p.actividades = textoBeneficiosUnificados;
@@ -493,19 +513,19 @@
                     selectorPuestos.innerHTML = "";
                     
                     vacantesProcesadasGlobal.forEach((vac, index) => {
-                        selectorPuestos.innerHTML += `<option value="${index}">📌 Vacante Detectada: ${vac.vacanteNombre} -> (${vac.salario})</option>`;
+                        selectorPuestos.innerHTML += `<option value="${index}">📌 Puesto: ${vac.vacanteNombre} -> (${vac.salario})</option>`;
                     });
 
                     cambiarVacanteVerdeSeleccionada();
                     contenedorVerde.style.display = 'block';
 
                 } catch (errInner) {
-                    alert("Error leyendo los bloques internos del archivo: " + errInner.message);
+                    alert("Error parseando filas internas: " + errInner.message);
                 }
             };
             lector.readAsText(archivo);
         } catch (errOuter) {
-            alert("Error general en el cargador: " + errOuter.message);
+            alert("Error en el lector de archivos: " + errOuter.message);
         }
     }
 
@@ -521,7 +541,7 @@
         const codigoVerde = document.getElementById('codigoJsonVerde').value.trim();
         if(!codigoVerde) return;
         document.getElementById('iaTextoPegar').value = codigoVerde;
-        alert("📥 Código listo en el espacio morado.");
+        alert("📥 ¡Datos listos en el módulo de inyección!");
     }
 
     window.procesarTextoBrutoTxt = function() {
@@ -533,9 +553,9 @@
             
             const idSugerido = data.vacanteNombre.toLowerCase().split(' ')[0].normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
             document.getElementById('secPuestoId').value = idSugerido;
-            alert("✨ ¡Campos rellenados con éxito!");
+            alert("✨ ¡Formulario sincronizado localmente!");
         } catch(e) {
-            alert("JSON inválido.");
+            alert("Estructura JSON inválida.");
         }
     }
 
@@ -552,7 +572,7 @@
         document.getElementById('secSexo').value = data.sexo || 'Indistinto';
     }
 
-    // --- FIREBASE ---
+    // --- CONEXIÓN FIREBASE ---
     window.agregarEmpresaPrincipal = function() {
         const id = document.getElementById('admId').value.trim().toLowerCase();
         const nombre = document.getElementById('admNombre').value.trim();
@@ -564,7 +584,7 @@
         if(!id || !nombre || !ubicacion || !link || !imagen) return;
 
         set(ref(db, 'empresas/' + id), { id, nombre, ubicacion, link, imagen, tags }).then(() => {
-            alert("Empresa registrada.");
+            alert("Empresa registrada con éxito.");
             document.getElementById('admId').disabled = false;
             limpiarFormularioPrincipal();
         });
@@ -618,7 +638,7 @@
             bannerUrl: document.getElementById('secBannerUrl').value,
             actividades: document.getElementById('secActividades').value
         }).then(() => {
-            alert("Sincronizado con Firebase.");
+            alert("¡Subido correctamente a la Base de Datos!");
         });
     }
 
