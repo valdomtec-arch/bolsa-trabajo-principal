@@ -486,7 +486,7 @@
         lector.readAsText(archivo);
     }
 
-    // SOLUCIÓN DEFINITIVA: Petición limpia sin parámetros conflictivos. Estructuración controlada por prompt + regex extractor.
+    // PETICIÓN COMPATIBLE CON v1beta SIN ATRIBUTOS DE CONFIGURACIÓN CONFLICTIVOS
     window.enviarTxtAGeminiWeb = async function() {
         const apiKey = document.getElementById('geminiApiKey').value.trim();
         const btnProcesar = document.getElementById('btnProcesarGemini');
@@ -506,8 +506,7 @@
             btnProcesar.disabled = true;
             btnProcesar.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Gemini procesando...`;
 
-            // Prompt maestro de ingeniería inversa
-            const promptBase = `Genera obligatoriamente un Array de objetos JSON como respuesta. No agregues explicaciones fuera del JSON, devuelve únicamente el JSON válido encerrado entre bloques de código de tres comillas invertidas de tipo json.
+            const promptBase = `Genera obligatoriamente un Array de objetos JSON como respuesta. No agregues explicaciones fuera del JSON, devuelve únicamente el JSON válido.
 
 Cada objeto debe seguir este esquema exacto:
 {
@@ -526,9 +525,8 @@ Cada objeto debe seguir este esquema exacto:
 Texto bruto a procesar:
 ${textoBruto}`;
 
-            const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
             
-            // Payload básico HTTP compatible universalmente
             const payload = {
                 contents: [{ 
                     parts: [{ text: promptBase }] 
@@ -549,7 +547,7 @@ ${textoBruto}`;
             const data = await response.json();
             let respuestaTexto = data.candidates[0].content.parts[0].text;
 
-            // Limpieza inteligente de bloques markdown ```json ... ``` si la IA los incluye
+            // Filtro regex para limpiar cualquier residuo o Markdown accidental ```json
             const regexJson = /\[\s*\{[\s\S]*\}\s*\]/g; 
             const coincidencia = respuestaTexto.match(regexJson);
             
