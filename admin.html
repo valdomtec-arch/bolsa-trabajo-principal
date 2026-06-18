@@ -173,7 +173,6 @@
             font-size: 1rem;
         }
 
-        /* ESTILOS PARA LA HERRAMIENTA DE GESTIÓN DE VACANTES ACTIVAS */
         .manager-box {
             background: rgba(239, 68, 68, 0.05);
             border: 1px dashed var(--red-danger);
@@ -262,7 +261,7 @@
         <div class="form-admin">
             <div class="section-divider">Configuración de Destino</div>
             <div class="form-group full-width">
-                <label>Selecciona la Empresa:</label>
+                <label>Selecciona la Empresa para la que es la vacante:</label>
                 <select id="secEmpresaSelect" onchange="escucharVacantesExistentes(this.value)">
                     <option value="">-- Elige una Empresa --</option>
                 </select>
@@ -391,7 +390,6 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    // Agregamos 'remove' a los métodos importados de Firebase para poder borrar nodos completos
     import { getDatabase, ref, set, onValue, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
     const firebaseConfig = { databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com/" };
@@ -399,9 +397,8 @@
     const db = getDatabase(app);
 
     let vacantesProcesadasGlobal = [];
-    let baseVacantesActualesEnFirebase = {}; // Memoria temporal de vacantes en la nube
+    let baseVacantesActualesEnFirebase = {};
 
-    // Lógica para cambiar de pestaña incorporada correctamente
     const tab1 = document.getElementById('btnTab1');
     const tab2 = document.getElementById('btnTab2');
     const content1 = document.getElementById('tabPrincipal');
@@ -416,7 +413,6 @@
         content2.classList.add('active'); content1.classList.remove('active');
     });
 
-    // NUEVA FUNCIÓN: LEER VACANTES EXISTENTES EN LA NUBE PARA LA EMPRESA SELECCIONADA
     window.escucharVacantesExistentes = function(empresaId) {
         const boxGestion = document.getElementById('boxGestionVacantes');
         const selectorFirebase = document.getElementById('selectorVacantesEnFirebase');
@@ -444,17 +440,15 @@
         });
     }
 
-    // NUEVA FUNCIÓN: CARGAR DATOS DE UNA VACANTE EXISTENTE AL FORMULARIO PARA EDITARLA
     window.cargarVacanteParaEditar = function() {
         const puestoKey = document.getElementById('selectorVacantesEnFirebase').value;
         if (!puestoKey || !baseVacantesActualesEnFirebase[puestoKey]) {
-            alert("Por favor, selecciona una vacante válida de la lista roja.");
+            alert("Por favor, selecciona una vacante válida de la lista.");
             return;
         }
 
         const vacante = baseVacantesActualesEnFirebase[puestoKey];
         
-        // Rellenar cada campo del formulario
         document.getElementById('secPuestoId').value = puestoKey;
         document.getElementById('secEstatus').value = vacante.estatus || 'disponible';
         document.getElementById('secVacanteNombre').value = vacante.vacanteNombre || '';
@@ -469,10 +463,9 @@
         document.getElementById('secActividades').value = vacante.actividades || '';
         document.getElementById('secInfoGeneral').value = vacante.informacionGeneral || '';
         
-        alert(`✏️ Se han cargado los datos de "${vacante.vacanteNombre}". Modifica lo que necesites y haz clic abajo en "Sincronizar Vacante" para guardar.`);
+        alert(`✏️ Datos de "${vacante.vacanteNombre}" cargados con éxito.`);
     }
 
-    // NUEVA FUNCIÓN: ELIMINAR LA VACANTE DE FIREBASE DEFINITIVAMENTE
     window.eliminarVacanteWeb = function() {
         const empresaId = document.getElementById('secEmpresaSelect').value;
         const puestoKey = document.getElementById('selectorVacantesEnFirebase').value;
@@ -483,13 +476,12 @@
         }
 
         const vacante = baseVacantesActualesEnFirebase[puestoKey];
-        const confirmacion = confirm(`⚠️ ¿ESTÁS SEGURO?\n\nVas a eliminar definitivamente la vacante "${vacante.vacanteNombre}" de la plataforma web.\nEsta acción no se puede deshacer.`);
+        const confirmacion = confirm(`⚠️ ¿ESTÁS SEGURO?\n\nVas a eliminar definitivamente la vacante "${vacante.vacanteNombre}" de la plataforma web.`);
         
         if (confirmacion) {
             remove(ref(db, `vacantes_detalles/${empresaId}/${puestoKey}`))
             .then(() => {
                 alert("🗑️ ¡Vacante eliminada con éxito de la plataforma web!");
-                // Limpiar el ID del puesto para evitar confusiones
                 document.getElementById('secPuestoId').value = "";
             })
             .catch((error) => {
