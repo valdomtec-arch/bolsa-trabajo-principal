@@ -19,6 +19,7 @@
             --green-whatsapp: #25D366;
             --purple-ia: #8b5cf6;
             --green-success: #10b981;
+            --red-danger: #ef4444;
         }
         body {
             background-color: var(--bg-page);
@@ -171,6 +172,34 @@
             margin-bottom: 12px;
             font-size: 1rem;
         }
+
+        /* ESTILOS PARA LA HERRAMIENTA DE GESTIÓN DE VACANTES ACTIVAS */
+        .manager-box {
+            background: rgba(239, 68, 68, 0.05);
+            border: 1px dashed var(--red-danger);
+            padding: 20px;
+            border-radius: 12px;
+            grid-column: 1 / -1;
+            margin-bottom: 15px;
+        }
+        .actions-layout {
+            display: flex;
+            gap: 15px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+        .btn-edit-mode {
+            background: #f59e0b;
+            color: black; border: none; padding: 12px 20px; font-weight: 700;
+            border-radius: 6px; cursor: pointer; transition: 0.3s; display: flex; align-items: center; gap: 8px;
+        }
+        .btn-edit-mode:hover { background: #d97706; }
+        .btn-delete-mode {
+            background: var(--red-danger);
+            color: white; border: none; padding: 12px 20px; font-weight: 700;
+            border-radius: 6px; cursor: pointer; transition: 0.3s; display: flex; align-items: center; gap: 8px;
+        }
+        .btn-delete-mode:hover { background: #dc2626; }
     </style>
 </head>
 <body>
@@ -183,7 +212,6 @@
         <button class="tab-btn" id="btnTab2"><i class="fas fa-briefcase"></i> 2. Control de Vacantes Masivo</button>
     </div>
 
-    <!-- PESTAÑA 1 -->
     <div id="tabPrincipal" class="tab-content active">
         <div class="form-admin">
             <div class="section-divider">Alta / Edición de Empresa Base</div>
@@ -230,22 +258,40 @@
         </div>
     </div>
 
-    <!-- PESTAÑA 2 -->
     <div id="tabSecundarias" class="tab-content">
         <div class="form-admin">
             <div class="section-divider">Configuración de Destino</div>
-            <div class="form-group">
+            <div class="form-group full-width">
                 <label>Selecciona la Empresa:</label>
-                <select id="secEmpresaSelect">
+                <select id="secEmpresaSelect" onchange="escucharVacantesExistentes(this.value)">
                     <option value="">-- Elige una Empresa --</option>
                 </select>
             </div>
+
+            <div class="manager-box" id="boxGestionVacantes" style="display: none;">
+                <label style="color: var(--red-danger); font-weight: bold; display: block; margin-bottom: 5px;">
+                    <i class="fas fa-folder-minus"></i> Modificar o Eliminar Vacantes Existentes en la Web
+                </label>
+                <p style="margin: 0 0 10px 0; font-size: 0.85rem; color: var(--text-muted);">
+                    Si una vacante se subió con errores, selecciónala aquí abajo para cargar sus datos actuales o borrarla definitivamente.
+                </p>
+                <select id="selectorVacantesEnFirebase" style="width: 100%; padding: 11px; background: #221317; border: 1px solid var(--red-danger); color: #fca5a5; border-radius: 8px;">
+                    </select>
+                <div class="actions-layout">
+                    <button type="button" class="btn-edit-mode" onclick="cargarVacanteParaEditar()">
+                        <i class="fas fa-edit"></i> Cargar Datos en Formulario
+                    </button>
+                    <button type="button" class="btn-delete-mode" onclick="eliminarVacanteWeb()">
+                        <i class="fas fa-trash-alt"></i> Eliminar Definitivamente de la Web
+                    </button>
+                </div>
+            </div>
+
             <div class="form-group">
                 <label>ID Clave de este Puesto:</label>
                 <input type="text" id="secPuestoId" placeholder="Ej: ayudante, montacargas">
             </div>
 
-            <!-- EXTRACTOR INTELIGENTE V4.0 -->
             <div class="ia-box">
                 <label style="color: var(--purple-ia); font-weight: bold; display: block; margin-bottom: 5px;">
                     <i class="fas fa-bolt"></i> Extractor de Patrones V4.0 (Congelador de Salario Directo + Info General)
@@ -265,8 +311,7 @@
                     </label>
                     
                     <select id="selectorVacantesDetectadas" class="selector-puestos-verde" onchange="cambiarVacanteVerdeSeleccionada()">
-                        <!-- Dinámico -->
-                    </select>
+                        </select>
 
                     <textarea id="codigoJsonVerde" readonly style="background: #061c15; color: #34d399; border: 1px solid var(--green-success); font-family: monospace; font-size: 0.85rem; width: 100%; min-height: 150px; margin-bottom: 10px; padding: 10px; box-sizing: border-box; border-radius: 8px;"></textarea>
                     
@@ -334,7 +379,6 @@
                 <textarea id="secActividades"></textarea>
             </div>
 
-            <!-- CAMPO DE INFORMACIÓN GENERAL -->
             <div class="form-group full-width" style="border: 1px solid var(--primary-orange); padding: 15px; border-radius: 8px; background: rgba(255,102,0,0.05);">
                 <label style="color: var(--primary-orange); font-weight: bold;"><i class="fas fa-info-circle"></i> Información General de la Plaza / Reglas de Reingreso y Entrevista:</label>
                 <textarea id="secInfoGeneral" style="min-height: 120px; border-color: var(--primary-orange);" placeholder="Ej: No reingresos de KIA, consideraciones de nómina, etc."></textarea>
@@ -347,13 +391,15 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    // Agregamos 'remove' a los métodos importados de Firebase para poder borrar nodos completos
+    import { getDatabase, ref, set, onValue, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
     const firebaseConfig = { databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com/" };
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
     let vacantesProcesadasGlobal = [];
+    let baseVacantesActualesEnFirebase = {}; // Memoria temporal de vacantes en la nube
 
     // Lógica para cambiar de pestaña incorporada correctamente
     const tab1 = document.getElementById('btnTab1');
@@ -369,6 +415,88 @@
         tab2.classList.add('active'); tab1.classList.remove('active');
         content2.classList.add('active'); content1.classList.remove('active');
     });
+
+    // NUEVA FUNCIÓN: LEER VACANTES EXISTENTES EN LA NUBE PARA LA EMPRESA SELECCIONADA
+    window.escucharVacantesExistentes = function(empresaId) {
+        const boxGestion = document.getElementById('boxGestionVacantes');
+        const selectorFirebase = document.getElementById('selectorVacantesEnFirebase');
+        
+        if (!empresaId) {
+            boxGestion.style.display = "none";
+            return;
+        }
+
+        onValue(ref(db, `vacantes_detalles/${empresaId}`), (snapshot) => {
+            selectorFirebase.innerHTML = "";
+            baseVacantesActualesEnFirebase = snapshot.val() || {};
+            
+            const keys = Object.keys(baseVacantesActualesEnFirebase);
+            if (keys.length === 0) {
+                selectorFirebase.innerHTML = '<option value="">-- No hay vacantes registradas en esta empresa --</option>';
+            } else {
+                selectorFirebase.innerHTML = '<option value="">-- Selecciona una vacante para Editar o Borrar --</option>';
+                keys.forEach(puestoKey => {
+                    const vac = baseVacantesActualesEnFirebase[puestoKey];
+                    selectorFirebase.innerHTML += `<option value="${puestoKey}">[ID: ${puestoKey}] ${vac.vacanteNombre || 'Sin nombre'}</option>`;
+                });
+            }
+            boxGestion.style.display = "block";
+        });
+    }
+
+    // NUEVA FUNCIÓN: CARGAR DATOS DE UNA VACANTE EXISTENTE AL FORMULARIO PARA EDITARLA
+    window.cargarVacanteParaEditar = function() {
+        const puestoKey = document.getElementById('selectorVacantesEnFirebase').value;
+        if (!puestoKey || !baseVacantesActualesEnFirebase[puestoKey]) {
+            alert("Por favor, selecciona una vacante válida de la lista roja.");
+            return;
+        }
+
+        const vacante = baseVacantesActualesEnFirebase[puestoKey];
+        
+        // Rellenar cada campo del formulario
+        document.getElementById('secPuestoId').value = puestoKey;
+        document.getElementById('secEstatus').value = vacante.estatus || 'disponible';
+        document.getElementById('secVacanteNombre').value = vacante.vacanteNombre || '';
+        document.getElementById('secSalario').value = vacante.salario || '';
+        document.getElementById('secEdad').value = vacante.edad || '';
+        document.getElementById('secLugarOrigen').value = vacante.lugarOrigen || '';
+        document.getElementById('secTurnos').value = vacante.turnos || '';
+        document.getElementById('secSexo').value = vacante.sexo || 'Indistinto';
+        document.getElementById('secExperiencia').value = vacante.experiencia || '';
+        document.getElementById('secEscolaridad').value = vacante.escolaridad || '';
+        document.getElementById('secBannerUrl').value = vacante.bannerUrl || '';
+        document.getElementById('secActividades').value = vacante.actividades || '';
+        document.getElementById('secInfoGeneral').value = vacante.informacionGeneral || '';
+        
+        alert(`✏️ Se han cargado los datos de "${vacante.vacanteNombre}". Modifica lo que necesites y haz clic abajo en "Sincronizar Vacante" para guardar.`);
+    }
+
+    // NUEVA FUNCIÓN: ELIMINAR LA VACANTE DE FIREBASE DEFINITIVAMENTE
+    window.eliminarVacanteWeb = function() {
+        const empresaId = document.getElementById('secEmpresaSelect').value;
+        const puestoKey = document.getElementById('selectorVacantesEnFirebase').value;
+        
+        if (!empresaId || !puestoKey) {
+            alert("Selecciona la empresa y la vacante que deseas remover.");
+            return;
+        }
+
+        const vacante = baseVacantesActualesEnFirebase[puestoKey];
+        const confirmacion = confirm(`⚠️ ¿ESTÁS SEGURO?\n\nVas a eliminar definitivamente la vacante "${vacante.vacanteNombre}" de la plataforma web.\nEsta acción no se puede deshacer.`);
+        
+        if (confirmacion) {
+            remove(ref(db, `vacantes_detalles/${empresaId}/${puestoKey}`))
+            .then(() => {
+                alert("🗑️ ¡Vacante eliminada con éxito de la plataforma web!");
+                // Limpiar el ID del puesto para evitar confusiones
+                document.getElementById('secPuestoId').value = "";
+            })
+            .catch((error) => {
+                alert("Error al eliminar: " + error.message);
+            });
+        }
+    }
 
     window.procesarTxtWhatsAppV4 = function() {
         try {
@@ -563,7 +691,7 @@
     window.guardarDetallesSecundaria = function() {
         const empresaId = document.getElementById('secEmpresaSelect').value;
         const puestoId = document.getElementById('secPuestoId').value.trim().toLowerCase();
-        if(!empresaId || !puestoId) return;
+        if(!empresaId || !puestoId) { alert("Empresa e ID de puesto son requeridos."); return; }
 
         set(ref(db, `vacantes_detalles/${empresaId}/${puestoId}`), {
             puestoId,
