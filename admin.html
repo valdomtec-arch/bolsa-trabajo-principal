@@ -241,8 +241,8 @@
                     <i class="fas fa-file-upload"></i> Alimentación Directa desde Archivo .txt
                 </label>
                 <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 10px;">
-                    1. Selecciona el archivo .txt de la vacante directamente desde tu equipo.<br>
-                    2. Haz clic en el botón morado que aparecerá abajo para abrir Gemini sin bloqueos del navegador.
+                    1. Selecciona el archivo .txt de la vacante.<br>
+                    2. Copia las instrucciones generadas y pégalas en Gemini de forma segura.
                 </p>
                 
                 <div style="display: flex; gap: 15px; align-items: center; margin-bottom: 15px; flex-wrap: wrap;">
@@ -254,14 +254,21 @@
                 </div>
 
                 <div id="contenedorBotonEnviarIa" style="margin-bottom: 15px; display: none;">
-                    <button type="button" class="btn-ia" id="btnEnviarManualIa" style="background: #6d28d9; margin-top:0; width: 100%;">
-                        <i class="fab fa-google"></i> 🚀 Enviar datos cargados a Gemini ahora
-                    </button>
+                    <textarea id="promptOcultoGenerado" readonly style="background: #0d1724; color: #a7f3d0; border-color: #059669; font-family: monospace; font-size: 0.85rem; width: 100%; min-height: 120px; margin-bottom: 10px; padding: 10px; box-sizing: border-box;"></textarea>
+                    
+                    <div style="display: flex; gap: 10px;">
+                        <button type="button" class="btn-ia" onclick="copiarPromptAlPortapapeles()" style="background: #059669; flex: 1; margin-top:0;">
+                            <i class="fas fa-copy"></i> 2. Copiar Instrucciones Obtenidas
+                        </button>
+                        <button type="button" class="btn-ia" onclick="abrirGeminiLimpio()" style="background: #6d28d9; flex: 1; margin-top:0;">
+                            <i class="fab fa-google"></i> 3. Abrir Gemini e ir a Pegar
+                        </button>
+                    </div>
                 </div>
 
-                <textarea id="iaTextoPegar" placeholder="Pega aquí el código estructurado que te regresó Gemini..." style="border-color: var(--purple-ia); min-height: 90px;"></textarea>
+                <textarea id="iaTextoPegar" placeholder="Pega aquí el código estructurado que te regresó Gemini..." style="border-color: var(--purple-ia); min-height: 90px; margin-top: 15px;"></textarea>
                 <button type="button" class="btn-ia" onclick="procesarTextoBrutoTxt()">
-                    <i class="fas fa-magic"></i> 2. Rellenar Formulario Automáticamente
+                    <i class="fas fa-magic"></i> 4. Rellenar Formulario Automáticamente
                 </button>
             </div>
 
@@ -339,12 +346,12 @@
         event.currentTarget.classList.add('active');
     }
 
-    // --- LECTOR DE ARCHIVOS .TXT AUTOMÁTICO CON ENTRADA MANUAL COMPORTAMIENTO SEGURO ---
+    // --- NUEVO LECTOR FLUIDO SIN PÉRDIDA DE DATOS POR URL ---
     window.leerArchivoTxtYPrepararIA = function() {
         const input = document.getElementById('archivoTxtInput');
         const indicadorNombre = document.getElementById('nombreArchivoCargado');
         const contenedorBtn = document.getElementById('contenedorBotonEnviarIa');
-        const btnManual = document.getElementById('btnEnviarManualIa');
+        const txtAreaPrompt = document.getElementById('promptOcultoGenerado');
         
         if (!input.files || input.files.length === 0) return;
         
@@ -356,33 +363,40 @@
             const contenidoBrutoTxt = e.target.result.trim();
             if(!contenidoBrutoTxt) { alert("El archivo seleccionado está vacío."); return; }
             
-            const instruccionPrompt = "Hola Gemini, soy el administrador de la Bolsa de Trabajo. Acabo de subir un archivo .txt y mi sistema te está enviando su texto íntegro en bruto abajo. Tu único trabajo es leerlo, procesar y extraer la información, y devolvérmela estrictamente en este formato JSON limpio, sin saludos, sin texto extra y sin explicaciones de ningún tipo. Solo el JSON plano:\\n\\n" +
-            "{\\n" +
-            '  "vacanteNombre": "Nombre del puesto",\\n' +
-            '  "salario": "Sueldo diario o semanal con prestaciones",\\n' +
-            '  "edad": "Rango de edad requerido",\\n' +
-            '  "lugarOrigen": "Zonas o rutas que cubre",\\n' +
-            '  "turnos": "Horarios o rotación",\\n' +
-            '  "sexo": "Masculino, Femenino o Indistinto",\\n' +
-            '  "experiencia": "Tiempo o conocimiento requerido",\\n' +
-            '  "escolaridad": "Nivel de estudios",\\n' +
-            '  "actividades": "Lista detallada de actividades y beneficios en texto continuo"\\n' +
-            "}\\n\\n" +
-            "TEXTO DEL ARCHIVO .TXT APORTADO:\\n" +
-            "=========================================\\n" +
-            contenidoBrutoTxt + "\\n" +
+            const instruccionPrompt = "Hola Gemini, soy el administrador de la Bolsa de Trabajo. Acabo de subir un archivo .txt y mi sistema te está enviando su texto íntegro en bruto abajo. Tu único trabajo es leerlo, procesar y extraer la información, y devolvérmela estrictamente en este formato JSON limpio, sin saludos, sin texto extra y sin explicaciones de ningún tipo. Solo el JSON plano:\n\n" +
+            "{\n" +
+            '  "vacanteNombre": "Nombre del puesto",\n' +
+            '  "salario": "Sueldo diario o semanal con prestaciones",\n' +
+            '  "edad": "Rango de edad requerido",\n' +
+            '  "lugarOrigen": "Zonas o rutas que cubre",\n' +
+            '  "turnos": "Horarios o rotación",\n' +
+            '  "sexo": "Masculino, Femenino o Indistinto",\n' +
+            '  "experiencia": "Tiempo o conocimiento requerido",\n' +
+            '  "escolaridad": "Nivel de estudios",\n' +
+            '  "actividades": "Lista detallada de actividades y beneficios en texto continuo"\n' +
+            "}\n\n" +
+            "TEXTO DEL ARCHIVO .TXT APORTADO:\n" +
+            "=========================================\n" +
+            contenidoBrutoTxt + "\n" +
             "=========================================";
 
-            // Mostrar el botón morado de disparo manual para evitar bloqueos del navegador
+            // Inyectar el texto completo de forma segura en la pantalla
+            txtAreaPrompt.value = instruccionPrompt;
             contenedorBtn.style.display = 'block';
-            
-            // Acción directa del usuario: El navegador lo identifica como legítimo y no lo bloquea
-            btnManual.onclick = () => {
-                const urlGemini = `https://gemini.google.com/app?prompt=${encodeURIComponent(instruccionPrompt)}`;
-                window.open(urlGemini, '_blank');
-            };
         };
         lector.readAsText(archivo);
+    }
+
+    window.copiarPromptAlPortapapeles = function() {
+        const txtArea = document.getElementById('promptOcultoGenerado');
+        txtArea.select();
+        txtArea.setSelectionRange(0, 99999); // Para móviles
+        navigator.clipboard.writeText(txtArea.value);
+        alert("📋 ¡Instrucciones y texto del archivo copiados al portapapeles con éxito!");
+    }
+
+    window.abrirGeminiLimpio = function() {
+        window.open('https://gemini.google.com/app', '_blank');
     }
 
     // --- PROCESADOR DE RESPUESTA INTELIGENTE DE GEMINI ---
