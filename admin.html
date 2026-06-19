@@ -21,6 +21,7 @@
 --green-success: #10b981; 
 --red-danger: #ef4444; 
 --blue-update: #0284c7; 
+--gray-reset: #6b7280;
 } 
 * { box-sizing: border-box; }
 body { 
@@ -126,6 +127,19 @@ transition: all .25s;
 font-size: 1rem; 
 } 
 .btn-update-final:hover { background: #0369a1; transform: translateY(-1px); } 
+.btn-reset { 
+background: var(--gray-reset); 
+color: white; 
+border: none; 
+padding: 12px; 
+border-radius: 8px; 
+font-weight: 700; 
+cursor: pointer; 
+transition: all .25s;
+font-size: 1rem; 
+grid-column: 1 / -1;
+}
+.btn-reset:hover { background: #4b5563; transform: translateY(-1px); } 
 .dual-buttons-layout { 
 grid-column: 1 / -1; 
 display: grid; 
@@ -133,7 +147,16 @@ grid-template-columns: 1fr 1fr;
 gap: 12px; 
 margin-top: 8px; 
 } 
-@media (max-width:600px){ .dual-buttons-layout{grid-template-columns:1fr;} }
+.triple-buttons-layout { 
+grid-column: 1 / -1; 
+display: grid; 
+grid-template-columns: 1fr 1fr 1fr; 
+gap: 12px; 
+margin-top: 8px; 
+}
+@media (max-width:600px){ 
+  .dual-buttons-layout, .triple-buttons-layout{grid-template-columns:1fr;} 
+}
 .ia-box { 
 background: rgba(139, 92, 246, 0.1); 
 border: 1px dashed var(--purple-ia); 
@@ -224,28 +247,30 @@ flex-wrap: wrap;
 background: #f59e0b; 
 color: #111; 
 border: none; 
-padding: 10px 16px; 
+padding: 6px 12px; 
 font-weight: 700; 
 border-radius: 6px; 
 cursor: pointer; 
 transition: all .25s; 
-display: flex; 
+display: inline-flex; 
 align-items: center; 
-gap: 6px; 
+gap: 4px; 
+font-size: 0.85rem;
 } 
 .btn-edit-mode:hover { background: #d97706; } 
 .btn-delete-mode { 
 background: var(--red-danger); 
 color: white; 
 border: none; 
-padding: 10px 16px; 
+padding: 6px 12px; 
 font-weight: 700; 
 border-radius: 6px; 
 cursor: pointer; 
 transition: all .25s; 
-display: flex; 
+display: inline-flex; 
 align-items: center; 
-gap: 6px; 
+gap: 4px; 
+font-size: 0.85rem;
 } 
 .btn-delete-mode:hover { background: #dc2626; } 
 pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-success); padding:10px; border-radius:8px; font-size:.82rem; overflow:auto; max-height:220px; white-space:pre-wrap; }
@@ -275,13 +300,17 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
     <div class="form-group full-width"><label>Hipervínculo / Repositorio:</label><input type="url" id="admLink" placeholder="https://..."></div> 
     <div class="form-group"><label>URL Logo:</label><input type="url" id="admImagen" placeholder="https://...logo.png"></div> 
     <div class="form-group"><label>Etiquetas:</label><input type="text" id="admTags" placeholder="automotriz, industrial, 24h"></div>
-    <button class="btn-add" onclick="agregarEmpresaPrincipal()"><i class="fas fa-save"></i> Guardar Empresa</button>
+    
+    <div class="triple-buttons-layout">
+      <button class="btn-add" onclick="agregarEmpresaPrincipal()" id="btnGuardarEmpresa"><i class="fas fa-save"></i> Guardar Empresa</button>
+      <button class="btn-reset" onclick="reiniciarFormularioEmpresa()"><i class="fas fa-eraser"></i> Limpiar / Reiniciar</button>
+    </div>
   </div> 
 
   <h2 style="font-size:1.15rem;">Directorio de Empresas</h2> 
   <div style="overflow-x: auto;"> 
     <table class="empresas-table"> 
-      <thead><tr><th>Logo</th><th>ID Clave</th><th>Empresa</th><th>Ubicación</th></tr></thead> 
+      <thead><tr><th>Logo</th><th>ID Clave</th><th>Empresa</th><th>Ubicación</th><th>Acciones</th></tr></thead> 
       <tbody id="adminTablaEmpresas"></tbody> 
     </table> 
   </div> 
@@ -392,7 +421,7 @@ apiKeyInput.addEventListener('input', (e) => {
 // ============================================================
 const IA_V6 = {
   esquemaBols: {
-    type: Type.ARRAY, // Cambiado a ARRAY para soportar extracción de múltiples puestos simultáneamente
+    type: Type.ARRAY,
     description: "Lista de todas las vacantes individuales identificadas en el texto.",
     items: {
       type: Type.OBJECT,
@@ -524,9 +553,9 @@ window.eliminarVacanteWeb = function(){
   const k = document.getElementById('selectorVacantesEnFirebase').value;
   if(!e||!k) return alert('Selecciona empresa y vacante');
   const n = baseVacantesActualesEnFirebase[k]?.vacanteNombre || k;
-  if(confirm(`⚠️ ELIMINAR DEFINITIVAMENTE:\n"${n}"\nEsta acción NO se puede deshacer.`)){
+  if(confirm(`⚠️ ELIMINAR SOLO ESTA VACANTE:\n"${n}"\nEsta acción NO se puede deshacer.`)){
     remove(ref(db,`vacantes_detalles/${e}/${k}`)).then(()=>{
-      alert('✅ Eliminada correctamente');
+      alert('✅ Vacante eliminada correctamente');
       limpiarFormularioVacantes();
       escucharVacantesExistentes(e);
     }).catch(err=>alert('❌ Error: '+err.message));
@@ -561,7 +590,6 @@ window.procesarTxtWhatsAppV6 = async function(){
       
       const texto = ev.target.result;
       
-      // Llamada al motor Array
       const resultadoArray = await IA_V6.llamarInterprete(texto);
       
       if (!Array.isArray(resultadoArray) || resultadoArray.length === 0) {
@@ -570,7 +598,6 @@ window.procesarTxtWhatsAppV6 = async function(){
 
       vacantesProcesadasGlobal = resultadoArray; 
       
-      // Llenamos el selector verde con todas las vacantes del lote
       const sel = document.getElementById('selectorVacantesDetectadas');
       sel.innerHTML = "";
       vacantesProcesadasGlobal.forEach((puesto, index) => {
@@ -605,7 +632,6 @@ window.transferirAlEspacioMorado = function(){
   document.getElementById('iaTextoPegar').value = j;
 };
 
-// SUBIDA EN LOTE COMPLETA DIRECTO DESDE EL SELECTOR VERDE
 window.subirTodasLasVacantesVerdesALote = async function() {
   const empresaDestino = document.getElementById('secEmpresaSelect').value;
   if (!empresaDestino) {
@@ -623,7 +649,6 @@ window.subirTodasLasVacantesVerdesALote = async function() {
   try {
     let subidosContador = 0;
     for (const puesto of vacantesProcesadasGlobal) {
-      // Generamos un ID amigable e individual para cada puesto del lote
       const sugerenciaId = puesto.vacanteNombre.toLowerCase().split(' ')[0].normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'').slice(0,25);
       const puestoIdFinal = sanitizarId(sugerenciaId + "-" + Math.floor(Math.random() * 1000));
 
@@ -676,7 +701,6 @@ window.procesarTextoBrutoTxt = async function(){
       datos = Array.isArray(arrayLlamada) ? arrayLlamada[0] : arrayLlamada;
     }
     
-    // Asignación limpia a tus campos visuales
     document.getElementById('secVacanteNombre').value = datos.vacanteNombre || '';
     document.getElementById('secSalario').value = datos.salario || '';
     document.getElementById('secEdad').value = datos.edad || '';
@@ -711,11 +735,10 @@ window.procesarTextoBrutoTxt = async function(){
 };
 
 // ============================================================
-// FIREBASE — GUARDADO Y ALTA
+// FIREBASE — GUARDADO Y ALTA / EDICIÓN EMPRESAS
 // ============================================================
 function sanitizarId(s){ return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[.#$\[\]\/\s]/g,'-').replace(/-+/g,'-').slice(0,50); }
 
-// Lee de la UI para subidas manuales
 function leerVacanteForm(){
   return {
     puestoId: sanitizarId(document.getElementById('secPuestoId').value),
@@ -758,12 +781,18 @@ window.guardarActualizacionVacante = async function(){
   }catch(e){ alert('❌ Error: '+e.message); }
 };
 
+let idEmpresaEnEdicion = null;
+
 window.agregarEmpresaPrincipal = async function(){
   const id = sanitizarId(document.getElementById('admId').value);
   const nombre = document.getElementById('admNombre').value.trim();
   if(!id||!nombre) return alert('⚠️ ID y nombre obligatorios');
+  
+  const idFinal = idEmpresaEnEdicion || id;
+  
   const payload = {
-    id, nombre,
+    id: id,
+    nombre: nombre,
     ubicacion: document.getElementById('admUbicacion').value.trim(),
     link: document.getElementById('admLink').value.trim(),
     imagen: document.getElementById('admImagen').value.trim(),
@@ -771,13 +800,48 @@ window.agregarEmpresaPrincipal = async function(){
     actualizado: new Date().toISOString()
   };
   try{
-    await set(ref(db,`empresas/${id}`), payload);
-    alert('✅ Empresa guardada');
-    ['admId','admNombre','admUbicacion','admLink','admImagen','admTags'].forEach(x=>document.getElementById(x).value='');
+    await set(ref(db,`empresas/${idFinal}`), payload);
+    alert(idEmpresaEnEdicion ? '✅ Empresa actualizada' : '✅ Empresa guardada');
+    reiniciarFormularioEmpresa();
   }catch(e){ alert('❌ Error: '+e.message); }
 };
 
-// CARGA INICIAL EMPRESAS
+window.reiniciarFormularioEmpresa = function() {
+  idEmpresaEnEdicion = null;
+  document.getElementById('btnGuardarEmpresa').innerHTML = '<i class="fas fa-save"></i> Guardar Empresa';
+  ['admId','admNombre','admUbicacion','admLink','admImagen','admTags'].forEach(x=>document.getElementById(x).value='');
+};
+
+window.cargarEmpresaParaEditar = function(idEmpresa) {
+  onValue(ref(db,`empresas/${idEmpresa}`), snap => {
+    const datos = snap.val();
+    if(!datos) return;
+    
+    document.getElementById('admId').value = datos.id || '';
+    document.getElementById('admNombre').value = datos.nombre || '';
+    document.getElementById('admUbicacion').value = datos.ubicacion || '';
+    document.getElementById('admLink').value = datos.link || '';
+    document.getElementById('admImagen').value = datos.imagen || '';
+    document.getElementById('admTags').value = datos.tags || '';
+    
+    idEmpresaEnEdicion = idEmpresa;
+    document.getElementById('btnGuardarEmpresa').innerHTML = '<i class="fas fa-sync-alt"></i> ACTUALIZAR Empresa';
+    
+    document.querySelector('.admin-container').scrollIntoView({behavior:'smooth'});
+  }, {onlyOnce:true});
+};
+
+window.eliminarEmpresa = function(idEmpresa, nombreEmpresa) {
+  if(!idEmpresa) return;
+  
+  if(confirm(`⚠️ ¡ADVERTENCIA! VAS A ELIMINAR TODO:\n\nEmpresa: "${nombreEmpresa || idEmpresa}"\n👉 SE BORRARÁN TAMBIÉN TODAS LAS VACANTES REGISTRADAS PARA ESTA EMPRESA.\n\nEsta acción NO se puede deshacer. ¿Estás completamente seguro?`)) {
+    remove(ref(db,`empresas/${idEmpresa}`))
+    .then(() => remove(ref(db,`vacantes_detalles/${idEmpresa}`)))
+    .then(() => alert('✅ Empresa y todas sus vacantes eliminadas correctamente'))
+    .catch(err => alert('❌ Error: ' + err.message));
+  }
+};
+
 onValue(ref(db,'empresas'), snap=>{
   const tb = document.getElementById('adminTablaEmpresas');
   const sel = document.getElementById('secEmpresaSelect');
@@ -785,7 +849,21 @@ onValue(ref(db,'empresas'), snap=>{
   sel.innerHTML='<option value="">-- Elige una Empresa --</option>';
   const d = snap.val()||{};
   Object.values(d).forEach(e=>{
-    tb.innerHTML += `<tr><td><img src="${e.imagen||'https://cdn-icons-png.flaticon.com/512/1041/1041916.png'}" alt=""></td><td><code>${e.id}</code></td><td>${e.nombre}</td><td>${e.ubicacion||''}</td></tr>`;
+    tb.innerHTML += `
+    <tr>
+      <td><img src="${e.imagen||'https://cdn-icons-png.flaticon.com/512/1041/1041916.png'}" alt=""></td>
+      <td><code>${e.id}</code></td>
+      <td>${e.nombre}</td>
+      <td>${e.ubicacion||''}</td>
+      <td>
+        <button class="btn-edit-mode" onclick="cargarEmpresaParaEditar('${e.id}')">
+          <i class="fas fa-edit"></i> Editar
+        </button>
+        <button class="btn-delete-mode" onclick="eliminarEmpresa('${e.id}', '${e.nombre.replace(/'/g, "\\'")}')">
+          <i class="fas fa-trash-alt"></i> Eliminar
+        </button>
+      </td>
+    </tr>`;
     sel.innerHTML += `<option value="${e.id}">${e.nombre}</option>`;
   });
 });
