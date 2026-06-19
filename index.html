@@ -65,7 +65,6 @@
             backdrop-filter: blur(10px);
         }
 
-        /* --- HEADER PREMIUM CON EFECTO GLOW --- */
         header {
             text-align: center;
             margin-bottom: 45px;
@@ -137,7 +136,6 @@
             text-shadow: 0 0 10px rgba(255, 102, 0, 0.3);
         }
 
-        /* --- BUSCADOR --- */
         .search-container {
             max-width: 550px;
             margin: -25px auto 40px auto;
@@ -295,7 +293,6 @@
             border: 1px solid rgba(255, 102, 0, 0.25);
         }
 
-        /* Controles de Navegación */
         .gallery-nav {
             display: flex;
             gap: 25px;
@@ -341,7 +338,6 @@
             letter-spacing: 0.5px;
         }
 
-        /* --- SKELETON LOADING ANIMADO --- */
         .skeleton-card {
             background: linear-gradient(90deg, #122035 25%, #1c2e4a 50%, #122035 75%);
             background-size: 200% 100%;
@@ -357,7 +353,6 @@
             100% { background-position: -200% 0; }
         }
 
-        /* --- BOTONES DE BOLSAS DE TRABAJO --- */
         .button-group {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -387,7 +382,6 @@
             box-shadow: 0 10px 20px rgba(255, 102, 0, 0.25);
         }
 
-        /* --- FORMULARIO DISEÑO LIMPIO CON CAMPO FLOTANTE --- */
         .form-section {
             background: var(--bg-form); 
             padding: 40px;
@@ -453,7 +447,6 @@
             color: var(--white);
         }
 
-        /* Validación Visual Interactiva */
         .validation-icon {
             position: absolute;
             right: 16px;
@@ -479,7 +472,6 @@
         }
         .floating-group.is-invalid .validation-icon { color: #ef4444; }
 
-        /* Botón de WhatsApp dinámico */
         .btn-whatsapp {
             display: flex;
             align-items: center;
@@ -520,7 +512,6 @@
             100% { transform: translate(100%, 100%) rotate(30deg); }
         }
 
-        /* --- BOTÓN FLOTANTE --- */
         .whatsapp-float {
             position: fixed;
             width: 65px;
@@ -562,7 +553,6 @@
         .secret-admin-trigger { cursor: default; user-select: none; transition: color 0.2s ease; }
         .secret-admin-trigger:hover { color: var(--primary-orange); }
 
-        /* --- OPTIMIZACIÓN MÓVIL EXACTA --- */
         @media (max-width: 768px) {
             body { padding: 15px 10px; }
             .container { padding: 25px 15px; border-radius: var(--radius-md); }
@@ -710,13 +700,9 @@
 
     onValue(dbRef, (snapshot) => {
         const data = snapshot.val() || {};
-        
-        // Rastreador de Consola (F12) para validar la estructura exacta de tu base de datos
         console.log("DATOS REALES DE FIREBASE:", data);
-        
         todasLasEmpresas = data; 
         
-        // Mapeo estructurado para soportar cualquier tipo de clave
         empresasFiltradas = Object.keys(data).map((id, index) => {
             const item = data[id];
             return { 
@@ -727,7 +713,7 @@
                 imagen: item.imagen || '',
                 link: item.link || '#',
                 tags: item.tags || '',
-                vacantes: item.vacantes || ''
+                rawItem: item // Guardamos todo el objeto original por si los campos cambian
             };
         });
         
@@ -761,41 +747,53 @@
                 <a href="${emp.link}" target="_blank" class="btn-link" data-company="${emp.tags}">${emp.nombre}</a>
             `;
 
-            // Asignamos el ID de Firebase al value de la opción
             selectEmpresa.innerHTML += `<option value="${emp.id}">${emp.nombre}</option>`;
         });
     }
 
-    // EVENTO CHANGE DE TRIPLE FILTRADO DE SEGURIDAD
+    // EVENTO CHANGE INTELIGENTE: EXTRAE PUESTOS EN CUALQUIER FORMATO O NOMBRE
     document.getElementById('empresa').addEventListener('change', function(e) {
         const selectVacante = document.getElementById('vacante');
         const valorSeleccionado = e.target.value;
+        const textoVisible = e.target.options[e.target.selectedIndex].text;
         
-        // Capa 1: Búsqueda directa por llave en el mapa nativo
-        let empresaSeleccionada = todasLasEmpresas[valorSeleccionado];
-        
-        // Capa 2 y 3: Búsqueda por texto visible o coincidencia si los nodos vienen en un array plano
-        if (!empresaSeleccionada) {
-            const textoVisible = e.target.options[e.target.selectedIndex].text;
-            empresaSeleccionada = empresasFiltradas.find(emp => 
-                emp.id === valorSeleccionado || 
-                emp.nombre === textoVisible || 
-                emp.indexRef === valorSeleccionado
-            );
+        // 1. Encontrar el nodo del objeto original
+        let empNodo = todasLasEmpresas[valorSeleccionado];
+        if (!empNodo) {
+            const encontrado = empresasFiltradas.find(emp => emp.id === valorSeleccionado || emp.nombre === textoVisible);
+            if (encontrado) empNodo = encontrado.rawItem;
         }
 
         selectVacante.innerHTML = '<option value="" disabled selected hidden></option>';
         selectVacante.disabled = false;
 
-        if (empresaSeleccionada && empresaSeleccionada.vacantes) {
-            const vacantesStr = String(empresaSeleccionada.vacantes);
-            const listaVacantes = vacantesStr.split(',');
-            
-            listaVacantes.forEach(vacante => {
-                const vacanteLimpia = vacante.trim();
-                if (vacanteLimpia !== "") {
-                    selectVacante.innerHTML += `<option value="${vacanteLimpia}">${vacanteLimpia}</option>`;
+        let listaPuestos Final = [];
+
+        if (empNodo) {
+            // 2. Extractor Multipropósito: Busca variaciones de nombres (vacantes, vacante, puestos, puesto)
+            let fuenteVacantes = empNodo.vacantes || empNodo.vacante || empNodo.puestos || empNodo.puesto || empNodo.ofertas;
+
+            if (fuenteVacantes) {
+                if (Array.isArray(fuenteVacantes)) {
+                    // Si viene listo como un Arreglo de Firebase
+                    listaPuestosFinal = fuenteVacantes.map(v => String(v).trim());
+                } else if (typeof fuenteVacantes === 'object') {
+                    // Si viene como un objeto de llaves internas
+                    listaPuestosFinal = Object.values(fuenteVacantes).map(v => String(v).trim());
+                } else {
+                    // Si viene como cadena de texto (ej: "Montacarguista, Auxiliar")
+                    listaPuestosFinal = String(fuenteVacantes).split(',').map(v => v.trim());
                 }
+            }
+        }
+
+        // Limpieza final de valores vacíos
+        listaPuestosFinal = listaPuestosFinal.filter(v => v !== "");
+
+        // 3. Renderizado final o caída controlada
+        if (listaPuestosFinal.length > 0) {
+            listaPuestosFinal.forEach(puesto => {
+                selectVacante.innerHTML += `<option value="${puesto}">${puesto}</option>`;
             });
         } else {
             selectVacante.innerHTML += '<option value="Ayudante General">Ayudante General</option>';
@@ -857,11 +855,11 @@
         
         if (term === "") {
             empresasFiltradas = Object.keys(todasLasEmpresas).map(id => {
-                return { id: id, ...todasLasEmpresas[id] };
+                return { id: id, ...todasLasEmpresas[id], rawItem: todasLasEmpresas[id] };
             });
         } else {
             const arrEmpresas = Object.keys(todasLasEmpresas).map(id => {
-                return { id: id, ...todasLasEmpresas[id] };
+                return { id: id, ...todasLasEmpresas[id], rawItem: todasLasEmpresas[id] };
             });
 
             empresasFiltradas = arrEmpresas.filter(emp => {
