@@ -207,7 +207,7 @@
             box-shadow: 0 0 10px var(--primary-orange);
         }
 
-        /* --- CARRUSEL DESCOMUNAL DE TARJETAS --- */
+        /* --- CARRUSEL DE TARJETAS --- */
         .gallery-container {
             position: relative;
             overflow: hidden;
@@ -705,16 +705,30 @@
 
     let currentPage = 0;
     let itemsPerPage = 2;
-    let todasLasEmpresas = {}; // Guardaremos como objeto mapeado por sus IDs originales de Firebase
+    let todasLasEmpresas = {}; 
     let empresasFiltradas = [];
 
     onValue(dbRef, (snapshot) => {
         const data = snapshot.val() || {};
-        todasLasEmpresas = data; // Almacena el nodo completo con sus llaves de Firebase
         
-        // Convertimos a array estructurado reteniendo el ID real para las búsquedas y filtros
-        empresasFiltradas = Object.keys(data).map(id => {
-            return { id: id, ...data[id] };
+        // Rastreador de Consola (F12) para validar la estructura exacta de tu base de datos
+        console.log("DATOS REALES DE FIREBASE:", data);
+        
+        todasLasEmpresas = data; 
+        
+        // Mapeo estructurado para soportar cualquier tipo de clave
+        empresasFiltradas = Object.keys(data).map((id, index) => {
+            const item = data[id];
+            return { 
+                id: id, 
+                indexRef: index.toString(),
+                nombre: item.nombre || '',
+                ubicacion: item.ubicacion || '',
+                imagen: item.imagen || '',
+                link: item.link || '#',
+                tags: item.tags || '',
+                vacantes: item.vacantes || ''
+            };
         });
         
         renderizarComponentes();
@@ -732,7 +746,7 @@
 
         empresasFiltradas.forEach((emp) => {
             wrapper.innerHTML += `
-                <div class="image-card" data-company="${emp.tags || ''}">
+                <div class="image-card" data-company="${emp.tags}">
                     <div class="img-container">
                         <img src="${emp.imagen}" alt="Vacantes ${emp.nombre}" onerror="this.src='imagen-logo.jpg'">
                     </div>
@@ -744,27 +758,39 @@
             `;
 
             linksGroup.innerHTML += `
-                <a href="${emp.link}" target="_blank" class="btn-link" data-company="${emp.tags || ''}">${emp.nombre}</a>
+                <a href="${emp.link}" target="_blank" class="btn-link" data-company="${emp.tags}">${emp.nombre}</a>
             `;
 
-            // SOLUCIÓN: El valor del selector ahora es la Key/ID exacta de la base de datos
+            // Asignamos el ID de Firebase al value de la opción
             selectEmpresa.innerHTML += `<option value="${emp.id}">${emp.nombre}</option>`;
         });
     }
 
-    // Escuchar el cambio en el select de empresas usando IDs de base de datos directos
+    // EVENTO CHANGE DE TRIPLE FILTRADO DE SEGURIDAD
     document.getElementById('empresa').addEventListener('change', function(e) {
         const selectVacante = document.getElementById('vacante');
-        const idEmpresa = e.target.value;
+        const valorSeleccionado = e.target.value;
         
-        // Obtenemos los datos directos del mapa original sin importar los filtros visuales
-        const empresaSeleccionada = todasLasEmpresas[idEmpresa];
+        // Capa 1: Búsqueda directa por llave en el mapa nativo
+        let empresaSeleccionada = todasLasEmpresas[valorSeleccionado];
+        
+        // Capa 2 y 3: Búsqueda por texto visible o coincidencia si los nodos vienen en un array plano
+        if (!empresaSeleccionada) {
+            const textoVisible = e.target.options[e.target.selectedIndex].text;
+            empresaSeleccionada = empresasFiltradas.find(emp => 
+                emp.id === valorSeleccionado || 
+                emp.nombre === textoVisible || 
+                emp.indexRef === valorSeleccionado
+            );
+        }
 
         selectVacante.innerHTML = '<option value="" disabled selected hidden></option>';
         selectVacante.disabled = false;
 
         if (empresaSeleccionada && empresaSeleccionada.vacantes) {
-            const listaVacantes = empresaSeleccionada.vacantes.split(',');
+            const vacantesStr = String(empresaSeleccionada.vacantes);
+            const listaVacantes = vacantesStr.split(',');
+            
             listaVacantes.forEach(vacante => {
                 const vacanteLimpia = vacante.trim();
                 if (vacanteLimpia !== "") {
@@ -822,7 +848,6 @@
         if (currentPage > 0) { currentPage--; updateGallery(); }
     }
 
-    // CORRECCIÓN SINTAXIS BUSCADOR: Limpieza de texto sanitizada
     function limpiaTexto(texto) { 
         return texto.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); 
     }
