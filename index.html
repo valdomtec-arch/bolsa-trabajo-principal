@@ -705,13 +705,17 @@
 
     let currentPage = 0;
     let itemsPerPage = 2;
-    let todasLasEmpresas = [];
+    let todasLasEmpresas = {}; // Guardaremos como objeto mapeado por sus IDs originales de Firebase
     let empresasFiltradas = [];
 
     onValue(dbRef, (snapshot) => {
-        const data = snapshot.val();
-        todasLasEmpresas = data ? Object.values(data) : [];
-        empresasFiltradas = [...todasLasEmpresas];
+        const data = snapshot.val() || {};
+        todasLasEmpresas = data; // Almacena el nodo completo con sus llaves de Firebase
+        
+        // Convertimos a array estructurado reteniendo el ID real para las búsquedas y filtros
+        empresasFiltradas = Object.keys(data).map(id => {
+            return { id: id, ...data[id] };
+        });
         
         renderizarComponentes();
         updateItemsPerPage();
@@ -728,7 +732,7 @@
 
         empresasFiltradas.forEach((emp) => {
             wrapper.innerHTML += `
-                <div class="image-card" data-company="${emp.tags}">
+                <div class="image-card" data-company="${emp.tags || ''}">
                     <div class="img-container">
                         <img src="${emp.imagen}" alt="Vacantes ${emp.nombre}" onerror="this.src='imagen-logo.jpg'">
                     </div>
@@ -740,21 +744,21 @@
             `;
 
             linksGroup.innerHTML += `
-                <a href="${emp.link}" target="_blank" class="btn-link" data-company="${emp.tags}">${emp.nombre}</a>
+                <a href="${emp.link}" target="_blank" class="btn-link" data-company="${emp.tags || ''}">${emp.nombre}</a>
             `;
 
-            // Cambiado de index a nombre real de la empresa
-            selectEmpresa.innerHTML += `<option value="${emp.nombre}">${emp.nombre}</option>`;
+            // SOLUCIÓN: El valor del selector ahora es la Key/ID exacta de la base de datos
+            selectEmpresa.innerHTML += `<option value="${emp.id}">${emp.nombre}</option>`;
         });
     }
 
-    // Escuchar el cambio en el select de empresas para cargar vacantes dinámicas por nombre exacto
+    // Escuchar el cambio en el select de empresas usando IDs de base de datos directos
     document.getElementById('empresa').addEventListener('change', function(e) {
         const selectVacante = document.getElementById('vacante');
-        const nombreEmpresaSeleccionada = e.target.value;
+        const idEmpresa = e.target.value;
         
-        // Búsqueda robusta por nombre directo
-        const empresaSeleccionada = todasLasEmpresas.find(emp => emp.nombre === nombreEmpresaSeleccionada);
+        // Obtenemos los datos directos del mapa original sin importar los filtros visuales
+        const empresaSeleccionada = todasLasEmpresas[idEmpresa];
 
         selectVacante.innerHTML = '<option value="" disabled selected hidden></option>';
         selectVacante.disabled = false;
@@ -818,15 +822,24 @@
         if (currentPage > 0) { currentPage--; updateGallery(); }
     }
 
-    function limpiaTexto(texto) { return text = texto.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); }
+    // CORRECCIÓN SINTAXIS BUSCADOR: Limpieza de texto sanitizada
+    function limpiaTexto(texto) { 
+        return texto.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); 
+    }
 
     document.getElementById('mainSearch').addEventListener('input', function(e) {
         const term = limpiaTexto(e.target.value.trim());
         
         if (term === "") {
-            empresasFiltradas = [...todasLasEmpresas];
+            empresasFiltradas = Object.keys(todasLasEmpresas).map(id => {
+                return { id: id, ...todasLasEmpresas[id] };
+            });
         } else {
-            empresasFiltradas = todasLasEmpresas.filter(emp => {
+            const arrEmpresas = Object.keys(todasLasEmpresas).map(id => {
+                return { id: id, ...todasLasEmpresas[id] };
+            });
+
+            empresasFiltradas = arrEmpresas.filter(emp => {
                 const nombreComp = emp.nombre ? limpiaTexto(emp.nombre) : "";
                 const ubicacionComp = emp.ubicacion ? limpiaTexto(emp.ubicacion) : "";
                 const tagsComp = emp.tags ? limpiaTexto(emp.tags) : "";
