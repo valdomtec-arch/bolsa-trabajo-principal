@@ -1,794 +1,895 @@
-<!DOCTYPE html> 
-<html lang="es"> 
-<head> 
-<meta charset="UTF-8"> 
-<meta name="viewport" content="width=device-width, initial-scale=1.0"> 
-<title>Panel de Control Centralizado - Bolsa de Trabajo</title> 
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"> 
-<style> 
-:root { 
---primary-orange: #ff6600; 
---secondary-blue: #0f2a4a; 
---bg-page: #050b14; 
---container-bg: #111e30; 
---card-bg: #18273c; 
---white: #ffffff; 
---text-light: #f1f5f9; 
---text-muted: #94a3b8; 
---border-color: #243854; 
---green-whatsapp: #25D366; 
---purple-ia: #8b5cf6; 
---green-success: #10b981; 
---red-danger: #ef4444; 
---blue-update: #0284c7; 
-} 
-* { box-sizing: border-box; }
-body { 
-background-color: var(--bg-page); 
-color: var(--text-light); 
-font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; 
-padding: 20px 10px;
-margin: 0; 
-line-height: 1.5;
-} 
-.admin-container { 
-max-width: 1200px; 
-margin: 0 auto; 
-background: var(--container-bg); 
-padding: 25px; 
-border-radius: 16px; 
-border: 1px solid var(--border-color); 
-box-shadow: 0 10px 40px rgba(0,0,0,.4);
-} 
-h1 { color: var(--white); text-align: center; margin-bottom: 25px; font-size: 1.6rem; } 
-.tabs-menu { 
-display: flex; 
-flex-wrap: wrap;
-gap: 8px; 
-margin-bottom: 25px; 
-border-bottom: 2px solid var(--border-color); 
-padding-bottom: 10px; 
-} 
-.tab-btn { 
-background: #0d1724; 
-color: var(--text-muted); 
-border: 1px solid var(--border-color); 
-padding: 10px 16px; 
-border-radius: 8px; 
-cursor: pointer; 
-font-weight: 700; 
-font-size: 0.9rem; 
-transition: all .25s ease;
-display: flex; 
-align-items: center; 
-gap: 8px; 
-flex: 1 1 auto;
-justify-content: center;
-} 
-.tab-btn:hover { color: var(--white); border-color: var(--primary-orange); transform: translateY(-1px); } 
-.tab-btn.active { 
-background: var(--primary-orange); 
-color: white; 
-border-color: var(--primary-orange); 
-} 
-.tab-content { display: none; animation: fade .3s ease; } 
-.tab-content.active { display: block; } 
-@keyframes fade { from{opacity:0; transform: translateY(6px);} to{opacity:1; transform:none;} }
-.form-admin { 
-background: var(--card-bg); 
-padding: 22px; 
-border-radius: 12px; 
-border: 1px solid var(--border-color); 
-margin-bottom: 25px; 
-display: grid; 
-grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); 
-gap: 16px; 
-} 
-.form-group { display: flex; flex-direction: column; } 
-.form-group label { margin-bottom: 5px; font-weight: 600; font-size: 0.88rem; color: var(--text-light); } 
-.form-group input, .form-group select, .form-group textarea { 
-padding: 10px 12px; 
-background: #1d2e47; 
-border: 1px solid var(--border-color);
-border-radius: 8px; 
-color: white; 
-font-size: 0.92rem;
-outline: none;
-transition: border .2s;
-}
-.form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--primary-orange); }
-.form-group textarea { resize: vertical; min-height: 80px; font-family: inherit; } 
-.full-width { grid-column: 1 / -1; } 
-button { font-family: inherit; }
-.btn-add { 
-background: var(--primary-orange); 
-color: white; 
-border: none; 
-padding: 12px; 
-border-radius: 8px; 
-font-weight: 700; 
-cursor: pointer; 
-transition: all .25s;
-font-size: 1rem; 
-grid-column: 1 / -1;
-}
-.btn-add:hover { background: #e05500; transform: translateY(-1px); } 
-.btn-add:disabled { opacity:.5; cursor:not-allowed; transform:none; }
-.btn-update-final { 
-background: var(--blue-update); 
-color: white; 
-border: none; 
-padding: 12px; 
-border-radius: 8px; 
-font-weight: 700; 
-cursor: pointer; 
-transition: all .25s;
-font-size: 1rem; 
-} 
-.btn-update-final:hover { background: #0369a1; transform: translateY(-1px); } 
-.dual-buttons-layout { 
-grid-column: 1 / -1; 
-display: grid; 
-grid-template-columns: 1fr 1fr; 
-gap: 12px; 
-margin-top: 8px; 
-} 
-@media (max-width:600px){ .dual-buttons-layout{grid-template-columns:1fr;} }
-.ia-box { 
-background: rgba(139, 92, 246, 0.1); 
-border: 1px dashed var(--purple-ia); 
-padding: 16px; 
-border-radius: 12px; 
-grid-column: 1 / -1; 
-margin-bottom: 6px; 
-}
-.btn-ia { 
-background: var(--purple-ia); 
-color: white; 
-border: none; 
-padding: 10px 18px; 
-font-weight: 700; 
-border-radius: 6px; 
-cursor: pointer; 
-transition: all .25s; 
-margin-top: 10px; 
-} 
-.btn-ia:hover { background: #7c3aed; transform: translateY(-1px); } 
-.file-input-wrapper { 
-position: relative;
-display: inline-block; 
-margin-top: 5px; 
-}
-.file-input-wrapper input[type="file"] { 
-position: absolute; 
-inset:0;
-opacity: 0; 
-width: 100%; height: 100%; 
-cursor: pointer; 
-} 
-.btn-file-custom { 
-background: #0284c7; color: white; padding: 10px 18px; 
-font-weight: 700; border-radius: 6px; display: inline-block; transition: all .25s; 
-} 
-.btn-file-custom:hover { background: #0369a1; } 
-.section-divider { 
-grid-column: 1 / -1; 
-border-bottom: 1px dashed var(--border-color); 
-padding: 8px 0;
-color: var(--primary-orange); 
-font-size: 0.9rem; 
-font-weight: 700; 
-text-transform: uppercase; 
-letter-spacing:.3px;
-margin: 6px 0;
-}
-.empresas-table { 
-width: 100%; 
-border-collapse: collapse;
-margin-top: 12px; 
-font-size:.9rem;
-} 
-.empresas-table th, .empresas-table td { 
-padding: 10px; 
-text-align: left; 
-border-bottom: 1px solid var(--border-color); 
-} 
-.empresas-table th { background-color: #0d1724; color: var(--primary-orange); } 
-.empresas-table td img { width: 42px; height: 42px; object-fit: contain; border-radius: 4px; background: white; padding: 2px;} 
-.selector-puestos-verde { 
-background: #112d24; 
-border: 1px solid var(--green-success); 
-color: #34d399; 
-padding: 10px 12px; 
-border-radius: 6px; 
-width: 100%; 
-font-weight: bold; 
-margin-bottom: 10px; 
-font-size: .95rem; 
-}
-.manager-box { 
-background: rgba(239, 68, 68, 0.05); 
-border: 1px dashed var(--red-danger); 
-padding: 16px; 
-border-radius: 12px; 
-grid-column: 1 / -1; 
-margin-bottom: 12px;
-}
-.actions-layout { 
-display: flex; 
-gap: 10px; 
-margin-top: 10px; 
-flex-wrap: wrap; 
-} 
-.btn-edit-mode { 
-background: #f59e0b; 
-color: #111; 
-border: none; 
-padding: 10px 16px; 
-font-weight: 700; 
-border-radius: 6px; 
-cursor: pointer; 
-transition: all .25s; 
-display: flex; 
-align-items: center; 
-gap: 6px; 
-} 
-.btn-edit-mode:hover { background: #d97706; } 
-.btn-delete-mode { 
-background: var(--red-danger); 
-color: white; 
-border: none; 
-padding: 10px 16px; 
-font-weight: 700; 
-border-radius: 6px; 
-cursor: pointer; 
-transition: all .25s; 
-display: flex; 
-align-items: center; 
-gap: 6px; 
-} 
-.btn-delete-mode:hover { background: #dc2626; } 
-pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-success); padding:10px; border-radius:8px; font-size:.82rem; overflow:auto; max-height:220px; white-space:pre-wrap; }
-</style> 
-</head> 
-<body> 
-<div class="admin-container"> 
-<h1><i class="fas fa-sliders-h"></i> Panel de Administración Global</h1> 
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Control Centralizado - Bolsa de Trabajo</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-orange: #ff6600;
+            --secondary-blue: #0f2a4a;
+            --bg-page: #050b14;          
+            --container-bg: #111e30;     
+            --card-bg: #18273c;          
+            --white: #ffffff;
+            --text-light: #f1f5f9;       
+            --text-muted: #94a3b8;       
+            --border-color: #243854;     
+            --green-whatsapp: #25D366;
+            --purple-ia: #8b5cf6;
+            --green-success: #10b981;
+            --red-danger: #ef4444;
+            --blue-update: #0284c7;
+        }
+        body {
+            background-color: var(--bg-page);
+            color: var(--text-light);
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            padding: 30px 10px;
+            margin: 0;
+        }
+        .admin-container {
+            max-width: 1100px;
+            margin: 0 auto;
+            background: var(--container-bg);
+            padding: 30px;
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+        }
+        h1 { color: var(--white); text-align: center; margin-bottom: 25px; }
+        
+        .tabs-menu {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 25px;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 10px;
+        }
+        .tab-btn {
+            background: #0d1724;
+            color: var(--text-muted);
+            border: 1px solid var(--border-color);
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 0.95rem;
+            transition: 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .tab-btn:hover { color: var(--white); border-color: var(--primary-orange); }
+        .tab-btn.active {
+            background: var(--primary-orange);
+            color: white;
+            border-color: var(--primary-orange);
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
 
-<div class="ia-box" style="margin-bottom: 15px; background: rgba(255, 102, 0, 0.05); border-color: var(--primary-orange);">
-  <label style="color:var(--primary-orange);font-weight:bold;display:block;margin-bottom:5px;"><i class="fas fa-key"></i> Configuración de API Key (Gemini)</label>
-  <input type="password" id="geminiApiKeyInput" placeholder="Pega aquí tu tu clave API de Gemini..." style="width:100%; padding:8px 12px; background:#1d2e47; border:1px solid var(--border-color); border-radius:6px; color:white;">
-  <span style="font-size:0.75rem; color:var(--text-muted);">Nota: Tu clave se guarda únicamente de forma local en tu navegador por seguridad.</span>
-</div>
+        .form-admin {
+            background: var(--card-bg);
+            padding: 25px;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 30px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 20px;
+        }
+        .form-group { display: flex; flex-direction: column; }
+        .form-group label { margin-bottom: 6px; font-weight: 600; font-size: 0.9rem; }
+        .form-group input, .form-group select, .form-group textarea {
+            padding: 11px;
+            background: #1d2e47;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: white;
+            font-size: 0.95rem;
+        }
+        .form-group textarea { resize: vertical; min-height: 80px; font-family: inherit; }
+        .full-width { grid-column: 1 / -1; }
+        
+        .btn-add {
+            background: var(--primary-orange);
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 8px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.3s;
+            font-size: 1rem;
+        }
+        .btn-add:hover { background: #e05500; }
 
-<div class="tabs-menu"> 
-<button class="tab-btn active" data-tab="tabPrincipal"><i class="fas fa-building"></i> 1. Registrar Empresa</button> 
-<button class="tab-btn" data-tab="tabSecundarias"><i class="fas fa-briefcase"></i> 2. Control de Vacantes Masivo</button>
-</div> 
+        .btn-update-final {
+            background: var(--blue-update);
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 8px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.3s;
+            font-size: 1rem;
+        }
+        .btn-update-final:hover { background: #0369a1; }
 
-<div id="tabPrincipal" class="tab-content active"> 
-  <div class="form-admin"> 
-    <div class="section-divider">Alta / Edición de Empresa Base</div> 
-    <div class="form-group"><label>ID de la Empresa:</label><input type="text" id="admId" placeholder="Ej: katcon, taehwa, soriana" maxlength="40"></div> 
-    <div class="form-group"><label>Nombre Comercial:</label><input type="text" id="admNombre" placeholder="Ej: Katcon S.A."></div> 
-    <div class="form-group"><label>Ubicación Base:</label><input type="text" id="admUbicacion" placeholder="Ej: Jalisco - Tlaquepaque"></div> 
-    <div class="form-group full-width"><label>Hipervínculo / Repositorio:</label><input type="url" id="admLink" placeholder="https://..."></div> 
-    <div class="form-group"><label>URL Logo:</label><input type="url" id="admImagen" placeholder="https://...logo.png"></div> 
-    <div class="form-group"><label>Etiquetas:</label><input type="text" id="admTags" placeholder="automotriz, industrial, 24h"></div>
-    <button class="btn-add" onclick="agregarEmpresaPrincipal()"><i class="fas fa-save"></i> Guardar Empresa</button>
-  </div> 
+        .dual-buttons-layout {
+            grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 10px;
+        }
 
-  <h2 style="font-size:1.15rem;">Directorio de Empresas</h2> 
-  <div style="overflow-x: auto;"> 
-    <table class="empresas-table"> 
-      <thead><tr><th>Logo</th><th>ID Clave</th><th>Empresa</th><th>Ubicación</th></tr></thead> 
-      <tbody id="adminTablaEmpresas"></tbody> 
-    </table> 
-  </div> 
-</div> 
+        .ia-box {
+            background: rgba(139, 92, 246, 0.1);
+            border: 1px dashed var(--purple-ia);
+            padding: 20px;
+            border-radius: 12px;
+            grid-column: 1 / -1;
+            margin-bottom: 10px;
+        }
+        .btn-ia {
+            background: var(--purple-ia);
+            color: white; border: none; padding: 10px 20px; font-weight: 700;
+            border-radius: 6px; cursor: pointer; transition: 0.3s; margin-top: 10px;
+        }
+        .btn-ia:hover { background: #7c3aed; }
+        
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+            margin-top: 5px;
+        }
+        .file-input-wrapper input[type="file"] {
+            position: absolute;
+            left: 0; top: 0; opacity: 0;
+            width: 100%; height: 100%;
+            cursor: pointer;
+        }
+        .btn-file-custom {
+            background: #0284c7; color: white; padding: 10px 20px;
+            font-weight: 700; border-radius: 6px; display: inline-block; transition: 0.3s;
+        }
+        .btn-file-custom:hover { background: #0369a1; }
 
-<div id="tabSecundarias" class="tab-content"> 
-  <div class="form-admin"> 
-    <div class="section-divider">Configuración de Destino</div> 
-    <div class="form-group full-width">
-      <label>Selecciona Empresa:</label>
-      <select id="secEmpresaSelect" onchange="escucharVacantesExistentes(this.value)">
-        <option value="">-- Elige una Empresa --</option>
-      </select>
+        .section-divider {
+            grid-column: 1 / -1;
+            border-bottom: 1px dashed var(--border-color);
+            padding-bottom: 5px;
+            margin-top: 5px;
+            color: var(--primary-orange);
+            font-size: 0.95rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .empresas-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        .empresas-table th, .empresas-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .empresas-table th { background-color: #0d1724; color: var(--primary-orange); }
+        .empresas-table td img { width: 45px; height: auto; border-radius: 4px; background: white; padding: 2px;}
+        
+        .selector-puestos-verde {
+            background: #112d24;
+            border: 1px solid var(--green-success);
+            color: #34d399;
+            padding: 12px;
+            border-radius: 6px;
+            width: 100%;
+            font-weight: bold;
+            margin-bottom: 12px;
+            font-size: 1rem;
+        }
+
+        .manager-box {
+            background: rgba(239, 68, 68, 0.05);
+            border: 1px dashed var(--red-danger);
+            padding: 20px;
+            border-radius: 12px;
+            grid-column: 1 / -1;
+            margin-bottom: 15px;
+        }
+        .actions-layout {
+            display: flex;
+            gap: 15px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+        .btn-edit-mode {
+            background: #f59e0b;
+            color: black; border: none; padding: 12px 20px; font-weight: 700;
+            border-radius: 6px; cursor: pointer; transition: 0.3s; display: flex; align-items: center; gap: 8px;
+        }
+        .btn-edit-mode:hover { background: #d97706; }
+        .btn-delete-mode {
+            background: var(--red-danger);
+            color: white; border: none; padding: 12px 20px; font-weight: 700;
+            border-radius: 6px; cursor: pointer; transition: 0.3s; display: flex; align-items: center; gap: 8px;
+        }
+        .btn-delete-mode:hover { background: #dc2626; }
+
+        /* Estilos añadidos para botones pequeños de acción en la tabla */
+        .btn-tbl-edit {
+            background: #f59e0b; color: black; border: none; padding: 6px 12px; 
+            border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.8rem; margin-right: 5px; transition: 0.3s;
+        }
+        .btn-tbl-edit:hover { background: #d97706; }
+        .btn-tbl-delete {
+            background: var(--red-danger); color: white; border: none; padding: 6px 12px; 
+            border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.8rem; transition: 0.3s;
+        }
+        .btn-tbl-delete:hover { background: #dc2626; }
+    </style>
+</head>
+<body>
+
+<div class="admin-container">
+    <h1><i class="fas fa-sliders-h"></i> Panel de Administración Global</h1>
+    
+    <div class="tabs-menu">
+        <button class="tab-btn active" id="btnTab1"><i class="fas fa-building"></i> 1. Registrar Empresa</button>
+        <button class="tab-btn" id="btnTab2"><i class="fas fa-briefcase"></i> 2. Control de Vacantes Masivo</button>
     </div>
 
-    <div class="manager-box" id="boxGestionVacantes" style="display:none;">
-      <label style="color:var(--red-danger);font-weight:bold;display:block;margin-bottom:6px;"><i class="fas fa-folder-minus"></i> Modificar o Eliminar Vacantes</label>
-      <p style="margin:0 0 8px;font-size:.85rem;color:var(--text-muted);">Selecciona para cargar datos o borrar definitivamente.</p>
-      <select id="selectorVacantesEnFirebase" style="width:100%;padding:10px 12px;background:#221317;border:1px solid var(--red-danger);color:#fca5a5;border-radius:6px;"></select>
-      <div class="actions-layout">
-        <button class="btn-edit-mode" onclick="cargarVacanteParaEditar()"><i class="fas fa-edit"></i> Cargar Datos</button>
-        <button class="btn-delete-mode" onclick="eliminarVacanteWeb()"><i class="fas fa-trash-alt"></i> Eliminar Definitivamente</button>
-        <button type="button" class="btn-edit-mode" style="background:#64748b;color:#fff;" onclick="limpiarFormularioVacantes()"><i class="fas fa-eraser"></i> Limpiar Formulario</button>
-      </div>
-    </div>
-
-    <div class="form-group"><label>ID Clave Puesto:</label><input type="text" id="secPuestoId" placeholder="ayudante-general, montacargas"></div>
-
-    <div class="ia-box">
-      <label style="color:var(--purple-ia);font-weight:bold;display:block;margin-bottom:8px;"><i class="fas fa-bolt"></i> EXTRACTOR INTELIGENTE MULTIVACANTES — Interpreta listas de puestos en un .txt con IA</label>
-      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
-        <div class="file-input-wrapper">
-          <div class="btn-file-custom"><i class="fas fa-file-alt"></i> Cargar archivo .txt masivo</div>
-          <input type="file" id="archivoTxtInput" accept=".txt,text/plain" onchange="procesarTxtWhatsAppV6()">
+    <div id="tabPrincipal" class="tab-content active">
+        <div class="form-admin">
+            <div class="section-divider" id="lblTituloEmpresaForm">Alta / Edición de Empresa Base</div>
+            <div class="form-group">
+                <label>ID de la Empresa:</label>
+                <input type="text" id="admId" placeholder="Ej: katcon, taehwa, soriana">
+            </div>
+            <div class="form-group">
+                <label>Nombre Comercial General:</label>
+                <input type="text" id="admNombre" placeholder="Ej: Katcon S.A.">
+            </div>
+            <div class="form-group">
+                <label>Ubicación Base:</label>
+                <input type="text" id="admUbicacion" placeholder="Ej: Jalisco - Tlaquepaque">
+            </div>
+            <div class="form-group full-width">
+                <label>Hipervínculo Base del Repositorio:</label>
+                <input type="text" id="admLink" placeholder="URL completa...">
+            </div>
+            <div class="form-group">
+                <label>URL del Logo de la Empresa:</label>
+                <input type="text" id="admImagen" placeholder="logo.jpg">
+            </div>
+            <div class="form-group">
+                <label>Tags:</label>
+                <input type="text" id="admTags" placeholder="Tags...">
+            </div>
+            <button class="btn-add" id="btnGuardarEmpresaAccion" style="grid-column: 1 / -1;" onclick="agregarEmpresaPrincipal()"><i class="fas fa-save"></i> Guardar Empresa</button>
         </div>
-        <span id="nombreArchivoCargado" style="font-size:.88rem;color:var(--primary-orange);font-weight:600;">Ningún archivo</span>
-      </div>
 
-      <div id="contenedorResultadoVerde" style="display:none;margin-top:10px;">
-        <label style="color:var(--green-success);font-weight:bold;display:block;margin-bottom:6px;font-size:.88rem;"><i class="fas fa-list-check"></i> Vacantes detectadas por Gemini en este archivo:</label>
-        <select id="selectorVacantesDetectadas" class="selector-puestos-verde" onchange="cambiarVacanteVerdeSeleccionada()"></select>
-        <pre id="codigoJsonVerde" class="json-view"></pre>
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-          <button class="btn-ia" onclick="transferirAlEspacioMorado()" style="background:var(--purple-ia);margin-top:0;"><i class="fas fa-arrow-down"></i> Ver JSON abajo</button>
-          <button class="btn-ia" onclick="subirTodasLasVacantesVerdesALote()" style="background:var(--green-success);margin-top:0;"><i class="fas fa-cloud-upload-alt"></i> ¡Subir TODO a Firebase!</button>
+        <h2>Directorio de Empresas</h2>
+        <div style="overflow-x: auto;">
+            <table class="empresas-table">
+                <thead>
+                    <tr>
+                        <th>Logo</th>
+                        <th>ID Clave</th>
+                        <th>Empresa Base</th>
+                        <th>Ubicación</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="adminTablaEmpresas"></tbody>
+            </table>
         </div>
-      </div>
-
-      <textarea id="iaTextoPegar" placeholder="Pega aquí el JSON o texto bruto..." style="width:100%;min-height:80px;margin-top:10px;border-color:var(--purple-ia);background:#1a1033;color:#e9d5ff;border-radius:6px;padding:10px;"></textarea>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;">
-        <button class="btn-ia" id="btnInterpretarIa" onclick="procesarTextoBrutoTxt()"><i class="fas fa-wand-magic-sparkles"></i> Rellenar un solo formulario</button>
-        <button class="btn-ia" style="background:#475569;" onclick="document.getElementById('contenedorResultadoVerde').style.display='none';document.getElementById('iaTextoPegar').value='';document.getElementById('nombreArchivoCargado').textContent='Ningún archivo';document.getElementById('archivoTxtInput').value='';"><i class="fas fa-broom"></i> Limpiar IA</button>
-      </div>
     </div>
 
-    <div class="section-divider">Datos del Puesto (Vista de Edición Individual)</div>
-    <div class="form-group"><label>Estatus:</label>
-      <select id="secEstatus"><option value="disponible">✅ Activa</option><option value="no_disponible">❌ Pausada</option></select>
-    </div>
-    <div class="form-group"><label>Nombre Vacante:</label><input type="text" id="secVacanteNombre"></div>
-    <div class="form-group"><label>Salario Neto:</label><input type="text" id="secSalario" placeholder="$4,200 semanales"></div>
-    <div class="form-group"><label>Rango Edad:</label><input type="text" id="secEdad" placeholder="18 a 50 años"></div>
-    <div class="form-group"><label>Zona / Ubicación:</label><input type="text" id="secLugarOrigen"></div>
-    <div class="form-group"><label>Turnos / Horarios:</label><input type="text" id="secTurnos"></div>
-    <div class="form-group"><label>Sexo:</label>
-      <select id="secSexo"><option>Indistinto</option><option>Masculino</option><option>Femenino</option></select>
-    </div>
-    <div class="form-group"><label>Experiencia:</label><input type="text" id="secExperiencia" placeholder="6 meses, 1 año, no requerida"></div>
-    <div class="form-group"><label>Escolaridad:</label><input type="text" id="secEscolaridad" placeholder="Secundaria, Preparatoria"></div>
-    <div class="form-group"><label>URL Banner (opcional):</label><input type="url" id="secBannerUrl"></div>
-    <div class="form-group full-width"><label>🛠️ Actividades:</label><textarea id="secActividades" rows="3"></textarea></div>
-    <div class="form-group full-width"><label>🎁 Prestaciones y Beneficios:</label><textarea id="secBeneficios" rows="2"></textarea></div>
-    <div class="form-group full-width" style="border:1px solid var(--primary-orange);padding:14px;border-radius:8px;background:rgba(255,102,0,0.04);">
-      <label style="color:var(--primary-orange);font-weight:bold;"><i class="fas fa-info-circle"></i> ⚠️ Reglas, reingresos, entrevista, notas:</label>
-      <textarea id="secInfoGeneral" rows="3" style="border-color:var(--primary-orange);margin-top:6px;" placeholder="No reingreso KIA, examen médico, pago en BBVA..."></textarea>
-    </div>
+    <div id="tabSecundarias" class="tab-content">
+        <div class="form-admin">
+            <div class="section-divider">Configuración de Destino</div>
+            <div class="form-group full-width">
+                <label>Selecciona la Empresa para la que es la vacante:</label>
+                <select id="secEmpresaSelect" onchange="escucharVacantesExistentes(this.value)">
+                    <option value="">-- Elige una Empresa --</option>
+                </select>
+            </div>
 
-    <div class="dual-buttons-layout">
-      <button class="btn-add" onclick="guardarComoNuevaVacante()"><i class="fas fa-cloud-upload-alt"></i> Subir NUEVA Vacante</button>
-      <button class="btn-update-final" onclick="guardarActualizacionVacante()"><i class="fas fa-sync-alt"></i> ACTUALIZAR existente</button>
+            <div class="manager-box" id="boxGestionVacantes" style="display: none;">
+                <label style="color: var(--red-danger); font-weight: bold; display: block; margin-bottom: 5px;">
+                    <i class="fas fa-folder-minus"></i> Modificar o Eliminar Vacantes Existentes en la Web
+                </label>
+                <p style="margin: 0 0 10px 0; font-size: 0.85rem; color: var(--text-muted);">
+                    Si una vacante se subió con errores, selecciónala aquí abajo para cargar sus datos actuales o borrarla definitivamente.
+                </p>
+                <select id="selectorVacantesEnFirebase" style="width: 100%; padding: 11px; background: #221317; border: 1px solid var(--red-danger); color: #fca5a5; border-radius: 8px;">
+                    </select>
+                <div class="actions-layout">
+                    <button type="button" class="btn-edit-mode" onclick="cargarVacanteParaEditar()">
+                        <i class="fas fa-edit"></i> Cargar Datos en Formulario
+                    </button>
+                    <button type="button" class="btn-delete-mode" onclick="eliminarVacanteWeb()">
+                        <i class="fas fa-trash-alt"></i> Eliminar Definitivamente de la Web
+                    </button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>ID Clave de este Puesto:</label>
+                <input type="text" id="secPuestoId" placeholder="Ej: ayudante, montacargas">
+            </div>
+
+            <div class="ia-box">
+                <label style="color: var(--purple-ia); font-weight: bold; display: block; margin-bottom: 5px;">
+                    <i class="fas fa-bolt"></i> Extractor de Patrones V5.0 (Análisis Avanzado de Horarios e Información de Reingreso)
+                </label>
+                
+                <div style="display: flex; gap: 15px; align-items: center; margin-bottom: 15px; flex-wrap: wrap;">
+                    <div class="file-input-wrapper">
+                        <div class="btn-file-custom"><i class="fas fa-folder-open"></i> 1. Cargar Archivo .txt</div>
+                        <input type="file" id="archivoTxtInput" accept=".txt" onchange="procesarTxtWhatsAppV5()">
+                    </div>
+                    <span id="nombreArchivoCargado" style="font-size: 0.9rem; color: var(--primary-orange); font-weight: bold;">Ningún archivo seleccionado</span>
+                </div>
+
+                <div id="contenedorResultadoVerde" style="margin-bottom: 15px; display: none;">
+                    <label style="color: var(--green-success); font-weight: bold; display: block; margin-bottom: 5px; font-size: 0.9rem;">
+                        <i class="fas fa-list-ol"></i> Selecciona la vacante para auto-rellenar:
+                    </label>
+                    
+                    <select id="selectorVacantesDetectadas" class="selector-puestos-verde" onchange="cambiarVacanteVerdeSeleccionada()">
+                        </select>
+
+                    <textarea id="codigoJsonVerde" readonly style="background: #061c15; color: #34d399; border: 1px solid var(--green-success); font-family: monospace; font-size: 0.85rem; width: 100%; min-height: 150px; margin-bottom: 10px; padding: 10px; box-sizing: border-box; border-radius: 8px;"></textarea>
+                    
+                    <button type="button" class="btn-ia" onclick="transferirAlEspacioMorado()" style="background: var(--green-success); width: 100%; margin-top:0;">
+                        <i class="fas fa-arrow-alt-circle-down"></i> 2. Transferir al Espacio Morado
+                    </button>
+                </div>
+
+                <textarea id="iaTextoPegar" placeholder="El código aparecerá aquí..." style="border-color: var(--purple-ia); min-height: 80px; margin-top: 15px;"></textarea>
+                <button type="button" class="btn-ia" onclick="procesarTextoBrutoTxt()">
+                    <i class="fas fa-magic"></i> 3. Rellenar Formulario Automáticamente
+                </button>
+            </div>
+
+            <div class="section-divider">Datos del Puesto</div>
+            <div class="form-group">
+                <label>Estatus:</label>
+                <select id="secEstatus">
+                    <option value="disponible">✅ Activa</option>
+                    <option value="no_disponible">❌ Pausada</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Nombre Oficial de la Vacante:</label>
+                <input type="text" id="secVacanteNombre">
+            </div>
+            <div class="form-group">
+                <label>Salario Neto Ofrecido:</label>
+                <input type="text" id="secSalario">
+            </div>
+            <div class="form-group">
+                <label>Rango de Edad Requerido:</label>
+                <input type="text" id="secEdad">
+            </div>
+            <div class="form-group">
+                <label>Zonas de Reclutamiento / Ubicación:</label>
+                <input type="text" id="secLugarOrigen">
+            </div>
+            <div class="form-group">
+                <label>Turnos y Horarios:</label>
+                <input type="text" id="secTurnos">
+            </div>
+            <div class="form-group">
+                <label>Sexo Preferente:</label>
+                <select id="secSexo">
+                    <option value="Indistinto">Indistinto</option>
+                    <option value="Masculino">Masculino</option>
+                    <option value="Femenino">Femenino</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Experiencia Mínima:</label>
+                <input type="text" id="secExperiencia">
+            </div>
+            <div class="form-group">
+                <label>Escolaridad Mínima:</label>
+                <input type="text" id="secEscolaridad">
+            </div>
+            <div class="form-group">
+                <label>URL Banner (Opcional):</label>
+                <input type="text" id="secBannerUrl">
+            </div>
+            <div class="form-group full-width">
+                <label>Actividades y Beneficios:</label>
+                <textarea id="secActividades"></textarea>
+            </div>
+
+            <div class="form-group full-width" style="border: 1px solid var(--primary-orange); padding: 15px; border-radius: 8px; background: rgba(255,102,0,0.05);">
+                <label style="color: var(--primary-orange); font-weight: bold;"><i class="fas fa-info-circle"></i> Información General de la Plaza / Reglas de Reingreso y Entrevista:</label>
+                <textarea id="secInfoGeneral" style="min-height: 120px; border-color: var(--primary-orange);" placeholder="Ej: No reingresos de KIA, consideraciones de nómina, etc."></textarea>
+            </div>
+
+            <div class="dual-buttons-layout">
+                <button type="button" class="btn-add" onclick="guardarComoNuevaVacante()"><i class="fas fa-cloud-upload-alt"></i> Subir como NUEVA Vacante</button>
+                <button type="button" class="btn-update-final" onclick="guardarActualizacionVacante()"><i class="fas fa-sync-alt"></i> ACTUALIZAR Cambios de Edición</button>
+            </div>
+        </div>
     </div>
-  </div>
-</div>
 </div>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getDatabase, ref, set, onValue, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, set, onValue, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-// IMPORTACIÓN DEL SDK DE GOOGLE GEN AI PARA FRONTEND
-import { GoogleGenAI, Type } from "https://esm.run/@google/genai";
+    const firebaseConfig = { databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com/" };
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
 
-const firebaseConfig = { databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com/" };
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
+    let vacantesProcesadasGlobal = [];
+    let baseVacantesActualesEnFirebase = {};
+    let baseEmpresasActualesEnFirebase = {}; // Respaldar empresas para edición local
 
-// Guardar y recuperar la llave API del LocalStorage
-const apiKeyInput = document.getElementById('geminiApiKeyInput');
-if(localStorage.getItem('gemini_api_key')) {
-  apiKeyInput.value = localStorage.getItem('gemini_api_key');
-}
-apiKeyInput.addEventListener('input', (e) => {
-  localStorage.setItem('gemini_api_key', e.target.value.trim());
-});
+    const tab1 = document.getElementById('btnTab1');
+    const tab2 = document.getElementById('btnTab2');
+    const content1 = document.getElementById('tabPrincipal');
+    const content2 = document.getElementById('tabSecundarias');
 
-// ============================================================
-// ⭐ MOTOR MULTIVACANTES OPTIMIZADO (ARRAY DE OBJETOS)
-// ============================================================
-const IA_V6 = {
-  esquemaBols: {
-    type: Type.ARRAY, // Cambiado a ARRAY para soportar extracción de múltiples puestos simultáneamente
-    description: "Lista de todas las vacantes individuales identificadas en el texto.",
-    items: {
-      type: Type.OBJECT,
-      properties: {
-        vacanteNombre: { type: Type.STRING },
-        salario: { type: Type.STRING },
-        edad: { type: Type.STRING },
-        lugarOrigen: { type: Type.STRING },
-        turnos: { type: Type.STRING },
-        sexo: { type: Type.STRING },
-        experiencia: { type: Type.STRING },
-        escolaridad: { type: Type.STRING },
-        actividades: { type: Type.STRING },
-        beneficios: { type: Type.STRING },
-        informacionGeneral: { type: Type.STRING, description: "Reglas de la planta, reingresos, exámenes médicos, documentos, días de entrevista y notas unificadas legibles." }
-      },
-      required: [
-        "vacanteNombre", "salario", "edad", "lugarOrigen", "turnos", "sexo", 
-        "experiencia", "escolaridad", "actividades", "beneficios", "informacionGeneral"
-      ]
-    }
-  },
+    tab1.addEventListener('click', () => {
+        tab1.classList.add('active'); tab2.classList.remove('active');
+        content1.classList.add('active'); content2.classList.remove('active');
+    });
+    tab2.addEventListener('click', () => {
+        tab2.classList.add('active'); tab1.classList.remove('active');
+        content2.classList.add('active'); content1.classList.remove('active');
+    });
 
-  obtenerInstanciaAI() {
-    const key = localStorage.getItem('gemini_api_key') || apiKeyInput.value.trim();
-    if (!key) {
-      alert("⚠️ Por favor, ingresa tu API Key de Gemini en la parte superior del panel.");
-      throw new Error("Falta API Key");
-    }
-    return new GoogleGenAI({ apiKey: key });
-  },
-
-  async llamarInterprete(textoOriginal) {
-    const ai = this.obtenerInstanciaAI();
-    
-    const prompt = `Analiza detalladamente el texto provisto. Puede contener una sola descripción de empleo o una lista masiva con múltiples vacantes desordenadas.
-    Tu tarea obligatoria es desglosar y extraer CADA puesto por separado y devolverlos mapeados dentro del arreglo JSON solicitado. 
-    Bajo ninguna circunstancia mezcles salarios ni bonos de puestos diferentes en un mismo renglón. Si algún dato no aparece, pon "No especificado".
-    
-    TEXTO CONSOLIDADO A EVALUAR:
-    ${textoOriginal}`;
-
-    const maxReintentos = 3;
-    let tiempoEspera = 1500; 
-
-    for (let intento = 1; intento <= maxReintentos; intento++) {
-      try {
-        const response = await ai.models.generateContent({
-          model: "gemini-2.5-flash",
-          contents: prompt,
-          config: {
-            systemInstruction: "Eres un analizador inteligente multivacantes de alta precisión. Recibes listados masivos y mapeas un arreglo de objetos JSON limpios. En la propiedad 'sexo' escoge estrictamente entre 'Indistinto', 'Masculino' o 'Femenino'.",
-            responseMimeType: "application/json",
-            responseSchema: this.esquemaBols,
-          }
-        });
-
-        return JSON.parse(response.text);
-
-      } catch (error) {
-        const msg = error.message ? error.message.toLowerCase() : "";
-        const esErrorSaturacion = msg.includes("503") || msg.includes("unavailable") || msg.includes("demand") || msg.includes("overloaded");
-
-        if (esErrorSaturacion && intento < maxReintentos) {
-          console.warn(`[IA_V6] Reintentando saturación (${intento}/${maxReintentos}) en ${tiempoEspera / 1000}s...`);
-          await new Promise(resolve => setTimeout(resolve, tiempoEspera));
-          tiempoEspera *= 2;
-        } else {
-          throw error;
+    window.escucharVacantesExistentes = function(empresaId) {
+        const boxGestion = document.getElementById('boxGestionVacantes');
+        const selectorFirebase = document.getElementById('selectorVacantesEnFirebase');
+        
+        if (!empresaId) {
+            boxGestion.style.display = "none";
+            return;
         }
-      }
+
+        onValue(ref(db, `vacantes_detalles/${empresaId}`), (snapshot) => {
+            selectorFirebase.innerHTML = "";
+            baseVacantesActualesEnFirebase = snapshot.val() || {};
+            
+            const keys = Object.keys(baseVacantesActualesEnFirebase);
+            const keysFiltradas = keys.filter(k => k !== "undefined" && k !== "");
+            
+            if (keysFiltradas.length === 0) {
+                selectorFirebase.innerHTML = '<option value="">-- No hay vacantes registradas en esta empresa --</option>';
+            } else {
+                selectorFirebase.innerHTML = '<option value="">-- Selecciona una vacante para Editar o Borrar --</option>';
+                keysFiltradas.forEach(puestoKey => {
+                    const vac = baseVacantesActualesEnFirebase[puestoKey];
+                    selectorFirebase.innerHTML += `<option value="${puestoKey}">[ID: ${puestoKey}] ${vac.vacanteNombre || 'Sin nombre'}</option>`;
+                });
+            }
+            boxGestion.style.display = "block";
+        });
     }
-  }
-};
 
-// ============================================================
-// VARIABLES GLOBALES
-// ============================================================
-let vacantesProcesadasGlobal = [];
-let baseVacantesActualesEnFirebase = {};
+    window.cargarVacanteParaEditar = function() {
+        const puestoKey = document.getElementById('selectorVacantesEnFirebase').value;
+        if (!puestoKey || !baseVacantesActualesEnFirebase[puestoKey]) {
+            alert("Por favor, selecciona una vacante válida de la lista.");
+            return;
+        }
 
-// ============================================================
-// TABS
-// ============================================================
-document.querySelectorAll('.tab-btn').forEach(btn=>{
-  btn.addEventListener('click',()=>{
-    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
-    document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById(btn.dataset.tab).classList.add('active');
-  });
-});
-
-// ============================================================
-// FUNCIONES FIREBASE & GESTIÓN
-// ============================================================
-window.escucharVacantesExistentes = function(empresaId){
-  const box = document.getElementById('boxGestionVacantes');
-  const sel = document.getElementById('selectorVacantesEnFirebase');
-  if(!empresaId){ box.style.display='none'; sel.innerHTML=''; return; }
-  onValue(ref(db,`vacantes_detalles/${empresaId}`), snap=>{
-    sel.innerHTML='';
-    baseVacantesActualesEnFirebase = snap.val() || {};
-    const keys = Object.keys(baseVacantesActualesEnFirebase).filter(k=>k && k!=='undefined');
-    if(!keys.length){
-      sel.innerHTML='<option value="">-- Sin vacantes registradas --</option>';
-    }else{
-      sel.innerHTML='<option value="">-- Selecciona vacante --</option>';
-      keys.forEach(k=> sel.innerHTML += `<option value="${k}">[${k}] ${baseVacantesActualesEnFirebase[k].vacanteNombre||'Sin nombre'}</option>`);
+        const vacante = baseVacantesActualesEnFirebase[puestoKey];
+        
+        document.getElementById('secPuestoId').value = puestoKey;
+        document.getElementById('secEstatus').value = vacante.estatus || 'disponible';
+        document.getElementById('secVacanteNombre').value = vacante.vacanteNombre || '';
+        document.getElementById('secSalario').value = vacante.salario || '';
+        document.getElementById('secEdad').value = vacante.edad || '';
+        document.getElementById('secLugarOrigen').value = vacante.lugarOrigen || '';
+        document.getElementById('secTurnos').value = vacante.turnos || '';
+        document.getElementById('secSexo').value = vacante.sexo || 'Indistinto';
+        document.getElementById('secExperiencia').value = vacante.experiencia || '';
+        document.getElementById('secEscolaridad').value = vacante.escolaridad || '';
+        document.getElementById('secBannerUrl').value = vacante.bannerUrl || '';
+        document.getElementById('secActividades').value = vacante.actividades || '';
+        document.getElementById('secInfoGeneral').value = vacante.informacionGeneral || '';
+        
+        alert(`✏️ Datos de "${vacante.vacanteNombre}" cargados con éxito. Realiza los cambios necesarios y presiona "ACTUALIZAR Cambios de Edición".`);
     }
-    box.style.display='block';
-  }, {onlyOnce:true});
-};
 
-window.cargarVacanteParaEditar = function(){
-  const k = document.getElementById('selectorVacantesEnFirebase').value;
-  if(!k || !baseVacantesActualesEnFirebase[k]) return alert('Selecciona una vacante válida');
-  const v = baseVacantesActualesEnFirebase[k];
-  ['secPuestoId','secEstatus','secVacanteNombre','secSalario','secEdad','secLugarOrigen','secTurnos','secSexo','secExperiencia','secEscolaridad','secBannerUrl','secActividades','secBeneficios','secInfoGeneral'].forEach(id=>{
-    const campo = id.replace('sec','').charAt(0).toLowerCase()+id.replace('sec','').slice(1);
-    document.getElementById(id).value = v[campo] || '';
-  });
-  document.getElementById('secPuestoId').value = k;
-  alert(`✅ Cargada: ${v.vacanteNombre}`);
-};
+    window.eliminarVacanteWeb = function() {
+        const empresaId = document.getElementById('secEmpresaSelect').value;
+        const puestoKey = document.getElementById('selectorVacantesEnFirebase').value;
+        
+        if (!empresaId || !puestoKey) {
+            alert("Selecciona la empresa y la vacante que deseas remover.");
+            return;
+        }
 
-window.eliminarVacanteWeb = function(){
-  const e = document.getElementById('secEmpresaSelect').value;
-  const k = document.getElementById('selectorVacantesEnFirebase').value;
-  if(!e||!k) return alert('Selecciona empresa y vacante');
-  const n = baseVacantesActualesEnFirebase[k]?.vacanteNombre || k;
-  if(confirm(`⚠️ ELIMINAR DEFINITIVAMENTE:\n"${n}"\nEsta acción NO se puede deshacer.`)){
-    remove(ref(db,`vacantes_detalles/${e}/${k}`)).then(()=>{
-      alert('✅ Eliminada correctamente');
-      limpiarFormularioVacantes();
-      escucharVacantesExistentes(e);
-    }).catch(err=>alert('❌ Error: '+err.message));
-  }
-};
-
-window.limpiarFormularioVacantes = function(){
-  ['secPuestoId','secVacanteNombre','secSalario','secEdad','secLugarOrigen','secTurnos','secExperiencia','secEscolaridad','secBannerUrl','secActividades','secBeneficios','secInfoGeneral'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('secEstatus').value='disponible';
-  document.getElementById('secSexo').value='Indistinto';
-  document.getElementById('selectorVacantesEnFirebase').value='';
-};
-
-// ============================================================
-// PROCESAMIENTO REESTRUCTURADO MULTIVACANTES
-// ============================================================
-window.procesarTxtWhatsAppV6 = async function(){
-  const input = document.getElementById('archivoTxtInput');
-  const lbl = document.getElementById('nombreArchivoCargado');
-  const caja = document.getElementById('contenedorResultadoVerde');
-  const btnIa = document.getElementById('btnInterpretarIa');
-  
-  if(!input.files.length) return;
-  const arch = input.files[0];
-  lbl.textContent = arch.name;
-  
-  const lector = new FileReader();
-  lector.onload = async ev=>{
-    try{
-      btnIa.disabled = true;
-      btnIa.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Desglosando Lote...';
-      
-      const texto = ev.target.result;
-      
-      // Llamada al motor Array
-      const resultadoArray = await IA_V6.llamarInterprete(texto);
-      
-      if (!Array.isArray(resultadoArray) || resultadoArray.length === 0) {
-        throw new Error("No se detectó un formato de lista válido.");
-      }
-
-      vacantesProcesadasGlobal = resultadoArray; 
-      
-      // Llenamos el selector verde con todas las vacantes del lote
-      const sel = document.getElementById('selectorVacantesDetectadas');
-      sel.innerHTML = "";
-      vacantesProcesadasGlobal.forEach((puesto, index) => {
-        sel.innerHTML += `<option value="${index}">Puesto [${index + 1}]: ${puesto.vacanteNombre}</option>`;
-      });
-      
-      cambiarVacanteVerdeSeleccionada();
-      caja.style.display='block';
-      
-      alert(`✅ ¡Gemini detectó ${vacantesProcesadasGlobal.length} vacantes de forma independiente en este archivo!`);
-    }catch(err){ 
-      console.error(err);
-      alert('❌ Error al invocar el motor de IA masivo: ' + err.message); 
-    } finally {
-      btnIa.disabled = false;
-      btnIa.innerHTML = '<i class="fas fa-wand-magic-sparkles"></i> Rellenar un solo formulario';
+        const vacante = baseVacantesActualesEnFirebase[puestoKey];
+        const confirmacion = confirm(`⚠️ ¿ESTÁS SEGURO?\n\nVas a eliminar definitivamente la vacante "${vacante.vacanteNombre}" de la plataforma web.`);
+        
+        if (confirmacion) {
+            remove(ref(db, `vacantes_detalles/${empresaId}/${puestoKey}`))
+            .then(() => {
+                alert("🗑️ ¡Vacante eliminada con éxito de la plataforma web!");
+                document.getElementById('secPuestoId').value = "";
+            })
+            .catch((error) => {
+                alert("Error al eliminar: " + error.message);
+            });
+        }
     }
-  };
-  lector.readAsText(arch,'UTF-8');
-};
 
-window.cambiarVacanteVerdeSeleccionada = function(){
-  const i = document.getElementById('selectorVacantesDetectadas').value;
-  if(vacantesProcesadasGlobal[i]) {
-    document.getElementById('codigoJsonVerde').textContent = JSON.stringify(vacantesProcesadasGlobal[i],null,2);
-  }
-};
+    // ==========================================
+    // NUEVAS FUNCIONES: CONTROL DE EMPRESAS (PESTANA 1)
+    // ==========================================
+    window.cargarEmpresaParaEditar = function(empresaId) {
+        if(!baseEmpresasActualesEnFirebase[empresaId]) return;
+        const emp = baseEmpresasActualesEnFirebase[empresaId];
 
-window.transferirAlEspacioMorado = function(){
-  const j = document.getElementById('codigoJsonVerde').textContent.trim();
-  if(!j) return;
-  document.getElementById('iaTextoPegar').value = j;
-};
+        document.getElementById('admId').value = emp.id;
+        document.getElementById('admId').disabled = true; // El ID llave no debe cambiarse
+        document.getElementById('admNombre').value = emp.nombre || '';
+        document.getElementById('admUbicacion').value = emp.ubicacion || '';
+        document.getElementById('admLink').value = emp.link || '';
+        document.getElementById('admImagen').value = emp.imagen || '';
+        document.getElementById('admTags').value = emp.tags || '';
 
-// SUBIDA EN LOTE COMPLETA DIRECTO DESDE EL SELECTOR VERDE
-window.subirTodasLasVacantesVerdesALote = async function() {
-  const empresaDestino = document.getElementById('secEmpresaSelect').value;
-  if (!empresaDestino) {
-    return alert('⚠️ Primero selecciona la Empresa de destino en la parte superior para saber dónde inyectar el lote.');
-  }
-  
-  if (vacantesProcesadasGlobal.length === 0) {
-    return alert('No hay vacantes procesadas para subir.');
-  }
-  
-  if (!confirm(`¿Estás seguro de que quieres dar de alta de golpe las ${vacantesProcesadasGlobal.length} vacantes detectadas en la empresa "${empresaDestino}"?`)) {
-    return;
-  }
-  
-  try {
-    let subidosContador = 0;
-    for (const puesto of vacantesProcesadasGlobal) {
-      // Generamos un ID amigable e individual para cada puesto del lote
-      const sugerenciaId = puesto.vacanteNombre.toLowerCase().split(' ')[0].normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'').slice(0,25);
-      const puestoIdFinal = sanitizarId(sugerenciaId + "-" + Math.floor(Math.random() * 1000));
-
-      const payload = {
-        puestoId: puestoIdFinal,
-        estatus: "disponible",
-        vacanteNombre: puesto.vacanteNombre || 'Sin nombre',
-        salario: puesto.salario || 'No especificado',
-        edad: puesto.edad || 'Indistinto',
-        lugarOrigen: puesto.lugarOrigen || 'No especificado',
-        turnos: puesto.turnos || 'No especificado',
-        sexo: puesto.sexo || 'Indistinto',
-        experiencia: puesto.experiencia || 'No especificada',
-        escolaridad: puesto.escolaridad || 'No especificada',
-        bannerUrl: "",
-        actividades: puesto.actividades || '',
-        beneficios: puesto.beneficios || '',
-        informacionGeneral: puesto.informacionGeneral || '',
-        actualizado: new Date().toISOString()
-      };
-      
-      await set(ref(db, `vacantes_detalles/${empresaDestino}/${puestoIdFinal}`), payload);
-      subidosContador++;
+        // Cambiar estilo del botón visualmente para indicar actualización
+        document.getElementById('lblTituloEmpresaForm').innerText = "✏️ Editando Empresa Base";
+        const btnAccion = document.getElementById('btnGuardarEmpresaAccion');
+        btnAccion.style.background = "var(--blue-update)";
+        btnAccion.innerHTML = '<i class="fas fa-sync-alt"></i> Sincronizar Cambios de Empresa';
+        
+        // Hacer scroll suave hacia el formulario arriba
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     }
-    
-    alert(`🚀 ¡Inyección Masiva Completa! Se registraron exitosamente las ${subidosContador} vacantes en Firebase.`);
-    document.getElementById('contenedorResultadoVerde').style.display = 'none';
-    escucharVacantesExistentes(empresaDestino);
-    
-  } catch(error) {
-    console.error(error);
-    alert('Fallo en la carga por lote: ' + error.message);
-  }
-};
 
-window.procesarTextoBrutoTxt = async function(){
-  const raw = document.getElementById('iaTextoPegar').value.trim();
-  if(!raw) return alert('Pega texto de WhatsApp o carga un archivo .txt primero');
-  
-  const btnIa = document.getElementById('btnInterpretarIa');
-  
-  try {
-    let datos;
-    if (raw.startsWith('{')) {
-      datos = JSON.parse(raw);
-    } else {
-      btnIa.disabled = true;
-      btnIa.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando con IA...';
-      const arrayLlamada = await IA_V6.llamarInterprete(raw);
-      datos = Array.isArray(arrayLlamada) ? arrayLlamada[0] : arrayLlamada;
+    window.eliminarEmpresaCompleta = function(empresaId) {
+        if(!empresaId) return;
+        
+        const confirmacion = confirm(`⚠️ ¡ADVERTENCIA CRÍTICA!\n\n¿Estás seguro de eliminar la empresa "${empresaId.toUpperCase()}"?\n\nEsto borrará la empresa y todas sus vacantes de manera permanente de la plataforma.`);
+        
+        if(confirmacion) {
+            // 1. Borrar de empresas
+            remove(ref(db, `empresas/${empresaId}`))
+            .then(() => {
+                // 2. Borrar sus vacantes dependientes automáticamente
+                return remove(ref(db, `vacantes_detalles/${empresaId}`));
+            })
+            .then(() => {
+                alert(`🗑️ Empresa "${empresaId}" y todas sus vacantes asociadas fueron removidas.`);
+                resetearFormularioEmpresas();
+            })
+            .catch(err => alert("Error al eliminar: " + err.message));
+        }
     }
-    
-    // Asignación limpia a tus campos visuales
-    document.getElementById('secVacanteNombre').value = datos.vacanteNombre || '';
-    document.getElementById('secSalario').value = datos.salario || '';
-    document.getElementById('secEdad').value = datos.edad || '';
-    document.getElementById('secLugarOrigen').value = datos.lugarOrigen || '';
-    document.getElementById('secTurnos').value = datos.turnos || '';
-    document.getElementById('secExperiencia').value = datos.experiencia || '';
-    document.getElementById('secEscolaridad').value = datos.escolaridad || '';
-    document.getElementById('secActividades').value = datos.actividades || '';
-    document.getElementById('secBeneficios').value = datos.beneficios || '';
-    document.getElementById('secInfoGeneral').value = datos.informacionGeneral || '';
-    
-    const sexoNormalizado = datos.sexo ? datos.sexo.charAt(0).toUpperCase() + datos.sexo.slice(1).toLowerCase() : 'Indistinto';
-    if(['Indistinto','Masculino','Femenino'].includes(sexoNormalizado)) {
-      document.getElementById('secSexo').value = sexoNormalizado;
-    } else {
-      document.getElementById('secSexo').value = 'Indistinto';
+
+    function resetearFormularioEmpresas() {
+        document.getElementById('admId').value = "";
+        document.getElementById('admId').disabled = false;
+        document.getElementById('admNombre').value = "";
+        document.getElementById('admUbicacion').value = "";
+        document.getElementById('admLink').value = "";
+        document.getElementById('admImagen').value = "";
+        document.getElementById('admTags').value = "";
+        
+        document.getElementById('lblTituloEmpresaForm').innerText = "Alta / Edición de Empresa Base";
+        const btnAccion = document.getElementById('btnGuardarEmpresaAccion');
+        btnAccion.style.background = "var(--primary-orange)";
+        btnAccion.innerHTML = '<i class="fas fa-save"></i> Guardar Empresa';
     }
-    
-    if(datos.vacanteNombre){
-      const idSug = datos.vacanteNombre.toLowerCase().split(' ')[0].normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'').slice(0,20);
-      document.getElementById('secPuestoId').value = idSug;
+    // ==========================================
+
+    window.procesarTxtWhatsAppV5 = function() {
+        try {
+            const input = document.getElementById('archivoTxtInput');
+            const indicadorNombre = document.getElementById('nombreArchivoCargado');
+            const contenedorVerde = document.getElementById('contenedorResultadoVerde');
+            const selectorPuestos = document.getElementById('selectorVacantesDetectadas');
+            
+            if (!input.files || input.files.length === 0) return;
+            const archivo = input.files[0];
+            indicadorNombre.innerText = `📄 ${archivo.name}`;
+            
+            const lector = new FileReader();
+            lector.onload = function(e) {
+                try {
+                    const cuerpoTexto = e.target.result;
+                    const lineas = cuerpoTexto.split('\n').map(l => l.trim()).filter(l => l !== "");
+                    
+                    let turnosDetectados = [];
+                    lineas.forEach(l => {
+                        let lLow = l.toLowerCase();
+                        if (lLow.includes("turno rotativo") || lLow.includes("turnos rotativos") || lLow.includes("turno día") || lLow.includes("turno noche") || lLow.includes("se rotan") || lLow.includes("rotativo 4x3")) {
+                            turnosDetectados.push(l.replace(/[🔰*•\-‼️]/g, '').trim());
+                        }
+                    });
+                    let horarioFinalSugerido = turnosDetectados.join(" / ") || "Turnos rotativos de empresa";
+
+                    let infoGeneralBloque = [];
+                    let capturarResto = false;
+
+                    lineas.forEach(l => {
+                        let lLow = l.toLowerCase();
+                        if (lLow.includes("reingreso") || lLow.includes("consideraciones para pago") || lLow.includes("datos para agendar") || lLow.includes("no reingresos") || lLow.includes("semana desfasada") || lLow.includes("banco") || lLow.includes("examen médico") || lLow.includes("tatuajes") || lLow.includes("familiares") || lLow.includes("ingresar el mismo día")) {
+                            capturarResto = true;
+                        }
+                        if (capturarResto || lLow.includes("mismo día") || lLow.includes("doping") || lLow.includes("bbva")) {
+                            if(!infoGeneralBloque.includes(l)) {
+                                infoGeneralBloque.push(l.replace(/[🔰*•\-]/g, '').trim());
+                            }
+                        }
+                    });
+                    let infoGeneralTexto = infoGeneralBloque.join("\n") || "Sin restricciones específicas mencionadas.";
+
+                    let zonaDetectada = "Zona Industrial"; 
+                    for (let i = 0; i < lineas.length; i++) {
+                        let lLower = lineas[i].toLowerCase();
+                        if (lLower.includes("parque kia") || lLower.includes("pesquería")) {
+                            zonaDetectada = "Parque KIA, Pesquería";
+                            break;
+                        } else if (lLower.includes("parque") || lLower.includes("ciénega") || lLower.includes("tlaquepaque") || lLower.includes("📍")) {
+                            zonaDetectada = lineas[i].replace(/[📍🏭🔰*•\-✅]/g, '').trim();
+                            break;
+                        }
+                    }
+
+                    let beneficiosYActividades = [];
+                    lineas.forEach(l => {
+                        const lLower = l.toLowerCase();
+                        if (lLower.includes("prestaciones") || lLower.includes("vales") || lLower.includes("comedor") || lLower.includes("fondo de ahorro") || lLower.includes("aguinaldo") || lLower.includes("acomodar") || lLower.includes("llantas") || lLower.includes("rines") || lLower.includes("de pie") || lLower.includes("descansa")) {
+                            if(!lLower.includes("solicita")) {
+                                beneficiosYActividades.push(l.replace(/[💠☑️✔️💲➕*•\-]/g, '').trim());
+                            }
+                        }
+                    });
+                    let actividadesYBeneficiosTexto = beneficiosYActividades.join(" / ");
+
+                    let puestosEncontrados = [];
+                    let puestoActual = null;
+                    const disparadoresPuesto = ["ayudante", "ayudantes", "montacarguista", "tecnico", "técnico", "inspector", "calidad", "operador", "guardia", "auxiliar", "limpieza"];
+
+                    for (let i = 0; i < lineas.length; i++) {
+                        let linea = lineas[i];
+                        let lLower = linea.toLowerCase();
+
+                        let esLineaDePuesto = disparadoresPuesto.some(p => lLower.includes(p)) && 
+                                              (lLower.includes("🔰") || lLower.includes("*") || lLower.includes("solicita"));
+
+                        if (esLineaDePuesto) {
+                            if (puestoActual) puestosEncontrados.push(puestoActual);
+
+                            let nombreLimpio = linea.replace(/[🔰*Solicita:👷🏻‍♂️👨🏻‍🔧👷🏻‍♀️()•\-]/g, '').split('$')[0].trim();
+                            puestoActual = {
+                                vacanteNombre: nombreLimpio.toUpperCase(),
+                                salario: "", 
+                                edad: "18 a 55 años",
+                                lugarOrigen: zonaDetectada,
+                                turnos: horarioFinalSugerido,
+                                sexo: "Indistinto",
+                                experiencia: "No necesaria",
+                                escolaridad: "Primaria / Secundaria",
+                                actividades: actividadesYBeneficiosTexto,
+                                informacionGeneral: infoGeneralTexto
+                            };
+                            
+                            if (lLower.includes("$")) {
+                                let partes = linea.split('$');
+                                if(partes[1]) puestoActual.salario = "$" + partes[1].trim();
+                            }
+                        }
+
+                        if (puestoActual) {
+                            if ((lLower.includes("salario") || lLower.includes("sueldo") || lLower.includes("semanal libres")) && lLower.includes("$")) {
+                                if (!lLower.includes("bono") && !lLower.includes("apoyo") && !lLower.includes("vales")) {
+                                    let acumuladoSueldo = linea;
+                                    if (i + 1 < lineas.length && lineas[i+1].toLowerCase().includes("salario semanal")) {
+                                        acumuladoSueldo += " / " + lineas[i+1];
+                                        i++;
+                                    }
+                                    puestoActual.salario = acumuladoSueldo.replace(/[💲🔰*•\-]/g, '').trim();
+                                }
+                            }
+
+                            if (!puestoActual.salario && lLower.includes("$") && !lLower.includes("bono") && !lLower.includes("apoyo") && !lLower.includes("vales")) {
+                                puestoActual.salario = linea.replace(/[💲🔰*•\-]/g, '').trim();
+                            }
+
+                            if (lLower.includes("edad") || lLower.includes("años")) {
+                                const matchEdad = linea.match(/[0-9]+\s*(a|-\s*)[0-9]+/);
+                                if (matchEdad) puestoActual.edad = matchEdad[0] + " años";
+                            }
+                            if (lLower.includes("hombres y mujeres") || lLower.includes("ambos sexos")) puestoActual.sexo = "Indistinto";
+                            else if (lLower.includes("hombre") || lLower.includes("solo hombres")) puestoActual.sexo = "Masculino";
+                            else if (lLower.includes("femenino") || lLower.includes("mujer")) puestoActual.sexo = "Femenino";
+
+                            if (lLower.includes("preparatoria") || lLower.includes("prepa")) puestoActual.escolaridad = "Preparatoria Técnica";
+                            else if (lLower.includes("secundaria")) puestoActual.escolaridad = "Secundaria Mínima";
+                            else if (lLower.includes("primaria")) puestoActual.escolaridad = "Primaria Mínima";
+                        }
+                    }
+
+                    if (puestoActual) puestosEncontrados.push(puestoActual);
+
+                    if (puestosEncontrados.length === 0) {
+                        puestosEncontrados.push({
+                            vacanteNombre: "AYUDANTE GENERAL",
+                            salario: "Ver detalles en planta",
+                            edad: "18 a 55 años",
+                            lugarOrigen: zonaDetectada,
+                            turnos: horarioFinalSugerido,
+                            sexo: "Indistinto",
+                            experiencia: "No necesaria",
+                            escolaridad: "Primaria / Secundaria",
+                            actividades: actividadesYBeneficiosTexto,
+                            informacionGeneral: infoGeneralTexto
+                        });
+                    }
+
+                    vacantesProcesadasGlobal = puestosEncontrados;
+                    selectorPuestos.innerHTML = "";
+                    vacantesProcesadasGlobal.forEach((vac, index) => {
+                        selectorPuestos.innerHTML += `<option value="${index}">📌 Puesto: ${vac.vacanteNombre}</option>`;
+                    });
+
+                    cambiarVacanteVerdeSeleccionada();
+                    contenedorVerde.style.display = 'block';
+
+                } catch (errInner) {
+                    alert("Error en procesamiento: " + errInner.message);
+                }
+            };
+            lector.readAsText(archivo);
+        } catch (errOuter) {
+            alert("Error general: " + errOuter.message);
+        }
     }
-    
-    alert('✨ ¡Formulario completado perfectamente por Gemini!');
-  }catch(err){ 
-    console.error(err);
-    alert('⚠️ No se pudo interpretar el texto: '+err.message); 
-  } finally {
-    btnIa.disabled = false;
-    btnIa.innerHTML = '<i class="fas fa-wand-magic-sparkles"></i> Rellenar un solo formulario';
-  }
-};
 
-// ============================================================
-// FIREBASE — GUARDADO Y ALTA
-// ============================================================
-function sanitizarId(s){ return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[.#$\[\]\/\s]/g,'-').replace(/-+/g,'-').slice(0,50); }
+    window.cambiarVacanteVerdeSeleccionada = function() {
+        const index = document.getElementById('selectorVacantesDetectadas').value;
+        const cuadroVerde = document.getElementById('codigoJsonVerde');
+        if(vacantesProcesadasGlobal[index]) {
+            cuadroVerde.value = JSON.stringify(vacantesProcesadasGlobal[index], null, 2);
+        }
+    }
 
-// Lee de la UI para subidas manuales
-function leerVacanteForm(){
-  return {
-    puestoId: sanitizarId(document.getElementById('secPuestoId').value),
-    estatus: document.getElementById('secEstatus').value,
-    vacanteNombre: document.getElementById('secVacanteNombre').value.trim(),
-    salario: document.getElementById('secSalario').value.trim(),
-    edad: document.getElementById('secEdad').value.trim(),
-    lugarOrigen: document.getElementById('secLugarOrigen').value.trim(),
-    turnos: document.getElementById('secTurnos').value.trim(),
-    sexo: document.getElementById('secSexo').value,
-    experiencia: document.getElementById('secExperiencia').value.trim(),
-    escolaridad: document.getElementById('secEscolaridad').value.trim(),
-    bannerUrl: document.getElementById('secBannerUrl').value.trim(),
-    actividades: document.getElementById('secActividades').value.trim(),
-    beneficios: document.getElementById('secBeneficios').value.trim(),
-    informacionGeneral: document.getElementById('secInfoGeneral').value.trim(),
-    actualizado: new Date().toISOString()
-  };
-}
+    window.transferirAlEspacioMorado = function() {
+        const codigoVerde = document.getElementById('codigoJsonVerde').value.trim();
+        if(!codigoVerde) return;
+        document.getElementById('iaTextoPegar').value = codigoVerde;
+    }
 
-window.guardarComoNuevaVacante = async function(){
-  const emp = document.getElementById('secEmpresaSelect').value;
-  const datos = leerVacanteForm();
-  if(!emp || !datos.puestoId || !datos.vacanteNombre) return alert('⚠️ Empresa, ID y nombre son obligatorios');
-  try{
-    await set(ref(db,`vacantes_detalles/${emp}/${datos.puestoId}`), datos);
-    alert(`✅ Vacante NUEVA guardada:\n${datos.vacanteNombre}`);
-    escucharVacantesExistentes(emp);
-  }catch(e){ alert('❌ Error: '+e.message); }
-};
+    window.procesarTextoBrutoTxt = function() {
+        const textRaw = document.getElementById('iaTextoPegar').value.trim();
+        if(!textRaw) return;
+        try {
+            const data = JSON.parse(textRaw);
+            document.getElementById('secVacanteNombre').value = data.vacanteNombre || '';
+            document.getElementById('secEdad').value = data.edad || '';
+            document.getElementById('secSalario').value = data.salario || '';
+            document.getElementById('secLugarOrigen').value = data.lugarOrigen || '';
+            document.getElementById('secTurnos').value = data.turnos || '';
+            document.getElementById('secExperiencia').value = data.experiencia || '';
+            document.getElementById('secEscolaridad').value = data.escolaridad || '';
+            document.getElementById('secActividades').value = data.actividades || '';
+            document.getElementById('secSexo').value = data.sexo || 'Indistinto';
+            document.getElementById('secInfoGeneral').value = data.informacionGeneral || '';
+            
+            const idSugerido = data.vacanteNombre.toLowerCase().split(' ')[0].normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+            document.getElementById('secPuestoId').value = idSugerido;
+            alert("✨ ¡Formulario auto-rellenado con éxito!");
+        } catch(e) {
+            alert("JSON inválido.");
+        }
+    }
 
-window.guardarActualizacionVacante = async function(){
-  const emp = document.getElementById('secEmpresaSelect').value;
-  const datos = leerVacanteForm();
-  if(!emp || !datos.puestoId) return alert('⚠️ Carga primero una vacante');
-  try{
-    await set(ref(db,`vacantes_detalles/${emp}/${datos.puestoId}`), datos);
-    alert(`✅ Actualizada correctamente: ${datos.vacanteNombre}`);
-    escucharVacantesExistentes(emp);
-  }catch(e){ alert('❌ Error: '+e.message); }
-};
+    window.guardarComoNuevaVacante = function() {
+        const empresaId = document.getElementById('secEmpresaSelect').value;
+        const puestoId = document.getElementById('secPuestoId').value.trim().toLowerCase();
+        if(!empresaId || !puestoId) { alert("Error: Debes elegir una empresa e ingresar un ID para el puesto."); return; }
 
-window.agregarEmpresaPrincipal = async function(){
-  const id = sanitizarId(document.getElementById('admId').value);
-  const nombre = document.getElementById('admNombre').value.trim();
-  if(!id||!nombre) return alert('⚠️ ID y nombre obligatorios');
-  const payload = {
-    id, nombre,
-    ubicacion: document.getElementById('admUbicacion').value.trim(),
-    link: document.getElementById('admLink').value.trim(),
-    imagen: document.getElementById('admImagen').value.trim(),
-    tags: document.getElementById('admTags').value.trim(),
-    actualizado: new Date().toISOString()
-  };
-  try{
-    await set(ref(db,`empresas/${id}`), payload);
-    alert('✅ Empresa guardada');
-    ['admId','admNombre','admUbicacion','admLink','admImagen','admTags'].forEach(x=>document.getElementById(x).value='');
-  }catch(e){ alert('❌ Error: '+e.message); }
-};
+        const nombreVacante = document.getElementById('secVacanteNombre').value;
 
-// CARGA INICIAL EMPRESAS
-onValue(ref(db,'empresas'), snap=>{
-  const tb = document.getElementById('adminTablaEmpresas');
-  const sel = document.getElementById('secEmpresaSelect');
-  tb.innerHTML='';
-  sel.innerHTML='<option value="">-- Elige una Empresa --</option>';
-  const d = snap.val()||{};
-  Object.values(d).forEach(e=>{
-    tb.innerHTML += `<tr><td><img src="${e.imagen||'https://cdn-icons-png.flaticon.com/512/1041/1041916.png'}" alt=""></td><td><code>${e.id}</code></td><td>${e.nombre}</td><td>${e.ubicacion||''}</td></tr>`;
-    sel.innerHTML += `<option value="${e.id}">${e.nombre}</option>`;
-  });
-});
+        set(ref(db, `vacantes_detalles/${empresaId}/${puestoId}`), {
+            puestoId,
+            estatus: document.getElementById('secEstatus').value,
+            vacanteNombre: nombreVacante,
+            salario: document.getElementById('secSalario').value,
+            edad: document.getElementById('secEdad').value,
+            lugarOrigen: document.getElementById('secLugarOrigen').value,
+            turnos: document.getElementById('secTurnos').value,
+            sexo: document.getElementById('secSexo').value,
+            experiencia: document.getElementById('secExperiencia').value,
+            escolaridad: document.getElementById('secEscolaridad').value,
+            bannerUrl: document.getElementById('secBannerUrl').value,
+            actividades: document.getElementById('secActividades').value,
+            informacionGeneral: document.getElementById('secInfoGeneral').value
+        }).then(() => {
+            alert(`🚀 ¡Éxito! Nueva vacante "${nombreVacante}" registrada correctamente.`);
+        });
+    }
+
+    window.guardarActualizacionVacante = function() {
+        const empresaId = document.getElementById('secEmpresaSelect').value;
+        const puestoId = document.getElementById('secPuestoId').value.trim().toLowerCase();
+        if(!empresaId || !puestoId) { alert("Error: No hay datos cargados para actualizar. Selecciona una empresa y puesto válidos."); return; }
+
+        const nombreVacante = document.getElementById('secVacanteNombre').value;
+
+        set(ref(db, `vacantes_detalles/${empresaId}/${puestoId}`), {
+            puestoId,
+            estatus: document.getElementById('secEstatus').value,
+            vacanteNombre: nombreVacante,
+            salario: document.getElementById('secSalario').value,
+            edad: document.getElementById('secEdad').value,
+            lugarOrigen: document.getElementById('secLugarOrigen').value,
+            turnos: document.getElementById('secTurnos').value,
+            sexo: document.getElementById('secSexo').value,
+            experiencia: document.getElementById('secExperiencia').value,
+            escolaridad: document.getElementById('secEscolaridad').value,
+            bannerUrl: document.getElementById('secBannerUrl').value,
+            actividades: document.getElementById('secActividades').value,
+            informacionGeneral: document.getElementById('secInfoGeneral').value
+        }).then(() => {
+            alert(`🔄 ¡Sincronizado! Los cambios de la vacante "${nombreVacante}" han sido guardados en la web.`);
+        });
+    }
+
+    window.agregarEmpresaPrincipal = function() {
+        const id = document.getElementById('admId').value.trim().toLowerCase();
+        const nombre = document.getElementById('admNombre').value.trim();
+        const ubicacion = document.getElementById('admUbicacion').value.trim();
+        const link = document.getElementById('admLink').value.trim();
+        const imagen = document.getElementById('admImagen').value.trim();
+        const tags = document.getElementById('admTags').value.trim();
+
+        if(!id || !nombre) { alert("ID y Nombre son obligatorios."); return; }
+
+        set(ref(db, `empresas/${id}`), { id, nombre, ubicacion, link, imagen, tags })
+        .then(() => { 
+            alert("¡Empresa guardada exitosamente!"); 
+            resetearFormularioEmpresas();
+        });
+    }
+
+    onValue(ref(db, 'empresas'), (snapshot) => {
+        const tbody = document.getElementById('adminTablaEmpresas');
+        const select = document.getElementById('secEmpresaSelect');
+        tbody.innerHTML = '';
+        select.innerHTML = '<option value="">-- Selecciona una Empresa --</option>';
+        
+        const data = snapshot.val();
+        baseEmpresasActualesEnFirebase = data || {}; // Guardar respaldo en memoria local
+        
+        if(data) {
+            Object.keys(data).forEach(key => {
+                const emp = data[key];
+                tbody.innerHTML += `
+                    <tr>
+                        <td><img src="${emp.imagen}" width="45" onerror="this.src='https://placehold.co/45'"></td>
+                        <td><code>/${emp.id}</code></td>
+                        <td>${emp.nombre}</td>
+                        <td>${emp.ubicacion}</td>
+                        <td>
+                            <button type="button" class="btn-tbl-edit" onclick="cargarEmpresaParaEditar('${emp.id}')"><i class="fas fa-edit"></i> Editar</button>
+                            <button type="button" class="btn-tbl-delete" onclick="eliminarEmpresaCompleta('${emp.id}')"><i class="fas fa-trash-alt"></i> Borrar</button>
+                        </td>
+                    </tr>`;
+                select.innerHTML += `<option value="${emp.id}">${emp.nombre}</option>`;
+            });
+        }
+    });
 </script>
 </body>
 </html>
