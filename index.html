@@ -672,7 +672,6 @@
         <div class="button-group" id="linksGroup"></div>
     </section>
 
-    <!-- Línea divisoria decorativa -->
     <div style="width: 100%; height: 1px; background: linear-gradient(90deg, transparent, var(--primary-orange), transparent); margin: 10px 0;"></div>
 
     <section class="form-section">
@@ -767,18 +766,17 @@
         const data = snapshot.val() || {};
         todasLasEmpresas = data; 
         
-        empresasFiltradas = Object.keys(data).map((id) => {
-            return { id: id, ...data[id] };
-        });
-        
-        renderizarComponentes();
-        updateItemsPerPage();
+        // Al alimentar o actualizar desde Firebase, respetamos si hay un término de búsqueda activo
+        ejecutarFiltroBusqueda(document.getElementById('mainSearch').value);
     });
 
     function renderizarComponentes() {
         const wrapper = document.getElementById('galleryWrapper');
         const linksGroup = document.getElementById('linksGroup');
         const selectEmpresa = document.getElementById('empresa');
+
+        // Guardamos la selección previa del usuario para que no se borre bruscamente al escribir
+        const seleccionPrevia = selectEmpresa.value;
 
         wrapper.innerHTML = '';
         linksGroup.innerHTML = '';
@@ -803,6 +801,11 @@
 
             selectEmpresa.innerHTML += `<option value="${emp.id}">${emp.nombre}</option>`;
         });
+
+        // Restaurar la selección previa si la empresa sigue disponible tras el filtro
+        if (seleccionPrevia) {
+            selectEmpresa.value = seleccionPrevia;
+        }
     }
 
     // Consultar dinámicamente la rama 'vacantes_detalles' usando el ID seleccionado
@@ -897,18 +900,16 @@
         return texto.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); 
     }
 
-    document.getElementById('mainSearch').addEventListener('input', function(e) {
-        const term = limpiaTexto(e.target.value.trim());
+    // Encapsulamos la lógica para alimentar el filtro dinámicamente de Firebase
+    function ejecutarFiltroBusqueda(valorInput) {
+        const term = limpiaTexto(valorInput.trim());
+        const arrEmpresas = Object.keys(todasLasEmpresas).map(id => {
+            return { id: id, ...todasLasEmpresas[id] };
+        });
         
         if (term === "") {
-            empresasFiltradas = Object.keys(todasLasEmpresas).map(id => {
-                return { id: id, ...todasLasEmpresas[id] };
-            });
+            empresasFiltradas = arrEmpresas;
         } else {
-            const arrEmpresas = Object.keys(todasLasEmpresas).map(id => {
-                return { id: id, ...todasLasEmpresas[id] };
-            });
-
             empresasFiltradas = arrEmpresas.filter(emp => {
                 const nombreComp = emp.nombre ? limpiaTexto(emp.nombre) : "";
                 const ubicacionComp = emp.ubicacion ? limpiaTexto(emp.ubicacion) : "";
@@ -923,6 +924,11 @@
         renderizarComponentes();
         currentPage = 0;
         updateGallery();
+    }
+
+    // Escucha el input del buscador alimentado por Firebase
+    document.getElementById('mainSearch').addEventListener('input', function(e) {
+        ejecutarFiltroBusqueda(e.target.value);
     });
 
     window.addEventListener('resize', updateItemsPerPage);
