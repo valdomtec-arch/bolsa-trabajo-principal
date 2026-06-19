@@ -702,7 +702,7 @@
         const data = snapshot.val() || {};
         todasLasEmpresas = data; 
         
-        // Mantener mapeo plano original compatible con tu carrusel
+        // ESTA ERA LA LÍNEA DEL PROBLEMA. Volvemos al mapeo plano idéntico al tuyo original:
         empresasFiltradas = Object.keys(data).map((id) => {
             return { id: id, ...data[id] };
         });
@@ -737,24 +737,22 @@
                 <a href="${emp.link || '#'}" target="_blank" class="btn-link" data-company="${emp.tags || ''}">${emp.nombre}</a>
             `;
 
-            // Pasamos la clave real de Firebase
             selectEmpresa.innerHTML += `<option value="${emp.id}">${emp.nombre}</option>`;
         });
     }
 
-    // ENLAZADO DIRECTO DE VACANTES CORREGIDO
+    // SELECTOR SEGURO: Lee directo del id de la empresa guardado en Firebase
     document.getElementById('empresa').addEventListener('change', function(e) {
         const selectVacante = document.getElementById('vacante');
         const idEmpresa = e.target.value;
         
-        // Obtener el objeto de la empresa directo desde la fuente
         const empresaSeleccionada = todasLasEmpresas[idEmpresa];
 
         selectVacante.innerHTML = '<option value="" disabled selected hidden></option>';
         selectVacante.disabled = false;
 
-        // Leer campo dinámico sin importar si es singular, plural, texto o lista
         if (empresaSeleccionada) {
+            // Buscamos cualquier variante que use tu JSON de la API
             let datosVacantes = empresaSeleccionada.vacantes || empresaSeleccionada.vacante || empresaSeleccionada.puestos || empresaSeleccionada.puesto;
             
             if (datosVacantes) {
@@ -786,7 +784,7 @@
             }
         }
 
-        // Caída por defecto controlada si no tiene puestos asignados
+        // Respaldo inmediato si no detecta la propiedad
         selectVacante.innerHTML += '<option value="Ayudante General">Ayudante General</option>';
         if (window.validarCampo) {
             window.validarCampo(selectVacante);
