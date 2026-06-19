@@ -683,7 +683,7 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getDatabase, ref, onValue, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
     const firebaseConfig = {
         databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com/"
@@ -698,11 +698,11 @@
     let todasLasEmpresas = {}; 
     let empresasFiltradas = [];
 
+    // Escuchar datos generales de empresas
     onValue(dbRef, (snapshot) => {
         const data = snapshot.val() || {};
         todasLasEmpresas = data; 
         
-        // ESTA ERA LA LÍNEA DEL PROBLEMA. Volvemos al mapeo plano idéntico al tuyo original:
         empresasFiltradas = Object.keys(data).map((id) => {
             return { id: id, ...data[id] };
         });
@@ -741,37 +741,30 @@
         });
     }
 
-    // SELECTOR SEGURO: Lee directo del id de la empresa guardado en Firebase
+    // Consultar dinámicamente la rama 'vacantes_detalles' usando el ID seleccionado
     document.getElementById('empresa').addEventListener('change', function(e) {
         const selectVacante = document.getElementById('vacante');
-        const idEmpresa = e.target.value;
+        const idEmpresa = e.target.value; 
         
-        const empresaSeleccionada = todasLasEmpresas[idEmpresa];
+        selectVacante.innerHTML = '<option value="" disabled selected hidden>Cargando vacantes...</option>';
+        selectVacante.disabled = true;
 
-        selectVacante.innerHTML = '<option value="" disabled selected hidden></option>';
-        selectVacante.disabled = false;
+        const vacantesDetallesRef = ref(db, `vacantes_detalles/${idEmpresa}`);
 
-        if (empresaSeleccionada) {
-            // Buscamos cualquier variante que use tu JSON de la API
-            let datosVacantes = empresaSeleccionada.vacantes || empresaSeleccionada.vacante || empresaSeleccionada.puestos || empresaSeleccionada.puesto;
-            
-            if (datosVacantes) {
-                let listaFinal = [];
-                if (Array.isArray(datosVacantes)) {
-                    listaFinal = datosVacantes;
-                } else if (typeof datosVacantes === 'object') {
-                    listaFinal = Object.values(datosVacantes);
-                } else {
-                    listaFinal = String(datosVacantes).split(',');
-                }
+        get(vacantesDetallesRef).then((snapshot) => {
+            selectVacante.innerHTML = '<option value="" disabled selected hidden></option>';
+            selectVacante.disabled = false;
 
+            if (snapshot.exists()) {
+                const puestosData = snapshot.val(); 
                 let agregadas = 0;
-                listaFinal.forEach(vacante => {
-                    const textoLimpio = String(vacante).trim();
-                    if (textoLimpio !== "") {
-                        selectVacante.innerHTML += `<option value="${textoLimpio}">${textoLimpio}</option>`;
-                        agregadas++;
-                    }
+
+                Object.keys(puestosData).forEach((keyPuesto) => {
+                    const nombreVacante = puestosData[keyPuesto].puestoId || keyPuesto;
+                    const textoFormateado = nombreVacante.charAt(0).toUpperCase() + nombreVacante.slice(1);
+
+                    selectVacante.innerHTML += `<option value="${textoFormateado}">${textoFormateado}</option>`;
+                    agregadas++;
                 });
 
                 if (agregadas > 0) {
@@ -782,14 +775,17 @@
                     return;
                 }
             }
-        }
 
-        // Respaldo inmediato si no detecta la propiedad
-        selectVacante.innerHTML += '<option value="Ayudante General">Ayudante General</option>';
-        if (window.validarCampo) {
-            window.validarCampo(selectVacante);
-            window.validarCampo(e.target);
-        }
+            // Fallback por si la empresa no tiene vacantes mapeadas en la base de datos
+            selectVacante.innerHTML += '<option value="Ayudante General">Ayudante General</option>';
+            if (window.validarCampo) window.validarCampo(selectVacante);
+
+        }).catch((error) => {
+            console.error("Error al consultar vacantes_detalles:", error);
+            selectVacante.innerHTML = '<option value="" disabled selected hidden></option>';
+            selectVacante.disabled = false;
+            selectVacante.innerHTML += '<option value="Ayudante General">Ayudante General</option>';
+        });
     });
 
     function getItemsPerPage() { return window.innerWidth <= 768 ? 1 : 2; }
