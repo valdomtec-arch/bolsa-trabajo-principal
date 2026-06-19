@@ -231,14 +231,6 @@
             border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.8rem; transition: 0.3s;
         }
         .btn-tbl-delete:hover { background: #dc2626; }
-
-        .status-ia {
-            font-size: 0.9rem;
-            color: var(--purple-ia);
-            font-weight: bold;
-            margin-top: 5px;
-            display: block;
-        }
     </style>
 </head>
 <body>
@@ -334,27 +326,20 @@
 
             <div class="ia-box">
                 <label style="color: var(--purple-ia); font-weight: bold; display: block; margin-bottom: 5px;">
-                    <i class="fas fa-bolt"></i> Extractor Inteligente con Gemini IA (Procesamiento por Intervalos de 1.5s)
+                    <i class="fas fa-bolt"></i> Extractor de Patrones V5.0 (Análisis Avanzado de Horarios e Información de Reingreso)
                 </label>
                 
-                <div style="margin-bottom: 15px;">
-                    <label style="font-size: 0.85rem; color: var(--text-muted);">Token API Activo:</label>
-                    <input type="password" id="geminiApiKey" value="AQ.Ab8RN6LZYzVDQIYwGupNuHhz2R-do2RM5s61fbavdMQA3LDVUA" style="width: 100%; padding: 8px; background: #0d1724; border: 1px solid var(--purple-ia); color: #c084fc; border-radius: 6px; font-family: monospace;" readonly>
-                </div>
-
                 <div style="display: flex; gap: 15px; align-items: center; margin-bottom: 15px; flex-wrap: wrap;">
                     <div class="file-input-wrapper">
-                        <div class="btn-file-custom"><i class="fas fa-folder-open"></i> 1. Cargar Archivo .txt (Multivacantes)</div>
-                        <input type="file" id="archivoTxtInput" accept=".txt" onchange="analizarArchivoConIA()">
+                        <div class="btn-file-custom"><i class="fas fa-folder-open"></i> 1. Cargar Archivo .txt</div>
+                        <input type="file" id="archivoTxtInput" accept=".txt" onchange="procesarTxtWhatsAppV5()">
                     </div>
                     <span id="nombreArchivoCargado" style="font-size: 0.9rem; color: var(--primary-orange); font-weight: bold;">Ningún archivo seleccionado</span>
                 </div>
 
-                <div id="statusProcesamientoIA" class="status-ia"></div>
-
                 <div id="contenedorResultadoVerde" style="margin-bottom: 15px; display: none;">
                     <label style="color: var(--green-success); font-weight: bold; display: block; margin-bottom: 5px; font-size: 0.9rem;">
-                        <i class="fas fa-list-ol"></i> Selecciona la vacante procesada por la IA para auto-rellenar:
+                        <i class="fas fa-list-ol"></i> Selecciona la vacante detectada para ver su código JSON:
                     </label>
                     
                     <select id="selectorVacantesDetectadas" class="selector-puestos-verde" onchange="cambiarVacanteVerdeSeleccionada()">
@@ -367,7 +352,7 @@
                     </button>
                 </div>
 
-                <textarea id="iaTextoPegar" placeholder="El código JSON estructurado aparecerá aquí..." style="border-color: var(--purple-ia); min-height: 80px; margin-top: 15px;"></textarea>
+                <textarea id="iaTextoPegar" placeholder="El código JSON depurado aparecerá aquí..." style="border-color: var(--purple-ia); min-height: 100px; margin-top: 15px; font-family: monospace; font-size: 0.85rem;"></textarea>
                 <button type="button" class="btn-ia" onclick="procesarTextoBrutoTxt()">
                     <i class="fas fa-magic"></i> 3. Rellenar Formulario Automáticamente
                 </button>
@@ -465,46 +450,6 @@
         content2.classList.add('active'); content1.classList.remove('active');
     });
 
-    // ========================================================
-    // FUNCIONES DE EDICIÓN Y BORRADO DE EMPRESAS (PESTAÑA 1)
-    // ========================================================
-    window.cargarEmpresaParaEditar = function(idEmpresa) {
-        if (!baseEmpresasActualesEnFirebase || !baseEmpresasActualesEnFirebase[idEmpresa]) {
-            alert("No se encontraron los datos de la empresa.");
-            return;
-        }
-        const emp = baseEmpresasActualesEnFirebase[idEmpresa];
-        
-        document.getElementById('admId').value = emp.id || '';
-        document.getElementById('admId').disabled = true; 
-        document.getElementById('admNombre').value = emp.nombre || '';
-        document.getElementById('admUbicacion').value = emp.ubicacion || '';
-        document.getElementById('admLink').value = emp.link || '';
-        document.getElementById('admImagen').value = emp.imagen || '';
-        document.getElementById('admTags').value = emp.tags || '';
-        
-        document.getElementById('lblTituloEmpresaForm').innerText = "✏️ Modificando Empresa Base: " + emp.nombre;
-        document.getElementById('btnGuardarEmpresaAccion').innerHTML = '<i class="fas fa-sync-alt"></i> Actualizar Cambios de Empresa';
-        
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-
-    window.eliminarEmpresaCompleta = function(idEmpresa) {
-        if (!baseEmpresasActualesEnFirebase || !baseEmpresasActualesEnFirebase[idEmpresa]) return;
-        const emp = baseEmpresasActualesEnFirebase[idEmpresa];
-        
-        const seguro = confirm(`⚠️ ¡ADVERTENCIA CRÍTICA!\n\n¿Estás seguro de que quieres borrar la empresa "${emp.nombre}"?\nEsto eliminará sus accesos globales en el directorio.`);
-        if (seguro) {
-            remove(ref(db, `empresas/${idEmpresa}`))
-            .then(() => {
-                alert("🗑️ Empresa eliminada correctamente de Firebase.");
-                resetearFormularioEmpresas();
-            })
-            .catch(err => alert("Error al eliminar empresa: " + err.message));
-        }
-    }
-    // ========================================================
-
     window.escucharVacantesExistentes = function(empresaId) {
         const boxGestion = document.getElementById('boxGestionVacantes');
         const selectorFirebase = document.getElementById('selectorVacantesEnFirebase');
@@ -557,7 +502,7 @@
         document.getElementById('secActividades').value = vacante.actividades || '';
         document.getElementById('secInfoGeneral').value = vacante.informacionGeneral || '';
         
-        alert(`✏️ Datos de "${vacante.vacanteNombre}" cargados con éxito.`);
+        alert(`✏️ Datos de "${vacante.vacanteNombre}" cargados con éxito. Realiza los cambios necesarios y presiona "ACTUALIZAR Cambios de Edición".`);
     }
 
     window.eliminarVacanteWeb = function() {
@@ -570,12 +515,12 @@
         }
 
         const vacante = baseVacantesActualesEnFirebase[puestoKey];
-        const confirmacion = confirm(`⚠️ ¿ESTÁS SEGURO?\n\nVas a eliminar definitivamente la vacante "${vacante.vacanteNombre}".`);
+        const confirmacion = confirm(`⚠️ ¿ESTÁS SEGURO?\n\nVas a eliminar definitivamente la vacante "${vacante.vacanteNombre}" de la plataforma web.`);
         
         if (confirmacion) {
             remove(ref(db, `vacantes_detalles/${empresaId}/${puestoKey}`))
             .then(() => {
-                alert("🗑️ ¡Vacante eliminada con éxito!");
+                alert("🗑️ ¡Vacante eliminada con éxito de la plataforma web!");
                 document.getElementById('secPuestoId').value = "";
             })
             .catch((error) => {
@@ -584,118 +529,236 @@
         }
     }
 
-    // ========================================================
-    // MOTOR DE INTELIGENCIA ARTIFICIAL Y RE-LLAMADO SELECCIONADO
-    // ========================================================
-    window.analizarArchivoConIA = async function() {
-        const fileInput = document.getElementById('archivoTxtInput');
-        const statusDiv = document.getElementById('statusProcesamientoIA');
-        const indicadorNombre = document.getElementById('nombreArchivoCargado');
-        const apiKey = document.getElementById('geminiApiKey').value.trim();
+    window.cargarEmpresaParaEditar = function(empresaId) {
+        if(!baseEmpresasActualesEnFirebase[empresaId]) return;
+        const emp = baseEmpresasActualesEnFirebase[empresaId];
 
-        if (!fileInput.files || fileInput.files.length === 0) return;
-        const archivo = fileInput.files[0];
-        indicadorNombre.innerText = `📄 ${archivo.name}`;
+        document.getElementById('admId').value = emp.id;
+        document.getElementById('admId').disabled = true;
+        document.getElementById('admNombre').value = emp.nombre || '';
+        document.getElementById('admUbicacion').value = emp.ubicacion || '';
+        document.getElementById('admLink').value = emp.link || '';
+        document.getElementById('admImagen').value = emp.imagen || '';
+        document.getElementById('admTags').value = emp.tags || '';
 
-        if (!apiKey) {
-            alert("Clave API de Gemini faltante.");
-            return;
-        }
-
-        statusDiv.innerText = "⏳ Leyendo archivo de texto...";
+        document.getElementById('lblTituloEmpresaForm').innerText = "✏️ Editando Empresa Base";
+        const btnAccion = document.getElementById('btnGuardarEmpresaAccion');
+        btnAccion.style.background = "var(--blue-update)";
+        btnAccion.innerHTML = '<i class="fas fa-sync-alt"></i> Sincronizar Cambios de Empresa';
         
-        const lector = new FileReader();
-        lector.onload = async function(e) {
-            const textoCompleto = e.target.result;
-            
-            const bloquesSucios = textoCompleto.split(/(?=🔰|📍|★|■|Solicita)/g);
-            const bloquesValidos = bloquesSucios.map(b => b.trim()).filter(b => b.length > 30);
-
-            if (bloquesValidos.length === 0) {
-                statusDiv.innerText = "❌ No se segmentaron bloques claros. Procesando todo el archivo como bloque único.";
-                bloquesValidos.push(textoCompleto);
-            }
-
-            statusDiv.innerText = `🤖 Conectando con Gemini... Detectados ${bloquesValidos.length} bloques potenciales.`;
-            vacantesProcesadasGlobal = [];
-            
-            for (let i = 0; i < bloquesValidos.length; i++) {
-                statusDiv.innerText = `⚙️ Analizando vacante ${i + 1} de ${bloquesValidos.length}...`;
-                
-                try {
-                    const respuestaJson = await consultarGeminiApi(bloquesValidos[i], apiKey);
-                    if (respuestaJson) {
-                        vacantesProcesadasGlobal.push(respuestaJson);
-                    }
-                } catch (err) {
-                    console.error("Error en bloque " + i, err);
-                }
-
-                if (i < bloquesValidos.length - 1) {
-                    await new Promise(resolve => setTimeout(resolve, 1500));
-                }
-            }
-
-            statusDiv.innerText = "✨ ¡Análisis de Inteligencia Artificial completado!";
-            renderearSelectorVerde();
-        };
-        lector.readAsText(archivo);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    async function consultarGeminiApi(textoBloque, apiKey) {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    window.eliminarEmpresaCompleta = function(empresaId) {
+        if(!empresaId) return;
         
-        const promptSystem = `Actúa como un extractor de datos JSON estricto. Analiza el siguiente anuncio de empleo y estructúralo EXACTAMENTE con las siguientes propiedades:
-        - "vacanteNombre": Nombre del puesto en MAYÚSCULAS.
-        - "salario": Sueldo neto ofrecido. Recuerda: los apoyos escolares o bonos de transporte NUNCA se suman al salario base, ponlos por separado.
-        - "edad": Rango de edad (ej: "18 a 55 años").
-        - "lugarOrigen": Ubicación o parque industrial preciso en Pesquería u otra zona.
-        - "turnos": Horarios o si es rotativo.
-        - "sexo": "Indistinto", "Masculino" o "Femenino".
-        - "experiencia": Requisitos de experiencia.
-        - "escolaridad": Grado mínimo de estudios.
-        - "actividades": Lista limpia de beneficios separados por " / ".
-        - "informacionGeneral": REGLA CRÍTICA: Elimina por completo advertencias de doping o exámenes médicos obligatorios. Si se mencionan, reemplázalos sutilmente por un mensaje de bienvenida cálido que diga "Te esperamos". Agrega aquí las reglas de reingreso aplicables.
-
-        Devuelve ÚNICAMENTE un objeto JSON plano estructurado, sin bloques de código Markdown ni explicaciones adicionales.`;
-
-        const respuesta = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{
-                    parts: [{ text: `${promptSystem}\n\nTexto a analizar:\n${textoBloque}` }]
-                }]
+        const confirmacion = confirm(`⚠️ ¡ADVERTENCIA CRÍTICA!\n\n¿Estás seguro de eliminar la empresa "${empresaId.toUpperCase()}"?\n\nEsto borrará la empresa y todas sus vacantes de manera permanente de la plataforma.`);
+        
+        if(confirmacion) {
+            remove(ref(db, `empresas/${empresaId}`))
+            .then(() => {
+                return remove(ref(db, `vacantes_detalles/${empresaId}`));
             })
-        });
-
-        const jsonRaw = await respuesta.json();
-        try {
-            let textoRespuesta = jsonRaw.candidates[0].content.parts[0].text.trim();
-            textoRespuesta = textoRespuesta.replace(/^```json/, "").replace(/```$/, "").trim();
-            return JSON.parse(textoRespuesta);
-        } catch (e) {
-            console.error("No se pudo parsear el bloque actual enviado por la IA.", e);
-            return null;
+            .then(() => {
+                alert(`🗑️ Empresa "${empresaId}" y todas sus vacantes asociadas fueron removidas.`);
+                resetearFormularioEmpresas();
+            })
+            .catch(err => alert("Error al eliminar: " + err.message));
         }
     }
 
-    function renderearSelectorVerde() {
-        const selectorPuestos = document.getElementById('selectorVacantesDetectadas');
-        const contenedorVerde = document.getElementById('contenedorResultadoVerde');
+    function resetearFormularioEmpresas() {
+        document.getElementById('admId').value = "";
+        document.getElementById('admId').disabled = false;
+        document.getElementById('admNombre').value = "";
+        document.getElementById('admUbicacion').value = "";
+        document.getElementById('admLink').value = "";
+        document.getElementById('admImagen').value = "";
+        document.getElementById('admTags').value = "";
         
-        selectorPuestos.innerHTML = "";
-        if (vacantesProcesadasGlobal.length === 0) {
-            contenedorVerde.style.display = 'none';
-            return;
+        document.getElementById('lblTituloEmpresaForm').innerText = "Alta / Edición de Empresa Base";
+        const btnAccion = document.getElementById('btnGuardarEmpresaAccion');
+        btnAccion.style.background = "var(--primary-orange)";
+        btnAccion.innerHTML = '<i class="fas fa-save"></i> Guardar Empresa';
+    }
+
+    // =========================================================================
+    // NUEVO MOTOR DE INTEGRACIÓN INTEGRADO PARA ARCHIVOS .TXT Y ENTRADAS JSON
+    // =========================================================================
+    window.procesarTxtWhatsAppV5 = function() {
+        try {
+            const input = document.getElementById('archivoTxtInput');
+            const indicadorNombre = document.getElementById('nombreArchivoCargado');
+            const contenedorVerde = document.getElementById('contenedorResultadoVerde');
+            const selectorPuestos = document.getElementById('selectorVacantesDetectadas');
+            
+            if (!input.files || input.files.length === 0) return;
+            const archivo = input.files[0];
+            indicadorNombre.innerText = `📄 ${archivo.name}`;
+            
+            const lector = new FileReader();
+            lector.onload = function(e) {
+                try {
+                    const cuerpoTexto = e.target.result.trim();
+                    
+                    // Comprobar si el archivo en sí ya viene formateado como un JSON directo o arreglo de JSONs
+                    if (cuerpoTexto.startsWith('{') || cuerpoTexto.startsWith('[')) {
+                        try {
+                            const parsed = JSON.parse(cuerpoTexto);
+                            vacantesProcesadasGlobal = Array.isArray(parsed) ? parsed : [parsed];
+                        } catch(errJson) {
+                            vacantesProcesadasGlobal = [];
+                        }
+                    }
+
+                    // Si no es JSON puro o falló el parse inicial, ejecutamos el procesador de patrones masivos de texto
+                    if (vacantesProcesadasGlobal.length === 0) {
+                        const lineas = cuerpoTexto.split('\n').map(l => l.trim()).filter(l => l !== "");
+                        
+                        let turnosDetectados = [];
+                        lineas.forEach(l => {
+                            let lLow = l.toLowerCase();
+                            if (lLow.includes("turno rotativo") || lLow.includes("turnos rotativos") || lLow.includes("turno día") || lLow.includes("turno noche") || lLow.includes("se rotan") || lLow.includes("rotativo 4x3")) {
+                                turnosDetectados.push(l.replace(/[🔰*•\-‼️]/g, '').trim());
+                            }
+                        });
+                        let horarioFinalSugerido = turnosDetectados.join(" / ") || "Turnos rotativos de empresa";
+
+                        let infoGeneralBloque = [];
+                        let capturarResto = false;
+                        lineas.forEach(l => {
+                            let lLow = l.toLowerCase();
+                            if (lLow.includes("reingreso") || lLow.includes("consideraciones para pago") || lLow.includes("datos para agendar") || lLow.includes("no reingresos") || lLow.includes("semana desfasada") || lLow.includes("banco") || lLow.includes("examen médico") || lLow.includes("tatuajes") || lLow.includes("familiares") || lLow.includes("ingresar el mismo día")) {
+                                capturarResto = true;
+                            }
+                            if (capturarResto || lLow.includes("mismo día") || lLow.includes("doping") || lLow.includes("bbva")) {
+                                if(!infoGeneralBloque.includes(l)) {
+                                    infoGeneralBloque.push(l.replace(/[🔰*•\-]/g, '').trim());
+                                }
+                            }
+                        });
+                        let infoGeneralTexto = infoGeneralBloque.join("\n") || "Sin restricciones específicas mencionadas.";
+
+                        let zonaDetectada = "Zona Industrial"; 
+                        for (let i = 0; i < lineas.length; i++) {
+                            let lLower = lineas[i].toLowerCase();
+                            if (lLower.includes("parque kia") || lLower.includes("pesquería")) {
+                                zonaDetectada = "Parque KIA, Pesquería";
+                                break;
+                            } else if (lLower.includes("parque") || lLower.includes("ciénega") || lLower.includes("tlaquepaque") || lLower.includes("📍")) {
+                                zonaDetectada = lineas[i].replace(/[📍🏭🔰*•\-✅]/g, '').trim();
+                                break;
+                            }
+                        }
+
+                        let beneficiosYActividades = [];
+                        lineas.forEach(l => {
+                            const lLower = l.toLowerCase();
+                            if (lLower.includes("prestaciones") || lLower.includes("vales") || lLower.includes("comedor") || lLower.includes("fondo de ahorro") || lLower.includes("aguinaldo") || lLower.includes("acomodar") || lLower.includes("llantas") || lLower.includes("rines") || lLower.includes("de pie") || lLower.includes("descansa")) {
+                                if(!lLower.includes("solicita")) {
+                                    beneficiosYActividades.push(l.replace(/[💠☑️✔️💲➕*•\-]/g, '').trim());
+                                }
+                            }
+                        });
+                        let actividadesYBeneficiosTexto = beneficiosYActividades.join(" / ");
+
+                        let puestosEncontrados = [];
+                        let puestoActual = null;
+                        const disparadoresPuesto = ["ayudante", "ayudantes", "montacarguista", "tecnico", "técnico", "inspector", "calidad", "operador", "guardia", "auxiliar", "limpieza"];
+
+                        for (let i = 0; i < lineas.length; i++) {
+                            let linea = lineas[i];
+                            let lLower = linea.toLowerCase();
+                            let esLineaDePuesto = disparadoresPuesto.some(p => lLower.includes(p)) && (lLower.includes("🔰") || lLower.includes("*") || lLower.includes("solicita"));
+
+                            if (esLineaDePuesto) {
+                                if (puestoActual) puestosEncontrados.push(puestoActual);
+
+                                let nombreLimpio = linea.replace(/[🔰*Solicita:👷🏻‍♂️👨🏻‍🔧👷🏻‍♀️()•\-]/g, '').split('$')[0].trim();
+                                puestoActual = {
+                                    vacanteNombre: nombreLimpio.toUpperCase(),
+                                    salario: "", 
+                                    edad: "18 a 55 años",
+                                    lugarOrigen: zonaDetectada,
+                                    turnos: horarioFinalSugerido,
+                                    sexo: "Indistinto",
+                                    experiencia: "No necesaria",
+                                    escolaridad: "Primaria / Secundaria",
+                                    actividades: actividadesYBeneficiosTexto,
+                                    informacionGeneral: infoGeneralTexto
+                                };
+                                
+                                if (lLower.includes("$")) {
+                                    let partes = linea.split('$');
+                                    if(partes[1]) puestoActual.salario = "$" + partes[1].trim();
+                                }
+                            }
+
+                            if (puestoActual) {
+                                if ((lLower.includes("salario") || lLower.includes("sueldo") || lLower.includes("semanal libres")) && lLower.includes("$")) {
+                                    if (!lLower.includes("bono") && !lLower.includes("apoyo") && !lLower.includes("vales")) {
+                                        let acumuladoSueldo = linea;
+                                        if (i + 1 < lineas.length && lineas[i+1].toLowerCase().includes("salario semanal")) {
+                                            acumuladoSueldo += " / " + lineas[i+1];
+                                            i++;
+                                        }
+                                        puestoActual.salario = acumuladoSueldo.replace(/[💲🔰*•\-]/g, '').trim();
+                                    }
+                                }
+
+                                if (!puestoActual.salario && lLower.includes("$") && !lLower.includes("bono") && !lLower.includes("apoyo") && !lLower.includes("vales")) {
+                                    puestoActual.salario = linea.replace(/[💲🔰*•\-]/g, '').trim();
+                                }
+
+                                if (lLower.includes("edad") || lLower.includes("años")) {
+                                    const matchEdad = linea.match(/[0-9]+\s*(a|-\s*)[0-9]+/);
+                                    if (matchEdad) puestoActual.edad = matchEdad[0] + " años";
+                                }
+                                if (lLower.includes("hombres y mujeres") || lLower.includes("ambos sexos")) puestoActual.sexo = "Indistinto";
+                                else if (lLower.includes("hombre") || lLower.includes("solo hombres")) puestoActual.sexo = "Masculino";
+                                else if (lLower.includes("femenino") || lLower.includes("mujer")) puestoActual.sexo = "Femenino";
+
+                                if (lLower.includes("preparatoria") || lLower.includes("prepa")) puestoActual.escolaridad = "Preparatoria Técnica";
+                                else if (lLower.includes("secundaria")) puestoActual.escolaridad = "Secundaria Mínima";
+                                else if (lLower.includes("primaria")) puestoActual.escolaridad = "Primaria Mínima";
+                            }
+                        }
+
+                        if (puestoActual) puestosEncontrados.push(puestoActual);
+                        if (puestosEncontrados.length === 0) {
+                            puestosEncontrados.push({
+                                vacanteNombre: "AYUDANTE GENERAL",
+                                salario: "Ver detalles en planta",
+                                edad: "18 a 55 años",
+                                lugarOrigen: zonaDetectada,
+                                turnos: horarioFinalSugerido,
+                                sexo: "Indistinto",
+                                experiencia: "No necesaria",
+                                escolaridad: "Primaria / Secundaria",
+                                actividades: actividadesYBeneficiosTexto,
+                                informacionGeneral: infoGeneralTexto
+                            });
+                        }
+                        vacantesProcesadasGlobal = puestosEncontrados;
+                    }
+
+                    // Rellenar dinámicamente el selector del cuadro verde con las vacantes identificadas
+                    selectorPuestos.innerHTML = "";
+                    vacantesProcesadasGlobal.forEach((vac, index) => {
+                        selectorPuestos.innerHTML += `<option value="${index}">📌 Puesto: ${vac.vacanteNombre || 'Indefinido'}</option>`;
+                    });
+
+                    cambiarVacanteVerdeSeleccionada();
+                    contenedorVerde.style.display = 'block';
+
+                } catch (errInner) {
+                    alert("Error analizando el contenido interno: " + errInner.message);
+                }
+            };
+            lector.readAsText(archivo);
+        } catch (errOuter) {
+            alert("Error general al leer el archivo: " + errOuter.message);
         }
-
-        vacantesProcesadasGlobal.forEach((vac, index) => {
-            selectorPuestos.innerHTML += `<option value="${index}">📌 Vacante Inteligente: ${vac.vacanteNombre || 'Indefinida'}</option>`;
-        });
-
-        cambiarVacanteVerdeSeleccionada();
-        contenedorVerde.style.display = 'block';
     }
 
     window.cambiarVacanteVerdeSeleccionada = function() {
@@ -713,10 +776,18 @@
     }
 
     window.procesarTextoBrutoTxt = function() {
-        const textRaw = document.getElementById('iaTextoPegar').value.trim();
+        let textRaw = document.getElementById('iaTextoPegar').value.trim();
         if(!textRaw) return;
+        
         try {
+            // Limpieza inteligente en caso de que la respuesta de la IA contenga bloques de decoración como ```json ... ```
+            if (textRaw.includes("```")) {
+                textRaw = textRaw.replace(/```json/g, "").replace(/```/g, "").trim();
+            }
+
             const data = JSON.parse(textRaw);
+            
+            // Auto-rellenar cada campo mapeado perfectamente con la base de datos
             document.getElementById('secVacanteNombre').value = data.vacanteNombre || '';
             document.getElementById('secEdad').value = data.edad || '';
             document.getElementById('secSalario').value = data.salario || '';
@@ -728,19 +799,23 @@
             document.getElementById('secSexo').value = data.sexo || 'Indistinto';
             document.getElementById('secInfoGeneral').value = data.informacionGeneral || '';
             
-            const idSugerido = data.vacanteNombre.toLowerCase().split(' ')[0].normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
-            document.getElementById('secPuestoId').value = idSugerido;
-            alert("✨ ¡Campos rellenados con éxito con los datos estructurados!");
+            // Generación limpia del identificador único del puesto libre de caracteres inválidos
+            if (data.vacanteNombre) {
+                const idSugerido = data.vacanteNombre.toLowerCase().split(' ')[0].normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+                document.getElementById('secPuestoId').value = idSugerido;
+            }
+            
+            alert("✨ ¡Formulario mapeado y auto-rellenado con éxito desde el espacio morado!");
         } catch(e) {
-            alert("El JSON no es válido en el cuadro morado.");
+            alert("Error de lectura: El contenido del espacio morado no es un JSON válido. Revisa que no tenga texto explicativo extra.");
         }
     }
-    // ========================================================
+    // =========================================================================
 
     window.guardarComoNuevaVacante = function() {
         const empresaId = document.getElementById('secEmpresaSelect').value;
         const puestoId = document.getElementById('secPuestoId').value.trim().toLowerCase();
-        if(!empresaId || !puestoId) { alert("Error: Elige una empresa y asigna un ID al puesto."); return; }
+        if(!empresaId || !puestoId) { alert("Error: Debes elegir una empresa e ingresar un ID para el puesto."); return; }
 
         const nombreVacante = document.getElementById('secVacanteNombre').value;
 
@@ -759,14 +834,14 @@
             actividades: document.getElementById('secActividades').value,
             informacionGeneral: document.getElementById('secInfoGeneral').value
         }).then(() => {
-            alert(`🚀 Nueva vacante "${nombreVacante}" guardada exitosamente.`);
+            alert(`🚀 ¡Éxito! Nueva vacante "${nombreVacante}" registrada correctamente.`);
         });
     }
 
     window.guardarActualizacionVacante = function() {
         const empresaId = document.getElementById('secEmpresaSelect').value;
         const puestoId = document.getElementById('secPuestoId').value.trim().toLowerCase();
-        if(!empresaId || !puestoId) { alert("Error: Selecciona una empresa y puesto válidos."); return; }
+        if(!empresaId || !puestoId) { alert("Error: No hay datos cargados para actualizar. Selecciona una empresa y puesto válidos."); return; }
 
         const nombreVacante = document.getElementById('secVacanteNombre').value;
 
@@ -785,7 +860,7 @@
             actividades: document.getElementById('secActividades').value,
             informacionGeneral: document.getElementById('secInfoGeneral').value
         }).then(() => {
-            alert(`🔄 Cambios de "${nombreVacante}" actualizados exitosamente.`);
+            alert(`🔄 ¡Sincronizado! Los cambios de la vacante "${nombreVacante}" han sido guardados en la web.`);
         });
     }
 
@@ -797,25 +872,13 @@
         const imagen = document.getElementById('admImagen').value.trim();
         const tags = document.getElementById('admTags').value.trim();
 
-        if(!id || !nombre) { alert("ID y Nombre de empresa requeridos."); return; }
+        if(!id || !nombre) { alert("ID y Nombre son obligatorios."); return; }
 
         set(ref(db, `empresas/${id}`), { id, nombre, ubicacion, link, imagen, tags })
         .then(() => { 
-            alert("¡Empresa registrada / actualizada exitosamente!"); 
+            alert("¡Empresa guardada exitosamente!"); 
             resetearFormularioEmpresas();
         });
-    }
-
-    function resetearFormularioEmpresas() {
-        document.getElementById('admId').value = "";
-        document.getElementById('admId').disabled = false;
-        document.getElementById('admNombre').value = "";
-        document.getElementById('admUbicacion').value = "";
-        document.getElementById('admLink').value = "";
-        document.getElementById('admImagen').value = "";
-        document.getElementById('admTags').value = "";
-        document.getElementById('lblTituloEmpresaForm').innerText = "Alta / Edición de Empresa Base";
-        document.getElementById('btnGuardarEmpresaAccion').innerHTML = '<i class="fas fa-save"></i> Guardar Empresa';
     }
 
     onValue(ref(db, 'empresas'), (snapshot) => {
@@ -832,7 +895,7 @@
                 const emp = data[key];
                 tbody.innerHTML += `
                     <tr>
-                        <td><img src="${emp.imagen}" width="45" onerror="this.src='https://placehold.co/45'"></td>
+                        <td><img src="${emp.imagen}" width="45" onerror="this.src='[https://placehold.co/45](https://placehold.co/45)'"></td>
                         <td><code>/${emp.id}</code></td>
                         <td>${emp.nombre}</td>
                         <td>${emp.ubicacion}</td>
