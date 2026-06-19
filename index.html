@@ -700,21 +700,11 @@
 
     onValue(dbRef, (snapshot) => {
         const data = snapshot.val() || {};
-        console.log("DATOS REALES DE FIREBASE:", data);
         todasLasEmpresas = data; 
         
-        empresasFiltradas = Object.keys(data).map((id, index) => {
-            const item = data[id];
-            return { 
-                id: id, 
-                indexRef: index.toString(),
-                nombre: item.nombre || '',
-                ubicacion: item.ubicacion || '',
-                imagen: item.imagen || '',
-                link: item.link || '#',
-                tags: item.tags || '',
-                rawItem: item // Guardamos todo el objeto original por si los campos cambian
-            };
+        // Mantener mapeo plano original compatible con tu carrusel
+        empresasFiltradas = Object.keys(data).map((id) => {
+            return { id: id, ...data[id] };
         });
         
         renderizarComponentes();
@@ -732,7 +722,7 @@
 
         empresasFiltradas.forEach((emp) => {
             wrapper.innerHTML += `
-                <div class="image-card" data-company="${emp.tags}">
+                <div class="image-card" data-company="${emp.tags || ''}">
                     <div class="img-container">
                         <img src="${emp.imagen}" alt="Vacantes ${emp.nombre}" onerror="this.src='imagen-logo.jpg'">
                     </div>
@@ -744,61 +734,60 @@
             `;
 
             linksGroup.innerHTML += `
-                <a href="${emp.link}" target="_blank" class="btn-link" data-company="${emp.tags}">${emp.nombre}</a>
+                <a href="${emp.link || '#'}" target="_blank" class="btn-link" data-company="${emp.tags || ''}">${emp.nombre}</a>
             `;
 
+            // Pasamos la clave real de Firebase
             selectEmpresa.innerHTML += `<option value="${emp.id}">${emp.nombre}</option>`;
         });
     }
 
-    // EVENTO CHANGE INTELIGENTE: EXTRAE PUESTOS EN CUALQUIER FORMATO O NOMBRE
+    // ENLAZADO DIRECTO DE VACANTES CORREGIDO
     document.getElementById('empresa').addEventListener('change', function(e) {
         const selectVacante = document.getElementById('vacante');
-        const valorSeleccionado = e.target.value;
-        const textoVisible = e.target.options[e.target.selectedIndex].text;
+        const idEmpresa = e.target.value;
         
-        // 1. Encontrar el nodo del objeto original
-        let empNodo = todasLasEmpresas[valorSeleccionado];
-        if (!empNodo) {
-            const encontrado = empresasFiltradas.find(emp => emp.id === valorSeleccionado || emp.nombre === textoVisible);
-            if (encontrado) empNodo = encontrado.rawItem;
-        }
+        // Obtener el objeto de la empresa directo desde la fuente
+        const empresaSeleccionada = todasLasEmpresas[idEmpresa];
 
         selectVacante.innerHTML = '<option value="" disabled selected hidden></option>';
         selectVacante.disabled = false;
 
-        let listaPuestos Final = [];
-
-        if (empNodo) {
-            // 2. Extractor Multipropósito: Busca variaciones de nombres (vacantes, vacante, puestos, puesto)
-            let fuenteVacantes = empNodo.vacantes || empNodo.vacante || empNodo.puestos || empNodo.puesto || empNodo.ofertas;
-
-            if (fuenteVacantes) {
-                if (Array.isArray(fuenteVacantes)) {
-                    // Si viene listo como un Arreglo de Firebase
-                    listaPuestosFinal = fuenteVacantes.map(v => String(v).trim());
-                } else if (typeof fuenteVacantes === 'object') {
-                    // Si viene como un objeto de llaves internas
-                    listaPuestosFinal = Object.values(fuenteVacantes).map(v => String(v).trim());
+        // Leer campo dinámico sin importar si es singular, plural, texto o lista
+        if (empresaSeleccionada) {
+            let datosVacantes = empresaSeleccionada.vacantes || empresaSeleccionada.vacante || empresaSeleccionada.puestos || empresaSeleccionada.puesto;
+            
+            if (datosVacantes) {
+                let listaFinal = [];
+                if (Array.isArray(datosVacantes)) {
+                    listaFinal = datosVacantes;
+                } else if (typeof datosVacantes === 'object') {
+                    listaFinal = Object.values(datosVacantes);
                 } else {
-                    // Si viene como cadena de texto (ej: "Montacarguista, Auxiliar")
-                    listaPuestosFinal = String(fuenteVacantes).split(',').map(v => v.trim());
+                    listaFinal = String(datosVacantes).split(',');
+                }
+
+                let agregadas = 0;
+                listaFinal.forEach(vacante => {
+                    const textoLimpio = String(vacante).trim();
+                    if (textoLimpio !== "") {
+                        selectVacante.innerHTML += `<option value="${textoLimpio}">${textoLimpio}</option>`;
+                        agregadas++;
+                    }
+                });
+
+                if (agregadas > 0) {
+                    if (window.validarCampo) {
+                        window.validarCampo(selectVacante);
+                        window.validarCampo(e.target);
+                    }
+                    return;
                 }
             }
         }
 
-        // Limpieza final de valores vacíos
-        listaPuestosFinal = listaPuestosFinal.filter(v => v !== "");
-
-        // 3. Renderizado final o caída controlada
-        if (listaPuestosFinal.length > 0) {
-            listaPuestosFinal.forEach(puesto => {
-                selectVacante.innerHTML += `<option value="${puesto}">${puesto}</option>`;
-            });
-        } else {
-            selectVacante.innerHTML += '<option value="Ayudante General">Ayudante General</option>';
-        }
-
+        // Caída por defecto controlada si no tiene puestos asignados
+        selectVacante.innerHTML += '<option value="Ayudante General">Ayudante General</option>';
         if (window.validarCampo) {
             window.validarCampo(selectVacante);
             window.validarCampo(e.target);
@@ -855,11 +844,11 @@
         
         if (term === "") {
             empresasFiltradas = Object.keys(todasLasEmpresas).map(id => {
-                return { id: id, ...todasLasEmpresas[id], rawItem: todasLasEmpresas[id] };
+                return { id: id, ...todasLasEmpresas[id] };
             });
         } else {
             const arrEmpresas = Object.keys(todasLasEmpresas).map(id => {
-                return { id: id, ...todasLasEmpresas[id], rawItem: todasLasEmpresas[id] };
+                return { id: id, ...todasLasEmpresas[id] };
             });
 
             empresasFiltradas = arrEmpresas.filter(emp => {
