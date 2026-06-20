@@ -93,7 +93,6 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    // ⭐ Se agregó 'push' para poder mandar registros nuevos a la base de datos
     import { getDatabase, ref, onValue, push } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
     const firebaseConfig = { databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com/" };
@@ -245,7 +244,7 @@
         });
     }
 
-    // ⭐ Función auxiliar para extraer Edad y Sexo basándose en la CURP del usuario
+    // Función auxiliar para extraer Edad y Sexo basándose en la CURP del usuario
     function extraerDatosDesdeCurp(curp) {
         let edad = "N/A";
         let sexo = "Indistinto";
@@ -296,8 +295,10 @@
             telefono: telefono,
             edad: datosCurp.edad,                             // Extraído dinámicamente de CURP
             sexo: datosCurp.sexo,                             // Extraído dinámicamente de CURP
-            empresaId: empresa.id.toUpperCase(),             // ID de la empresa en mayúsculas (ej: KATCON)
-            vacanteInteres: vacante.vacanteNombre,            // Nombre exacto del puesto
+            empresa: empresa.nombre,                          // ⭐ Corregido: Llenará la columna "Empresa" en el panel
+            empresaId: empresa.id.toUpperCase(),              // Mantenemos el ID original de respaldo
+            vacanteInteres: vacante.vacanteNombre,            // ⭐ Corregido: Llenará la columna "Vacante Interés" en el panel
+            vacante: vacante.vacanteNombre,                    // ⭐ Adicional: Respaldo de nombre corto para el panel
             fechaRegistro: new Date().toISOString()
         };
 
@@ -312,9 +313,7 @@
 
 
         // --- SANITIZACIÓN DE VARIABLES PARA EL PDF ---
-        // Elimina barras invertidas "\" que puedan escapar el signo de pesos en Firebase
         const salarioLimpio = vacante.salario ? vacante.salario.replace(/\\/g, '') : '';
-        // Remueve etiquetas HTML mal cerradas o completas (como <p>, <br>, etc.)
         const turnosLimpios = vacante.turnos ? vacante.turnos.replace(/<\/?[^>]+(>|$)/g, "") : '';
 
         // 1. GENERAR EL PDF CON JSPDF
