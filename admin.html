@@ -521,6 +521,7 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
           <th style="color:var(--purple-ia);">CURP</th>
           <th style="color:var(--purple-ia);">Empresa</th>
           <th style="color:var(--purple-ia);">Vacante Interés</th>
+          <th style="color:var(--purple-ia); text-align: center;">Acciones</th> <!-- 👈 Nueva cabecera agregada -->
         </tr>
       </thead>
       <tbody id="tablaPostulantesBody"></tbody>
@@ -532,7 +533,8 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getDatabase, ref, set, onValue, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+// 👈 Añadido 'update' en las importaciones para la edición en tiempo real
+import { getDatabase, ref, set, onValue, remove, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 import { GoogleGenAI, Type } from "https://esm.run/@google/genai";
 
 const firebaseConfig = { databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com/" };
@@ -841,20 +843,77 @@ onValue(ref(db, 'postulantes'), snap => {
   const body = document.getElementById('tablaPostulantesBody');
   body.innerHTML = '';
   const data = snap.val() || {};
-  const lista = Object.values(data);
-  document.getElementById('contadorPostulantes').innerText = lista.length;
   
-  lista.forEach(p => {
+  // Convertimos el objeto en entradas [key, value] para extraer los IDs de los nodos de Firebase de forma precisa
+  const entradas = Object.entries(data);
+  document.getElementById('contadorPostulantes').innerText = entradas.length;
+  
+  entradas.forEach(([key, p]) => {
+    const nombre = p.nombre || p.nombreCompleto || 'No especificado';
+    const edad = p.edad || '—';
+    const sexo = p.sexo || p.genero || '—';
+    const curp = p.curp || '—';
+    const empresa = p.empresa || p.empresaDestino || '—';
+    const vacante = p.vacante || p.puesto || '—';
+
+    // Inyección de la fila incluyendo los dos nuevos botones acoplados al diseño visual
     body.innerHTML += `<tr>
-      <td><strong>${p.nombre || p.nombreCompleto || 'No especificado'}</strong></td>
-      <td>${p.edad || '—'}</td>
-      <td>${p.sexo || p.genero || '—'}</td>
-      <td><code>${p.curp || '—'}</code></td>
-      <td><span style="color:var(--primary-orange); font-weight:600;">${p.empresa || p.empresaDestino || '—'}</span></td>
-      <td><span style="color:var(--blue-update); font-weight:600;">${p.vacante || p.puesto || '—'}</span></td>
+      <td><strong>${nombre}</strong></td>
+      <td>${edad}</td>
+      <td>${sexo}</td>
+      <td><code>${curp}</code></td>
+      <td><span style="color:var(--primary-orange); font-weight:600;">${empresa}</span></td>
+      <td><span style="color:var(--blue-update); font-weight:600;">${vacante}</span></td>
+      <td style="text-align: center; white-space: nowrap;">
+         <div style="display:inline-flex; gap:12px; justify-content:center; align-items:center;">
+           <button class="btn-edit-mode" style="padding:4px 8px; margin:0; background:none; border:none; color:var(--primary-orange); cursor:pointer; font-size:1.05rem;" onclick="editarPostulanteDirecto('${key}', '${empresa}', '${vacante}')" title="Editar"><i class="fas fa-edit"></i></button>
+           <button class="btn-delete-mode" style="padding:4px 8px; margin:0; background:none; border:none; color:var(--red-danger); cursor:pointer; font-size:1.05rem;" onclick="eliminarPostulanteDirecto('${key}')" title="Eliminar"><i class="fas fa-trash-alt"></i></button>
+         </div>
+      </td>
     </tr>`;
   });
 });
+
+// ACCIONES DE MANTENIMIENTO: EXPUSTAS MEDIANTE EL OBJETO WINDOW
+window.eliminarPostulanteDirecto = function(key) {
+  if(confirm("⚠️ ¿Estás completamente seguro de que deseas eliminar permanentemente este registro de postulante?")) {
+    remove(ref(db, `postulantes/${key}`))
+      .then(() => {
+        alert("✅ Postulante eliminado exitosamente.");
+      })
+      .catch((error) => {
+        alert("❌ Error al eliminar: " + error.message);
+      });
+  }
+};
+
+window.editarPostulanteDirecto = function(key, empresaActual, vacanteActual) {
+  // Ajuste o parche interactivo para el campo Empresa
+  const nuevaEmpresa = prompt("Modificar o asignar nombre de la Empresa:", empresaActual === '—' ? '' : empresaActual);
+  if (nuevaEmpresa === null) return; // Detener flujo en caso de cancelación
+
+  // Ajuste o parche interactivo para el campo Vacante
+  const nuevaVacante = prompt("Modificar o asignar la Vacante de Interés:", vacanteActual === '—' ? '' : vacanteActual);
+  if (nuevaVacante === null) return; // Detener flujo en caso de cancelación
+
+  // Normalización de guiones si se dejan vacíos
+  const empresaFinal = nuevaEmpresa.trim() || '—';
+  const vacanteFinal = nuevaVacante.trim() || '—';
+
+  // Actualización multiobjeto en Firebase para dar soporte a las variantes de nombres de variables previas
+  update(ref(db, `postulantes/${key}`), {
+    empresa: empresaFinal,
+    empresaDestino: empresaFinal,
+    vacante: vacanteFinal,
+    puesto: vacanteFinal
+  })
+  .then(() => {
+    alert("✅ Registro actualizado en tiempo real.");
+  })
+  .catch((error) => {
+    alert("❌ Error al actualizar: " + error.message);
+  });
+};
 
 window.filtrarPostulantes = function() {
   const text = document.getElementById('buscadorPostulantes').value.toLowerCase().trim();
