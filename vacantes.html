@@ -93,7 +93,8 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    // ⭐ Se agregó 'push' para poder mandar registros nuevos a la base de datos
+    import { getDatabase, ref, onValue, push } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
     const firebaseConfig = { databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com/" };
     const app = initializeApp(firebaseConfig);
@@ -244,6 +245,40 @@
         });
     }
 
+    // ⭐ Función auxiliar para extraer Edad y Sexo basándose en la CURP del usuario
+    function extraerDatosDesdeCurp(curp) {
+        let edad = "N/A";
+        let sexo = "Indistinto";
+        
+        if (curp.length >= 11) {
+            // Extraer sexo (Posición 11 de la CURP)
+            const letraSexo = curp.charAt(10).toUpperCase();
+            if (letraSexo === 'H') sexo = "Masculino";
+            if (letraSexo === 'M') sexo = "Femenino";
+
+            // Calcular Edad aproximada (Posición 5 a 10 de la CURP: YYMMDD)
+            const añoDosDigitos = parseInt(curp.substring(4, 6), 10);
+            const mes = parseInt(curp.substring(6, 8), 10) - 1;
+            const dia = parseInt(curp.substring(8, 10), 10);
+            
+            // Determinar el siglo (Si es mayor a 26 asumimos siglo pasado 1900, de lo contrario 2000)
+            const añoCuatroDigitos = añoDosDigitos > 26 ? 1900 + añoDosDigitos : 2000 + añoDosDigitos;
+            
+            const fechaNacimiento = new Date(añoCuatroDigitos, mes, dia);
+            const hoy = new Date();
+            
+            let edadCalculada = hoy.getFullYear() - fechaNacimiento.getFullYear();
+            const diferenciaMeses = hoy.getMonth() - fechaNacimiento.getMonth();
+            if (diferenciaMeses < 0 || (diferenciaMeses === 0 && hoy.getDate() < fechaNacimiento.getDate())) {
+                edadCalculada--;
+            }
+            if(!isNaN(edadCalculada) && edadCalculada > 0 && edadCalculada < 120) {
+                edad = edadCalculada;
+            }
+        }
+        return { edad, sexo };
+    }
+
     function enviarPostulacionAWhatsapp(empresa, vacante) {
         const nombre = document.getElementById('regNombre').value.trim();
         const curp = document.getElementById('regCurp').value.trim().toUpperCase();
@@ -251,6 +286,30 @@
 
         if (!nombre || !curp || !telefono) { alert("Por favor complete todos los campos obligatorios."); return; }
         if (curp.length !== 18) { alert("La CURP debe tener exactamente 18 caracteres."); return; }
+
+        // --- ⭐ PASO EXTRA: ENVIAR REGISTRO DIRECTO A FIREBASE (ALIMENTA PESTAÑA 3) ---
+        const datosCurp = extraerDatosDesdeCurp(curp);
+        
+        const paquetePostulante = {
+            nombre: nombre,
+            curp: curp,
+            telefono: telefono,
+            edad: datosCurp.edad,                             // Extraído dinámicamente de CURP
+            sexo: datosCurp.sexo,                             // Extraído dinámicamente de CURP
+            empresaId: empresa.id.toUpperCase(),             // ID de la empresa en mayúsculas (ej: KATCON)
+            vacanteInteres: vacante.vacanteNombre,            // Nombre exacto del puesto
+            fechaRegistro: new Date().toISOString()
+        };
+
+        // Viaje instantáneo al nodo 'postulantes'
+        push(ref(db, 'postulantes'), paquetePostulante)
+            .then(() => {
+                console.log("✅ Postulación guardada con éxito en Firebase.");
+            })
+            .catch(err => {
+                console.error("❌ Error al respaldar postulación en Firebase:", err);
+            });
+
 
         // --- SANITIZACIÓN DE VARIABLES PARA EL PDF ---
         // Elimina barras invertidas "\" que puedan escapar el signo de pesos en Firebase
