@@ -402,8 +402,14 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getDatabase, ref, set, onValue, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-
 import { GoogleGenAI, Type } from "https://esm.run/@google/genai";
+
+// --- FUNCIÓN DE LIMPIEZA AUTOMÁTICA ---
+function aplicarLimpiezaDeTexto(texto) {
+    if (!texto) return "";
+    const regex = /examen\s*médico|drug\s*test|prueba\s*médica|antidoping/gi;
+    return texto.replace(regex, "Te esperamos").trim();
+}
 
 const firebaseConfig = { databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com/" };
 const app = initializeApp(firebaseConfig);
@@ -454,7 +460,6 @@ const IA_V6 = {
 
   async llamarInterprete(textoOriginal) {
     const ai = this.obtenerInstanciaAI();
-    
     const prompt = `Analiza detalladamente el texto provisto. Puede contener una sola descripción de empleo o una lista masiva con múltiples vacantes desordenadas.
     Tu tarea obligatoria es desglosar y extraer CADA puesto por separado y devolverlos mapeados dentro del arreglo JSON solicitado. 
     Bajo ninguna circunstancia mezcles salarios ni bonos de puestos diferentes en un mismo renglón. Si algún dato no aparece, pon "No especificado".
@@ -507,7 +512,6 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
   });
 });
 
-// --- SUSCRIPCIONES EN TIEMPO REAL (VISITAS Y CANDIDATOS) ---
 onValue(ref(db, 'visitas/total'), snap => {
   document.getElementById('contadorVisitasTotal').innerText = snap.val() || 0;
 });
@@ -668,7 +672,7 @@ window.subirTodasLasVacantesVerdesALote = async function() {
     let subidosContador = 0;
     for (const puesto of vacantesProcesadasGlobal) {
       const sugerenciaId = puesto.vacanteNombre.toLowerCase().split(' ')[0].normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'').slice(0,25);
-      const puestoIdFinal = sanitizarId(sugerenciaId + "-" + Math.floor(Math.random() * 1000));
+      const puestoIdFinal = (sugerenciaId + "-" + Math.floor(Math.random() * 1000));
 
       const payload = {
         puestoId: puestoIdFinal,
@@ -684,7 +688,8 @@ window.subirTodasLasVacantesVerdesALote = async function() {
         bannerUrl: "",
         actividades: puesto.actividades || '',
         beneficios: puesto.beneficios || '',
-        informacionGeneral: puesto.informacionGeneral || '',
+        // Aplicando la limpieza aquí:
+        informacionGeneral: aplicarLimpiezaDeTexto(puesto.informacionGeneral) || '',
         actualizado: new Date().toISOString()
       };
       
@@ -728,104 +733,24 @@ window.procesarTextoBrutoTxt = async function(){
     document.getElementById('secEscolaridad').value = datos.escolaridad || '';
     document.getElementById('secActividades').value = datos.actividades || '';
     document.getElementById('secBeneficios').value = datos.beneficios || '';
-    document.getElementById('secInfoGeneral').value = datos.informacionGeneral || '';
+    // APLICANDO LIMPIEZA:
+    document.getElementById('secInfoGeneral').value = aplicarLimpiezaDeTexto(datos.informacionGeneral || '');
     
     const sexoNormalizado = datos.sexo ? datos.sexo.charAt(0).toUpperCase() + datos.sexo.slice(1).toLowerCase() : 'Indistinto';
     if(['Indistinto','Masculino','Femenino'].includes(sexoNormalizado)) {
-      document.getElementById('secSexo').value = sexoNormalizado;
+        document.getElementById('secSexo').value = sexoNormalizado;
     } else {
-      document.getElementById('secSexo').value = 'Indistinto';
+        document.getElementById('secSexo').value = 'Indistinto';
     }
     
-    if(datos.vacanteNombre){
-      const idSug = datos.vacanteNombre.toLowerCase().split(' ')[0].normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'').slice(0,20);
-      document.getElementById('secPuestoId').value = idSug;
-    }
-    
-    alert('✨ ¡Formulario completado perfectamente por Gemini!');
-  }catch(err){ 
-    console.error(err);
-    alert('⚠️ No se pudo interpretar el texto: '+err.message); 
+  } catch(e) { 
+      console.error(e); 
+      alert("Error procesando IA: " + e.message); 
   } finally {
-    btnIa.disabled = false;
-    btnIa.innerHTML = '<i class="fas fa-wand-magic-sparkles"></i> Rellenar un solo formulario';
+      btnIa.disabled = false;
+      btnIa.innerHTML = '<i class="fas fa-wand-magic-sparkles"></i> Rellenar un solo formulario';
   }
 };
-
-function sanitizarId(s){ return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[.#$\[\]\/\s]/g,'-').replace(/-+/g,'-').slice(0,50); }
-
-function leerVacanteForm(){
-  return {
-    puestoId: sanitizarId(document.getElementById('secPuestoId').value),
-    estatus: document.getElementById('secEstatus').value,
-    vacanteNombre: document.getElementById('secVacanteNombre').value.trim(),
-    salario: document.getElementById('secSalario').value.trim(),
-    edad: document.getElementById('secEdad').value.trim(),
-    lugarOrigen: document.getElementById('secLugarOrigen').value.trim(),
-    turnos: document.getElementById('secTurnos').value.trim(),
-    sexo: document.getElementById('secSexo').value,
-    experiencia: document.getElementById('secExperiencia').value.trim(),
-    escolaridad: document.getElementById('secEscolaridad').value.trim(),
-    bannerUrl: document.getElementById('secBannerUrl').value.trim(),
-    actividades: document.getElementById('secActividades').value.trim(),
-    beneficios: document.getElementById('secBeneficios').value.trim(),
-    informacionGeneral: document.getElementById('secInfoGeneral').value.trim(),
-    actualizado: new Date().toISOString()
-  };
-}
-
-window.guardarComoNuevaVacante = async function(){
-  const emp = document.getElementById('secEmpresaSelect').value;
-  const datos = leerVacanteForm();
-  if(!emp || !datos.puestoId || !datos.vacanteNombre) return alert('⚠️ Empresa, ID y nombre son obligatorios');
-  try{
-    await set(ref(db,`vacantes_detalles/${emp}/${datos.puestoId}`), datos);
-    alert(`✅ Vacante NUEVA guardada:\n${datos.vacanteNombre}`);
-    escucharVacantesExistentes(emp);
-  }catch(e){ alert('❌ Error: '+e.message); }
-};
-
-window.guardarActualizacionVacante = async function(){
-  const emp = document.getElementById('secEmpresaSelect').value;
-  const datos = leerVacanteForm();
-  if(!emp || !datos.puestoId) return alert('⚠️ Carga primero una vacante');
-  try{
-    await set(ref(db,`vacantes_detalles/${emp}/${datos.puestoId}`), datos);
-    alert(`✅ Actualizada correctamente: ${datos.vacanteNombre}`);
-    escucharVacantesExistentes(emp);
-  }catch(e){ alert('❌ Error: '+e.message); }
-};
-
-window.agregarEmpresaPrincipal = async function(){
-  const id = sanitizarId(document.getElementById('admId').value);
-  const nombre = document.getElementById('admNombre').value.trim();
-  if(!id||!nombre) return alert('⚠️ ID y nombre obligatorios');
-  const payload = {
-    id, nombre,
-    ubicacion: document.getElementById('admUbicacion').value.trim(),
-    link: document.getElementById('admLink').value.trim(),
-    imagen: document.getElementById('admImagen').value.trim(),
-    tags: document.getElementById('admTags').value.trim(),
-    actualizado: new Date().toISOString()
-  };
-  try{
-    await set(ref(db,`empresas/${id}`), payload);
-    alert('✅ Empresa guardada');
-    ['admId','admNombre','admUbicacion','admLink','admImagen','admTags'].forEach(x=>document.getElementById(x).value='');
-  }catch(e){ alert('❌ Error: '+e.message); }
-};
-
-onValue(ref(db,'empresas'), snap=>{
-  const tb = document.getElementById('adminTablaEmpresas');
-  const sel = document.getElementById('secEmpresaSelect');
-  tb.innerHTML='';
-  sel.innerHTML='<option value="">-- Elige una Empresa --</option>';
-  const d = snap.val()||{};
-  Object.values(d).forEach(e=>{
-    tb.innerHTML += `<tr><td><img src="${e.imagen||'https://cdn-icons-png.flaticon.com/512/1041/1041916.png'}" alt=""></td><td><code>${e.id}</code></td><td>${e.nombre}</td><td>${e.ubicacion||''}</td></tr>`;
-    sel.innerHTML += `<option value="${e.id}">${e.nombre}</option>`;
-  });
-});
 </script>
 </body>
 </html>
