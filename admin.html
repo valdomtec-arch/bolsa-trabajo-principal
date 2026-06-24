@@ -482,7 +482,7 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
         <div class="final-actions-grid">
           <button type="button" class="btn-add" onclick="guardarComoNuevaVacante()"><i class="fas fa-cloud-upload-alt"></i> Publicar Vacante</button>
           <button type="button" class="btn-update-final" onclick="guardarActualizacionVacante()"><i class="fas fa-sync-alt"></i> Guardar Cambios</button>
-          <button type="button" class="btn-edit-mode" style="background:#64748b; color:white; width:100%;" onclick="limpiarFormularioVacantes()"><i class="fas fa-broom"></i> Limpiar Formulario</button>
+          <button type="button" class="btn-edit-mode" style="background:#64748b; color:white; width:100%;" onclick="resetearFormularioCompleto()"><i class="fas fa-broom"></i> Resetear Formulario</button>
         </div>
       </div>
     </div>
@@ -654,7 +654,7 @@ onValue(ref(db,'empresas'), snap=>{
   });
 });
 
-// PESTAÑA 2: LÓGICA E INTEGRACIÓN CON GEMINI 1.5 FLASH + BACKOFF EXPONENCIAL
+// PESTAÑA 2: LÓGICA E INTEGRACIÓN CON GEMINI 2.0 FLASH + BACKOFF EXPONENCIAL
 const IA_V6 = {
   esquemaBols: {
     type: Type.ARRAY, description: "Lista de vacantes.",
@@ -683,7 +683,8 @@ const IA_V6 = {
     for (let intento = 1; intento <= maxReintentos; intento++) {
       try {
         const response = await new GoogleGenAI({ apiKey: key }).models.generateContent({
-          model: "gemini-1.5-flash", 
+          // CAMBIO CLAVE: Solución de compatibilidad 404/503 con Gemini 2.0 Flash
+          model: "gemini-2.0-flash", 
           contents: `Extrae cada puesto del texto:\n${texto}`,
           config: { responseMimeType: "application/json", responseSchema: this.esquemaBols }
         });
@@ -755,6 +756,30 @@ window.limpiarFormularioVacantes = function(){
   });
   document.getElementById('secSexo').value = 'Indistinto';
   document.getElementById('secEstatus').value = 'disponible';
+};
+
+// NUEVA FUNCIÓN COMPLETA PARA RESETEAR EL FORMULARIO MORADO Y ELIMINAR EL ARCHIVO TXT ELEVADO
+window.resetearFormularioCompleto = function() {
+  // 1. Limpiar campos del formulario morado
+  limpiarFormularioVacantes();
+  
+  // 2. Romper la elevación física del archivo input .txt
+  const inputTxt = document.getElementById('archivoTxtInput');
+  if(inputTxt) inputTxt.value = ''; 
+  
+  // 3. Reestablecer etiquetas de la interfaz de la IA
+  document.getElementById('nombreArchivoCargado').innerText = 'Ninguno';
+  document.getElementById('iaTextoPegar').value = '';
+  
+  // 4. Ocultar y vaciar la caja verde de resultados temporales
+  document.getElementById('contenedorResultadoVerde').style.display = 'none';
+  document.getElementById('selectorVacantesDetectadas').innerHTML = '';
+  document.getElementById('codigoJsonVerde').textContent = '';
+  
+  // 5. Vaciar arreglo global de memoria IA
+  vacantesProcesadasGlobal = [];
+  
+  alert("✨ Formulario morado y Lector IA restablecidos por completo. Listo para elevar un nuevo archivo.");
 };
 
 window.procesarTxtWhatsAppV6 = async function(){
