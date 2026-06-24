@@ -140,11 +140,11 @@ margin-top: 8px;
 .final-actions-grid {
   grid-column: 1 / -1; 
   display: grid; 
-  grid-template-columns: 1fr 1fr; 
+  grid-template-columns: repeat(3, 1fr); 
   gap: 16px; 
   margin-top: 12px;
 }
-@media (max-width: 480px) {
+@media (max-width: 640px) {
   .final-actions-grid {
     grid-template-columns: 1fr;
   }
@@ -482,6 +482,7 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
         <div class="final-actions-grid">
           <button type="button" class="btn-add" onclick="guardarComoNuevaVacante()"><i class="fas fa-cloud-upload-alt"></i> Publicar Vacante</button>
           <button type="button" class="btn-update-final" onclick="guardarActualizacionVacante()"><i class="fas fa-sync-alt"></i> Guardar Cambios</button>
+          <button type="button" class="btn-edit-mode" style="background:#64748b; color:white; width:100%;" onclick="limpiarFormularioVacantes()"><i class="fas fa-broom"></i> Limpiar Formulario</button>
         </div>
       </div>
     </div>
@@ -653,7 +654,7 @@ onValue(ref(db,'empresas'), snap=>{
   });
 });
 
-// PESTAÑA 2: LÓGICA E INTEGRACIÓN CON GEMINI + BACKOFF EXPONENCIAL
+// PESTAÑA 2: LÓGICA E INTEGRACIÓN CON GEMINI 1.5 FLASH + BACKOFF EXPONENCIAL
 const IA_V6 = {
   esquemaBols: {
     type: Type.ARRAY, description: "Lista de vacantes.",
@@ -682,7 +683,7 @@ const IA_V6 = {
     for (let intento = 1; intento <= maxReintentos; intento++) {
       try {
         const response = await new GoogleGenAI({ apiKey: key }).models.generateContent({
-          model: "gemini-2.5-flash", 
+          model: "gemini-1.5-flash", 
           contents: `Extrae cada puesto del texto:\n${texto}`,
           config: { responseMimeType: "application/json", responseSchema: this.esquemaBols }
         });
@@ -702,7 +703,7 @@ const IA_V6 = {
         }
         
         if (esSaturacion) {
-          alert("⚠️ Los servidores de Gemini siguen experimentando una demanda extremadamente alta (Error 503). Por favor, reintenta procesar tu archivo en un par de minutos.");
+          alert("⚠️ Los servidores de la API siguen experimentando una demanda inusualmente alta (Error 503). Por favor, aguarda un minuto y vuelve a intentarlo.");
         } else {
           alert("❌ Error en el Lector IA: " + error.message);
         }
@@ -752,6 +753,8 @@ window.limpiarFormularioVacantes = function(){
      const el = document.getElementById(id);
      if(el) el.value='';
   });
+  document.getElementById('secSexo').value = 'Indistinto';
+  document.getElementById('secEstatus').value = 'disponible';
 };
 
 window.procesarTxtWhatsAppV6 = async function(){
