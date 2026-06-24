@@ -349,10 +349,11 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
 
 <div class="tabs-menu"> 
 <button class="tab-btn active" data-tab="tabPrincipal"><i class="fas fa-building"></i> 1. Registrar Empresa</button> 
-<button class="tab-btn" data-tab="tabSecundarias"><i class="fas fa-briefcase"></i> 2. Control de Vacantes Masivo</button>
-<button class="tab-btn" data-tab="tabRegistros"><i class="fas fa-chart-line"></i> 3. Registros y Estadísticas</button>
+<button class="tab-btn" data-tab="tabSecundarias"><i class="fas fa-briefcase"></i> 2. Control de Vacantes Masivo</button> 
+<button class="tab-btn" data-tab="tabRegistros"><i class="fas fa-chart-line"></i> 3. Registros y Estadísticas</button> 
 </div> 
 
+<!-- PESTAÑA 1 -->
 <div id="tabPrincipal" class="tab-content active"> 
   <div class="form-admin"> 
     <div class="section-divider">Alta / Edición de Empresa Base</div> 
@@ -361,7 +362,7 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
     <div class="form-group"><label>Ubicación Base:</label><input type="text" id="admUbicacion" placeholder="Ej: Jalisco"></div> 
     <div class="form-group full-width"><label>Hipervínculo / Repositorio:</label><input type="url" id="admLink" placeholder="https://..."></div> 
     <div class="form-group"><label>URL Logo:</label><input type="url" id="admImagen" placeholder="https://..."></div> 
-    <div class="form-group"><label>Etiquetas:</label><input type="text" id="admTags" placeholder="automotriz, 24h"></div>
+    <div class="form-group"><label>Etiquetas:</label><input type="text" id="admTags" placeholder="automotriz, 24h"></div> 
     
     <div class="dual-buttons-layout">
         <button class="btn-add" onclick="agregarEmpresaPrincipal()"><i class="fas fa-save"></i> Guardar Empresa</button>
@@ -383,6 +384,7 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
   </div> 
 </div> 
 
+<!-- PESTAÑA 2 -->
 <div id="tabSecundarias" class="tab-content"> 
   <div class="tab2-grid-layout">
     
@@ -490,6 +492,7 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
   </div>
 </div>
 
+<!-- PESTAÑA 3 -->
 <div id="tabRegistros" class="tab-content">
   <div class="metrics-layout">
     <div class="metric-card">
@@ -502,6 +505,7 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
     </div>
   </div>
 
+  <!-- FORMULARIO DINÁMICO DE EDICIÓN DE CANDIDATO -->
   <div id="formEdicionCandidato" class="form-admin" style="display: none; border-color: var(--purple-ia); background: rgba(139, 92, 246, 0.02); margin-bottom: 25px;">
     <div class="section-divider" style="color: var(--purple-ia); border-color: var(--purple-ia);">Editar Datos del Candidato</div>
     <input type="hidden" id="editCandKey">
@@ -669,14 +673,22 @@ onValue(ref(db,'empresas'), snap=>{
 });
 
 // =========================================================================
-// SOLUCIÓN NATIVA ULTRAVELOZ (LLAMADA FETCH DIRECTA - SIN BIBLIOTECA DEL SCRIPT)
+// SOLUCIÓN MAGISTRAL: CONTROL DE FLUJO, CUOTA Y REINTENTO AUTOMÁTICO
 // =========================================================================
 const IA_V6 = {
-  async llamarInterprete(texto) {
+  esperar(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  },
+
+  async llamarInterprete(texto, intento = 1, maxIntentos = 2) {
     const key = localStorage.getItem('gemini_api_key') || apiKeyInput.value.trim();
-    if (!key) { alert("⚠️ Ingresa tu API Key arriba."); throw new Error("Falta Key"); }
+    if (!key) { 
+      alert("⚠️ Ingresa tu API Key arriba."); 
+      throw new Error("Falta Key"); 
+    }
     
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
+    const btnIa = document.getElementById('btnInterpretarIa');
     
     try {
       const response = await fetch(url, {
@@ -685,19 +697,38 @@ const IA_V6 = {
         body: JSON.stringify({
           contents: [{
             parts: [{
-              text: `Actúa como un extractor de datos experto en reclutamiento. Analiza el siguiente texto de WhatsApp o bloc de notas y extrae CADA vacante disponible. 
+              text: `Actúa como un extractor de datos expert en reclutamiento. Analiza el siguiente texto de WhatsApp o bloc de notas y extrae CADA vacante disponible. 
               Devuelve EXCLUSIVAMENTE un arreglo en formato JSON puro (sin usar bloques de código \`\`\`json), respetando estrictamente esta estructura por cada objeto:
               [{"vacanteNombre":"","salario":"","edad":"","lugarOrigen":"","turnos":"","sexo":"Indistinto","experiencia":"","escolaridad":"","actividades":"","beneficios":"","informacionGeneral":""}]
               
-              Texto a procesar:\n${texto}`
+              Texto a procesar:
+${texto}`
             }]
           }]
         })
       });
 
+      // MANEJO MAESTRO DEL ERROR 429 (SATURACIÓN / LÍMITE DE CUOTA)
       if (response.status === 429) {
-        alert("⏱️ Gemini está saturado. Por favor, espera 15 segundos y vuelve a presionar el botón.");
-        throw new Error("Cuota excedida");
+        if (intento < maxIntentos) {
+          console.warn(`[IA Control] Servidor saturado (429). Iniciando cuenta regresiva para reintento automático ${intento}/${maxIntentos - 1}.`);
+          
+          let segundosRestantes = 15;
+          btnIa.disabled = true;
+          
+          while (segundosRestantes > 0) {
+            btnIa.innerHTML = `<i class="fas fa-hourglass-half fa-spin"></i> Servidor saturado. Reintentando en ${segundosRestantes}s...`;
+            await this.esperar(1000);
+            segundosRestantes--;
+          }
+          
+          btnIa.innerHTML = `<i class="fas fa-sync-alt fa-spin"></i> Ejecutando reintento automático...`;
+          return await this.llamarInterprete(texto, intento + 1, maxIntentos);
+        } else {
+          btnIa.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Reintento fallido`;
+          alert("⏱️ El servidor de Gemini sigue saturado tras el reintento automático. Por favor, espera unos instantes adicionales antes de volver a procesar.");
+          throw new Error("Cuota excedida tras reintento");
+        }
       }
 
       if (!response.ok) throw new Error(`Error API: ${response.status}`);
@@ -791,9 +822,11 @@ window.procesarTxtWhatsAppV6 = async function(){
     const texto = e.target.result;
     if(!texto.trim()) return alert("⚠️ El archivo seleccionado está vacío.");
     
+    const btnIa = document.getElementById('btnInterpretarIa');
     try {
-      document.getElementById('btnInterpretarIa').disabled = true;
-      document.getElementById('btnInterpretarIa').innerText = "Procesando lote con IA...";
+      btnIa.disabled = true;
+      btnIa.style.background = "var(--container-bg)";
+      btnIa.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Minando y analizando datos estructurados...`;
       
       const respuesta = await IA_V6.llamarInterprete(texto);
       vacantesProcesadasGlobal = respuesta || [];
@@ -801,14 +834,16 @@ window.procesarTxtWhatsAppV6 = async function(){
       if(vacantesProcesadasGlobal.length > 0) {
         renderizarSelectorVerde();
         document.getElementById('contenedorResultadoVerde').style.display = 'block';
+        alert(`✅ Éxito: Se procesaron ${vacantesProcesadasGlobal.length} vacantes correctamente.`);
       } else {
         alert("❌ La IA no logró segmentar ninguna vacante estructurada del archivo.");
       }
     } catch(err) {
       console.error(err);
     } finally {
-      document.getElementById('btnInterpretarIa').disabled = false;
-      document.getElementById('btnInterpretarIa').innerText = "Autorellenar Formulario";
+      btnIa.disabled = false;
+      btnIa.style.background = "var(--purple-ia)";
+      btnIa.innerHTML = `<i class="fas fa-wand-magic-sparkles"></i> Autorellenar Formulario`;
     }
   };
   lector.readAsText(archivo);
@@ -818,9 +853,11 @@ window.procesarTextoBrutoTxt = async function() {
   const texto = document.getElementById('iaTextoPegar').value.trim();
   if(!texto) return alert("⚠️ Pega algún texto o JSON para poder interpretarlo.");
   
+  const btnIa = document.getElementById('btnInterpretarIa');
   try {
-    document.getElementById('btnInterpretarIa').disabled = true;
-    document.getElementById('btnInterpretarIa').innerText = "Analizando texto...";
+    btnIa.disabled = true;
+    btnIa.style.background = "var(--container-bg)";
+    btnIa.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Interpretando bloque de texto bruto...`;
     
     const respuesta = await IA_V6.llamarInterprete(texto);
     vacantesProcesadasGlobal = respuesta || [];
@@ -834,8 +871,9 @@ window.procesarTextoBrutoTxt = async function() {
   } catch(err) {
     console.error(err);
   } finally {
-    document.getElementById('btnInterpretarIa').disabled = false;
-    document.getElementById('btnInterpretarIa').innerText = "Autorellenar Formulario";
+    btnIa.disabled = false;
+    btnIa.style.background = "var(--purple-ia)";
+    btnIa.innerHTML = `<i class="fas fa-wand-magic-sparkles"></i> Autorellenar Formulario`;
   }
 };
 
@@ -1072,7 +1110,7 @@ window.filtrarPostulantes = function() {
 // UTILERÍA COMÚN
 function sanitizarId(texto) {
   return texto.toLowerCase()
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, "") 
+    .normalize("NFD").replace(/[̀-ͯ]/g, "") 
     .replace(/[^a-z0-9\-_]/g, '-') 
     .replace(/-+/g, '-') 
     .replace(/^-|-$/g, ''); 
