@@ -498,7 +498,22 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
     </div>
     <div class="metric-card">
       <div class="metric-val" id="contadorPostulantes" style="color:var(--purple-ia);">0</div>
-      <div class="metric-lbl"><i class="fas fa-user-check"></i> TOTAL POSTULANTES REGISTRADOS</div>
+      <div class="metric-lbl"><i class="fas fa-users"></i> TOTAL POSTULANTES REGISTRADOS</div>
+    </div>
+  </div>
+
+  <div id="formEdicionCandidato" class="form-admin" style="display: none; border-color: var(--purple-ia); background: rgba(139, 92, 246, 0.02); margin-bottom: 25px;">
+    <div class="section-divider" style="color: var(--purple-ia); border-color: var(--purple-ia);">Editar Datos del Candidato</div>
+    <input type="hidden" id="editCandKey">
+    <div class="form-group"><label>Nombre Completo:</label><input type="text" id="editCandNombre"></div>
+    <div class="form-group"><label>Edad:</label><input type="text" id="editCandEdad"></div>
+    <div class="form-group"><label>Sexo:</label><select id="editCandSexo"><option>Indistinto</option><option>Masculino</option><option>Femenino</option></select></div>
+    <div class="form-group"><label>CURP:</label><input type="text" id="editCandCurp" maxlength="18"></div>
+    <div class="form-group"><label>ID Empresa:</label><input type="text" id="editCandEmpresaId"></div>
+    <div class="form-group"><label>Vacante de Interés:</label><input type="text" id="editCandVacante"></div>
+    <div class="dual-buttons-layout" style="grid-template-columns: 1fr 1fr;">
+      <button class="btn-update-final" style="background: var(--purple-ia);" onclick="guardarCambiosCandidato()"><i class="fas fa-sync-alt"></i> Actualizar Candidato</button>
+      <button class="btn-edit-mode" style="background: #64748b; color: white; justify-content: center;" onclick="cerrarEdicionCandidato()"><i class="fas fa-times"></i> Cancelar</button>
     </div>
   </div>
 
@@ -566,7 +581,7 @@ window.toggleAccordionIa = function() {
   }
 };
 
-// LÓGICA DE EMPRESAS
+// LÓGICA DE EMPRESAS (PESTAÑA 1)
 window.limpiarFormularioEmpresas = function() {
   ['admId','admNombre','admUbicacion','admLink','admImagen','admTags'].forEach(id => {
     document.getElementById(id).value = '';
@@ -750,20 +765,16 @@ window.limpiarFormularioVacantes = function(){
   document.getElementById('secEstatus').value = 'disponible';
 };
 
-// BOTÓN RESET EN EL FORMULARIO MORADO QUE ELIMINA EL ARCHIVO ELEVADO Y LIMPIA LA IA
+// RESET COMPLETO EN EL FORMULARIO DE VACANTES
 window.resetearFormularioCompleto = function() {
   limpiarFormularioVacantes();
-  
   const inputTxt = document.getElementById('archivoTxtInput');
   if(inputTxt) inputTxt.value = ''; 
-  
   document.getElementById('nombreArchivoCargado').innerText = 'Ninguno';
   document.getElementById('iaTextoPegar').value = '';
-  
   document.getElementById('contenedorResultadoVerde').style.display = 'none';
   document.getElementById('selectorVacantesDetectadas').innerHTML = '';
   document.getElementById('codigoJsonVerde').textContent = '';
-  
   vacantesProcesadasGlobal = [];
   alert("✨ Formulario morado y Lector IA restablecidos por completo. Listo para elevar un nuevo archivo.");
 };
@@ -913,7 +924,6 @@ window.subirTodasLasVacantesVerdesALote = async function() {
   }
 };
 
-// ENVIOS DIRECTOS DE FORMULARIO INDIVIDUAL
 window.guardarComoNuevaVacante = async function() {
   const empresaId = document.getElementById('secEmpresaSelect').value;
   const puestoId = sanitizarId(document.getElementById('secPuestoId').value);
@@ -961,7 +971,9 @@ function obtenerValoresFormularioVacante() {
   };
 }
 
-// ESCUCHADORES DE MÉTRICAS Y POSTULANTES (PESTAÑA 3)
+// =========================================================================
+// GESTIÓN COMPLETA DE MÉTRICAS Y CANDIDATOS (PESTAÑA 3)
+// =========================================================================
 onValue(ref(db, 'contador_visitas'), snap => {
   document.getElementById('contadorVisitas').innerText = snap.val() || 0;
 });
@@ -983,15 +995,70 @@ onValue(ref(db, 'postulantes'), snap => {
       <td><span style="color:var(--primary-orange); font-weight:600;">${p.empresaId || '—'}</span></td>
       <td>${p.vacanteInteres || '—'}</td>
       <td style="text-align:center;">
-        <button class="btn-delete-mode" style="padding:4px 8px; font-size:0.75rem; margin:0 auto;" onclick="eliminarPostulante('${key}')"><i class="fas fa-user-minus"></i></button>
+        <div style="display:flex; gap:6px; justify-content:center;">
+          <button class="btn-edit-mode" style="padding:4px 8px; font-size:0.75rem; background:#f59e0b; color:#111;" onclick="cargarCandidatoParaEditar('${key}')"><i class="fas fa-edit"></i></button>
+          <button class="btn-delete-mode" style="padding:4px 8px; font-size:0.75rem;" onclick="eliminarPostulante('${key}')"><i class="fas fa-user-minus"></i></button>
+        </div>
       </td>
     </tr>`;
   });
 });
 
+window.cargarCandidatoParaEditar = function(key) {
+  const dbRef = ref(db, `postulantes/${key}`);
+  onValue(dbRef, snap => {
+    const p = snap.val();
+    if(!p) return;
+    
+    document.getElementById('editCandKey').value = key;
+    document.getElementById('editCandNombre').value = p.nombre || '';
+    document.getElementById('editCandEdad').value = p.edad || '';
+    document.getElementById('editCandSexo').value = p.sexo || 'Indistinto';
+    document.getElementById('editCandCurp').value = p.curp || '';
+    document.getElementById('editCandEmpresaId').value = p.empresaId || '';
+    document.getElementById('editCandVacante').value = p.vacanteInteres || '';
+    
+    document.getElementById('formEdicionCandidato').style.display = 'grid';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, { onlyOnce: true });
+};
+
+window.guardarCambiosCandidato = async function() {
+  const key = document.getElementById('editCandKey').value;
+  if(!key) return;
+  
+  const payload = {
+    nombre: document.getElementById('editCandNombre').value.trim(),
+    edad: document.getElementById('editCandEdad').value.trim(),
+    sexo: document.getElementById('editCandSexo').value,
+    curp: document.getElementById('editCandCurp').value.trim().toUpperCase(),
+    empresaId: document.getElementById('editCandEmpresaId').value.trim(),
+    vacanteInteres: document.getElementById('editCandVacante').value.trim(),
+    actualizado: new Date().toISOString()
+  };
+  
+  try {
+    await update(ref(db, `postulantes/${key}`), payload);
+    alert("✅ Datos del candidato actualizados correctamente.");
+    cerrarEdicionCandidato();
+  } catch(e) {
+    alert("❌ Error al actualizar: " + e.message);
+  }
+};
+
+window.cerrarEdicionCandidato = function() {
+  document.getElementById('formEdicionCandidato').style.display = 'none';
+  document.getElementById('editCandKey').value = '';
+};
+
 window.eliminarPostulante = function(key) {
-  if(confirm("¿Remover de la base de datos a este postulante?")) {
-    remove(ref(db, `postulantes/${key}`)).catch(e => alert(e.message));
+  if(confirm("⚠️ ¿Seguro que deseas remover permanentemente a este candidato de la base de datos?")) {
+    remove(ref(db, `postulantes/${key}`))
+      .then(() => {
+        alert("✅ Candidato eliminado con éxito.");
+        if(document.getElementById('editCandKey').value === key) cerrarEdicionCandidato();
+      })
+      .catch(e => alert("❌ Error: " + e.message));
   }
 };
 
