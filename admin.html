@@ -353,6 +353,7 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
 <button class="tab-btn" data-tab="tabRegistros"><i class="fas fa-chart-line"></i> 3. Registros y Estadísticas</button> 
 </div> 
 
+<!-- PESTAÑA 1 -->
 <div id="tabPrincipal" class="tab-content active"> 
   <div class="form-admin"> 
     <div class="section-divider">Alta / Edición de Empresa Base</div> 
@@ -383,6 +384,7 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
   </div> 
 </div> 
 
+<!-- PESTAÑA 2 -->
 <div id="tabSecundarias" class="tab-content"> 
   <div class="tab2-grid-layout">
     
@@ -413,8 +415,9 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
       </button>
 
       <div id="accordionIaContent" class="accordion-content">
-        <div class="ia-box" style="margin-bottom:0;">
+        <div class="ia-box" style="margin-bottom:0; background: rgba(139, 92, 246, 0.02);">
           <label style="color:var(--purple-ia);font-weight:bold;display:block;margin-bottom:8px;"><i class="fas fa-bolt"></i> TEXTO COMPLETO O WHATSAPP (TXT -> JSON)</label>
+          
           <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
             <div class="file-input-wrapper">
               <div class="btn-file-custom" style="padding:8px 14px; font-size:0.85rem;"><i class="fas fa-file-alt"></i> Subir .txt masivo</div>
@@ -424,7 +427,7 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
           </div>
 
           <div id="contenedorResultadoVerde" style="display:none;margin-top:10px;">
-            <label style="color:#34d399; font-weight:bold; font-size:0.85rem; display:block; margin-bottom:5px;"><i class="fas fa-list-check"></i> Vacantes Detectadas:</label>
+            <label style="color:#34d399; font-weight:bold; font-size:0.85rem; display:block; margin-bottom:5px;"><i class="fas fa-list-check"></i> Vacantes Detectadas por IA:</label>
             <select id="selectorVacantesDetectadas" class="selector-puestos-verde" onchange="cambiarVacanteVerdeSeleccionada()"></select>
             
             <div class="preview-card-view">
@@ -445,9 +448,10 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
             </div>
           </div>
 
-          <textarea id="iaTextoPegar" placeholder="Pega aquí el JSON o texto bruto de WhatsApp..." style="width:100%;min-height:90px;margin-top:10px;border-color:var(--purple-ia);background:#1a1033;color:#e9d5ff;border-radius:6px;padding:10px;outline:none;font-size:0.85rem;"></textarea>
+          <textarea id="iaTextoPegar" placeholder="Pega aquí el texto bruto de WhatsApp o vacante..." style="width:100%;min-height:140px;margin-top:10px;border-color:var(--purple-ia);background:#1a1033;color:#e9d5ff;border-radius:6px;padding:10px;outline:none;font-size:0.85rem;"></textarea>
+          
           <div style="display:flex;gap:10px;flex-wrap:wrap;">
-            <button class="btn-ia" id="btnInterpretarIa" style="width:100%;" onclick="procesarTextoBrutoTxt()"><i class="fas fa-wand-magic-sparkles"></i> Autorellenar Formulario</button>
+            <button class="btn-ia" id="btnInterpretarIa" style="width:100%;" onclick="procesarTextoBrutoTxt()"><i class="fas fa-wand-magic-sparkles"></i> Organizar y Autorellenar Formulario</button>
           </div>
         </div>
       </div>
@@ -490,6 +494,7 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
   </div>
 </div>
 
+<!-- PESTAÑA 3 -->
 <div id="tabRegistros" class="tab-content">
   <div class="metrics-layout">
     <div class="metric-card">
@@ -502,6 +507,7 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
     </div>
   </div>
 
+  <!-- FORMULARIO DINÁMICO DE EDICIÓN DE CANDIDATO -->
   <div id="formEdicionCandidato" class="form-admin" style="display: none; border-color: var(--purple-ia); background: rgba(139, 92, 246, 0.02); margin-bottom: 25px;">
     <div class="section-divider" style="color: var(--purple-ia); border-color: var(--purple-ia);">Editar Datos del Candidato</div>
     <input type="hidden" id="editCandKey">
@@ -581,7 +587,7 @@ window.toggleAccordionIa = function() {
   }
 };
 
-// LÓGICA DE EMPRESAS (PESTAÑA 1)
+// LÓGICA DE EMPRESAS (PESTAÑA 1 - INTACTA)
 window.limpiarFormularioEmpresas = function() {
   ['admId','admNombre','admUbicacion','admLink','admImagen','admTags'].forEach(id => {
     document.getElementById(id).value = '';
@@ -669,85 +675,85 @@ onValue(ref(db,'empresas'), snap=>{
 });
 
 // =========================================================================
-// IA ENGINE V6 - MODELO MULTI-CUOTA STABLE 1.5 FLASH
+// GESTOR DE INTELIGENCIA ARTIFICIAL (FLUJO DIRECTO SIN CAJAS EXTRA)
 // =========================================================================
 const IA_V6 = {
   esperar(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
   },
 
-  async llamarInterprete(texto, intento = 1, maxIntentos = 2) {
+  async llamarInterprete(textoBruto, intento = 1, maxIntentos = 2) {
     const key = localStorage.getItem('gemini_api_key') || apiKeyInput.value.trim();
     if (!key) { 
-      throw new Error("Falta Clave API Key"); 
+      alert("⚠️ Ingresa tu API Key arriba."); 
+      throw new Error("Falta Key"); 
     }
-    
-    // Cambiado a gemini-1.5-flash para máxima estabilidad en cuotas gratuitas
-    const url15 = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
     const btnIa = document.getElementById('btnInterpretarIa');
     
-    const response = await fetch(url15, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: `Analiza el siguiente texto de reclutamiento y extrae cada una de las vacantes disponibles con sus respectivos detalles basándote en la información provista. El campo "sexo" por defecto debe ser "Indistinto" si no se especifica explícitamente.
-            
-            Texto a procesar:
-            ${texto}`
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: `Actúa como un extractor de datos experto en reclutamiento profesional. Analiza el texto bruto de la vacante provisto al final y extrae CADA puesto disponible.
+              
+              REGLA CRÍTICA PARA EL CAMPO "informacionGeneral":
+              - Analiza todo el texto buscando políticas de reingreso (ej. "no reingresos por faltas", "reingresos con baja voluntaria"), indicaciones para la cita (ej. "traer INE original", "solicitud elaborada"), restricciones de contratación o aclaraciones urgentes de la planta.
+              - Extrae ese bloque de texto o líneas y colócalo COMPLETO en la propiedad "informacionGeneral" del JSON. 
+              - NO dejes este campo vacío si detectas avisos, alertas o condiciones de contratación especiales. NO mezcles esta información con las actividades comunes o prestaciones del puesto.
+              
+              Devuelve EXCLUSIVAMENTE un arreglo en formato JSON puro (sin usar bloques de código \`\`\`json), respetando estrictamente esta estructura por cada objeto:
+              [{"vacanteNombre":"","salario":"","edad":"","lugarOrigen":"","turnos":"","sexo":"Indistinto","experiencia":"","escolaridad":"","actividades":"","beneficios":"","informacionGeneral":""}]
+              
+              Texto bruto a procesar:
+              ${textoBruto}`
+            }]
           }]
-        }],
-        generationConfig: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: "ARRAY",
-            items: {
-              type: "OBJECT",
-              properties: {
-                vacanteNombre: { type: "STRING" },
-                salario: { type: "STRING" },
-                edad: { type: "STRING" },
-                lugarOrigen: { type: "STRING" },
-                turnos: { type: "STRING" },
-                sexo: { type: "STRING" },
-                experiencia: { type: "STRING" },
-                escolaridad: { type: "STRING" },
-                actividades: { type: "STRING" },
-                beneficios: { type: "STRING" },
-                informacionGeneral: { type: "STRING" }
-              },
-              required: ["vacanteNombre", "salario", "edad", "lugarOrigen", "turnos", "sexo", "experiencia", "escolaridad", "actividades", "beneficios", "informacionGeneral"]
-            }
+        })
+      });
+
+      if (response.status === 429) {
+        if (intento < maxIntentos) {
+          console.warn(`[IA Control] Servidor saturado (429). Iniciando cuenta regresiva para reintento automático ${intento}/${maxIntentos - 1}.`);
+          let segundosRestantes = 15;
+          btnIa.disabled = true;
+          while (segundosRestantes > 0) {
+            btnIa.innerHTML = `<i class="fas fa-hourglass-half fa-spin"></i> Servidor saturado. Reintentando en ${segundosRestantes}s...`;
+            await this.esperar(1000);
+            segundosRestantes--;
           }
+          btnIa.innerHTML = `<i class="fas fa-sync-alt fa-spin"></i> Ejecutando reintento automático...`;
+          return await this.llamarInterprete(textoBruto, intento + 1, maxIntentos);
+        } else {
+          btnIa.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Reintento fallido`;
+          alert("⏱️ El servidor de Gemini sigue saturado tras el reintento automático. Por favor, espera unos instantes adicionales antes de volver a procesar.");
+          throw new Error("Cuota excedida tras reintento");
         }
-      })
-    });
-
-    if (response.status === 429) {
-      if (intento < maxIntentos) {
-        let segundosRestantes = 5;
-        while (segundosRestantes > 0) {
-          btnIa.innerHTML = `<i class="fas fa-hourglass-half fa-spin"></i> Saturado. Reintentando en ${segundosRestantes}s...`;
-          await this.esperar(1000);
-          segundosRestantes--;
-        }
-        return await this.llamarInterprete(texto, intento + 1, maxIntentos);
-      } else {
-        throw new Error("Límite de cuotas Gemini alcanzado.");
       }
-    }
 
-    if (!response.ok) throw new Error(`Status de API no exitoso: ${response.status}`);
+      if (!response.ok) throw new Error(`Error API: ${response.status}`);
 
-    const data = await response.json();
-    let textoJson = data.candidates[0].content.parts[0].text.trim();
-    
-    if (textoJson.includes("```")) {
-      textoJson = textoJson.replace(/```json/gi, "").replace(/```/g, "").trim();
+      const data = await response.json();
+      let textoJson = data.candidates[0].content.parts[0].text.trim();
+      
+      if (textoJson.startsWith("```")) {
+        textoJson = textoJson.replace(/^
+```json\s*/i, "").replace(/```$/, "").trim();
+      }
+      
+      return JSON.parse(textoJson);
+      
+    } catch (error) {
+      console.error(error);
+      if (error instanceof SyntaxError) {
+        alert("❌ La IA no estructuró el texto como JSON limpio. Intenta de nuevo o limpia caracteres extraños del texto.");
+      }
+      throw error;
     }
-    
-    return JSON.parse(textoJson);
   }
 };
 
@@ -805,12 +811,9 @@ window.resetearFormularioCompleto = function() {
   document.getElementById('selectorVacantesDetectadas').innerHTML = '';
   document.getElementById('codigoJsonVerde').textContent = '';
   vacantesProcesadasGlobal = [];
-  alert("✨ Formulario morado y Lector IA restablecidos por completo.");
+  alert("✨ Formulario morado y Lector IA restablecidos por completo. Listo para procesar un nuevo lote.");
 };
 
-// =========================================================================
-// SISTEMA DE PROCESAMIENTO HÍBRIDO ULTRA-RESISTENTE (IA + PARSER LOCAL)
-// =========================================================================
 window.procesarTxtWhatsAppV6 = async function(){
   const input = document.getElementById('archivoTxtInput');
   if(!input.files || input.files.length === 0) return;
@@ -827,27 +830,23 @@ window.procesarTxtWhatsAppV6 = async function(){
     try {
       btnIa.disabled = true;
       btnIa.style.background = "var(--container-bg)";
-      btnIa.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Extrayendo de forma estructurada...`;
+      btnIa.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Analizando y extrayendo datos con la IA...`;
       
-      // Intento primario con los servidores de Google
       const respuesta = await IA_V6.llamarInterprete(texto);
       vacantesProcesadasGlobal = respuesta || [];
-      console.log("Procesado exitosamente con la API de Gemini.");
       
-    } catch(err) {
-      console.warn("⚠️ Servidor de Gemini no disponible o saturado. Activando Extractor de Respaldo Local integrado...");
-      // RESPALDO LOCAL: Si falla la red o la API key, parsea el archivo localmente al instante
-      vacantesProcesadasGlobal = parsearTextoTeconnexLocalmente(texto);
-    } finally {
       if(vacantesProcesadasGlobal.length > 0) {
         renderizarSelectorVerde();
         document.getElementById('contenedorResultadoVerde').style.display = 'block';
+        alert(`✅ Éxito: Se procesaron ${vacantesProcesadasGlobal.length} vacantes correctamente.`);
       } else {
-        alert("❌ No se lograron extraer perfiles válidos del documento.");
+        alert("❌ La IA no logró segmentar ninguna vacante estructurada del archivo.");
       }
+    } catch(err) { console.error(err); } 
+    finally {
       btnIa.disabled = false;
       btnIa.style.background = "var(--purple-ia)";
-      btnIa.innerHTML = `<i class="fas fa-wand-magic-sparkles"></i> Autorellenar Formulario`;
+      btnIa.innerHTML = `<i class="fas fa-wand-magic-sparkles"></i> Organizar y Autorellenar Formulario`;
     }
   };
   lector.readAsText(archivo);
@@ -855,7 +854,7 @@ window.procesarTxtWhatsAppV6 = async function(){
 
 window.procesarTextoBrutoTxt = async function() {
   const texto = document.getElementById('iaTextoPegar').value.trim();
-  if(!texto) return alert("⚠️ Pega algún texto o JSON para poder interpretarlo.");
+  if(!texto) return alert("⚠️ Pega algún texto o bloc de notas para poder interpretarlo.");
   
   const btnIa = document.getElementById('btnInterpretarIa');
   try {
@@ -865,91 +864,20 @@ window.procesarTextoBrutoTxt = async function() {
     
     const respuesta = await IA_V6.llamarInterprete(texto);
     vacantesProcesadasGlobal = respuesta || [];
-  } catch(err) {
-    console.warn("Activando extractor alterno local para bloque de texto pegado.");
-    vacantesProcesadasGlobal = parsearTextoTeconnexLocalmente(texto);
-  } finally {
+    
     if(vacantesProcesadasGlobal.length > 0) {
       renderizarSelectorVerde();
       document.getElementById('contenedorResultadoVerde').style.display = 'block';
     } else {
       alert("❌ No se encontraron perfiles legibles.");
     }
+  } catch(err) { console.error(err); } 
+  finally {
     btnIa.disabled = false;
     btnIa.style.background = "var(--purple-ia)";
-    btnIa.innerHTML = `<i class="fas fa-wand-magic-sparkles"></i> Autorellenar Formulario`;
+    btnIa.innerHTML = `<i class="fas fa-wand-magic-sparkles"></i> Organizar y Autorellenar Formulario`;
   }
 };
-
-// PARSER LOCAL INTEGRADO DE SEGURIDAD (CERO DEPENDENCIAS DE SERVIDORES EXTERNOS)
-function parsearTextoTeconnexLocalmente(texto) {
-  const vacantes = [];
-  const bloquesPuestos = [
-    { nombre: "Ayudante General", buscadores: ["Ayudante General"] },
-    { nombre: "Operadores de Producción", buscadores: ["Operador de Producción", "Operadores de Producción"] },
-    { nombre: "Auxiliar de Limpieza", buscadores: ["Auxiliar de Limpieza"] },
-    { nombre: "Operador de Máquina", buscadores: ["Operador de Máquina", "Operadores de Máquina"] },
-    { nombre: "Inspector de Calidad (turnos rotativos)", buscadores: ["Inspector de Calidad"] }
-  ];
-
-  let prestacionesText = "Bono de asistencia perfecta: $400 mensual\nBono mensual adicional del 2%\nFondo de ahorro del 6%\nVales de despensa semanales: $219\nBono de puntualidad: $121 semanal\nBono de asistencia: $121 semanal\n24 días de aguinaldo\nPrima vacacional al 100%\n12 días de vacaciones el primer año\nDescansos adicionales en Semana Santa y días 12, 24 y 31 de diciembre";
-  let beneficiosText = "Comedor subsidiado, Transporte gratuito, Pago semanal por BBVA (semana desfasada), Apoyo escolar, Apoyos especiales (maternidad, matrimonio y defunción)";
-
-  bloquesPuestos.forEach(puesto => {
-    let encontrado = false;
-    puesto.buscadores.forEach(b => {
-      if(texto.toLowerCase().includes(b.toLowerCase())) encontrado = true;
-    });
-
-    if(encontrado) {
-      let salario = "$348 diarios ($2,897 semanal con bonos)";
-      let edad = "18 a 50 años (Requisitos Generales)";
-      let turnos = "Turnos fijos de noche (Lunes a Miércoles 6pm-6am, Jueves 11pm-5am O Fin de semana Viernes a Domingo 6pm-6am)";
-      
-      if(puesto.nombre.includes("Producción")) salario = "$388 diarios ($3,177 semanal con bonos)";
-      if(puesto.nombre.includes("Limpieza")) {
-        salario = "$388 diarios ($3,177 semanal con bonos)";
-        edad = "30 a 45 años";
-      }
-      if(puesto.nombre.includes("Máquina")) salario = "$430 diarios ($3,471 semanal con bonos)";
-      if(puesto.nombre.includes("Calidad")) {
-        salario = "$430 diarios ($3,471 semanal con bonos)";
-        turnos = "Turnos rotativos de noche / día";
-      }
-
-      vacantes.push({
-        vacanteNombre: puesto.nombre,
-        salario: salario,
-        edad: edad,
-        lugarOrigen: "Parque Industrial Millennium",
-        turnos: turnos,
-        sexo: "Indistinto",
-        experiencia: "Conocimiento en fábrica o producción",
-        escolaridad: "Secundaria terminada",
-        actividades: "Actividades operativas de producción, empaque, limpieza o inspección según el área asignada.",
-        beneficios: beneficiosText,
-        informacionGeneral: "PRESTACIONES Y BONOS:\n" + prestacionesText + "\n\nNotas: Contratación inmediata. No familiares, No reingresos."
-      });
-    }
-  });
-
-  if(vacantes.length === 0) {
-    vacantes.push({
-      vacanteNombre: "Vacante General Extraída",
-      salario: "Ver descripción",
-      edad: "18 a 50 años",
-      lugarOrigen: "Parque Industrial Millennium",
-      turnos: "Turnos de planta",
-      sexo: "Indistinto",
-      experiencia: "No necesaria",
-      escolaridad: "Secundaria",
-      actividades: "Operaciones generales de la planta automotriz.",
-      beneficios: beneficiosText,
-      informacionGeneral: texto.substring(0, 1000)
-    });
-  }
-  return vacantes;
-}
 
 function renderizarSelectorVerde() {
   const sel = document.getElementById('selectorVacantesDetectadas');
@@ -991,7 +919,7 @@ window.transferirAlEspacioMorado = function() {
   document.getElementById('secEscolaridad').value = v.escolaridad || '';
   document.getElementById('secActividades').value = v.actividades || '';
   document.getElementById('secBeneficios').value = v.beneficios || '';
-  document.getElementById('secInfoGeneral').value = v.infoGeneral || v.informacionGeneral || '';
+  document.getElementById('secInfoGeneral').value = v.informacionGeneral || '';
   
   if(v.vacanteNombre) {
     document.getElementById('secPuestoId').value = sanitizarId(v.vacanteNombre);
@@ -1019,7 +947,7 @@ window.subirTodasLasVacantesVerdesALote = async function() {
           escolaridad: v.escolaridad || '',
           actividades: v.actividades || '',
           beneficios: v.beneficios || '',
-          infoGeneral: v.infoGeneral || v.informacionGeneral || '',
+          infoGeneral: v.informacionGeneral || '',
           estatus: 'disponible',
           bannerUrl: '',
           actualizado: new Date().toISOString()
@@ -1084,7 +1012,7 @@ function obtenerValoresFormularioVacante() {
 }
 
 // =========================================================================
-// GESTIÓN COMPLETA DE MÉTRICAS Y CANDIDATOS (PESTAÑA 3)
+// GESTIÓN COMPLETA DE MÉTRICAS Y CANDIDATOS (PESTAÑA 3 - INTACTA)
 // =========================================================================
 onValue(ref(db, 'contador_visitas'), snap => {
   document.getElementById('contadorVisitas').innerText = snap.val() || 0;
