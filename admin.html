@@ -348,9 +348,9 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
 </div>
 
 <div class="tabs-menu"> 
-<button class="tab-btn active" data-tab="tabPrincipal"><i class="fas fa-building"></i> 1. Registrar Empresa</button> 
-<button class="tab-btn" data-tab="tabSecundarias"><i class="fas fa-briefcase"></i> 2. Control de Vacantes Masivo</button> 
-<button class="tab-btn" data-tab="tabRegistros"><i class="fas fa-chart-line"></i> 3. Registros y Estadísticas</button> 
+<button class="tab-btn active" id="btnTab1" onclick="switchTab('tabPrincipal')"><i class="fas fa-building"></i> 1. Registrar Empresa</button> 
+<button class="tab-btn" id="btnTab2" onclick="switchTab('tabSecundarias')"><i class="fas fa-briefcase"></i> 2. Control de Vacantes Masivo</button> 
+<button class="tab-btn" id="btnTab3" onclick="switchTab('tabRegistros')"><i class="fas fa-chart-line"></i> 3. Registros y Estadísticas</button> 
 </div> 
 
 <!-- PESTAÑA 1 -->
@@ -562,18 +562,29 @@ let vacantesProcesadasGlobal = [];
 let baseVacantesActualesEnFirebase = {};
 
 const apiKeyInput = document.getElementById('geminiApiKeyInput');
-if(localStorage.getItem('gemini_api_key')) apiKeyInput.value = localStorage.getItem('gemini_api_key');
-apiKeyInput.addEventListener('input', (e) => localStorage.setItem('gemini_api_key', e.target.value.trim()));
-
-// CONTROL PESTAÑAS
-document.querySelectorAll('.tabs-menu .tab-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.tabs-menu .tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById(btn.getAttribute('data-tab')).classList.add('active');
-  });
+if(localStorage.getItem('gemini_api_key')) {
+  apiKeyInput.value = localStorage.getItem('gemini_api_key');
+}
+apiKeyInput.addEventListener('input', (e) => {
+  localStorage.setItem('gemini_api_key', e.target.value.trim());
 });
+
+// CONTROL DE PESTAÑAS SEGURO DE ENRUTAMIENTO
+window.switchTab = function(tabId) {
+  document.querySelectorAll('.tab-content').forEach(content => {
+    content.classList.remove('active');
+  });
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.classList.remove('active');
+  });
+  
+  const targetContent = document.getElementById(tabId);
+  if (targetContent) targetContent.classList.add('active');
+  
+  if (tabId === 'tabPrincipal') document.getElementById('btnTab1').classList.add('active');
+  if (tabId === 'tabSecundarias') document.getElementById('btnTab2').classList.add('active');
+  if (tabId === 'tabRegistros') document.getElementById('btnTab3').classList.add('active');
+};
 
 // FUNCIÓN PARA EL ACORDEÓN DE IA
 window.toggleAccordionIa = function() {
@@ -587,7 +598,7 @@ window.toggleAccordionIa = function() {
   }
 };
 
-// LÓGICA DE EMPRESAS (PESTAÑA 1 - INTACTA)
+// LÓGICA DE EMPRESAS (PESTAÑA 1)
 window.limpiarFormularioEmpresas = function() {
   ['admId','admNombre','admUbicacion','admLink','admImagen','admTags'].forEach(id => {
     document.getElementById(id).value = '';
@@ -653,6 +664,7 @@ window.filtrarEmpresas = function() {
 onValue(ref(db,'empresas'), snap=>{
   const tb = document.getElementById('adminTablaEmpresas');
   const sel = document.getElementById('secEmpresaSelect');
+  if(!tb) return;
   tb.innerHTML='';
   sel.innerHTML='<option value="">-- Elige una Empresa --</option>';
   empresasData = snap.val()||{};
@@ -675,7 +687,7 @@ onValue(ref(db,'empresas'), snap=>{
 });
 
 // =========================================================================
-// GESTOR DE INTELIGENCIA ARTIFICIAL (FLUJO DIRECTO SIN CAJAS EXTRA)
+// GESTOR DE INTELIGENCIA ARTIFICIAL
 // =========================================================================
 const IA_V6 = {
   esperar(ms) {
@@ -1012,14 +1024,16 @@ function obtenerValoresFormularioVacante() {
 }
 
 // =========================================================================
-// GESTIÓN COMPLETA DE MÉTRICAS Y CANDIDATOS (PESTAÑA 3 - INTACTA)
+// GESTIÓN COMPLETA DE MÉTRICAS Y CANDIDATOS (PESTAÑA 3)
 // =========================================================================
 onValue(ref(db, 'contador_visitas'), snap => {
-  document.getElementById('contadorVisitas').innerText = snap.val() || 0;
+  const el = document.getElementById('contadorVisitas');
+  if(el) el.innerText = snap.val() || 0;
 });
 
 onValue(ref(db, 'postulantes'), snap => {
   const tabla = document.getElementById('tablaPostulantesBody');
+  if(!tabla) return;
   tabla.innerHTML = '';
   const data = snap.val() || {};
   
