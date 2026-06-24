@@ -353,7 +353,6 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
 <button class="tab-btn" data-tab="tabRegistros"><i class="fas fa-chart-line"></i> 3. Registros y Estadísticas</button> 
 </div> 
 
-<!-- PESTAÑA 1 -->
 <div id="tabPrincipal" class="tab-content active"> 
   <div class="form-admin"> 
     <div class="section-divider">Alta / Edición de Empresa Base</div> 
@@ -384,7 +383,6 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
   </div> 
 </div> 
 
-<!-- PESTAÑA 2 -->
 <div id="tabSecundarias" class="tab-content"> 
   <div class="tab2-grid-layout">
     
@@ -492,7 +490,6 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
   </div>
 </div>
 
-<!-- PESTAÑA 3 -->
 <div id="tabRegistros" class="tab-content">
   <div class="metrics-layout">
     <div class="metric-card">
@@ -505,7 +502,6 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
     </div>
   </div>
 
-  <!-- FORMULARIO DINÁMICO DE EDICIÓN DE CANDIDATO -->
   <div id="formEdicionCandidato" class="form-admin" style="display: none; border-color: var(--purple-ia); background: rgba(139, 92, 246, 0.02); margin-bottom: 25px;">
     <div class="section-divider" style="color: var(--purple-ia); border-color: var(--purple-ia);">Editar Datos del Candidato</div>
     <input type="hidden" id="editCandKey">
@@ -673,7 +669,7 @@ onValue(ref(db,'empresas'), snap=>{
 });
 
 // =========================================================================
-// SOLUCIÓN MAGISTRAL: CONTROL DE FLUJO, CUOTA Y REINTENTO AUTOMÁTICO
+// SOLUCIÓN OPTIMIZADA: EXTRACCIÓN ESTRUCTURADA CON RESPONSE SCHEMA
 // =========================================================================
 const IA_V6 = {
   esperar(ms) {
@@ -697,14 +693,35 @@ const IA_V6 = {
         body: JSON.stringify({
           contents: [{
             parts: [{
-              text: `Actúa como un extractor de datos expert en reclutamiento. Analiza el siguiente texto de WhatsApp o bloc de notas y extrae CADA vacante disponible. 
-              Devuelve EXCLUSIVAMENTE un arreglo en formato JSON puro (sin usar bloques de código \`\`\`json), respetando estrictamente esta estructura por cada objeto:
-              [{"vacanteNombre":"","salario":"","edad":"","lugarOrigen":"","turnos":"","sexo":"Indistinto","experiencia":"","escolaridad":"","actividades":"","beneficios":"","informacionGeneral":""}]
+              text: `Analiza el siguiente texto de reclutamiento y extrae cada una de las vacantes disponibles con sus respectivos detalles basándote en la información provista. El campo "sexo" por defecto debe ser "Indistinto" si no se especifica explícitamente.
               
               Texto a procesar:
-${texto}`
+              ${texto}`
             }]
-          }]
+          }],
+          generationConfig: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: "ARRAY",
+              items: {
+                type: "OBJECT",
+                properties: {
+                  vacanteNombre: { type: "STRING" },
+                  salario: { type: "STRING" },
+                  edad: { type: "STRING" },
+                  lugarOrigen: { type: "STRING" },
+                  turnos: { type: "STRING" },
+                  sexo: { type: "STRING" },
+                  experiencia: { type: "STRING" },
+                  escolaridad: { type: "STRING" },
+                  actividades: { type: "STRING" },
+                  beneficios: { type: "STRING" },
+                  informacionGeneral: { type: "STRING" }
+                },
+                required: ["vacanteNombre", "salario", "edad", "lugarOrigen", "turnos", "sexo", "experiencia", "escolaridad", "actividades", "beneficios", "informacionGeneral"]
+              }
+            }
+          }
         })
       });
 
@@ -736,8 +753,8 @@ ${texto}`
       const data = await response.json();
       let textoJson = data.candidates[0].content.parts[0].text.trim();
       
-      if (textoJson.startsWith("```")) {
-        textoJson = textoJson.replace(/^```json\s*/i, "").replace(/```$/, "").trim();
+      if (textoJson.includes("```")) {
+        textoJson = textoJson.replace(/```json/gi, "").replace(/```/g, "").trim();
       }
       
       return JSON.parse(textoJson);
@@ -745,7 +762,7 @@ ${texto}`
     } catch (error) {
       console.error(error);
       if (error instanceof SyntaxError) {
-        alert("❌ La IA no estructuró el texto como JSON limpio. Intenta con un fragmento más corto o limpio.");
+        alert("❌ Error de formato: La respuesta no se pudo interpretar como un JSON limpio. Intenta de nuevo.");
       }
       throw error;
     }
