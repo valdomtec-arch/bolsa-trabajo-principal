@@ -682,7 +682,6 @@ const IA_V6 = {
       throw new Error("Falta Clave API Key"); 
     }
     
-    // Cambiado a gemini-1.5-flash para máxima estabilidad en cuotas gratuitas
     const url15 = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
     const btnIa = document.getElementById('btnInterpretarIa');
     
@@ -769,11 +768,22 @@ window.cargarVacanteParaEditar = function(){
   const k = document.getElementById('selectorVacantesEnFirebase').value;
   if(!k || !baseVacantesActualesEnFirebase[k]) return alert('Selecciona una vacante');
   const v = baseVacantesActualesEnFirebase[k];
-  ['secPuestoId','secEstatus','secVacanteNombre','secSalario','secEdad','secLugarOrigen','secTurnos','secSexo','secExperiencia','secEscolaridad','secBannerUrl','secActividades','secBeneficios','secInfoGeneral'].forEach(id=>{
-    const c = id.replace('sec','').charAt(0).toLowerCase()+id.replace('sec','').slice(1);
-    const element = document.getElementById(id);
-    if(element) element.value = v[c] || '';
-  });
+  
+  // Mapeo explícito y seguro para evitar pérdidas de strings vacías o propiedades desfasadas
+  document.getElementById('secVacanteNombre').value = v.vacanteNombre || '';
+  document.getElementById('secEstatus').value = v.estatus || 'disponible';
+  document.getElementById('secBannerUrl').value = v.bannerUrl || '';
+  document.getElementById('secEdad').value = v.edad || '';
+  document.getElementById('secSexo').value = v.sexo || 'Indistinto';
+  document.getElementById('secExperiencia').value = v.experiencia || '';
+  document.getElementById('secEscolaridad').value = v.escolaridad || '';
+  document.getElementById('secSalario').value = v.salario || '';
+  document.getElementById('secLugarOrigen').value = v.lugarOrigen || '';
+  document.getElementById('secTurnos').value = v.turnos || '';
+  document.getElementById('secActividades').value = v.actividades || '';
+  document.getElementById('secBeneficios').value = v.beneficios || '';
+  document.getElementById('secInfoGeneral').value = v.infoGeneral || v.informacionGeneral || '';
+  
   document.getElementById('secPuestoId').value = k;
 };
 
@@ -829,14 +839,12 @@ window.procesarTxtWhatsAppV6 = async function(){
       btnIa.style.background = "var(--container-bg)";
       btnIa.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Extrayendo de forma estructurada...`;
       
-      // Intento primario con los servidores de Google
       const respuesta = await IA_V6.llamarInterprete(texto);
       vacantesProcesadasGlobal = respuesta || [];
       console.log("Procesado exitosamente con la API de Gemini.");
       
     } catch(err) {
       console.warn("⚠️ Servidor de Gemini no disponible o saturado. Activando Extractor de Respaldo Local integrado...");
-      // RESPALDO LOCAL: Si falla la red o la API key, parsea el archivo localmente al instante
       vacantesProcesadasGlobal = parsearTextoTeconnexLocalmente(texto);
     } finally {
       if(vacantesProcesadasGlobal.length > 0) {
@@ -881,19 +889,18 @@ window.procesarTextoBrutoTxt = async function() {
   }
 };
 
-// PARSER LOCAL INTEGRADO DE SEGURIDAD (CERO DEPENDENCIAS DE SERVIDORES EXTERNOS)
 function parsearTextoTeconnexLocalmente(texto) {
   const vacantes = [];
   const bloquesPuestos = [
     { nombre: "Ayudante General", buscadores: ["Ayudante General"] },
-    { nombre: "Operadores de Producción", buscadores: ["Operador de Producción", "Operadores de Producción"] },
+    { nombre: "Operadores de Production", buscadores: ["Operador de Production", "Operadores de Production"] },
     { nombre: "Auxiliar de Limpieza", buscadores: ["Auxiliar de Limpieza"] },
-    { nombre: "Operador de Máquina", buscadores: ["Operador de Máquina", "Operadores de Máquina"] },
+    { nombre: "Operador de Maquina", buscadores: ["Operador de Maquina", "Operadores de Maquina"] },
     { nombre: "Inspector de Calidad (turnos rotativos)", buscadores: ["Inspector de Calidad"] }
   ];
 
-  let prestacionesText = "Bono de asistencia perfecta: $400 mensual\nBono mensual adicional del 2%\nFondo de ahorro del 6%\nVales de despensa semanales: $219\nBono de puntualidad: $121 semanal\nBono de asistencia: $121 semanal\n24 días de aguinaldo\nPrima vacacional al 100%\n12 días de vacaciones el primer año\nDescansos adicionales en Semana Santa y días 12, 24 y 31 de diciembre";
-  let beneficiosText = "Comedor subsidiado, Transporte gratuito, Pago semanal por BBVA (semana desfasada), Apoyo escolar, Apoyos especiales (maternidad, matrimonio y defunción)";
+  let prestacionesText = "Bono de asistencia perfecta: $400 mensual\nBono mensual adicional del 2%\nFondo de ahorro del 6%\nVales de despensa semanales: $219\nBono de puntualidad: $121 semanal\nBono de asistencia: $121 semanal\n24 dias de aguinaldo\nPrima vacacional al 100%\n12 dias de vacaciones el primer ano\nDescansos adicionales en Semana Santa y dias 12, 24 y 31 de diciembre";
+  let beneficiosText = "Comedor subsidiado, Transporte gratuito, Pago semanal por BBVA (semana desfasada), Apoyo escolar, Apoyos especiales (maternidad, matrimonio y defuncion)";
 
   bloquesPuestos.forEach(puesto => {
     let encontrado = false;
@@ -903,18 +910,18 @@ function parsearTextoTeconnexLocalmente(texto) {
 
     if(encontrado) {
       let salario = "$348 diarios ($2,897 semanal con bonos)";
-      let edad = "18 a 50 años (Requisitos Generales)";
-      let turnos = "Turnos fijos de noche (Lunes a Miércoles 6pm-6am, Jueves 11pm-5am O Fin de semana Viernes a Domingo 6pm-6am)";
+      let edad = "18 a 50 anos (Requisitos Generales)";
+      let turnos = "Turnos fijos de noche (Lunes a Miercoles 6pm-6am, Jueves 11pm-5am O Fin de semana Viernes a Domingo 6pm-6am)";
       
-      if(puesto.nombre.includes("Producción")) salario = "$388 diarios ($3,177 semanal con bonos)";
+      if(puesto.nombre.includes("Production")) salario = "$388 diarios ($3,177 semanal con bonos)";
       if(puesto.nombre.includes("Limpieza")) {
         salario = "$388 diarios ($3,177 semanal con bonos)";
-        edad = "30 a 45 años";
+        edad = "30 a 45 anos";
       }
-      if(puesto.nombre.includes("Máquina")) salario = "$430 diarios ($3,471 semanal con bonos)";
+      if(puesto.nombre.includes("Maquina")) salario = "$430 diarios ($3,471 semanal con bonos)";
       if(puesto.nombre.includes("Calidad")) {
         salario = "$430 diarios ($3,471 semanal con bonos)";
-        turnos = "Turnos rotativos de noche / día";
+        turnos = "Turnos rotativos de noche / dia";
       }
 
       vacantes.push({
@@ -924,20 +931,20 @@ function parsearTextoTeconnexLocalmente(texto) {
         lugarOrigen: "Parque Industrial Millennium",
         turnos: turnos,
         sexo: "Indistinto",
-        experiencia: "Conocimiento en fábrica o producción",
+        experiencia: "Conocimiento en fabrica o produccion",
         escolaridad: "Secundaria terminada",
-        actividades: "Actividades operativas de producción, empaque, limpieza o inspección según el área asignada.",
+        actividades: "Actividades operativas de produccion, empaque, limpieza o inspeccion segun el area asignada.",
         beneficios: beneficiosText,
-        informacionGeneral: "PRESTACIONES Y BONOS:\n" + prestacionesText + "\n\nNotas: Contratación inmediata. No familiares, No reingresos."
+        informacionGeneral: "PRESTACIONES Y BONOS:\n" + prestacionesText + "\n\nNotas: Contratacion inmediata. No familiares, No reingresos."
       });
     }
   });
 
   if(vacantes.length === 0) {
     vacantes.push({
-      vacanteNombre: "Vacante General Extraída",
-      salario: "Ver descripción",
-      edad: "18 a 50 años",
+      vacanteNombre: "Vacante General Extraida",
+      salario: "Ver descripcion",
+      edad: "18 a 50 anos",
       lugarOrigen: "Parque Industrial Millennium",
       turnos: "Turnos de planta",
       sexo: "Indistinto",
@@ -991,7 +998,9 @@ window.transferirAlEspacioMorado = function() {
   document.getElementById('secEscolaridad').value = v.escolaridad || '';
   document.getElementById('secActividades').value = v.actividades || '';
   document.getElementById('secBeneficios').value = v.beneficios || '';
-  document.getElementById('secInfoGeneral').value = v.infoGeneral || v.informacionGeneral || '';
+  
+  // SOLUCIÓN AL PRIMER ERROR: Forzar asignación limpia sin importar cómo lo nombre la IA
+  document.getElementById('secInfoGeneral').value = v.informacionGeneral || v.infoGeneral || '';
   
   if(v.vacanteNombre) {
     document.getElementById('secPuestoId').value = sanitizarId(v.vacanteNombre);
@@ -1019,7 +1028,7 @@ window.subirTodasLasVacantesVerdesALote = async function() {
           escolaridad: v.escolaridad || '',
           actividades: v.actividades || '',
           beneficios: v.beneficios || '',
-          infoGeneral: v.infoGeneral || v.informacionGeneral || '',
+          infoGeneral: v.informacionGeneral || v.infoGeneral || '',
           estatus: 'disponible',
           bannerUrl: '',
           actualizado: new Date().toISOString()
@@ -1086,8 +1095,10 @@ function obtenerValoresFormularioVacante() {
 // =========================================================================
 // GESTIÓN COMPLETA DE MÉTRICAS Y CANDIDATOS (PESTAÑA 3)
 // =========================================================================
+// SOLUCIÓN AL SEGUNDO ERROR: Inicialización robusta para evitar rupturas de nodos nulos
 onValue(ref(db, 'contador_visitas'), snap => {
-  document.getElementById('contadorVisitas').innerText = snap.val() || 0;
+  const visitas = snap.val();
+  document.getElementById('contadorVisitas').innerText = visitas !== null ? visitas : 0;
 });
 
 onValue(ref(db, 'postulantes'), snap => {
@@ -1135,7 +1146,7 @@ window.cargarCandidatoParaEditar = function(key) {
   }, { onlyOnce: true });
 };
 
-window.guardarCambiosCandidato = async function() {
+window.guardarChangesCandidato = async function() {
   const key = document.getElementById('editCandKey').value;
   if(!key) return;
   
