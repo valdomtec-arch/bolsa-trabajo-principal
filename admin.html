@@ -137,19 +137,21 @@ margin-top: 8px;
 } 
 @media (max-width:600px){ .dual-buttons-layout{grid-template-columns:1fr;} }
 
+/* AJUSTE PARA BOTONES FINALES PESTAÑA 2 AL MISMO NIVEL Y MEDIDA */
 .final-actions-grid {
   grid-column: 1 / -1; 
   display: grid; 
-  grid-template-columns: repeat(3, 1fr); 
+  grid-template-columns: 1fr 1fr; 
   gap: 16px; 
   margin-top: 12px;
 }
-@media (max-width: 640px) {
+@media (max-width: 480px) {
   .final-actions-grid {
     grid-template-columns: 1fr;
   }
 }
 
+/* ESTRUCTURA CORREGIDA DE 2 COLUMNAS EN ESCRITORIO */
 .tab2-grid-layout {
   display: grid;
   grid-template-columns: 1fr;
@@ -167,6 +169,7 @@ margin-top: 8px;
   top: 15px;
 }
 
+/* COMPONENTE ACORDEÓN PARA LA IA */
 .accordion-toggle-btn {
   width: 100%;
   background: #251842;
@@ -188,6 +191,7 @@ margin-top: 8px;
 }
 .accordion-content.open { display: block; }
 
+/* RE-DISEÑO CAJA DE EXTRACTOR VERDE / TARJETAS */
 .preview-card-view {
   background: #0b2019;
   border: 1px solid var(--green-success);
@@ -335,6 +339,18 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
 .metric-card { background: var(--card-bg); border: 1px solid var(--border-color); padding: 20px; border-radius: 12px; text-align: center; }
 .metric-val { font-size: 2.2rem; font-weight: bold; color: var(--primary-orange); margin-bottom: 4px; }
 .metric-lbl { color: var(--text-muted); font-size: 0.85rem; font-weight: 600; }
+
+/* ESTILOS NUEVOS PARA EL FORMULARIO INTEGRADO DE POSTULANTES */
+.postulante-edit-container {
+  display: none; 
+  background: #161630;
+  border: 1px dashed var(--purple-ia);
+  padding: 20px;
+  border-radius: 12px;
+  margin-bottom: 25px;
+  animation: fade .3s ease;
+}
+.postulante-edit-container.open { display: block; }
 </style> 
 </head> 
 <body> 
@@ -349,8 +365,8 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
 
 <div class="tabs-menu"> 
 <button class="tab-btn active" data-tab="tabPrincipal"><i class="fas fa-building"></i> 1. Registrar Empresa</button> 
-<button class="tab-btn" data-tab="tabSecundarias"><i class="fas fa-briefcase"></i> 2. Control de Vacantes Masivo</button> 
-<button class="tab-btn" data-tab="tabRegistros"><i class="fas fa-chart-line"></i> 3. Registros y Estadísticas</button> 
+<button class="tab-btn" data-tab="tabSecundarias"><i class="fas fa-briefcase"></i> 2. Control de Vacantes Masivo</button>
+<button class="tab-btn" data-tab="tabRegistros"><i class="fas fa-chart-line"></i> 3. Registros y Postulantes</button>
 </div> 
 
 <div id="tabPrincipal" class="tab-content active"> 
@@ -361,7 +377,7 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
     <div class="form-group"><label>Ubicación Base:</label><input type="text" id="admUbicacion" placeholder="Ej: Jalisco"></div> 
     <div class="form-group full-width"><label>Hipervínculo / Repositorio:</label><input type="url" id="admLink" placeholder="https://..."></div> 
     <div class="form-group"><label>URL Logo:</label><input type="url" id="admImagen" placeholder="https://..."></div> 
-    <div class="form-group"><label>Etiquetas:</label><input type="text" id="admTags" placeholder="automotriz, 24h"></div> 
+    <div class="form-group"><label>Etiquetas:</label><input type="text" id="admTags" placeholder="automotriz, 24h"></div>
     
     <div class="dual-buttons-layout">
         <button class="btn-add" onclick="agregarEmpresaPrincipal()"><i class="fas fa-save"></i> Guardar Empresa</button>
@@ -424,7 +440,7 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
           </div>
 
           <div id="contenedorResultadoVerde" style="display:none;margin-top:10px;">
-            <label style="color:#34d399; font-weight:bold; font-size:0.85rem; display:block; margin-bottom:5px;"><i class="fas fa-list-check"></i> Vacantes Detectadas:</label>
+            <label style="color:#34d399; font-weight:bold; font-size:0.85rem; display:block; margin-bottom:5px;"><i class="fas fa-list-check"></i> Vacantes Detectadas por IA:</label>
             <select id="selectorVacantesDetectadas" class="selector-puestos-verde" onchange="cambiarVacanteVerdeSeleccionada()"></select>
             
             <div class="preview-card-view">
@@ -482,7 +498,6 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
         <div class="final-actions-grid">
           <button type="button" class="btn-add" onclick="guardarComoNuevaVacante()"><i class="fas fa-cloud-upload-alt"></i> Publicar Vacante</button>
           <button type="button" class="btn-update-final" onclick="guardarActualizacionVacante()"><i class="fas fa-sync-alt"></i> Guardar Cambios</button>
-          <button type="button" class="btn-edit-mode" style="background:#64748b; color:white; width:100%;" onclick="resetearFormularioCompleto()"><i class="fas fa-broom"></i> Resetear Formulario</button>
         </div>
       </div>
     </div>
@@ -498,22 +513,28 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
     </div>
     <div class="metric-card">
       <div class="metric-val" id="contadorPostulantes" style="color:var(--purple-ia);">0</div>
-      <div class="metric-lbl"><i class="fas fa-users"></i> TOTAL POSTULANTES REGISTRADOS</div>
+      <div class="metric-lbl"><i class="fas fa-user-check"></i> TOTAL POSTULANTES REGISTRADOS</div>
     </div>
   </div>
 
-  <div id="formEdicionCandidato" class="form-admin" style="display: none; border-color: var(--purple-ia); background: rgba(139, 92, 246, 0.02); margin-bottom: 25px;">
-    <div class="section-divider" style="color: var(--purple-ia); border-color: var(--purple-ia);">Editar Datos del Candidato</div>
-    <input type="hidden" id="editCandKey">
-    <div class="form-group"><label>Nombre Completo:</label><input type="text" id="editCandNombre"></div>
-    <div class="form-group"><label>Edad:</label><input type="text" id="editCandEdad"></div>
-    <div class="form-group"><label>Sexo:</label><select id="editCandSexo"><option>Indistinto</option><option>Masculino</option><option>Femenino</option></select></div>
-    <div class="form-group"><label>CURP:</label><input type="text" id="editCandCurp" maxlength="18"></div>
-    <div class="form-group"><label>ID Empresa:</label><input type="text" id="editCandEmpresaId"></div>
-    <div class="form-group"><label>Vacante de Interés:</label><input type="text" id="editCandVacante"></div>
-    <div class="dual-buttons-layout" style="grid-template-columns: 1fr 1fr;">
-      <button class="btn-update-final" style="background: var(--purple-ia);" onclick="guardarCambiosCandidato()"><i class="fas fa-sync-alt"></i> Actualizar Candidato</button>
-      <button class="btn-edit-mode" style="background: #64748b; color: white; justify-content: center;" onclick="cerrarEdicionCandidato()"><i class="fas fa-times"></i> Cancelar</button>
+  <div id="formularioEdicionPostulanteBox" class="postulante-edit-container">
+    <div class="section-divider" style="color: var(--purple-ia); border-bottom-color: var(--purple-ia); margin-top:0;">
+      <i class="fas fa-user-edit"></i> Formulario de Edición de Postulante
+    </div>
+    <input type="hidden" id="editPostulanteId">
+    
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom:15px;">
+      <div class="form-group"><label>Nombre Completo:</label><input type="text" id="editPostNombre"></div>
+      <div class="form-group"><label>Edad:</label><input type="text" id="editPostEdad"></div>
+      <div class="form-group"><label>Sexo / Género:</label><input type="text" id="editPostSexo"></div>
+      <div class="form-group"><label>CURP:</label><input type="text" id="editPostCurp"></div>
+      <div class="form-group"><label>Empresa de Interés:</label><input type="text" id="editPostEmpresa"></div>
+      <div class="form-group"><label>Vacante Solicitada:</label><input type="text" id="editPostVacante"></div>
+    </div>
+    
+    <div class="final-actions-grid" style="margin-top:0;">
+      <button type="button" class="btn-update-final" style="background: var(--purple-ia);" onclick="guardarCambiosPostulante()"><i class="fas fa-save"></i> Guardar Cambios</button>
+      <button type="button" class="btn-edit-mode" style="background: #475569; color: white; justify-content: center;" onclick="cerrarFormularioPostulante()"><i class="fas fa-times"></i> Cancelar</button>
     </div>
   </div>
 
@@ -533,7 +554,7 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
           <th style="color:var(--purple-ia);">CURP</th>
           <th style="color:var(--purple-ia);">Empresa</th>
           <th style="color:var(--purple-ia);">Vacante Interés</th>
-          <th style="color:var(--purple-ia); text-align: center;">Acciones</th>
+          <th style="color:var(--purple-ia); text-align:center;">Acciones</th>
         </tr>
       </thead>
       <tbody id="tablaPostulantesBody"></tbody>
@@ -545,7 +566,8 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getDatabase, ref, set, onValue, remove, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+import { getDatabase, ref, set, onValue, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+import { GoogleGenAI, Type } from "https://esm.run/@google/genai";
 
 const firebaseConfig = { databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com/" };
 const app = initializeApp(firebaseConfig);
@@ -554,6 +576,7 @@ const db = getDatabase(app);
 let empresasData = {};
 let vacantesProcesadasGlobal = [];
 let baseVacantesActualesEnFirebase = {};
+let cachePostulantesGlobal = {}; // Guardará los datos cargados de los postulantes
 
 const apiKeyInput = document.getElementById('geminiApiKeyInput');
 if(localStorage.getItem('gemini_api_key')) apiKeyInput.value = localStorage.getItem('gemini_api_key');
@@ -581,7 +604,7 @@ window.toggleAccordionIa = function() {
   }
 };
 
-// LÓGICA DE EMPRESAS (PESTAÑA 1)
+// LÓGICA DE EMPRESAS
 window.limpiarFormularioEmpresas = function() {
   ['admId','admNombre','admUbicacion','admLink','admImagen','admTags'].forEach(id => {
     document.getElementById(id).value = '';
@@ -668,85 +691,28 @@ onValue(ref(db,'empresas'), snap=>{
   });
 });
 
-// =========================================================================
-// IA ENGINE V6 - MODELO MULTI-CUOTA STABLE 1.5 FLASH
-// =========================================================================
+// PESTAÑA 2: LÓGICA E INTEGRACIÓN CON GEMINI
 const IA_V6 = {
-  esperar(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+  esquemaBols: {
+    type: Type.ARRAY, description: "Lista de vacantes.",
+    items: {
+      type: Type.OBJECT,
+      properties: {
+        vacanteNombre: { type: Type.STRING }, salario: { type: Type.STRING }, edad: { type: Type.STRING },
+        lugarOrigen: { type: Type.STRING }, turnos: { type: Type.STRING }, sexo: { type: Type.STRING },
+        experiencia: { type: Type.STRING }, escolaridad: { type: Type.STRING }, actividades: { type: Type.STRING },
+        beneficios: { type: Type.STRING }, informacionGeneral: { type: Type.STRING }
+      }, required: ["vacanteNombre", "salario", "edad", "lugarOrigen", "turnos", "sexo", "experiencia", "escolaridad", "actividades", "beneficios", "informacionGeneral"]
+    }
   },
-
-  async llamarInterprete(texto, intento = 1, maxIntentos = 2) {
+  async llamarInterprete(texto) {
     const key = localStorage.getItem('gemini_api_key') || apiKeyInput.value.trim();
-    if (!key) { 
-      throw new Error("Falta Clave API Key"); 
-    }
-    
-    const url15 = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
-    const btnIa = document.getElementById('btnInterpretarIa');
-    
-    const response = await fetch(url15, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: `Analiza el siguiente texto de reclutamiento y extrae cada una de las vacantes disponibles con sus respectivos detalles basándote en la información provista. El campo "sexo" por defecto debe ser "Indistinto" si no se especifica explícitamente.
-            
-            Texto a procesar:
-            ${texto}`
-          }]
-        }],
-        generationConfig: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: "ARRAY",
-            items: {
-              type: "OBJECT",
-              properties: {
-                vacanteNombre: { type: "STRING" },
-                salario: { type: "STRING" },
-                edad: { type: "STRING" },
-                lugarOrigen: { type: "STRING" },
-                turnos: { type: "STRING" },
-                sexo: { type: "STRING" },
-                experiencia: { type: "STRING" },
-                escolaridad: { type: "STRING" },
-                actividades: { type: "STRING" },
-                beneficios: { type: "STRING" },
-                informacionGeneral: { type: "STRING" }
-              },
-              required: ["vacanteNombre", "salario", "edad", "lugarOrigen", "turnos", "sexo", "experiencia", "escolaridad", "actividades", "beneficios", "informacionGeneral"]
-            }
-          }
-        }
-      })
+    if (!key) { alert("⚠️ Ingresa tu API Key arriba."); throw new Error("Falta Key"); }
+    const response = await new GoogleGenAI({ apiKey: key }).models.generateContent({
+      model: "gemini-2.5-flash", contents: `Extrae cada puesto del texto:\n${texto}`,
+      config: { responseMimeType: "application/json", responseSchema: this.esquemaBols }
     });
-
-    if (response.status === 429) {
-      if (intento < maxIntentos) {
-        let segundosRestantes = 5;
-        while (segundosRestantes > 0) {
-          btnIa.innerHTML = `<i class="fas fa-hourglass-half fa-spin"></i> Saturado. Reintentando en ${segundosRestantes}s...`;
-          await this.esperar(1000);
-          segundosRestantes--;
-        }
-        return await this.llamarInterprete(texto, intento + 1, maxIntentos);
-      } else {
-        throw new Error("Límite de cuotas Gemini alcanzado.");
-      }
-    }
-
-    if (!response.ok) throw new Error(`Status de API no exitoso: ${response.status}`);
-
-    const data = await response.json();
-    let textoJson = data.candidates[0].content.parts[0].text.trim();
-    
-    if (textoJson.includes("```")) {
-      textoJson = textoJson.replace(/```json/gi, "").replace(/```/g, "").trim();
-    }
-    
-    return JSON.parse(textoJson);
+    return JSON.parse(response.text);
   }
 };
 
@@ -768,22 +734,11 @@ window.cargarVacanteParaEditar = function(){
   const k = document.getElementById('selectorVacantesEnFirebase').value;
   if(!k || !baseVacantesActualesEnFirebase[k]) return alert('Selecciona una vacante');
   const v = baseVacantesActualesEnFirebase[k];
-  
-  // Mapeo explícito y seguro para evitar pérdidas de strings vacías o propiedades desfasadas
-  document.getElementById('secVacanteNombre').value = v.vacanteNombre || '';
-  document.getElementById('secEstatus').value = v.estatus || 'disponible';
-  document.getElementById('secBannerUrl').value = v.bannerUrl || '';
-  document.getElementById('secEdad').value = v.edad || '';
-  document.getElementById('secSexo').value = v.sexo || 'Indistinto';
-  document.getElementById('secExperiencia').value = v.experiencia || '';
-  document.getElementById('secEscolaridad').value = v.escolaridad || '';
-  document.getElementById('secSalario').value = v.salario || '';
-  document.getElementById('secLugarOrigen').value = v.lugarOrigen || '';
-  document.getElementById('secTurnos').value = v.turnos || '';
-  document.getElementById('secActividades').value = v.actividades || '';
-  document.getElementById('secBeneficios').value = v.beneficios || '';
-  document.getElementById('secInfoGeneral').value = v.infoGeneral || v.informacionGeneral || '';
-  
+  ['secPuestoId','secEstatus','secVacanteNombre','secSalario','secEdad','secLugarOrigen','secTurnos','secSexo','secExperiencia','secEscolaridad','secBannerUrl','secActividades','secBeneficios','secInfoGeneral'].forEach(id=>{
+    const c = id.replace('sec','').charAt(0).toLowerCase()+id.replace('sec','').slice(1);
+    const element = document.getElementById(id);
+    if(element) element.value = v[c] || '';
+  });
   document.getElementById('secPuestoId').value = k;
 };
 
@@ -801,405 +756,217 @@ window.limpiarFormularioVacantes = function(){
      const el = document.getElementById(id);
      if(el) el.value='';
   });
-  document.getElementById('secSexo').value = 'Indistinto';
-  document.getElementById('secEstatus').value = 'disponible';
 };
 
-window.resetearFormularioCompleto = function() {
-  limpiarFormularioVacantes();
-  const inputTxt = document.getElementById('archivoTxtInput');
-  if(inputTxt) inputTxt.value = ''; 
-  document.getElementById('nombreArchivoCargado').innerText = 'Ninguno';
-  document.getElementById('iaTextoPegar').value = '';
-  document.getElementById('contenedorResultadoVerde').style.display = 'none';
-  document.getElementById('selectorVacantesDetectadas').innerHTML = '';
-  document.getElementById('codigoJsonVerde').textContent = '';
-  vacantesProcesadasGlobal = [];
-  alert("✨ Formulario morado y Lector IA restablecidos por completo.");
-};
-
-// =========================================================================
-// SISTEMA DE PROCESAMIENTO HÍBRIDO ULTRA-RESISTENTE (IA + PARSER LOCAL)
-// =========================================================================
 window.procesarTxtWhatsAppV6 = async function(){
   const input = document.getElementById('archivoTxtInput');
-  if(!input.files || input.files.length === 0) return;
-  
-  const archivo = input.files[0];
-  document.getElementById('nombreArchivoCargado').innerText = archivo.name;
-  
+  if(!input.files.length) return;
+  document.getElementById('nombreArchivoCargado').textContent = input.files[0].name;
   const lector = new FileReader();
-  lector.onload = async function(e) {
-    const texto = e.target.result;
-    if(!texto.trim()) return alert("⚠️ El archivo seleccionado está vacío.");
-    
-    const btnIa = document.getElementById('btnInterpretarIa');
+  lector.onload = async ev=>{
     try {
-      btnIa.disabled = true;
-      btnIa.style.background = "var(--container-bg)";
-      btnIa.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Extrayendo de forma estructurada...`;
-      
-      const respuesta = await IA_V6.llamarInterprete(texto);
-      vacantesProcesadasGlobal = respuesta || [];
-      console.log("Procesado exitosamente con la API de Gemini.");
-      
-    } catch(err) {
-      console.warn("⚠️ Servidor de Gemini no disponible o saturado. Activando Extractor de Respaldo Local integrado...");
-      vacantesProcesadasGlobal = parsearTextoTeconnexLocalmente(texto);
-    } finally {
-      if(vacantesProcesadasGlobal.length > 0) {
-        renderizarSelectorVerde();
-        document.getElementById('contenedorResultadoVerde').style.display = 'block';
-      } else {
-        alert("❌ No se lograron extraer perfiles válidos del documento.");
-      }
-      btnIa.disabled = false;
-      btnIa.style.background = "var(--purple-ia)";
-      btnIa.innerHTML = `<i class="fas fa-wand-magic-sparkles"></i> Autorellenar Formulario`;
-    }
+      const btn = document.getElementById('btnInterpretarIa');
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Extrayendo de Archivo...';
+      vacantesProcesadasGlobal = await IA_V6.llamarInterprete(ev.target.result);
+      const sel = document.getElementById('selectorVacantesDetectadas');
+      sel.innerHTML = "";
+      vacantesProcesadasGlobal.forEach((p, idx) => sel.innerHTML += `<option value="${idx}">Puesto [${idx+1}]: ${p.vacanteNombre}</option>`);
+      cambiarVacanteVerdeSeleccionada();
+      document.getElementById('contenedorResultadoVerde').style.display='block';
+    } catch(err) { alert(err.message); } finally { document.getElementById('btnInterpretarIa').innerHTML = 'Autorellenar Formulario'; }
   };
-  lector.readAsText(archivo);
+  lector.readAsText(input.files[0],'UTF-8');
 };
 
-window.procesarTextoBrutoTxt = async function() {
-  const texto = document.getElementById('iaTextoPegar').value.trim();
-  if(!texto) return alert("⚠️ Pega algún texto o JSON para poder interpretarlo.");
-  
-  const btnIa = document.getElementById('btnInterpretarIa');
-  try {
-    btnIa.disabled = true;
-    btnIa.style.background = "var(--container-bg)";
-    btnIa.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Interpretando bloque de texto...`;
-    
-    const respuesta = await IA_V6.llamarInterprete(texto);
-    vacantesProcesadasGlobal = respuesta || [];
-  } catch(err) {
-    console.warn("Activando extractor alterno local para bloque de texto pegado.");
-    vacantesProcesadasGlobal = parsearTextoTeconnexLocalmente(texto);
-  } finally {
-    if(vacantesProcesadasGlobal.length > 0) {
-      renderizarSelectorVerde();
-      document.getElementById('contenedorResultadoVerde').style.display = 'block';
-    } else {
-      alert("❌ No se encontraron perfiles legibles.");
-    }
-    btnIa.disabled = false;
-    btnIa.style.background = "var(--purple-ia)";
-    btnIa.innerHTML = `<i class="fas fa-wand-magic-sparkles"></i> Autorellenar Formulario`;
+window.cambiarVacanteVerdeSeleccionada = function(){
+  const i = document.getElementById('selectorVacantesDetectadas').value;
+  const data = vacantesProcesadasGlobal[i];
+  if(data) {
+    document.getElementById('codigoJsonVerde').textContent = JSON.stringify(data,null,2);
+    document.getElementById('lblPreviewNombre').textContent = data.vacanteNombre || 'Sin nombre';
+    document.getElementById('lblPreviewSalario').textContent = data.salario || '—';
+    document.getElementById('lblPreviewEdad').textContent = data.edad || '—';
+    document.getElementById('lblPreviewLugar').textContent = data.lugarOrigen || '—';
+    document.getElementById('lblPreviewTurnos').textContent = data.turnos || '—';
   }
 };
 
-function parsearTextoTeconnexLocalmente(texto) {
-  const vacantes = [];
-  const bloquesPuestos = [
-    { nombre: "Ayudante General", buscadores: ["Ayudante General"] },
-    { nombre: "Operadores de Production", buscadores: ["Operador de Production", "Operadores de Production"] },
-    { nombre: "Auxiliar de Limpieza", buscadores: ["Auxiliar de Limpieza"] },
-    { nombre: "Operador de Maquina", buscadores: ["Operador de Maquina", "Operadores de Maquina"] },
-    { nombre: "Inspector de Calidad (turnos rotativos)", buscadores: ["Inspector de Calidad"] }
-  ];
-
-  let prestacionesText = "Bono de asistencia perfecta: $400 mensual\nBono mensual adicional del 2%\nFondo de ahorro del 6%\nVales de despensa semanales: $219\nBono de puntualidad: $121 semanal\nBono de asistencia: $121 semanal\n24 dias de aguinaldo\nPrima vacacional al 100%\n12 dias de vacaciones el primer ano\nDescansos adicionales en Semana Santa y dias 12, 24 y 31 de diciembre";
-  let beneficiosText = "Comedor subsidiado, Transporte gratuito, Pago semanal por BBVA (semana desfasada), Apoyo escolar, Apoyos especiales (maternidad, matrimonio y defuncion)";
-
-  bloquesPuestos.forEach(puesto => {
-    let encontrado = false;
-    puesto.buscadores.forEach(b => {
-      if(texto.toLowerCase().includes(b.toLowerCase())) encontrado = true;
-    });
-
-    if(encontrado) {
-      let salario = "$348 diarios ($2,897 semanal con bonos)";
-      let edad = "18 a 50 anos (Requisitos Generales)";
-      let turnos = "Turnos fijos de noche (Lunes a Miercoles 6pm-6am, Jueves 11pm-5am O Fin de semana Viernes a Domingo 6pm-6am)";
-      
-      if(puesto.nombre.includes("Production")) salario = "$388 diarios ($3,177 semanal con bonos)";
-      if(puesto.nombre.includes("Limpieza")) {
-        salario = "$388 diarios ($3,177 semanal con bonos)";
-        edad = "30 a 45 anos";
-      }
-      if(puesto.nombre.includes("Maquina")) salario = "$430 diarios ($3,471 semanal con bonos)";
-      if(puesto.nombre.includes("Calidad")) {
-        salario = "$430 diarios ($3,471 semanal con bonos)";
-        turnos = "Turnos rotativos de noche / dia";
-      }
-
-      vacantes.push({
-        vacanteNombre: puesto.nombre,
-        salario: salario,
-        edad: edad,
-        lugarOrigen: "Parque Industrial Millennium",
-        turnos: turnos,
-        sexo: "Indistinto",
-        experiencia: "Conocimiento en fabrica o produccion",
-        escolaridad: "Secundaria terminada",
-        actividades: "Actividades operativas de produccion, empaque, limpieza o inspeccion segun el area asignada.",
-        beneficios: beneficiosText,
-        informacionGeneral: "PRESTACIONES Y BONOS:\n" + prestacionesText + "\n\nNotas: Contratacion inmediata. No familiares, No reingresos."
-      });
-    }
-  });
-
-  if(vacantes.length === 0) {
-    vacantes.push({
-      vacanteNombre: "Vacante General Extraida",
-      salario: "Ver descripcion",
-      edad: "18 a 50 anos",
-      lugarOrigen: "Parque Industrial Millennium",
-      turnos: "Turnos de planta",
-      sexo: "Indistinto",
-      experiencia: "No necesaria",
-      escolaridad: "Secundaria",
-      actividades: "Operaciones generales de la planta automotriz.",
-      beneficios: beneficiosText,
-      informacionGeneral: texto.substring(0, 1000)
-    });
-  }
-  return vacantes;
-}
-
-function renderizarSelectorVerde() {
-  const sel = document.getElementById('selectorVacantesDetectadas');
-  sel.innerHTML = '';
-  vacantesProcesadasGlobal.forEach((v, index) => {
-    sel.innerHTML += `<option value="${index}">[Puesto ${index + 1}] ${v.vacanteNombre || 'Sin nombre'}</option>`;
-  });
-  window.cambiarVacanteVerdeSeleccionada();
-}
-
-window.cambiarVacanteVerdeSeleccionada = function() {
-  const index = document.getElementById('selectorVacantesDetectadas').value;
-  const v = vacantesProcesadasGlobal[index];
-  if(!v) return;
-  
-  document.getElementById('lblPreviewNombre').innerText = v.vacanteNombre || '—';
-  document.getElementById('lblPreviewSalario').innerText = v.salario || '—';
-  document.getElementById('lblPreviewEdad').innerText = v.edad || '—';
-  document.getElementById('lblPreviewLugar').innerText = v.lugarOrigen || '—';
-  document.getElementById('lblPreviewTurnos').innerText = v.turnos || '—';
-  
-  const pre = document.getElementById('codigoJsonVerde');
-  pre.textContent = JSON.stringify(v, null, 2);
-  pre.style.display = 'block';
-};
-
-window.transferirAlEspacioMorado = function() {
-  const index = document.getElementById('selectorVacantesDetectadas').value;
-  const v = vacantesProcesadasGlobal[index];
-  if(!v) return alert("No hay datos que transferir.");
-  
-  document.getElementById('secVacanteNombre').value = v.vacanteNombre || '';
-  document.getElementById('secSalario').value = v.salario || '';
-  document.getElementById('secEdad').value = v.edad || '';
-  document.getElementById('secLugarOrigen').value = v.lugarOrigen || '';
-  document.getElementById('secTurnos').value = v.turnos || '';
-  document.getElementById('secSexo').value = v.sexo || 'Indistinto';
-  document.getElementById('secExperiencia').value = v.experiencia || '';
-  document.getElementById('secEscolaridad').value = v.escolaridad || '';
-  document.getElementById('secActividades').value = v.actividades || '';
-  document.getElementById('secBeneficios').value = v.beneficios || '';
-  
-  // SOLUCIÓN AL PRIMER ERROR: Forzar asignación limpia sin importar cómo lo nombre la IA
-  document.getElementById('secInfoGeneral').value = v.informacionGeneral || v.infoGeneral || '';
-  
-  if(v.vacanteNombre) {
-    document.getElementById('secPuestoId').value = sanitizarId(v.vacanteNombre);
-  }
-  alert("✅ Datos copiados al formulario de edición.");
-};
+window.transferirAlEspacioMorado = function(){ document.getElementById('iaTextoPegar').value = document.getElementById('codigoJsonVerde').textContent; };
 
 window.subirTodasLasVacantesVerdesALote = async function() {
-  const empresaId = document.getElementById('secEmpresaSelect').value;
-  if(!empresaId) return alert("⚠️ Selecciona una empresa destino antes de subir el lote masivo.");
-  if(vacantesProcesadasGlobal.length === 0) return alert("No hay vacantes cargadas.");
-  
-  if(confirm(`¿Deseas guardar las ${vacantesProcesadasGlobal.length} vacantes detectadas simultáneamente en Firebase?`)) {
+  const eDestino = document.getElementById('secEmpresaSelect').value;
+  if (!eDestino) return alert('⚠️ Selecciona una empresa destino');
+  if(confirm(`¿Subir todas las vacantes en lote?`)) {
     try {
-      for(let v of vacantesProcesadasGlobal) {
-        const idCalculado = sanitizarId(v.vacanteNombre || "puesto-ia-" + Math.floor(Math.random() * 1000));
-        const payload = {
-          vacanteNombre: v.vacanteNombre || '',
-          salario: v.salario || '',
-          edad: v.edad || '',
-          lugarOrigen: v.lugarOrigen || '',
-          turnos: v.turnos || '',
-          sexo: v.sexo || 'Indistinto',
-          experiencia: v.experiencia || '',
-          escolaridad: v.escolaridad || '',
-          actividades: v.actividades || '',
-          beneficios: v.beneficios || '',
-          infoGeneral: v.informacionGeneral || v.infoGeneral || '',
-          estatus: 'disponible',
-          bannerUrl: '',
-          actualizado: new Date().toISOString()
-        };
-        await set(ref(db, `vacantes_detalles/${empresaId}/${idCalculado}`), payload);
+      for (const p of vacantesProcesadasGlobal) {
+        const pId = sanitizarId(p.vacanteNombre.toLowerCase().split(' ')[0] + "-" + Math.floor(Math.random()*1000));
+        await set(ref(db, `vacantes_detalles/${eDestino}/${pId}`), {
+          puestoId: pId, estatus:"disponible", vacanteNombre: p.vacanteNombre||'Sin nombre', salario: p.salario||'No especificado',
+          edad: p.edad||'Indistinto', lugarOrigen: p.lugarOrigen||'No especificado', turnos: p.turnos||'No especificado', sexo: p.sexo||'Indistinto',
+          experiencia: p.experiencia||'No especificada', escolaridad: p.escolaridad||'No especificada', bannerUrl:"",
+          actividades: p.actividades||'', beneficios: p.beneficios||'', informacionGeneral: p.informacionGeneral||'', actualizado: new Date().toISOString()
+        });
       }
-      alert("✅ Lote masivo guardado con éxito.");
+      alert('🚀 Lote masivo subido correctamente.');
       document.getElementById('contenedorResultadoVerde').style.display = 'none';
-      vacantesProcesadasGlobal = [];
-      escucharVacantesExistentes(empresaId);
-    } catch(e) {
-      alert("❌ Error guardando lote: " + e.message);
-    }
+      escucharVacantesExistentes(eDestino);
+    } catch(err) { alert(err.message); }
   }
 };
 
-window.guardarComoNuevaVacante = async function() {
-  const empresaId = document.getElementById('secEmpresaSelect').value;
-  const puestoId = sanitizarId(document.getElementById('secPuestoId').value);
-  if(!empresaId || !puestoId) return alert("⚠️ Selecciona una Empresa y define un ID de Puesto.");
-  
-  const payload = obtenerValoresFormularioVacante();
+window.procesarTextoBrutoTxt = async function(){
+  const raw = document.getElementById('iaTextoPegar').value.trim();
+  if(!raw) return alert('Campo vacío');
   try {
-    await set(ref(db, `vacantes_detalles/${empresaId}/${puestoId}`), payload);
-    alert("✅ Vacante publicada exitosamente.");
-    limpiarFormularioVacantes();
-    escucharVacantesExistentes(empresaId);
-  } catch(e) { alert("❌ Error: " + e.message); }
+    let d = raw.startsWith('{') ? JSON.parse(raw) : (await IA_V6.llamarInterprete(raw))[0];
+    document.getElementById('secVacanteNombre').value = d.vacanteNombre||'';
+    document.getElementById('secSalario').value = d.salario||'';
+    document.getElementById('secEdad').value = d.edad||'';
+    document.getElementById('secLugarOrigen').value = d.lugarOrigen||'';
+    document.getElementById('secTurnos').value = d.turnos||'';
+    document.getElementById('secExperiencia').value = d.experiencia||'';
+    document.getElementById('secEscolaridad').value = d.escolaridad||'';
+    document.getElementById('secActividades').value = d.actividades||'';
+    document.getElementById('secBeneficios').value = d.beneficios||'';
+    document.getElementById('secInfoGeneral').value = d.informacionGeneral||'';
+    if(d.sexo) document.getElementById('secSexo').value = d.sexo;
+    if(d.vacanteNombre) document.getElementById('secPuestoId').value = sanitizarId(d.vacanteNombre.toLowerCase().split(' ')[0]);
+  } catch(e) { alert('Error al procesar: '+e.message); }
 };
 
-window.guardarActualizacionVacante = async function() {
-  const empresaId = document.getElementById('secEmpresaSelect').value;
-  const puestoId = sanitizarId(document.getElementById('secPuestoId').value);
-  if(!empresaId || !puestoId) return alert("⚠️ Faltan datos clave para actualizar.");
-  
-  const payload = obtenerValoresFormularioVacante();
-  try {
-    await update(ref(db, `vacantes_detalles/${empresaId}/${puestoId}`), payload);
-    alert("✅ Cambios de la vacante guardados.");
-    limpiarFormularioVacantes();
-    escucharVacantesExistentes(empresaId);
-  } catch(e) { alert("❌ Error: " + e.message); }
-};
-
-function obtenerValoresFormularioVacante() {
+function leerVacanteForm(){
   return {
-    vacanteNombre: document.getElementById('secVacanteNombre').value.trim(),
-    estatus: document.getElementById('secEstatus').value,
-    bannerUrl: document.getElementById('secBannerUrl').value.trim(),
-    edad: document.getElementById('secEdad').value.trim(),
-    sexo: document.getElementById('secSexo').value,
-    experiencia: document.getElementById('secExperiencia').value.trim(),
-    escolaridad: document.getElementById('secEscolaridad').value.trim(),
-    salario: document.getElementById('secSalario').value.trim(),
-    lugarOrigen: document.getElementById('secLugarOrigen').value.trim(),
-    turnos: document.getElementById('secTurnos').value.trim(),
-    actividades: document.getElementById('secActividades').value.trim(),
-    beneficios: document.getElementById('secBeneficios').value.trim(),
-    infoGeneral: document.getElementById('secInfoGeneral').value.trim(),
+    puestoId: sanitizarId(document.getElementById('secPuestoId').value), estatus: document.getElementById('secEstatus').value,
+    vacanteNombre: document.getElementById('secVacanteNombre').value.trim(), salario: document.getElementById('secSalario').value.trim(),
+    edad: document.getElementById('secEdad').value.trim(), lugarOrigen: document.getElementById('secLugarOrigen').value.trim(),
+    turnos: document.getElementById('secTurnos').value.trim(), sexo: document.getElementById('secSexo').value,
+    experiencia: document.getElementById('secExperiencia').value.trim(), escolaridad: document.getElementById('secEscolaridad').value.trim(),
+    bannerUrl: document.getElementById('secBannerUrl').value.trim(), actividades: document.getElementById('secActividades').value.trim(),
+    beneficios: document.getElementById('secBeneficios').value.trim(), informacionGeneral: document.getElementById('secInfoGeneral').value.trim(),
     actualizado: new Date().toISOString()
   };
 }
 
-// =========================================================================
-// GESTIÓN COMPLETA DE MÉTRICAS Y CANDIDATOS (PESTAÑA 3)
-// =========================================================================
-// SOLUCIÓN AL SEGUNDO ERROR: Inicialización robusta para evitar rupturas de nodos nulos
-onValue(ref(db, 'contador_visitas'), snap => {
-  const visitas = snap.val();
-  document.getElementById('contadorVisitas').innerText = visitas !== null ? visitas : 0;
+window.guardarComoNuevaVacante = async function(){
+  const emp = document.getElementById('secEmpresaSelect').value; const d = leerVacanteForm();
+  if(!emp || !d.puestoId) return alert('Empresa e ID requeridos');
+  set(ref(db,`vacantes_detalles/${emp}/${d.puestoId}`), d).then(()=>{ alert('Nueva vacante agregada.'); escucharVacantesExistentes(emp); });
+};
+
+window.guardarActualizacionVacante = async function(){
+  const emp = document.getElementById('secEmpresaSelect').value; const d = leerVacanteForm();
+  set(ref(db,`vacantes_detalles/${emp}/${d.puestoId}`), d).then(()=>{ alert('Vacante actualizada.'); escucharVacantesExistentes(emp); });
+};
+
+// --- PESTAÑA 3: MÉTRICAS Y ACCIONES DE POSTULANTES ---
+onValue(ref(db, 'visitas'), snap => {
+  const datosVisitas = snap.val();
+  let numeroRealVisitas = 0;
+  if (datosVisitas !== null && datosVisitas !== undefined) {
+    if (typeof datosVisitas === 'object') {
+      numeroRealVisitas = datosVisitas.contador || datosVisitas.valor || datosVisitas.total || datosVisitas.count || Object.values(datosVisitas)[0] || 0;
+    } else {
+      numeroRealVisitas = datosVisitas;
+    }
+  }
+  document.getElementById('contadorVisitas').innerText = numeroRealVisitas;
 });
 
 onValue(ref(db, 'postulantes'), snap => {
-  const tabla = document.getElementById('tablaPostulantesBody');
-  tabla.innerHTML = '';
-  const data = snap.val() || {};
+  const body = document.getElementById('tablaPostulantesBody');
+  body.innerHTML = '';
+  cachePostulantesGlobal = snap.val() || {};
+  const llaves = Object.keys(cachePostulantesGlobal);
+  document.getElementById('contadorPostulantes').innerText = llaves.length;
   
-  const lista = Object.entries(data);
-  document.getElementById('contadorPostulantes').innerText = lista.length;
-  
-  lista.forEach(([key, p]) => {
-    tabla.innerHTML += `<tr>
-      <td><strong>${p.nombre || '—'}</strong></td>
+  llaves.forEach(key => {
+    const p = cachePostulantesGlobal[key];
+    body.innerHTML += `<tr>
+      <td><strong>${p.nombre || p.nombreCompleto || 'No especificado'}</strong></td>
       <td>${p.edad || '—'}</td>
-      <td>${p.sexo || '—'}</td>
+      <td>${p.sexo || p.genero || '—'}</td>
       <td><code>${p.curp || '—'}</code></td>
-      <td><span style="color:var(--primary-orange); font-weight:600;">${p.empresaId || '—'}</span></td>
-      <td>${p.vacanteInteres || '—'}</td>
-      <td style="text-align:center;">
-        <div style="display:flex; gap:6px; justify-content:center;">
-          <button class="btn-edit-mode" style="padding:4px 8px; font-size:0.75rem; background:#f59e0b; color:#111;" onclick="cargarCandidatoParaEditar('${key}')"><i class="fas fa-edit"></i></button>
-          <button class="btn-delete-mode" style="padding:4px 8px; font-size:0.75rem;" onclick="eliminarPostulante('${key}')"><i class="fas fa-user-minus"></i></button>
-        </div>
+      <td><span style="color:var(--primary-orange); font-weight:600;">${p.empresa || p.empresaDestino || '—'}</span></td>
+      <td><span style="color:var(--blue-update); font-weight:600;">${p.vacante || p.puesto || '—'}</span></td>
+      <td>
+         <div style="display:flex; gap:6px; justify-content:center;">
+           <button class="btn-edit-mode" style="padding:4px 8px; background:var(--purple-ia); color:white;" onclick="abrirEditarPostulante('${key}')"><i class="fas fa-edit"></i></button>
+           <button class="btn-delete-mode" style="padding:4px 8px;" onclick="eliminarPostulante('${key}')"><i class="fas fa-trash-alt"></i></button>
+         </div>
       </td>
     </tr>`;
   });
 });
 
-window.cargarCandidatoParaEditar = function(key) {
-  const dbRef = ref(db, `postulantes/${key}`);
-  onValue(dbRef, snap => {
-    const p = snap.val();
-    if(!p) return;
-    
-    document.getElementById('editCandKey').value = key;
-    document.getElementById('editCandNombre').value = p.nombre || '';
-    document.getElementById('editCandEdad').value = p.edad || '';
-    document.getElementById('editCandSexo').value = p.sexo || 'Indistinto';
-    document.getElementById('editCandCurp').value = p.curp || '';
-    document.getElementById('editCandEmpresaId').value = p.empresaId || '';
-    document.getElementById('editCandVacante').value = p.vacanteInteres || '';
-    
-    document.getElementById('formEdicionCandidato').style.display = 'grid';
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, { onlyOnce: true });
+// FUNCIONALIDAD GESTIÓN DE POSTULANTES
+window.abrirEditarPostulante = function(key) {
+  const p = cachePostulantesGlobal[key];
+  if(!p) return;
+  document.getElementById('editPostulanteId').value = key;
+  document.getElementById('editPostNombre').value = p.nombre || p.nombreCompleto || '';
+  document.getElementById('editPostEdad').value = p.edad || '';
+  document.getElementById('editPostSexo').value = p.sexo || p.genero || '';
+  document.getElementById('editPostCurp').value = p.curp || '';
+  document.getElementById('editPostEmpresa').value = p.empresa || p.empresaDestino || '';
+  document.getElementById('editPostVacante').value = p.vacante || p.puesto || '';
+  
+  const box = document.getElementById('formularioEdicionPostulanteBox');
+  box.classList.add('open');
+  box.scrollIntoView({ behavior: 'smooth', block: 'start' });
 };
 
-window.guardarChangesCandidato = async function() {
-  const key = document.getElementById('editCandKey').value;
+window.cerrarFormularioPostulante = function() {
+  document.getElementById('formularioEdicionPostulanteBox').classList.remove('open');
+};
+
+window.guardarChangesPostulante = async function() {
+  const key = document.getElementById('editPostulanteId').value;
   if(!key) return;
   
   const payload = {
-    nombre: document.getElementById('editCandNombre').value.trim(),
-    edad: document.getElementById('editCandEdad').value.trim(),
-    sexo: document.getElementById('editCandSexo').value,
-    curp: document.getElementById('editCandCurp').value.trim().toUpperCase(),
-    empresaId: document.getElementById('editCandEmpresaId').value.trim(),
-    vacanteInteres: document.getElementById('editCandVacante').value.trim(),
-    actualizado: new Date().toISOString()
+    nombre: document.getElementById('editPostNombre').value.trim(),
+    nombreCompleto: document.getElementById('editPostNombre').value.trim(),
+    edad: document.getElementById('editPostEdad').value.trim(),
+    sexo: document.getElementById('editPostSexo').value.trim(),
+    genero: document.getElementById('editPostSexo').value.trim(),
+    curp: document.getElementById('editPostCurp').value.trim(),
+    empresa: document.getElementById('editPostEmpresa').value.trim(),
+    empresaDestino: document.getElementById('editPostEmpresa').value.trim(),
+    vacante: document.getElementById('editPostVacante').value.trim(),
+    puesto: document.getElementById('editPostVacante').value.trim()
   };
   
   try {
-    await update(ref(db, `postulantes/${key}`), payload);
-    alert("✅ Datos del candidato actualizados correctamente.");
-    cerrarEdicionCandidato();
+    await set(ref(db, `postulantes/${key}`), payload);
+    alert('✅ Postulante actualizado con éxito.');
+    cerrarFormularioPostulante();
   } catch(e) {
-    alert("❌ Error al actualizar: " + e.message);
+    alert('❌ Error al actualizar: ' + e.message);
   }
 };
+// Alias global por el onclick de la plantilla html
+window.guardarCambiosPostulante = window.guardarChangesPostulante;
 
-window.cerrarEdicionCandidato = function() {
-  document.getElementById('formEdicionCandidato').style.display = 'none';
-  document.getElementById('editCandKey').value = '';
-};
-
-window.eliminarPostulante = function(key) {
-  if(confirm("⚠️ ¿Seguro que deseas remover permanentemente a este candidato de la base de datos?")) {
-    remove(ref(db, `postulantes/${key}`))
-      .then(() => {
-        alert("✅ Candidato eliminado con éxito.");
-        if(document.getElementById('editCandKey').value === key) cerrarEdicionCandidato();
-      })
-      .catch(e => alert("❌ Error: " + e.message));
+window.eliminarPostulante = async function(key) {
+  if (confirm('⚠️ ¿Estás seguro de que deseas eliminar permanentemente a este postulante del registro?')) {
+    try {
+      await remove(ref(db, `postulantes/${key}`));
+      alert('✅ Postulante eliminado.');
+      cerrarFormularioPostulante();
+    } catch(e) {
+      alert('❌ Error al eliminar: ' + e.message);
+    }
   }
 };
 
 window.filtrarPostulantes = function() {
-  const bus = document.getElementById('buscadorPostulantes').value.toLowerCase().trim();
+  const text = document.getElementById('buscadorPostulantes').value.toLowerCase().trim();
   document.querySelectorAll('#tablaPostulantesBody tr').forEach(tr => {
-    tr.style.display = tr.innerText.toLowerCase().includes(bus) ? '' : 'none';
+    tr.style.display = tr.innerText.toLowerCase().includes(text) ? '' : 'none';
   });
 };
 
-// UTILERÍA COMÚN
-function sanitizarId(texto) {
-  return texto.toLowerCase()
-    .normalize("NFD").replace(/[̀-ͯ]/g, "") 
-    .replace(/[^a-z0-9\-_]/g, '-') 
-    .replace(/-+/g, '-') 
-    .replace(/^-|-$/g, ''); 
-}
+function sanitizarId(s){ return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[.#$\[\]\/\s]/g,'-').replace(/-+/g,'-').slice(0,50); }
 </script>
 </body>
 </html>
