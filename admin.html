@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
 <title>Panel de Control Centralizado - Bolsa de Trabajo</title> 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"> 
+<!-- Librería para Exportación Masiva a Excel (SheetJS) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style> 
 :root { 
 --primary-orange: #ff6600; 
@@ -137,7 +139,6 @@ margin-top: 8px;
 } 
 @media (max-width:600px){ .dual-buttons-layout{grid-template-columns:1fr;} }
 
-/* AJUSTE PARA BOTONES FINALES PESTAÑA 2 AL MISMO NIVEL Y MEDIDA */
 .final-actions-grid {
   grid-column: 1 / -1; 
   display: grid; 
@@ -151,7 +152,6 @@ margin-top: 8px;
   }
 }
 
-/* ESTRUCTURA CORREGIDA DE 2 COLUMNAS EN ESCRITORIO */
 .tab2-grid-layout {
   display: grid;
   grid-template-columns: 1fr;
@@ -169,7 +169,6 @@ margin-top: 8px;
   top: 15px;
 }
 
-/* COMPONENTE ACORDEÓN PARA LA IA */
 .accordion-toggle-btn {
   width: 100%;
   background: #251842;
@@ -191,7 +190,6 @@ margin-top: 8px;
 }
 .accordion-content.open { display: block; }
 
-/* RE-DISEÑO CAJA DE EXTRACTOR VERDE / TARJETAS */
 .preview-card-view {
   background: #0b2019;
   border: 1px solid var(--green-success);
@@ -340,7 +338,6 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
 .metric-val { font-size: 2.2rem; font-weight: bold; color: var(--primary-orange); margin-bottom: 4px; }
 .metric-lbl { color: var(--text-muted); font-size: 0.85rem; font-weight: 600; }
 
-/* ESTILOS NUEVOS PARA EL FORMULARIO INTEGRADO DE POSTULANTES */
 .postulante-edit-container {
   display: none; 
   background: #161630;
@@ -369,6 +366,7 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
 <button class="tab-btn" data-tab="tabRegistros"><i class="fas fa-chart-line"></i> 3. Registros y Postulantes</button>
 </div> 
 
+<!-- PESTAÑA 1: EMPRESAS -->
 <div id="tabPrincipal" class="tab-content active"> 
   <div class="form-admin"> 
     <div class="section-divider">Alta / Edición de Empresa Base</div> 
@@ -399,9 +397,9 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
   </div> 
 </div> 
 
+<!-- PESTAÑA 2: VACANTES -->
 <div id="tabSecundarias" class="tab-content"> 
   <div class="tab2-grid-layout">
-    
     <div class="sticky-column">
       <div class="form-admin" style="grid-template-columns: 1fr; margin-bottom: 0;">
         <div class="section-divider" style="margin-top:0;">Configuración de Destino</div> 
@@ -501,10 +499,10 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
         </div>
       </div>
     </div>
-
   </div>
 </div>
 
+<!-- PESTAÑA 3: ACTUALIZADA COMPLETA (MÉTRICAS, SEMÁFOROS Y EXCEL) -->
 <div id="tabRegistros" class="tab-content">
   <div class="metrics-layout">
     <div class="metric-card">
@@ -530,6 +528,29 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
       <div class="form-group"><label>CURP:</label><input type="text" id="editPostCurp"></div>
       <div class="form-group"><label>Empresa de Interés:</label><input type="text" id="editPostEmpresa"></div>
       <div class="form-group"><label>Vacante Solicitada:</label><input type="text" id="editPostVacante"></div>
+      
+      <!-- Campos del Semáforo en el Panel -->
+      <div class="form-group">
+        <label>Estatus / Semáforo:</label>
+        <select id="editPostEstatus" onchange="window.evaluarFiltroDiaEntrevista(this.value)">
+          <option value="Pendiente">🔴 Pendiente / Postulado</option>
+          <option value="En Entrevista">🟡 En Entrevista (Ver Días)</option>
+          <option value="Contratado">🟢 Contratado / Aceptado</option>
+          <option value="Rechazado">⚫ No Seleccionado</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Día de la Entrevista:</label>
+        <select id="editPostDiaEntrevista" disabled>
+          <option value="">-- No Aplica --</option>
+          <option value="Lunes">📅 Lunes</option>
+          <option value="Martes">📅 Martes</option>
+          <option value="Miércoles">📅 Miércoles</option>
+          <option value="Jueves">📅 Jueves</option>
+          <option value="Viernes">📅 Viernes</option>
+          <option value="Sábado">📅 Sábado</option>
+        </select>
+      </div>
     </div>
     
     <div class="final-actions-grid" style="margin-top:0;">
@@ -539,9 +560,15 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
   </div>
 
   <h2 style="font-size:1.15rem; color:var(--purple-ia);"><i class="fas fa-users"></i> Directorio de Postulantes Registrados</h2>
-  <div class="search-container" style="border-color: var(--purple-ia);">
-    <i class="fas fa-search" style="color: var(--text-muted);"></i>
-    <input type="text" id="buscadorPostulantes" placeholder="Buscar por nombre, edad, sexo, CURP, empresa o vacante..." oninput="filtrarPostulantes()">
+  
+  <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 15px;">
+    <div class="search-container" style="border-color: var(--purple-ia); margin-bottom: 0; flex: 1; min-width: 280px;">
+      <i class="fas fa-search" style="color: var(--text-muted);"></i>
+      <input type="text" id="buscadorPostulantes" placeholder="Buscar por nombre, CURP, empresa, estatus..." oninput="filtrarPostulantes()">
+    </div>
+    <button type="button" class="btn-update-final" style="background: #16a34a; width: auto; padding: 0 20px; white-space: nowrap;" onclick="window.exportarExcelPostulantes()">
+      <i class="fas fa-file-excel"></i> Exportar a Excel
+    </button>
   </div>
 
   <div style="overflow-x: auto;">
@@ -552,8 +579,10 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
           <th style="color:var(--purple-ia);">Edad</th>
           <th style="color:var(--purple-ia);">Sexo</th>
           <th style="color:var(--purple-ia);">CURP</th>
+          <th style="color:var(--purple-ia);">Teléfono</th>
           <th style="color:var(--purple-ia);">Empresa</th>
           <th style="color:var(--purple-ia);">Vacante Interés</th>
+          <th style="color:var(--purple-ia);">Tránsito / Estatus</th>
           <th style="color:var(--purple-ia); text-align:center;">Acciones</th>
         </tr>
       </thead>
@@ -564,6 +593,7 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
 
 </div> 
 
+<!-- JAVASCRIPT GLOBAL -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getDatabase, ref, set, onValue, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
@@ -576,7 +606,7 @@ const db = getDatabase(app);
 let empresasData = {};
 let vacantesProcesadasGlobal = [];
 let baseVacantesActualesEnFirebase = {};
-let cachePostulantesGlobal = {}; // Guardará los datos cargados de los postulantes
+let cachePostulantesGlobal = {};
 
 const apiKeyInput = document.getElementById('geminiApiKeyInput');
 if(localStorage.getItem('gemini_api_key')) apiKeyInput.value = localStorage.getItem('gemini_api_key');
@@ -819,7 +849,7 @@ window.procesarTextoBrutoTxt = async function(){
   if(!raw) return alert('Campo vacío');
   try {
     let d = raw.startsWith('{') ? JSON.parse(raw) : (await IA_V6.llamarInterprete(raw))[0];
-    document.getElementById('secVacanteNombre').value = d.vacanteNombre||'';
+    document.getElementById('secVacanteNombre').value = d.vacanteNombre||';';
     document.getElementById('secSalario').value = d.salario||'';
     document.getElementById('secEdad').value = d.edad||'';
     document.getElementById('secLugarOrigen').value = d.lugarOrigen||'';
@@ -858,7 +888,7 @@ window.guardarActualizacionVacante = async function(){
   set(ref(db,`vacantes_detalles/${emp}/${d.puestoId}`), d).then(()=>{ alert('Vacante actualizada.'); escucharVacantesExistentes(emp); });
 };
 
-// --- PESTAÑA 3: MÉTRICAS Y ACCIONES DE POSTULANTES ---
+// --- PESTAÑA 3: ACTUALIZADA INTEGRAL DE POSTULANTES ---
 onValue(ref(db, 'visitas'), snap => {
   const datosVisitas = snap.val();
   let numeroRealVisitas = 0;
@@ -872,43 +902,93 @@ onValue(ref(db, 'visitas'), snap => {
   document.getElementById('contadorVisitas').innerText = numeroRealVisitas;
 });
 
-onValue(ref(db, 'postulantes'), snap => {
-  const body = document.getElementById('tablaPostulantesBody');
-  body.innerHTML = '';
-  cachePostulantesGlobal = snap.val() || {};
-  const llaves = Object.keys(cachePostulantesGlobal);
-  document.getElementById('contadorPostulantes').innerText = llaves.length;
+// Renderizado de Postulantes con Semáforo y Teléfono Directo
+onValue(ref(db, 'postulantes'), (snapshot) => {
+  const tbody = document.getElementById('tablaPostulantesBody');
+  const contador = document.getElementById('contadorPostulantes');
+  tbody.innerHTML = '';
   
-  llaves.forEach(key => {
-    const p = cachePostulantesGlobal[key];
-    body.innerHTML += `<tr>
-      <td><strong>${p.nombre || p.nombreCompleto || 'No especificado'}</strong></td>
-      <td>${p.edad || '—'}</td>
-      <td>${p.sexo || p.genero || '—'}</td>
-      <td><code>${p.curp || '—'}</code></td>
-      <td><span style="color:var(--primary-orange); font-weight:600;">${p.empresa || p.empresaDestino || '—'}</span></td>
-      <td><span style="color:var(--blue-update); font-weight:600;">${p.vacante || p.puesto || '—'}</span></td>
-      <td>
-         <div style="display:flex; gap:6px; justify-content:center;">
-           <button class="btn-edit-mode" style="padding:4px 8px; background:var(--purple-ia); color:white;" onclick="abrirEditarPostulante('${key}')"><i class="fas fa-edit"></i></button>
-           <button class="btn-delete-mode" style="padding:4px 8px;" onclick="eliminarPostulante('${key}')"><i class="fas fa-trash-alt"></i></button>
-         </div>
-      </td>
-    </tr>`;
+  cachePostulantesGlobal = snapshot.val() || {};
+  const lista = Object.entries(cachePostulantesGlobal);
+  contador.innerText = lista.length;
+  
+  lista.forEach(([key, p]) => {
+    const estatus = p.estatus || 'Pendiente';
+    const dia = p.diaEntrevista || '';
+    let badgeHtml = '';
+
+    // Lógica visual del Semáforo Dinámico (Opción A)
+    if (estatus === 'Contratado') {
+      badgeHtml = `<span style="background:#065f46; color:#34d399; padding:4px 8px; border-radius:12px; font-weight:bold; font-size:0.75rem;"><i class="fas fa-circle" style="color:#10b981; margin-right:4px;"></i>Contratado</span>`;
+    } else if (estatus === 'En Entrevista') {
+      badgeHtml = `<span style="background:#78350f; color:#fbbf24; padding:4px 8px; border-radius:12px; font-weight:bold; font-size:0.75rem;"><i class="fas fa-circle" style="color:#f59e0b; margin-right:4px;"></i>Entrevista: ${dia || 'S/D'}</span>`;
+    } else if (estatus === 'Rechazado') {
+      badgeHtml = `<span style="background:#3f3f46; color:#d4d4d8; padding:4px 8px; border-radius:12px; font-weight:bold; font-size:0.75rem;"><i class="fas fa-circle" style="color:#71717a; margin-right:4px;"></i>Rechazado</span>`;
+    } else {
+      badgeHtml = `<span style="background:#7f1d1d; color:#fca5a5; padding:4px 8px; border-radius:12px; font-weight:bold; font-size:0.75rem;"><i class="fas fa-circle" style="color:#ef4444; margin-right:4px;"></i>Pendiente</span>`;
+    }
+
+    // Botón de WhatsApp con el número proveniente de tu base de datos
+    let celdaTelefonoHtml = `<span style="color:var(--text-muted);">S/N</span>`;
+    if (p.telefono) {
+      const limpio = String(p.telefono).replace(/\D/g, '');
+      celdaTelefonoHtml = `
+        <a href="https://wa.me/52${limpio}" target="_blank" style="color:var(--green-whatsapp); text-decoration:none; font-weight:bold; display:inline-flex; align-items:center; gap:4px;">
+          <i class="fab fa-whatsapp"></i> ${p.telefono}
+        </a>`;
+    }
+
+    tbody.innerHTML += `
+      <tr>
+        <td><strong>${p.nombre || '—'}</strong></td>
+        <td>${p.edad || '—'}</td>
+        <td>${p.sexo || '—'}</td>
+        <td><code>${p.curp || '—'}</code></td>
+        <td>${celdaTelefonoHtml}</td>
+        <td>${p.empresa || '—'}</td>
+        <td><span style="color:#c084fc; font-weight:600;">${p.vacante || p.vacanteInteres || '—'}</span></td>
+        <td>${badgeHtml}</td>
+        <td>
+          <div style="display:flex; gap:6px; justify-content:center;">
+            <button class="btn-edit-mode" style="background:var(--purple-ia); color:white; padding:4px 8px;" onclick="window.abrirEditarPostulante('${key}')">
+              <i class="fas fa-edit"></i>
+            </button>
+            <button class="btn-delete-mode" style="padding:4px 8px;" onclick="window.eliminarPostulante('${key}')">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </td>
+      </tr>`;
   });
 });
 
-// FUNCIONALIDAD GESTIÓN DE POSTULANTES
+// Control select dinámico de días de la semana
+window.evaluarFiltroDiaEntrevista = function(valorEstatus) {
+  const selectDia = document.getElementById('editPostDiaEntrevista');
+  if (valorEstatus === 'En Entrevista') {
+    selectDia.disabled = false;
+  } else {
+    selectDia.value = '';
+    selectDia.disabled = true;
+  }
+};
+
 window.abrirEditarPostulante = function(key) {
   const p = cachePostulantesGlobal[key];
-  if(!p) return;
+  if (!p) return;
+  
   document.getElementById('editPostulanteId').value = key;
-  document.getElementById('editPostNombre').value = p.nombre || p.nombreCompleto || '';
+  document.getElementById('editPostNombre').value = p.nombre || '';
   document.getElementById('editPostEdad').value = p.edad || '';
-  document.getElementById('editPostSexo').value = p.sexo || p.genero || '';
+  document.getElementById('editPostSexo').value = p.sexo || '';
   document.getElementById('editPostCurp').value = p.curp || '';
-  document.getElementById('editPostEmpresa').value = p.empresa || p.empresaDestino || '';
-  document.getElementById('editPostVacante').value = p.vacante || p.puesto || '';
+  document.getElementById('editPostEmpresa').value = p.empresa || '';
+  document.getElementById('editPostVacante').value = p.vacante || p.vacanteInteres || '';
+  
+  const estatusActual = p.estatus || 'Pendiente';
+  document.getElementById('editPostEstatus').value = estatusActual;
+  window.evaluarFiltroDiaEntrevista(estatusActual);
+  document.getElementById('editPostDiaEntrevista').value = p.diaEntrevista || '';
   
   const box = document.getElementById('formularioEdicionPostulanteBox');
   box.classList.add('open');
@@ -919,42 +999,44 @@ window.cerrarFormularioPostulante = function() {
   document.getElementById('formularioEdicionPostulanteBox').classList.remove('open');
 };
 
-window.guardarChangesPostulante = async function() {
+window.guardarCambiosPostulante = async function() {
   const key = document.getElementById('editPostulanteId').value;
-  if(!key) return;
+  if (!key) return;
+
+  const original = cachePostulantesGlobal[key] || {};
   
+  // Guardado seguro preservando campos nativos (como fechaRegistro, empresaId, etc)
   const payload = {
+    ...original,
     nombre: document.getElementById('editPostNombre').value.trim(),
-    nombreCompleto: document.getElementById('editPostNombre').value.trim(),
-    edad: document.getElementById('editPostEdad').value.trim(),
+    edad: Number(document.getElementById('editPostEdad').value) || document.getElementById('editPostEdad').value,
     sexo: document.getElementById('editPostSexo').value.trim(),
-    genero: document.getElementById('editPostSexo').value.trim(),
-    curp: document.getElementById('editPostCurp').value.trim(),
+    curp: document.getElementById('editPostCurp').value.trim().toUpperCase(),
     empresa: document.getElementById('editPostEmpresa').value.trim(),
-    empresaDestino: document.getElementById('editPostEmpresa').value.trim(),
     vacante: document.getElementById('editPostVacante').value.trim(),
-    puesto: document.getElementById('editPostVacante').value.trim()
+    vacanteInteres: document.getElementById('editPostVacante').value.trim(),
+    estatus: document.getElementById('editPostEstatus').value,
+    diaEntrevista: document.getElementById('editPostDiaEntrevista').value,
+    fechaActualizacionAdmin: new Date().toISOString()
   };
-  
+
   try {
     await set(ref(db, `postulantes/${key}`), payload);
-    alert('✅ Postulante actualizado con éxito.');
-    cerrarFormularioPostulante();
+    alert('✅ Registro y semáforo del postulante actualizados con éxito.');
+    window.cerrarFormularioPostulante();
   } catch(e) {
     alert('❌ Error al actualizar: ' + e.message);
   }
 };
-// Alias global por el onclick de la plantilla html
-window.guardarCambiosPostulante = window.guardarChangesPostulante;
 
 window.eliminarPostulante = async function(key) {
-  if (confirm('⚠️ ¿Estás seguro de que deseas eliminar permanentemente a este postulante del registro?')) {
+  if (confirm('⚠️ ¿Estás seguro de que deseas eliminar permanentemente a este postulante?')) {
     try {
       await remove(ref(db, `postulantes/${key}`));
       alert('✅ Postulante eliminado.');
-      cerrarFormularioPostulante();
+      window.cerrarFormularioPostulante();
     } catch(e) {
-      alert('❌ Error al eliminar: ' + e.message);
+      alert('❌ Error: ' + e.message);
     }
   }
 };
@@ -964,6 +1046,33 @@ window.filtrarPostulantes = function() {
   document.querySelectorAll('#tablaPostulantesBody tr').forEach(tr => {
     tr.style.display = tr.innerText.toLowerCase().includes(text) ? '' : 'none';
   });
+};
+
+// EXPORTAR A EXCEL (PROCESAMIENTO BINARIO CON SHEETJS)
+window.exportarExcelPostulantes = function() {
+  const lista = Object.values(cachePostulantesGlobal);
+  if (lista.length === 0) return alert('⚠️ No hay registros cargados para exportar.');
+
+  const filasMapeadas = lista.map((p, idx) => ({
+    "N°": idx + 1,
+    "Nombre Completo": p.nombre || '—',
+    "Edad": p.edad || '—',
+    "Género": p.sexo || '—',
+    "CURP": p.curp || '—',
+    "Teléfono Celular": p.telefono || '—',
+    "Empresa de Interés": p.empresa || '—',
+    "Puesto Solicitado": p.vacante || p.vacanteInteres || '—',
+    "Estatus Actual": p.estatus || 'Pendiente',
+    "Día Asignado Entrevista": p.diaEntrevista || 'No Aplica',
+    "Fecha de Registro": p.fechaRegistro ? p.fechaRegistro.substring(0,10) : '—'
+  }));
+
+  const hojaTrabajo = XLSX.utils.json_to_sheet(filasMapeadas);
+  const libroTrabajo = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(libroTrabajo, hojaTrabajo, "Postulantes");
+  
+  const fechaHoy = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(libroTrabajo, `Reporte_Postulantes_${fechaHoy}.xlsx`);
 };
 
 function sanitizarId(s){ return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[.#$\[\]\/\s]/g,'-').replace(/-+/g,'-').slice(0,50); }
