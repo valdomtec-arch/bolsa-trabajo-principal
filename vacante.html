@@ -510,47 +510,62 @@
         let mapaRutasVacantes = {};
 
         // ==========================================
-        // 6. PARCHE DE CARGA DE VACANTES DESDE FIREBASE
+        // 6. PARCHE DE CARGA DE VACANTES DESDE FIREBASE (CORREGIDO)
         // ==========================================
         function cargarVacantesYReclutadores() {
             if (!idEmpresaUrl) return;
 
-            // 1. Carga de vacantes mapeando correctamente los nodos reales de Firebase
+            // 1. Carga de vacantes mapeando correctamente la estructura de dos niveles de Firebase
             db.ref(`vacantes_detalles/${idEmpresaUrl}`).once('value')
                 .then((snapshot) => {
                     if (snapshot.exists()) {
                         selectVacante.innerHTML = '<option value="">Selecciona una opción...</option>';
-                        snapshot.forEach((childSnapshot) => {
-                            const idVacante = childSnapshot.key;
-                            const datosVacante = childSnapshot.val();
+                        let contadorVacantes = 0;
 
-                            // Mapeo adaptado 100% a tus propiedades de Firebase reales
-                            const nombrePuesto = datosVacante.vacanteNombre || datosVacante.nombreVacante || datosVacante.puesto || idVacante;
-                            const horarioTurno = datosVacante.turnos || datosVacante.turno || 'Turno no especificado';
-                            
-                            // Parche crítico para procesar rutasTransporte si viene como string, vacío u objeto
-                            let rutasRaw = datosVacante.rutasTransporte || datosVacante.rutas_transporte || "";
-                            if (typeof rutasRaw === 'string') {
-                                mapaRutasVacantes[idVacante] = rutasRaw.trim() !== "" ? rutasRaw.split(',').map(r => r.trim()) : [];
-                            } else if (Array.isArray(rutasRaw)) {
-                                mapaRutasVacantes[idVacante] = rutasRaw;
-                            } else {
-                                mapaRutasVacantes[idVacante] = [];
+                        // PRIMER BUCLE: Recorre los identificadores de puesto (ej: operadorgeneral)
+                        snapshot.forEach((puestoSnapshot) => {
+                            const idPuesto = puestoSnapshot.key;
+                            const datosVacante = puestoSnapshot.val();
+
+                            // Validamos que existan datos válidos dentro del nodo del puesto
+                            if (datosVacante && typeof datosVacante === 'object') {
+                                contadorVacantes++;
+
+                                // Mapeo adaptado 100% a tus propiedades de Firebase reales
+                                const nombrePuesto = datosVacante.vacanteNombre || datosVacante.nombreVacante || datosVacante.puesto || idPuesto;
+                                const horarioTurno = datosVacante.turnos || datosVacante.turno || 'Turno no especificado';
+                                
+                                // Parche crítico para procesar rutasTransporte si viene como string, vacío u objeto
+                                let rutasRaw = datosVacante.rutasTransporte || datosVacante.rutas_transporte || "";
+                                if (typeof rutasRaw === 'string') {
+                                    mapaRutasVacantes[idPuesto] = rutasRaw.trim() !== "" ? rutasRaw.split(',').map(r => r.trim()) : [];
+                                } else if (Array.isArray(rutasRaw)) {
+                                    mapaRutasVacantes[idPuesto] = rutasRaw;
+                                } else {
+                                    mapaRutasVacantes[idPuesto] = [];
+                                }
+
+                                const option = document.createElement('option');
+                                option.value = idPuesto; // Se envía el ID del puesto como valor
+                                option.textContent = `${nombrePuesto} (${horarioTurno})`;
+                                selectVacante.appendChild(option);
                             }
-
-                            const option = document.createElement('option');
-                            option.value = idVacante;
-                            option.textContent = `${nombrePuesto} (${horarioTurno})`;
-                            selectVacante.appendChild(option);
                         });
                         
-                        formPostulacion.style.display = 'block';
-                        document.getElementById('vacantTitle').textContent = "Completa tu registro aquí abajo";
+                        if (contadorVacantes > 0) {
+                            formPostulacion.style.display = 'block';
+                            document.getElementById('vacantTitle').textContent = "Completa tu registro aquí abajo";
+                        } else {
+                            document.getElementById('vacantTitle').textContent = "No hay vacantes activas por el momento";
+                        }
                     } else {
                         document.getElementById('vacantTitle').textContent = "No hay vacantes activas por el momento";
                     }
                 })
-                .catch((err) => console.error("Error al cargar vacantes:", err));
+                .catch((err) => {
+                    console.error("Error al cargar vacantes:", err);
+                    document.getElementById('vacantTitle').textContent = "Error al conectar con el servidor";
+                });
 
             // 2. Cargar Reclutadores
             db.ref('reclutadores').once('value')
