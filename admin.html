@@ -1276,6 +1276,9 @@ function procesarArchivoLocal(file) {
   }
 }
 
+// ==============================================
+// DETECCIÓN Y PROCESAMIENTO MULTIMOTOR IA REFINADO
+// ==============================================
 async function ejecutarAnalisisIA() {
   const apiKey = localStorage.getItem('apiKeyGemini');
   if (!apiKey) return alert("❌ Configura y guarda tu API Key en la Pestaña 1 primero.");
@@ -1284,7 +1287,7 @@ async function ejecutarAnalisisIA() {
   btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Procesando...';
   btn.disabled = true;
 
-  const promptVacantes = `Analiza el siguiente perfil laboral y devuelve un array JSON de objetos vacante. Devuelve ÚNICAMENTE el JSON como texto plano.
+  const promptVacantes = `Analiza el siguiente perfil laboral y devuelve un array JSON de objetos vacante. Devuelve ÚNICAMENTE el JSON como texto plano sin formato adicional.
 Cada objeto debe tener la estructura:
 [{
   "puestoId": "id-unico-minusculas-sin-espacios",
@@ -1302,22 +1305,15 @@ Cada objeto debe tener la estructura:
   "infoGeneral": "Notas extra"
 }]`;
 
-  const promptLogistica = `Analiza la siguiente información de transporte laboral y extrae las rutas. Devuelve ÚNICAMENTE un array JSON estructurado.
-Cada objeto debe tener la estructura:
+  const promptLogistica = `Analiza la siguiente información de transporte laboral y extrae las rutas. Devuelve ÚNICAMENTE un array JSON estructurado en texto plano.
+Cada objeto debe tener la estructura e indexarse de forma independiente:
 [{
-  "puestoId": "id-ruta-minusculas",
-  "nombreVacante": "Nombre de la Ruta de Transporte",
-  "salario": "No aplica",
-  "edad": "No aplica",
-  "sexo": "Indistinto",
-  "experiencia": "No aplica",
-  "escolaridad": "No aplica",
-  "lugarOrigen": "Destino o zona base",
-  "turnos": "Turnos que cubre",
-  "rutasTransporte": "Detalle completo del itinerario y paradas de la ruta",
-  "actividades": "Especificaciones técnicas de transporte",
-  "beneficios": "No aplica",
-  "infoGeneral": "Notas extra"
+  "rutaId": "id-ruta-minusculas-sin-espacios",
+  "nombreRuta": "Nombre de la Ruta de Transporte",
+  "zonaCorta": "Destino o zona base",
+  "turnosCubre": "Turnos que cubre la ruta",
+  "itinerarioDetallado": "Detalle completo de calles, paradas, horarios e itinerario de la ruta",
+  "especificaciones": "Especificaciones técnicas de transporte, camión o notas operativas extras"
 }]`;
 
   const instruction = activeMotor === 'vacantes' ? promptVacantes : promptLogistica;
@@ -1367,11 +1363,11 @@ Cada objeto debe tener la estructura:
     const contenedorVerde = document.getElementById('contenedorResultadoVerde');
     if (contenedorVerde) contenedorVerde.style.display = 'block';
     
-    registrarLogSistema("Extractor IA", "Estructuración completada con éxito.");
+    registrarLogSistema("Extractor IA", `Procesamiento ${activeMotor.toUpperCase()} completado.`);
 
   } catch (error) {
     console.error("❌ Error:", error);
-    alert("Hubo un problema al leer la respuesta de la IA.");
+    alert("Hubo un problema al estructurar los datos con la IA: " + error.message);
   } finally {
     btn.innerHTML = '<i class="fas fa-brain"></i> Analizar con IA';
     btn.disabled = false;
@@ -1384,10 +1380,15 @@ function actualizarSelectorLoteDetectado() {
   select.innerHTML = '';
   
   const array = Array.isArray(analyzedDataLote) ? analyzedDataLote : [analyzedDataLote];
+  
   array.forEach((item, index) => {
     const opt = document.createElement('option');
     opt.value = index;
-    opt.textContent = `[${item.puestoId || index}] ${item.nombreVacante || 'Sin Nombre'}`;
+    if (activeMotor === 'vacantes') {
+      opt.textContent = `[Puesto: ${item.puestoId || index}] ${item.nombreVacante || 'Sin Nombre'}`;
+    } else {
+      opt.textContent = `[Ruta: ${item.rutaId || index}] ${item.nombreRuta || 'Sin Nombre'}`;
+    }
     select.appendChild(opt);
   });
   
@@ -1399,11 +1400,19 @@ function seleccionarVacanteDetectada(index) {
   const item = array[index];
   if (!item) return;
 
-  document.getElementById('lblPreviewNombre').textContent = item.nombreVacante || 'Sin Nombre';
-  document.getElementById('lblPreviewSalario').textContent = item.salario || '—';
-  document.getElementById('lblPreviewEdad').textContent = item.edad || '—';
-  document.getElementById('lblPreviewLugar').textContent = item.lugarOrigen || '—';
-  document.getElementById('lblPreviewTurnos').textContent = item.turnos || '—';
+  if (activeMotor === 'vacantes') {
+    document.getElementById('lblPreviewNombre').textContent = item.nombreVacante || 'Sin Nombre';
+    document.getElementById('lblPreviewSalario').textContent = item.salario || '—';
+    document.getElementById('lblPreviewEdad').textContent = item.edad || '—';
+    document.getElementById('lblPreviewLugar').textContent = item.lugarOrigen || '—';
+    document.getElementById('lblPreviewTurnos').textContent = item.turnos || '—';
+  } else {
+    document.getElementById('lblPreviewNombre').textContent = item.nombreRuta || 'Sin Nombre';
+    document.getElementById('lblPreviewSalario').textContent = "Ruta Logística";
+    document.getElementById('lblPreviewEdad').textContent = "N/A";
+    document.getElementById('lblPreviewLugar').textContent = item.zonaCorta || '—';
+    document.getElementById('lblPreviewTurnos').textContent = item.turnosCubre || '—';
+  }
 }
 
 function transferirCamposAFormulario() {
@@ -1413,23 +1422,41 @@ function transferirCamposAFormulario() {
   const item = array[index];
   if (!item) return;
 
-  document.getElementById('secPuestoId').value = item.puestoId || '';
-  document.getElementById('secVacanteNombre').value = item.nombreVacante || '';
-  document.getElementById('secEdad').value = item.edad || '';
-  document.getElementById('secSexo').value = item.sexo || 'Indistinto';
-  document.getElementById('secExperiencia').value = item.experiencia || '';
-  document.getElementById('secEscolaridad').value = item.escolaridad || '';
-  document.getElementById('secSalario').value = item.salario || '';
-  document.getElementById('secLugarOrigen').value = item.lugarOrigen || '';
-  document.getElementById('secTurnos').value = item.turnos || '';
-  document.getElementById('secRutasTransporte').value = item.rutasTransporte || '';
-  document.getElementById('secActividades').value = item.actividades || '';
-  document.getElementById('secBeneficios').value = item.beneficios || '';
-  document.getElementById('secInfoGeneral').value = item.infoGeneral || '';
+  if (activeMotor === 'vacantes') {
+    document.getElementById('secPuestoId').value = item.puestoId || '';
+    document.getElementById('secVacanteNombre').value = item.nombreVacante || '';
+    document.getElementById('secEdad').value = item.edad || '';
+    document.getElementById('secSexo').value = item.sexo || 'Indistinto';
+    document.getElementById('secExperiencia').value = item.experiencia || '';
+    document.getElementById('secEscolaridad').value = item.escolaridad || '';
+    document.getElementById('secSalario').value = item.salario || '';
+    document.getElementById('secLugarOrigen').value = item.lugarOrigen || '';
+    document.getElementById('secTurnos').value = item.turnos || '';
+    document.getElementById('secRutasTransporte').value = item.rutasTransporte || '';
+    document.getElementById('secActividades').value = item.actividades || '';
+    document.getElementById('secBeneficios').value = item.beneficios || '';
+    document.getElementById('secInfoGeneral').value = item.infoGeneral || '';
+  } else {
+    // Mapeo Inteligente e Independiente hacia los elementos del formulario final
+    document.getElementById('secPuestoId').value = item.rutaId || '';
+    document.getElementById('secVacanteNombre').value = item.nombreRuta || '';
+    document.getElementById('secLugarOrigen').value = item.zonaCorta || '';
+    document.getElementById('secTurnos').value = item.turnosCubre || '';
+    document.getElementById('secRutasTransporte').value = item.itinerarioDetallado || '';
+    document.getElementById('secActividades').value = item.especificaciones || 'Ruta generada por Asistente IA';
+    
+    // Limpieza de campos redundantes de reclutamiento para evitar contaminación visual
+    document.getElementById('secEdad').value = 'N/A';
+    document.getElementById('secSexo').value = 'Indistinto';
+    document.getElementById('secExperiencia').value = 'N/A';
+    document.getElementById('secEscolaridad').value = 'N/A';
+    document.getElementById('secSalario').value = 'N/A';
+    document.getElementById('secBeneficios').value = 'N/A';
+    document.getElementById('secInfoGeneral').value = 'Módulo Logístico Integrado';
+  }
 
-  registrarLogSistema("Extractor IA", "Campos transferidos al formulario.");
+  registrarLogSistema("Extractor IA", `Campos de ${activeMotor.toUpperCase()} copiados al formulario.`);
 }
-
 async function guardarLoteMasivo() {
   const selectEmpresa = document.getElementById('secEmpresaSelect');
   const idEmpresa = selectEmpresa.value;
