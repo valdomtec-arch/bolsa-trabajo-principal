@@ -1,0 +1,2420 @@
+<!DOCTYPE html> 
+<html lang="es"> 
+<head> 
+<meta charset="UTF-8"> 
+<meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+<title>Panel de Control Centralizado - Bolsa de Trabajo ERP</title> 
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"> 
+<!-- Librería para Exportación Masiva a Excel (SheetJS) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- LIBRERÍA DE GRÁFICOS (Chart.js) -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- CDNs para Lectura de Documentos en Asistente IA -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<script>
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+</script>
+<style>
+/* ESTILOS EXTRA PESTAÑA 1 PREMIUM */
+#empIdInput::placeholder { text-transform: none; opacity: 0.6; }
+#btnActualizarEmpresa, #btnCancelarEdicionEmpresa { width: 100%; padding: 12px; font-size: 1rem; border-radius: 8px; border:none; font-weight:700; }
+#btnCancelarEdicionEmpresa { background: var(--red-danger); color:white; }
+#btnCancelarEdicionEmpresa:hover { background: #dc2626; transform: translateY(-1px); }
+.empresas-table td img { background: white; padding: 3px; } 
+:root { 
+--primary-orange: #ff6600; 
+--secondary-blue: #0f2a4a; 
+--bg-page: #050b14; 
+--container-bg: #111e30; 
+--card-bg: #18273c; 
+--white: #ffffff; 
+--text-light: #f1f5f9; 
+--text-muted: #94a3b8; 
+--border-color: #243854; 
+--green-whatsapp: #25D366; 
+--purple-ia: #8b5cf6; 
+--green-success: #10b981; 
+--red-danger: #ef4444; 
+--blue-update: #0284c7; 
+} 
+* { box-sizing: border-box; }
+body { 
+background-color: var(--bg-page); 
+color: var(--text-light); 
+font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; 
+padding: 20px 10px;
+margin: 0; 
+line-height: 1.5;
+} 
+.admin-container { 
+max-width: 1300px; 
+margin: 0 auto; 
+background: var(--container-bg); 
+padding: 25px; 
+border-radius: 16px; 
+border: 1px solid var(--border-color); 
+box-shadow: 0 10px 40px rgba(0,0,0,.4);
+} 
+h1 { color: var(--white); text-align: center; margin-bottom: 25px; font-size: 1.6rem; } 
+.tabs-menu { 
+display: flex; 
+flex-wrap: wrap;
+gap: 8px; 
+margin-bottom: 25px; 
+border-bottom: 2px solid var(--border-color); 
+padding-bottom: 10px; 
+} 
+.tab-btn { 
+background: #0d1724; 
+color: var(--text-muted); 
+border: 1px solid var(--border-color); 
+padding: 12px 18px; 
+border-radius: 8px; 
+cursor: pointer; 
+font-weight: 700; 
+font-size: 0.9rem; 
+transition: all .25s ease;
+display: flex; 
+align-items: center; 
+gap: 8px; 
+flex: 1 1 auto;
+justify-content: center;
+} 
+.tab-btn:hover { color: var(--white); border-color: var(--primary-orange); transform: translateY(-1px); } 
+.tab-btn.active { 
+background: var(--primary-orange); 
+color: white; 
+border-color: var(--primary-orange); 
+box-shadow: 0 4px 12px rgba(255,102,0,0.3);
+} 
+.tab-content { display: none; animation: fade .3s ease; } 
+.tab-content.active { display: block; } 
+@keyframes fade { from{opacity:0; transform: translateY(6px);} to{opacity:1; transform:none;} }
+
+.form-admin { 
+background: var(--card-bg); 
+padding: 22px; 
+border-radius: 12px; 
+border: 1px solid var(--border-color); 
+margin-bottom: 25px; 
+display: grid; 
+grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); 
+gap: 16px; 
+} 
+.form-group { display: flex; flex-direction: column; } 
+.form-group label { margin-bottom: 6px; font-weight: 600; font-size: 0.88rem; color: var(--text-muted); } 
+.form-group:focus-within label { color: var(--primary-orange); }
+.form-group input, .form-group select, .form-group textarea { 
+padding: 11px 14px; 
+background: #1d2e47; 
+border: 1px solid var(--border-color);
+border-radius: 8px; 
+color: white; 
+font-size: 0.92rem;
+outline: none;
+transition: all .2s;
+}
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--primary-orange); background: #223754; }
+.form-group textarea { resize: vertical; min-height: 80px; font-family: inherit; } 
+.full-width { grid-column: 1 / -1; } 
+button { font-family: inherit; display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; transition: all .2s ease; }
+
+.btn-add { 
+background: var(--primary-orange); 
+color: white; 
+border: none; 
+padding: 12px; 
+border-radius: 8px; 
+font-weight: 700; 
+font-size: 1rem; 
+width: 100%;
+}
+.btn-add:hover { background: #e05500; transform: translateY(-1px); } 
+
+.btn-update-final { 
+background: var(--blue-update); 
+color: white; 
+border: none; 
+padding: 12px; 
+border-radius: 8px; 
+font-weight: 700; 
+font-size: 1rem; 
+width: 100%;
+} 
+.btn-update-final:hover { background: #0369a1; transform: translateY(-1px); } 
+
+.dual-buttons-layout { 
+grid-column: 1 / -1; 
+display: grid; 
+grid-template-columns: repeat(3, 1fr); 
+gap: 12px; 
+margin-top: 8px; 
+} 
+@media (max-width:600px){ .dual-buttons-layout{grid-template-columns:1fr;} }
+
+.final-actions-grid {
+  grid-column: 1 / -1; 
+  display: grid; 
+  grid-template-columns: 1fr 1fr; 
+  gap: 16px; 
+  margin-top: 12px;
+}
+@media (max-width: 480px) {
+  .final-actions-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.tab2-grid-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+@media (min-width: 992px) {
+  .tab2-grid-layout {
+    grid-template-columns: 460px 1fr;
+    align-items: start;
+  }
+}
+.sticky-column {
+  position: -webkit-sticky;
+  position: sticky;
+  top: 15px;
+}
+
+.accordion-toggle-btn {
+  width: 100%;
+  background: #251842;
+  border: 1px solid var(--purple-ia);
+  color: #c084fc;
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-weight: bold;
+  font-size: 0.95rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.accordion-toggle-btn:hover { background: #311f59; }
+.accordion-content {
+  display: none;
+  animation: fade .25s ease;
+}
+.accordion-content.open { display: block; }
+
+.preview-card-view {
+  background: #0b2019;
+  border: 1px solid var(--green-success);
+  padding: 14px;
+  border-radius: 10px;
+  margin-bottom: 12px;
+}
+.preview-grid-mini {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+  font-size: 0.8rem;
+  margin-top: 10px;
+}
+.preview-mini-item {
+  background: #112d24;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+.preview-mini-item strong { color: #34d399; display: block; margin-bottom: 2px; text-transform: uppercase; font-size: 0.7rem; }
+
+.ia-box { 
+background: rgba(139, 92, 246, 0.04); 
+border: 1px dashed var(--purple-ia); 
+padding: 16px; 
+border-radius: 12px; 
+grid-column: 1 / -1; 
+margin-bottom: 6px; 
+}
+.btn-ia { 
+background: var(--purple-ia); 
+color: white; 
+border: none; 
+padding: 10px 18px; 
+font-weight: 700; 
+border-radius: 6px; 
+margin-top: 10px; 
+} 
+.btn-ia:hover { background: #7c3aed; transform: translateY(-1px); } 
+
+.file-input-wrapper { 
+position: relative;
+display: inline-block; 
+margin-top: 5px; 
+}
+.file-input-wrapper input[type="file"] { 
+position: absolute; 
+inset:0;
+opacity: 0; 
+width: 100%; height: 100%; 
+cursor: pointer; 
+} 
+.btn-file-custom { 
+background: #0284c7; color: white; padding: 10px 18px; 
+font-weight: 700; border-radius: 6px; display: inline-block; transition: all .25s; 
+} 
+.btn-file-custom:hover { background: #0369a1; } 
+
+.section-divider { 
+grid-column: 1 / -1; 
+border-bottom: 1px dashed var(--border-color); 
+padding: 8px 0;
+color: var(--primary-orange); 
+font-size: 0.9rem; 
+font-weight: 700; 
+text-transform: uppercase; 
+letter-spacing:.3px;
+margin: 6px 0;
+}
+.sub-section-title {
+  grid-column: 1 / -1;
+  font-size: 0.82rem;
+  color: #38bdf8;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 8px;
+  border-left: 3px solid #0284c7;
+  padding-left: 8px;
+}
+
+.search-container { background: #0d1724; padding: 12px 16px; border-radius: 10px; border: 1px solid var(--border-color); margin-bottom: 15px; display: flex; gap: 10px; align-items: center; }
+.search-container input { background: transparent; border: none; color: white; width: 100%; outline: none; font-size: 0.95rem; }
+
+.empresas-table { width: 100%; border-collapse: separate; border-spacing: 0 6px; margin-top: 4px; font-size:.9rem; } 
+.empresas-table th { padding: 12px 10px; text-align: left; color: var(--primary-orange); background: #0d1724; font-weight: 600; border-bottom: 2px solid var(--border-color); } 
+.empresas-table td { padding: 12px 10px; background: var(--card-bg); border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); } 
+.empresas-table tr td:first-child { border-left: 1px solid var(--border-color); border-top-left-radius: 8px; border-bottom-left-radius: 8px; }
+.empresas-table tr td:last-child { border-right: 1px solid var(--border-color); border-top-right-radius: 8px; border-bottom-right-radius: 8px; }
+.empresas-table tr:hover td { background: #1e314b; }
+.empresas-table td img { 
+  width: 42px; 
+  height: 42px; 
+  object-fit: contain; 
+  border-radius: 6px; 
+  background: white; 
+  padding: 2px;
+}
+
+.selector-puestos-verde { 
+background: #112d24; 
+border: 1px solid var(--green-success); 
+color: #34d399; 
+padding: 10px 12px; 
+border-radius: 6px; 
+width: 100%; 
+font-weight: bold; 
+margin-bottom: 10px; 
+font-size: .95rem; 
+}
+.manager-box { 
+background: rgba(239, 68, 68, 0.05); 
+border: 1px dashed var(--red-danger); 
+padding: 16px; 
+border-radius: 12px; 
+grid-column: 1 / -1; 
+margin-bottom: 12px;
+}
+.actions-layout { 
+display: flex; 
+gap: 10px; 
+margin-top: 10px; 
+flex-wrap: wrap; 
+} 
+.btn-edit-mode { 
+background: #f59e0b; 
+color: #111; 
+border: none; 
+padding: 8px 14px; 
+font-weight: 700; 
+border-radius: 6px; 
+display: flex; 
+align-items: center; 
+gap: 6px; 
+} 
+.btn-edit-mode:hover { background: #d97706; } 
+.btn-delete-mode { 
+background: var(--red-danger); 
+color: white; 
+border: none; 
+padding: 8px 14px; 
+font-weight: 700; 
+border-radius: 6px; 
+display: flex; 
+align-items: center; 
+gap: 6px; 
+} 
+.btn-delete-mode:hover { background: #dc2626; } 
+pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-success); padding:10px; border-radius:8px; font-size:.82rem; overflow:auto; max-height:120px; white-space:pre-wrap; display:none; }
+
+.metrics-layout { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 25px; }
+.metric-card { background: var(--card-bg); border: 1px solid var(--border-color); padding: 20px; border-radius: 12px; text-align: center; }
+.metric-val { font-size: 2.2rem; font-weight: bold; color: var(--primary-orange); margin-bottom: 4px; }
+.metric-lbl { color: var(--text-muted); font-size: 0.85rem; font-weight: 600; }
+
+.postulante-edit-container {
+  display: none; 
+  background: #161630;
+  border: 1px dashed var(--purple-ia);
+  padding: 20px;
+  border-radius: 12px;
+  margin-bottom: 25px;
+  animation: fade .3s ease;
+}
+.postulante-edit-container.open { display: block; }
+
+.log-box {
+  background: #020617;
+  border: 1px solid #1e293b;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.85rem;
+  color: #38bdf8;
+  padding: 15px;
+  border-radius: 8px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+.log-item {
+  margin-bottom: 6px;
+  border-bottom: 1px dashed #1e293b;
+  padding-bottom: 4px;
+}
+.log-time { color: #64748b; }
+.log-action { color: #f1f5f9; }
+
+/* ESTILOS PREMIUM ASISTENTE IA DE EXTRACCIÓN (Pestaña 2) */
+.drag-active {
+  border-color: #a855f7 !important;
+  background-color: rgba(168, 85, 247, 0.05) !important;
+  box-shadow: 0 0 15px rgba(168, 85, 247, 0.3) !important;
+}
+.scanner-laser {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, transparent, #c084fc, #a855f7, #c084fc, transparent);
+  box-shadow: 0 0 8px #a855f7;
+  animation: scan 2s linear infinite;
+  display: none;
+}
+@keyframes scan {
+  0% { top: 0%; }
+  50% { top: 100%; }
+  100% { top: 0%; }
+}
+.drag-active .scanner-laser {
+  display: block;
+}
+
+.btn-wa-premium {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background-color: var(--green-whatsapp);
+  color: white !important;
+  font-weight: bold;
+  font-size: 0.85rem;
+  text-decoration: none;
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: none;
+  box-shadow: 0 0 10px rgba(37, 211, 102, 0.4);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+.btn-wa-premium:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 18px rgba(37, 211, 102, 0.8);
+  background-color: #20ba5a;
+}
+.btn-wa-premium::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  border-radius: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  opacity: 0;
+  animation: glowPulse 1.8s infinite;
+}
+@keyframes glowPulse {
+  0% { transform: scale(1); opacity: 0.8; }
+  100% { transform: scale(1.15); opacity: 0; }
+}
+
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+  margin-top: 15px;
+}
+
+/* ESTILOS DE LA PESTAÑA DEMOGRÁFICA */
+#tab-tres {
+  display: none;
+  flex-direction: column;
+  gap: 24px;
+  padding: 10px 0;
+}
+#tab-tres.active {
+  display: flex;
+}
+.demo-section {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  gap: 40px;
+  background: var(--card-bg);
+  padding: 25px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+.demo-data {
+  flex: 1;
+  min-width: 280px;
+}
+.demo-data h3 {
+  margin-top: 0;
+  color: var(--white);
+  font-size: 1.3rem;
+  border-bottom: 2px solid var(--primary-orange);
+  padding-bottom: 8px;
+}
+.demo-chart {
+  flex: 1.3;
+  max-width: 500px;
+  height: 260px;
+  position: relative;
+}
+.data-list {
+  list-style: none;
+  padding: 0;
+  margin: 15px 0 0 0;
+}
+.data-list li {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-light);
+  font-size: 0.95rem;
+}
+.data-list li strong {
+  color: var(--text-muted);
+}
+
+@media (max-width: 768px) {
+  .demo-section {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 20px;
+  }
+  .demo-chart {
+    width: 100%;
+    max-width: 100%;
+    height: 220px;
+  }
+}
+</style> 
+</head> 
+<body> 
+
+<div class="admin-container"> 
+  <h1><i class="fas fa-sliders-h"></i> Panel de Administración Global</h1> 
+
+  <!-- MENÚ DE NAVEGACIÓN GLOBAL -->
+  <div class="tabs-menu"> 
+    <button class="tab-btn active" data-tab="tabPrincipal"><i class="fas fa-building"></i> 1. Registrar Empresa</button> 
+    <button class="tab-btn" data-tab="tabSecundarias"><i class="fas fa-briefcase"></i> 2. Control de Vacantes e IA</button>
+    <button class="tab-btn" data-tab="tabRegistros"><i class="fas fa-chart-line"></i> 3. Agenda y Postulantes</button>
+    <button class="tab-btn" data-tab="tab-tres"><i class="fas fa-chart-pie"></i> 4. Estadísticas Demográficas</button>
+    <button class="tab-btn" data-tab="tabReclutadores"><i class="fas fa-users-cog"></i> 5. Control de Reclutadores</button>
+    <button class="tab-btn" data-tab="tabSistemaLogs"><i class="fas fa-terminal"></i> 6. Log del Sistema</button>
+  </div>
+
+  <!-- PESTAÑA 1 -->
+  <div id="tabPrincipal" class="tab-content active">
+    <!-- API KEY GEMINI -->
+    <div class="form-admin" style="border-left: 4px solid var(--primary-orange); margin-bottom: 28px;">
+      <div class="section-divider" style="margin-top:0; border:none; padding:0;">
+        <i class="fas fa-key"></i> CONFIGURACIÓN PRINCIPAL · API KEY GEMINI (MAESTRA)
+      </div>
+      <p style="grid-column:1/-1; color:var(--text-muted); font-size:0.88rem; margin:-8px 0 12px 0;">
+        ⚠️ Esta clave controla <strong style="color:var(--primary-orange)">TODA la operación del sistema</strong>, IA, conexiones y permisos.
+      </p>
+      
+      <div class="form-group" style="grid-column: 1 / -1;">
+        <label for="geminiApiKeyInput"><i class="fas fa-shield-halved"></i> Clave API de Google Gemini</label>
+        <div style="position:relative;">
+          <input type="password" id="geminiApiKeyInput" placeholder="Pega aquí tu API Key: AIzaSy..." 
+                 style="padding-right: 110px; font-family: 'Courier New', monospace; letter-spacing: 0.5px;">
+          <button type="button" id="toggleApiKey" 
+                  style="position:absolute; right:8px; top:50%; transform:translateY(-50%); 
+                         background:transparent; border:none; color:var(--text-muted); cursor:pointer; padding:6px 10px;">
+            <i class="fas fa-eye"></i>
+          </button>
+        </div>
+      </div>
+
+      <div style="grid-column:1/-1; display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+        <button type="button" id="btnConectarApiKey" class="btn-add" style="max-width:260px;">
+          <i class="fas fa-plug"></i> Conectar / Guardar Clave
+        </button>
+        <button type="button" id="btnProbarConexion" class="btn-update-final" style="max-width:260px;">
+          <i class="fas fa-satellite-dish"></i> Probar Conexión Firebase
+        </button>
+        <span id="estadoConexionApi" style="font-size:0.85rem; color:var(--text-muted);">
+          <i class="fas fa-circle" style="color:#64748b; font-size:0.6rem;"></i> Sin conectar
+        </span>
+      </div>
+    </div>
+
+    <!-- GESTIÓN DE EMPRESAS -->
+    <div class="form-admin" style="border-left: 4px solid var(--blue-update);">
+      <div class="section-divider" style="margin-top:0; border:none; padding:0; color:var(--blue-update);">
+        <i class="fas fa-building"></i> GESTIÓN DE EMPRESAS · ALTA / EDICIÓN / BAJA
+      </div>
+
+      <div class="form-group">
+        <label for="empIdInput"><i class="fas fa-fingerprint"></i> ID Único de Empresa *</label>
+        <input type="text" id="empIdInput" placeholder="Ej: GLOVISCC, SORIANA, ARCOIRIS" 
+               style="text-transform:uppercase; font-weight:600;">
+      </div>
+
+      <div class="form-group">
+        <label for="empNombreInput"><i class="fas fa-signature"></i> Nombre Comercial *</label>
+        <input type="text" id="empNombreInput" placeholder="Ej: Hyundai Glovis">
+      </div>
+
+      <div class="form-group">
+        <label for="empTagsInput"><i class="fas fa-tags"></i> Etiquetas / TAG</label>
+        <input type="text" id="empTagsInput" placeholder="Ej: Manufactura, Logística">
+      </div>
+
+      <div class="form-group">
+        <label for="empUbicacionInput"><i class="fas fa-location-dot"></i> Ubicación Base *</label>
+        <input type="text" id="empUbicacionInput" placeholder="Ej: Ciénega de Flores, N.L.">
+      </div>
+
+      <div class="form-group" style="grid-column: 1 / -1;">
+        <label for="empLogoInput"><i class="fas fa-image"></i> URL del Logo Corporativo</label>
+        <input type="url" id="empLogoInput" placeholder="https://ejemplo.com/logo-empresa.png">
+      </div>
+
+      <div class="form-group full-width" style="background: #051612; border:1px dashed var(--green-success); border-radius:10px; padding:14px; margin-top:6px;">
+        <label style="color:var(--green-success);"><i class="fab fa-github"></i> Enlace Público de Vacantes (AUTO-GENERADO)</label>
+        <div style="display:flex; gap:10px; align-items:center; margin-top:6px; flex-wrap:wrap;">
+          <code id="empLinkGithub" style="flex:1; min-width:280px; background:#020617; color:#34d399; padding:12px 14px; border-radius:8px; font-size:0.85rem; word-break:break-all; border:1px solid #0f3d2e;">
+            https://valdomtec-arch.github.io/bolsa-trabajo-principal/vacante.html?empresa=<span id="idEmpresaSpan" style="color:var(--primary-orange); font-weight:bold;">{ID_EMPRESA}</span>
+          </code>
+          <button type="button" id="btnCopiarLink" class="btn-ia" style="background:var(--green-success); margin:0; white-space:nowrap;">
+            <i class="fas fa-copy"></i> Copiar
+          </button>
+          <a id="btnAbrirLink" href="#" target="_blank" class="btn-wa-premium" style="background:#0ea5e9; box-shadow:0 0 10px rgba(14,165,233,0.4); text-decoration:none;">
+            <i class="fas fa-external-link-alt"></i> Abrir
+          </a>
+        </div>
+      </div>
+
+      <div class="dual-buttons-layout" id="layoutBotonesEmpresa" style="grid-template-columns: repeat(3, 1fr); margin-top:14px;">
+        <button type="button" id="btnGuardarEmpresa" class="btn-add">
+          <i class="fas fa-cloud-upload-alt"></i> Guardar Empresa
+        </button>
+        <button type="button" id="btnLimpiarFormEmpresa" class="btn-update-final">
+          <i class="fas fa-eraser"></i> Limpiar Formulario
+        </button>
+        <button type="button" id="btnBorrarIdEmpresa" class="btn-delete-mode">
+          <i class="fas fa-trash-alt"></i> Borrar / Eliminar ID
+        </button>
+        <button type="button" id="btnActualizarEmpresa" class="btn-update-final" style="display:none; background:#10b981;">
+          <i class="fas fa-sync-alt"></i> Guardar Cambios
+        </button>
+        <button type="button" id="btnCancelarEdicionEmpresa" class="btn-delete-mode" style="display:none;">
+          <i class="fas fa-times"></i> Cancelar Edición
+        </button>
+      </div>
+    </div>
+
+    <!-- BUSCADOR + TABLA -->
+    <div style="margin-top:28px;">
+      <div class="search-container">
+        <i class="fas fa-search" style="color: var(--text-muted);"></i>
+        <input type="text" id="buscarEmpresaInput" placeholder="Buscar empresa...">
+        <span style="color:var(--text-muted); font-size:0.8rem; white-space:nowrap;">
+          <i class="fas fa-building"></i> <span id="contadorEmpresas">0</span> registradas
+        </span>
+      </div>
+      <div style="overflow-x: auto;">
+        <table class="empresas-table" id="tablaEmpresas">
+          <thead>
+            <tr>
+              <th style="width:70px;">Logo</th>
+              <th>ID</th>
+              <th>Nombre Comercial</th>
+              <th>Ubicación</th>
+              <th>Tags</th>
+              <th style="width:100px;">Enlace</th>
+              <th style="width:140px;">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyEmpresas"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+ <!-- PESTAÑA 2: CONTROL DE VACANTES E IA (ASISTENTE IA INTEGRADO) -->
+<div id="tabSecundarias" class="tab-content"> 
+  <div class="tab2-grid-layout">
+    
+    <!-- COLUMNA IZQUIERDA: CONFIGURACIONES Y ESCÁNER IA -->
+    <div class="sticky-column">
+      <div class="form-admin" style="margin-bottom: 15px;">
+        <div class="section-divider" style="margin-top:0;"><i class="fas fa-bullseye"></i> Configuración de Destino</div> 
+        <div class="form-group">
+          <label for="secEmpresaSelect">Selecciona Empresa Matriz:</label>
+          <select id="secEmpresaSelect">
+            <option value="">-- Elige una Empresa --</option>
+          </select>
+        </div>
+
+        <div class="manager-box" id="boxGestionVacantes" style="display:none; margin-bottom:5px;">
+          <label style="color:var(--red-danger); font-weight:bold; display:block; margin-bottom:6px;"><i class="fas fa-folder-minus"></i> Modificar o Eliminar Vacantes</label>
+          <select id="selectorVacantesEnFirebase" style="width:100%; padding:10px 12px; background:#221317; border:1px solid var(--red-danger); color:#fca5a5; border-radius:6px; outline:none;"></select>
+          <div class="actions-layout">
+            <button class="btn-edit-mode" style="padding:6px 10px; font-size:0.85rem;" id="btnCargarVacante"><i class="fas fa-edit"></i> Cargar</button>
+            <button class="btn-delete-mode" style="padding:6px 10px; font-size:0.85rem;" id="btnBorrarVacanteWeb"><i class="fas fa-trash-alt"></i> Borrar</button>
+            <button type="button" class="btn-edit-mode" style="background:#64748b; color:#fff; padding:6px 10px; font-size:0.85rem;" id="btnLimpiarVacanteForm"><i class="fas fa-eraser"></i> Limpiar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ACCORDEÓN INTEGRADO DEL ASISTENTE DE EXTRACCIÓN IA -->
+      <button class="accordion-toggle-btn" style="margin-top:0px;" onclick="window.toggleAccordionIa()">
+        <span><i class="fas fa-wand-magic-sparkles"></i> Extractor Inteligente IA Multimodal</span>
+        <i class="fas fa-chevron-down" id="accordionArrow"></i>
+      </button>
+
+      <div id="accordionIaContent" class="accordion-content">
+        <div class="ia-box" style="margin-bottom:0;">
+          <label style="color:var(--purple-ia); font-weight:bold; display:block; margin-bottom:8px;"><i class="fas fa-bezier-curve"></i> SELECCIONA EL MOTOR REQUERIDO</label>
+          <div style="display: flex; gap: 8px; margin-bottom: 15px; background: #130d22; padding: 6px; border-radius: 8px; border: 1px solid var(--purple-ia);">
+            <button type="button" class="tab-btn active" style="padding: 8px 10px; font-size: 0.8rem; margin:0;" id="btnMotorVacantes" onclick="setMotor('vacantes')"><i class="fas fa-briefcase"></i> 1. Extraer Perfil</button>
+            <button type="button" class="tab-btn" style="padding: 8px 10px; font-size: 0.8rem; margin:0;" id="btnMotorLogistica" onclick="setMotor('logistica')"><i class="fas fa-bus"></i> 2. Extraer Logística/Rutas</button>
+          </div>
+
+          <label style="color:var(--purple-ia); font-weight:bold; display:block; margin-bottom:8px;"><i class="fas fa-bolt"></i> PROCESAR DOCUMENTO O IMAGEN</label>
+          
+          <!-- Zona de Arrastre Drag & Drop para Escáner -->
+          <div id="drop-zone" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)"
+               class="border-2 border-dashed border-slate-700 hover:border-purple-500/50 rounded-xl p-6 text-center transition-all duration-300 cursor-pointer relative bg-slate-900/40"
+               style="border: 2px dashed #475569; border-radius: 10px; padding: 25px; margin-bottom:12px; text-align:center; position:relative;">
+            <div class="scanner-laser"></div>
+            <div class="space-y-3">
+              <div class="text-3xl">📄</div>
+              <div class="text-sm font-medium text-slate-300">Arrastra un documento aquí o haz clic</div>
+              <div class="text-xs text-slate-500" style="font-size:0.75rem; color:var(--text-muted);">PDF, DOCX, TXT o Imágenes</div>
+            </div>
+            <input type="file" id="file-input" onchange="handleFileSelect(event)" class="hidden" accept=".pdf,.docx,.txt,image/*" style="display:none;">
+          </div>
+
+          <div id="file-status" style="display:none; margin-bottom:12px; padding:8px 12px; background:#0d1724; border-radius:8px; border:1px solid var(--border-color); font-size:0.8rem; justify-content:space-between; align-items:center;">
+            <span id="file-name" style="color:var(--text-muted); font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:200px;">archivo.pdf</span>
+            <span id="file-size" style="color:var(--primary-orange); font-family:monospace; font-weight:bold;">0.0 MB</span>
+          </div>
+
+          <div style="display:grid; grid-template-columns: 1fr; gap:10px; margin-bottom:12px;">
+            <button type="button" class="btn-ia" id="btn-analizar" onclick="ejecutarAnalisisIA()" style="width:100%; background:linear-gradient(90deg, #8b5cf6, #6366f1); margin-top:0;" disabled>
+              <i class="fas fa-brain"></i> Analizar con IA
+            </button>
+          </div>
+
+          <!-- Panel de Previsualización Verde Dinámico -->
+          <div id="contenedorResultadoVerde" style="display:none; margin-top:10px;">
+            <label style="color:#34d399; font-weight:bold; font-size:0.85rem; display:block; margin-bottom:5px;"><i class="fas fa-list-check"></i> Elementos Detectados por IA:</label>
+            <select id="selectorVacantesDetectadas" class="selector-puestos-verde" onchange="seleccionarVacanteDetectada(this.value)"></select>
+            
+            <div class="preview-card-view">
+              <span style="font-size:0.9rem; font-weight:bold; color:white; display:block;" id="lblPreviewNombre">Nombre Vacante / Ruta</span>
+              <div class="preview-grid-mini">
+                <div class="preview-mini-item"><strong>Salario</strong><span id="lblPreviewSalario">—</span></div>
+                <div class="preview-mini-item"><strong>Edad</strong><span id="lblPreviewEdad">—</span></div>
+                <div class="preview-mini-item"><strong>Lugar</strong><span id="lblPreviewLugar">—</span></div>
+                <div class="preview-mini-item"><strong>Turnos</strong><span id="lblPreviewTurnos">—</span></div>
+              </div>
+            </div>
+
+            <pre id="codigoJsonVerde" class="json-view"></pre>
+            
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin-top:5px;">
+              <button type="button" class="btn-ia" id="btnTransferirEspacio" onclick="transferirCamposAFormulario()" style="background:var(--purple-ia); margin-top:0; font-size:0.8rem; padding:8px;"><i class="fas fa-arrow-down"></i> Copiar al Formulario</button>
+              <button type="button" class="btn-ia" id="btnSubirLoteMasivo" onclick="guardarLoteMasivo()" style="background:var(--green-success); margin-top:0; font-size:0.8rem; padding:8px;"><i class="fas fa-cloud-upload-alt"></i> Guardar Todo</button>
+            </div>
+          </div>
+
+          <textarea id="iaTextoPegar" placeholder="Estructuración de salida JSON (Lectura o procesamiento manual)..." style="width:100%; min-height:120px; margin-top:10px; border-color:var(--purple-ia); background:#1a1033; color:#e9d5ff; border-radius:6px; padding:10px; outline:none; font-size:0.82rem; font-family:monospace; resize:vertical;"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- FORMULARIO DE DETALLES DE VACANTE (COLUMNA DERECHA) -->
+    <div>
+      <div class="form-admin" style="margin-bottom:0;">
+        <div class="section-divider" style="margin-top:0;"><i class="fas fa-id-badge"></i> Identificación del Puesto</div>
+        
+        <div class="form-group"><label for="secPuestoId">ID Clave Vacante:</label><input type="text" id="secPuestoId" placeholder="Ej: ayudante-general"></div>
+        <div class="form-group"><label for="secEstatus">Estatus:</label><select id="secEstatus"><option value="disponible">✅ Activa</option><option value="no_disponible">❌ Pausada</option></select></div>
+        <div class="form-group full-width"><label for="secBannerUrl">URL Imagen Publicitaria:</label><input type="url" id="secBannerUrl" placeholder="https://..."></div>
+        
+        <div class="sub-section-title"><i class="fas fa-user-graduate"></i> Requisitos</div>
+        <div class="form-group"><label for="secVacanteNombre">Nombre Oficial:</label><input type="text" id="secVacanteNombre" placeholder="Ej: Montacarguista"></div>
+        <div class="form-group"><label for="secEdad">Edad:</label><input type="text" id="secEdad" placeholder="Ej: 18 a 50 años"></div>
+        <div class="form-group"><label for="secSexo">Género:</label><select id="secSexo"><option>Indistinto</option><option>Masculino</option><option>Femenino</option></select></div>
+        <div class="form-group"><label for="secExperiencia">Experiencia:</label><input type="text" id="secExperiencia" placeholder="Ej: Sin Experiencia"></div>
+        <div class="form-group"><label for="secEscolaridad">Escolaridad:</label><input type="text" id="secEscolaridad" placeholder="Ej: Secundaria"></div>
+        
+        <div class="sub-section-title"><i class="fas fa-hand-holding-dollar"></i> Condiciones</div>
+        <div class="form-group"><label for="secSalario">Salario:</label><input type="text" id="secSalario" placeholder="Ej: $2,400 semanal"></div>
+        <div class="form-group"><label for="secLugarOrigen">Zona Laboral:</label><input type="text" id="secLugarOrigen" placeholder="Ej: Ciénega de Flores, N.L."></div>
+        <div class="form-group"><label for="secTurnos">Turnos:</label><input type="text" id="secTurnos" placeholder="Ej: 8 hrs"></div>
+        
+        <div class="sub-section-title"><i class="fas fa-bus"></i> Transporte</div>
+        <div class="form-group full-width"><label for="secRutasTransporte">Rutas de Transporte:</label><textarea id="secRutasTransporte" placeholder="Rutas..."></textarea></div>
+
+        <div class="sub-section-title"><i class="fas fa-align-left"></i> Contenido</div>
+        <div class="form-group full-width"><label for="secActividades">Actividades:</label><textarea id="secActividades"></textarea></div>
+        <div class="form-group full-width"><label for="secBeneficios">Prestaciones:</label><textarea id="secBeneficios"></textarea></div>
+        <div class="form-group full-width"><label for="secInfoGeneral">Notas:</label><textarea id="secInfoGeneral"></textarea></div>
+
+        <div class="final-actions-grid">
+          <button type="button" class="btn-add" id="btnGuardarNuevaVacante"><i class="fas fa-cloud-upload-alt"></i> Publicar Vacante</button>
+          <button type="button" class="btn-update-final" id="btnGuardarActualizacionVacante"><i class="fas fa-sync-alt"></i> Guardar Cambios</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PESTAÑA 3: AGENDA Y REGISTROS -->
+<div id="tabRegistros" class="tab-content">
+  <div class="metrics-layout">
+    <div class="metric-card">
+      <div class="metric-val" id="totalPostulantesMetrica">0</div>
+      <div class="metric-lbl"><i class="fas fa-users"></i> Total Registrados</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-val" id="metHombres" style="color: #38bdf8;">0%</div>
+      <div class="metric-lbl"><i class="fas fa-mars"></i> Hombres</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-val" id="metMujeres" style="color: #f472b6;">0%</div>
+      <div class="metric-lbl"><i class="fas fa-venus"></i> Mujeres</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-val" id="metPromedioEdad" style="color: #a78bfa;">0</div>
+      <div class="metric-lbl"><i class="fas fa-birthday-cake"></i> Edad Promedio</div>
+    </div>
+  </div>
+
+  <!-- Gráficos analíticos de Demanda Real -->
+  <div class="charts-grid" style="margin-bottom: 25px;">
+    <div class="chart-card" style="background: var(--card-bg); padding: 20px; border-radius: 12px; border: 1px solid var(--border-color); flex: 1;">
+      <h3 style="margin-top:0; font-size: 16px; color: var(--primary-orange);"><i class="fas fa-building"></i> Top Empresas con Más Postulados</h3>
+      <div style="position: relative; height: 280px;">
+        <canvas id="chartEmpresasReales"></canvas>
+      </div>
+    </div>
+
+    <div class="chart-card" style="background: var(--card-bg); padding: 20px; border-radius: 12px; border: 1px solid var(--border-color); flex: 1;">
+      <h3 style="margin-top:0; font-size: 16px; color: var(--primary-orange);"><i class="fas fa-briefcase"></i> Demanda Real por Vacante</h3>
+      <div style="position: relative; height: 280px;">
+        <canvas id="chartVacantesReales"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Agenda -->
+  <div class="form-admin" style="grid-template-columns: 1fr; margin-bottom: 20px;">
+    <div class="section-divider" style="margin-top:0;"><i class="fas fa-calendar-alt"></i> Agenda & Filtros Rápidos</div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-bottom:12px;">
+      <button type="button" class="tab-btn" style="flex:1;" id="btnAgendaTodos" onclick="window.filtrarAgendaPorEstatus('TODOS')"><i class="fas fa-border-all"></i> Todos</button>
+      <button type="button" class="tab-btn" style="flex:1;" id="btnAgendaLunes" onclick="window.filtrarAgendaPorEstatus('Lunes')">Lunes</button>
+      <button type="button" class="tab-btn" style="flex:1;" id="btnAgendaMartes" onclick="window.filtrarAgendaPorEstatus('Martes')">Martes</button>
+      <button type="button" class="tab-btn" style="flex:1;" id="btnAgendaMiercoles" onclick="window.filtrarAgendaPorEstatus('Miércoles')">Miércoles</button>
+      <button type="button" class="tab-btn" style="flex:1;" id="btnAgendaJueves" onclick="window.filtrarAgendaPorEstatus('Jueves')">Jueves</button>
+      <button type="button" class="tab-btn" style="flex:1;" id="btnAgendaViernes" onclick="window.filtrarAgendaPorEstatus('Viernes')">Viernes</button>
+      <button type="button" class="tab-btn" style="flex:1;" id="btnAgendaSabado" onclick="window.filtrarAgendaPorEstatus('Sábado')">Sábado</button>
+    </div>
+    <div style="display: flex; gap: 12px; flex-wrap: wrap; justify-content: space-between; align-items: center;">
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <button type="button" class="btn-ia" style="background: var(--green-whatsapp); margin-top:0;" id="btnRecordatoriosMasivos"><i class="fab fa-whatsapp"></i> Recordatorios</button>
+        <button type="button" class="btn-ia" style="background: #1e293b; border: 1px solid var(--border-color); color: white; margin-top:0;" id="btnExportarExcelMasivo"><i class="fas fa-file-excel" style="color:#10b981;"></i> Excel</button>
+      </div>
+      <span id="lblFiltroAgendaActivo" style="font-size:0.85rem; color:var(--primary-orange); font-weight:bold;">Mostrando: Todos</span>
+    </div>
+  </div>
+
+  <!-- Panel de edición de Candidatos -->
+  <div class="postulante-edit-container" id="panelEdicionPostulante">
+    <input type="hidden" id="editPostulanteId">
+    <div class="form-admin" style="padding:0; background:transparent; border:none; margin-bottom:12px;">
+      <div class="form-group">
+        <label for="editPostulanteEstatus">Estatus:</label>
+        <select id="editPostulanteEstatus">
+          <option value="Pendiente">🟡 Pendiente</option>
+          <option value="Entrevista">🔵 Citado</option>
+          <option value="Contratado">🟢 Contratado</option>
+          <option value="Rechazado">🔴 Rechazado</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="editPostulanteDia">Día:</label>
+        <select id="editPostulanteDia">
+          <option value="">-- Sin Asignar --</option>
+          <option value="Lunes">Lunes</option>
+          <option value="Martes">Martes</option>
+          <option value="Miércoles">Miércoles</option>
+          <option value="Jueves">Jueves</option>
+          <option value="Viernes">Viernes</option>
+          <option value="Sábado">Sábado</option>
+        </select>
+      </div>
+      <div class="form-group"><label for="editPostulanteHora">Hora:</label><input type="time" id="editPostulanteHora"></div>
+      <div class="form-group"><label for="editPostulanteReclutador">Reclutador:</label><select id="editPostulanteReclutador"><option value="">-- Sin Reclutador --</option></select></div>
+      <div class="form-group full-width"><label for="editPostulanteNotas">Notas:</label><textarea id="editPostulanteNotas"></textarea></div>
+    </div>
+    <div style="display:flex; gap:10px;">
+      <button type="button" class="btn-update-final" id="btnGuardarCambiosPostulante" style="background:var(--purple-ia);"><i class="fas fa-check"></i> Actualizar</button>
+      <button type="button" class="btn-delete-mode" id="btnCerrarEdicionPostulante"><i class="fas fa-times"></i> Cancelar</button>
+    </div>
+  </div>
+
+  <div class="search-container"><i class="fas fa-search" style="color: var(--text-muted);"></i><input type="text" id="buscarPostulanteInput" placeholder="Buscar postulante..."></div>
+  <div style="overflow-x: auto;">
+    <table class="empresas-table" id="tablaPostulantes">
+      <thead>
+        <tr>
+          <th>Candidato</th>
+          <th>Contacto</th>
+          <th>Vacante / Origen</th>
+          <th>Edad / Sexo</th>
+          <th>Estatus</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tbodyPostulantes"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- PESTAÑA 4 - ESTADÍSTICAS DEMOGRÁFICAS -->
+<div id="tab-tres" class="tab-content">
+  <!-- Sección Candidatos -->
+  <div class="demo-section">
+    <div class="demo-data">
+      <h3><i class="fas fa-users"></i> Demografía de Candidatos</h3>
+      <ul class="data-list">
+        <li><strong>Total Registrados:</strong> <span id="cand-total" style="font-weight:bold; color:var(--primary-orange);">0</span></li>
+        <li><strong>Edad Promedio:</strong> <span id="cand-edad" style="font-weight:bold; color:#a78bfa;">0 años</span></li>
+        <li><strong>Ubicación de Mayor Demanda:</strong> <span id="cand-ubicacion" style="font-weight:bold; color:#10b981;">No especificada</span></li>
+      </ul>
+    </div>
+    <div class="demo-chart">
+      <canvas id="chartCandidatos"></canvas>
+    </div>
+  </div>
+
+  <!-- Sección Vacantes -->
+  <div class="demo-section">
+    <div class="demo-data">
+      <h3><i class="fas fa-briefcase"></i> Análisis Real de Vacantes</h3>
+      <ul class="data-list">
+        <li><strong>Estatus Vacantes:</strong> <span id="vac-activas" style="font-weight:bold; color:#38bdf8;">0 activas</span></li>
+        <li><strong>Vacante más Solicitada:</strong> <span id="vac-area" style="font-weight:bold; color:var(--primary-orange);">Ninguna</span></li>
+        <li><strong>Demanda de la Top Vacante:</strong> <span id="vac-sueldo" style="font-weight:bold; color:#10b981;">0 postulantes</span></li>
+      </ul>
+    </div>
+    <div class="demo-chart">
+      <canvas id="chartVacantes"></canvas>
+    </div>
+  </div>
+
+  <!-- Sección Empresas -->
+  <div class="demo-section">
+    <div class="demo-data">
+      <h3><i class="fas fa-building"></i> Tráfico Real por Empresa</h3>
+      <ul class="data-list">
+        <li><strong>Empresas en Sistema:</strong> <span id="emp-total" style="font-weight:bold; color:#38bdf8;">0</span></li>
+        <li><strong>Empresa con Mayor Tráfico:</strong> <span id="emp-giro" style="font-weight:bold; color:var(--primary-orange);">Ninguna</span></li>
+        <li><strong>Postulantes en Top Empresa:</strong> <span id="emp-region" style="font-weight:bold; color:#10b981;">0 postulantes</span></li>
+      </ul>
+    </div>
+    <div class="demo-chart">
+      <canvas id="chartEmpresas"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- PESTAÑA 5: RECLUTADORES -->
+<div id="tabReclutadores" class="tab-content">
+  <div class="form-admin">
+    <div class="section-divider" style="margin-top:0;"><i class="fas fa-user-plus"></i> Registrar Nuevo Reclutador</div>
+    <div class="form-group"><label for="recIdInput">ID Reclutador</label><input type="text" id="recIdInput" placeholder="Ej: REC01"></div>
+    <div class="form-group"><label for="recNombreInput">Nombre Completo</label><input type="text" id="recNombreInput" placeholder="Ej: Carlos Mendoza"></div>
+    <div class="form-group"><label for="recTelefonoInput">Teléfono</label><input type="tel" id="recTelefonoInput" placeholder="Ej: 8119876543"></div>
+    <div class="form-group"><label for="recEstatusSelect">Estatus</label><select id="recEstatusSelect"><option value="activo">✅ Activo</option><option value="inactivo">❌ Inactivo</option></select></div>
+    <div class="dual-buttons-layout">
+      <button type="button" id="btnGuardarReclutador" class="btn-add"><i class="fas fa-user-check"></i> Registrar</button>
+      <button type="button" id="btnActualizarReclutador" class="btn-update-final" style="display:none;"><i class="fas fa-user-edit"></i> Cambios</button>
+      <button type="button" id="btnCancelarEdicionReclutador" class="btn-delete-mode" style="display:none;"><i class="fas fa-times"></i> Cancelar</button>
+    </div>
+  </div>
+  <div class="search-container"><i class="fas fa-search" style="color: var(--text-muted);"></i><input type="text" id="buscarReclutadorInput" placeholder="Buscar..."></div>
+  <div style="overflow-x: auto;">
+    <table class="empresas-table" id="tablaReclutadores">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Nombre</th>
+          <th>CURP</th>
+          <th>Teléfono</th>
+          <th>Estatus</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tbodyReclutadores"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- PESTAÑA 6: AUDITORÍA -->
+<div id="tabSistemaLogs" class="tab-content">
+  <div class="form-admin" style="grid-template-columns: 1fr; margin-bottom: 15px;">
+    <div class="section-divider" style="margin-top:0;"><i class="fas fa-terminal"></i> Auditoría Operativa</div>
+    <div style="display: flex; gap: 10px; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+      <p style="margin: 0; font-size: 0.88rem; color: var(--text-muted);">Monitoreo en tiempo real de Firebase.</p>
+      <button type="button" class="btn-delete-mode" style="padding: 8px 14px; font-size: 0.82rem;" id="btnLimpiarLogsPantalla"><i class="fas fa-trash-sweep"></i> Limpiar</button>
+    </div>
+  </div>
+  <div class="log-box" id="consolaSistemaLogs">
+    <div class="log-item">
+      <span class="log-time">[SISTEMA]</span> 
+      <span class="log-action" style="color: var(--green-success);">Iniciado...</span>
+    </div>
+  </div>
+</div>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+<script>
+// ==============================================
+// VARIABLES GLOBALES (TODAS LAS FUNCIONES ACCEDEN)
+// ==============================================
+let db;
+let listaEmpresasGlobal = [];
+let listaVacantesGlobal = [];
+let listaReclutadoresGlobal = [];
+let listaPostulantesGlobal = [];
+let idEmpresaEdicionActiva = null;
+let idReclutadorEdicionActiva = null;
+let filtroAgendaActual = 'TODOS';
+const BASE_URL_GITHUB = 'https://valdomtec-arch.github.io/bolsa-trabajo-principal/vacante.html?empresa=';
+const LOGO_POR_DEFECTO = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="%23ff6600"><rect width="64" height="64" rx="12"/><text x="50%25" y="55%25" font-size="32" text-anchor="middle" fill="white" font-family="Arial" font-weight="bold">E</text></svg>';
+
+// Motores e instancias IA
+let activeMotor = 'vacantes'; 
+let analyzedDataLote = []; 
+let fileTextContent = ''; 
+
+// Instancias de Gráficos de Pestaña 4 y Pestaña 3
+let chartCandidatosInst = null, chartVacantesInst = null, chartEmpresasInst = null;
+let chartEmpresasRealesInst = null, chartVacantesRealesInst = null;
+
+// ==============================================
+// FUNCIONAMIENTO DE PESTAÑAS (100% CORREGIDO)
+// ==============================================
+function inicializarNavegacionTabs() {
+  const botonesTab = document.querySelectorAll('.tabs-menu .tab-btn');
+  const contenedoresTab = document.querySelectorAll('.tab-content');
+  
+  botonesTab.forEach(boton => {
+    boton.addEventListener('click', () => {
+      botonesTab.forEach(b => b.classList.remove('active'));
+      contenedoresTab.forEach(c => c.classList.remove('active'));
+      
+      boton.classList.add('active');
+      const tabTarget = boton.getAttribute('data-tab');
+      const contenedorActivo = document.getElementById(tabTarget);
+      
+      if (contenedorActivo) {
+        contenedorActivo.classList.add('active');
+        registrarLogSistema("Navegación", `Cambio a pestaña: ${tabTarget}`);
+        
+        setTimeout(() => {
+          if (tabTarget === 'tab-tres' && typeof renderizarEstadisticasPestañaTres === 'function') {
+            renderizarEstadisticasPestañaTres();
+          }
+          if (tabTarget === 'tabRegistros') {
+            calcularMetricasDemograficas();
+            renderizarTablaPostulantes();
+            renderizarGraficosPestañaTres();
+          }
+        }, 100);
+      }
+    });
+  });
+}
+
+// ==============================================
+// GESTOR DE ACORDEÓN IA
+// ==============================================
+window.toggleAccordionIa = function() {
+  const content = document.getElementById('accordionIaContent');
+  const arrow = document.getElementById('accordionArrow');
+  if (!content) return;
+  content.classList.toggle('open');
+  if (content.classList.contains('open')) {
+    arrow.className = 'fas fa-chevron-up';
+  } else {
+    arrow.className = 'fas fa-chevron-down';
+  }
+}
+
+// ==============================================
+// ASISTENTE IA DE EXTRACCIÓN (MOTOR Y ARCHIVOS)
+// ==============================================
+function setMotor(motor) {
+  activeMotor = motor;
+  const btnVac = document.getElementById('btnMotorVacantes');
+  const btnLog = document.getElementById('btnMotorLogistica');
+  
+  if (motor === 'vacantes') {
+    btnVac.classList.add('active');
+    btnLog.classList.remove('active');
+  } else {
+    btnLog.classList.add('active');
+    btnVac.classList.remove('active');
+  }
+  registrarLogSistema("Extractor IA", `Cambio de Motor a: ${motor.toUpperCase()}`);
+}
+
+function handleDragOver(e) {
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.add('drag-active');
+}
+
+function handleDragLeave(e) {
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.remove('drag-active');
+}
+
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.remove('drag-active');
+  const files = e.dataTransfer.files;
+  if (files.length > 0) {
+    procesarArchivoLocal(files[0]);
+  }
+}
+
+function handleFileSelect(e) {
+  const files = e.target.files;
+  if (files.length > 0) {
+    procesarArchivoLocal(files[0]);
+  }
+}
+
+// Lector de Documentos (PDF, DOCX, TXT)
+function procesarArchivoLocal(file) {
+  const statusDiv = document.getElementById('file-status');
+  const nameSpan = document.getElementById('file-name');
+  const sizeSpan = document.getElementById('file-size');
+  const btnAnalizar = document.getElementById('btn-analizar');
+
+  statusDiv.style.display = 'flex';
+  nameSpan.textContent = file.name;
+  sizeSpan.textContent = (file.size / (1024 * 1024)).toFixed(2) + ' MB';
+  
+  const reader = new FileReader();
+  
+  if (file.type === "application/pdf") {
+    reader.onload = function() {
+      const typedarray = new Uint8Array(this.result);
+      pdfjsLib.getDocument(typedarray).promise.then(pdf => {
+        let maxPages = pdf.numPages;
+        let countPromises = [];
+        for (let j = 1; j <= maxPages; j++) {
+          let pagePromise = pdf.getPage(j).then(page => {
+            return page.getTextContent().then(textContent => {
+              return textContent.items.map(item => item.str).join(' ');
+            });
+          });
+          countPromises.push(pagePromise);
+        }
+        Promise.all(countPromises).then(texts => {
+          fileTextContent = texts.join('\n');
+          btnAnalizar.disabled = false;
+          registrarLogSistema("Extractor Lector", `PDF leído con éxito. Caracteres: ${fileTextContent.length}`);
+        });
+      });
+    };
+    reader.readAsArrayBuffer(file);
+  } 
+  else if (file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
+    reader.onload = function(loadEvent) {
+      mammoth.extractRawText({ arrayBuffer: loadEvent.target.result })
+        .then(function(result) {
+          fileTextContent = result.value;
+          btnAnalizar.disabled = false;
+          registrarLogSistema("Extractor Lector", `DOCX leído. Caracteres: ${fileTextContent.length}`);
+        });
+    };
+    reader.readAsArrayBuffer(file);
+  } 
+  else {
+    reader.onload = function(e) {
+      fileTextContent = e.target.result;
+      btnAnalizar.disabled = false;
+      registrarLogSistema("Extractor Lector", `Texto / Imagen cargada.`);
+    };
+    reader.readAsText(file);
+  }
+}
+
+// Consumo directo de la API de Google Gemini en Frontend
+async function ejecutarAnalisisIA() {
+  const apiKey = localStorage.getItem('apiKeyGemini');
+  if (!apiKey) return alert("❌ Configura y guarda tu API Key en la Pestaña 1 primero.");
+  
+  const btn = document.getElementById('btn-analizar');
+  btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Procesando...';
+  btn.disabled = true;
+
+  const promptVacantes = `Analiza el siguiente perfil laboral y devuelve un array JSON estructurado de objetos vacante. Devuelve ÚNICAMENTE el JSON como texto plano.
+Cada objeto debe tener la estructura:
+{
+  "puestoId": "id-unico-minusculas-sin-espacios",
+  "nombreVacante": "Nombre Oficial de la Vacante",
+  "salario": "Sueldo/salario especificado",
+  "edad": "Rango de edad",
+  "sexo": "Indistinto, Masculino o Femenino",
+  "experiencia": "Experiencia requerida",
+  "escolaridad": "Escolaridad requerida",
+  "lugarOrigen": "Ubicación del trabajo",
+  "turnos": "Horarios o turnos",
+  "rutasTransporte": "Listado de transportes o rutas si aplican",
+  "actividades": "Actividades a realizar",
+  "beneficios": "Prestaciones y beneficios",
+  "infoGeneral": "Notas extra"
+}`;
+
+  const promptLogistica = `Analiza la siguiente información de transporte laboral o logística corporativa y extrae las rutas. Devuelve ÚNICAMENTE un array JSON estructurado de objetos.
+Cada objeto debe tener la estructura:
+{
+  "puestoId": "id-ruta-minusculas",
+  "nombreVacante": "Nombre de la Ruta de Transporte",
+  "salario": "No aplica",
+  "edad": "No aplica",
+  "sexo": "Indistinto",
+  "experiencia": "No aplica",
+  "escolaridad": "No aplica",
+  "lugarOrigen": "Destino o zona base",
+  "turnos": "Turnos que cubre",
+  "rutasTransporte": "Detalle completo del itinerario y paradas de la ruta",
+  "actividades": "Especificaciones técnicas de transporte",
+  "beneficios": "No aplica",
+  "infoGeneral": "Notas extra"
+}`;
+
+  const instruction = activeMotor === 'vacantes' ? promptVacantes : promptLogistica;
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: `${instruction}\n\nTexto a analizar:\n${fileTextContent}` }] }]
+      })
+    });
+
+    const data = await response.json();
+    let textResult = data.candidates[0].content.parts[0].text;
+    
+    // Limpiar bloques de código markdown
+    textResult = textResult.replace(/```json/g, '').replace(/```/g, '').trim();
+    
+    document.getElementById('iaTextoPegar').value = textResult;
+    document.getElementById('codigoJsonVerde').textContent = textResult;
+    document.getElementById('codigoJsonVerde').style.display = 'block';
+
+    analyzedDataLote = JSON.parse(textResult);
+    actualizarSelectorLoteDetectado();
+    
+    document.getElementById('contenedorResultadoVerde').style.display = 'block';
+    registrarLogSistema("Extractor IA", "Estructuración completada con éxito.");
+
+  } catch (err) {
+    alert("Error al procesar con Gemini. Revisa la consola y tu API Key.");
+    console.error(err);
+  } finally {
+    btn.innerHTML = '<i class="fas fa-brain"></i> Analizar con IA';
+    btn.disabled = false;
+  }
+}
+
+function actualizarSelectorLoteDetectado() {
+  const select = document.getElementById('selectorVacantesDetectadas');
+  if (!select) return;
+  select.innerHTML = '';
+  
+  const array = Array.isArray(analyzedDataLote) ? analyzedDataLote : [analyzedDataLote];
+  array.forEach((item, index) => {
+    const opt = document.createElement('option');
+    opt.value = index;
+    opt.textContent = `[${item.puestoId || index}] ${item.nombreVacante || 'Sin Nombre'}`;
+    select.appendChild(opt);
+  });
+  
+  if (array.length > 0) seleccionarVacanteDetectada(0);
+}
+
+function seleccionarVacanteDetectada(index) {
+  const array = Array.isArray(analyzedDataLote) ? analyzedDataLote : [analyzedDataLote];
+  const item = array[index];
+  if (!item) return;
+
+  document.getElementById('lblPreviewNombre').textContent = item.nombreVacante || 'Sin Nombre';
+  document.getElementById('lblPreviewSalario').textContent = item.salario || '—';
+  document.getElementById('lblPreviewEdad').textContent = item.edad || '—';
+  document.getElementById('lblPreviewLugar').textContent = item.lugarOrigen || '—';
+  document.getElementById('lblPreviewTurnos').textContent = item.turnos || '—';
+}
+
+function transferirCamposAFormulario() {
+  const select = document.getElementById('selectorVacantesDetectadas');
+  const index = parseInt(select.value, 10);
+  const array = Array.isArray(analyzedDataLote) ? analyzedDataLote : [analyzedDataLote];
+  const item = array[index];
+  if (!item) return;
+
+  document.getElementById('secPuestoId').value = item.puestoId || '';
+  document.getElementById('secVacanteNombre').value = item.nombreVacante || '';
+  document.getElementById('secEdad').value = item.edad || '';
+  document.getElementById('secSexo').value = item.sexo || 'Indistinto';
+  document.getElementById('secExperiencia').value = item.experiencia || '';
+  document.getElementById('secEscolaridad').value = item.escolaridad || '';
+  document.getElementById('secSalario').value = item.salario || '';
+  document.getElementById('secLugarOrigen').value = item.lugarOrigen || '';
+  document.getElementById('secTurnos').value = item.turnos || '';
+  document.getElementById('secRutasTransporte').value = item.rutasTransporte || '';
+  document.getElementById('secActividades').value = item.actividades || '';
+  document.getElementById('secBeneficios').value = item.beneficios || '';
+  document.getElementById('secInfoGeneral').value = item.infoGeneral || '';
+
+  registrarLogSistema("Extractor IA", "Campos transferidos al formulario lineal.");
+}
+
+async function guardarLoteMasivo() {
+  const selectEmpresa = document.getElementById('secEmpresaSelect');
+  const idEmpresa = selectEmpresa.value;
+  if (!idEmpresa) return alert("❌ Selecciona una Empresa Matriz de destino primero.");
+  if (!db) return alert("❌ Firebase no conectado.");
+  
+  const array = Array.isArray(analyzedDataLote) ? analyzedDataLote : [analyzedDataLote];
+  if (array.length === 0) return alert("❌ No hay datos que guardar.");
+
+  try {
+    for (let item of array) {
+      const keyId = item.puestoId || 'vacante-indefinida';
+      await db.ref(`vacantes_detalles/${idEmpresa}/${keyId}`).set({
+        estatus: 'disponible',
+        nombreVacante: item.nombreVacante || '',
+        edad: item.edad || '',
+        sexo: item.sexo || 'Indistinto',
+        experiencia: item.experiencia || '',
+        escolaridad: item.escolaridad || '',
+        salario: item.salario || '',
+        lugarOrigen: item.lugarOrigen || '',
+        turnos: item.turnos || '',
+        rutasTransporte: item.rutasTransporte || '',
+        actividades: item.actividades || '',
+        beneficios: item.beneficios || '',
+        infoGeneral: item.infoGeneral || '',
+        bannerUrl: ''
+      });
+    }
+    alert("✅ Lote masivo guardado en Firebase exitosamente.");
+    registrarLogSistema("Extractor IA", `Lote masivo de ${array.length} vacantes guardado.`);
+    document.getElementById('contenedorResultadoVerde').style.display = 'none';
+  } catch (err) {
+    alert("Error al guardar en lote: " + err.message);
+  }
+}
+
+// ==============================================
+// GESTIÓN DE VACANTES LINEAL (GUARDAR / MODIFICAR)
+// ==============================================
+function registrarEventosVacantesForm() {
+  document.getElementById('btnGuardarNuevaVacante').addEventListener('click', () => {
+    const emp = document.getElementById('secEmpresaSelect').value;
+    const puesto = document.getElementById('secPuestoId').value.trim();
+    if (!emp || !puesto) return alert("❌ Selecciona Empresa e introduce ID Clave de Vacante");
+    
+    const datos = {
+      estatus: document.getElementById('secEstatus').value,
+      bannerUrl: document.getElementById('secBannerUrl').value.trim(),
+      nombreVacante: document.getElementById('secVacanteNombre').value.trim(),
+      edad: document.getElementById('secEdad').value.trim(),
+      sexo: document.getElementById('secSexo').value,
+      experiencia: document.getElementById('secExperiencia').value.trim(),
+      escolaridad: document.getElementById('secEscolaridad').value.trim(),
+      salario: document.getElementById('secSalario').value.trim(),
+      lugarOrigen: document.getElementById('secLugarOrigen').value.trim(),
+      turnos: document.getElementById('secTurnos').value.trim(),
+      rutasTransporte: document.getElementById('secRutasTransporte').value.trim(),
+      actividades: document.getElementById('secActividades').value.trim(),
+      beneficios: document.getElementById('secBeneficios').value.trim(),
+      infoGeneral: document.getElementById('secInfoGeneral').value.trim()
+    };
+
+    if (db) db.ref(`vacantes_detalles/${emp}/${puesto}`).set(datos).then(() => {
+      alert('✅ Vacante publicada exitosamente.');
+      registrarLogSistema("Vacantes", `Publicada: ${puesto} en ${emp}`);
+    });
+  });
+
+  document.getElementById('btnCargarVacante').addEventListener('click', () => {
+    const selector = document.getElementById('selectorVacantesEnFirebase').value;
+    if (!selector) return alert("❌ Selecciona una vacante primero.");
+    
+    const vacante = listaVacantesGlobal.find(v => v.idFirebase === selector);
+    if (!vacante) return;
+
+    document.getElementById('secPuestoId').value = vacante.idClave || '';
+    document.getElementById('secEstatus').value = vacante.estatus || 'disponible';
+    document.getElementById('secBannerUrl').value = vacante.bannerUrl || '';
+    document.getElementById('secVacanteNombre').value = vacante.nombreVacante || '';
+    document.getElementById('secEdad').value = vacante.edad || '';
+    document.getElementById('secSexo').value = vacante.sexo || 'Indistinto';
+    document.getElementById('secExperiencia').value = vacante.experiencia || '';
+    document.getElementById('secEscolaridad').value = vacante.escolaridad || '';
+    document.getElementById('secSalario').value = vacante.salario || '';
+    document.getElementById('secLugarOrigen').value = vacante.lugarOrigen || '';
+    document.getElementById('secTurnos').value = vacante.turnos || '';
+    document.getElementById('secRutasTransporte').value = vacante.rutasTransporte || '';
+    document.getElementById('secActividades').value = vacante.actividades || '';
+    document.getElementById('secBeneficios').value = vacante.beneficios || '';
+    document.getElementById('secInfoGeneral').value = vacante.infoGeneral || '';
+
+    registrarLogSistema("Vacantes", `Cargada para edición: ${vacante.idClave}`);
+  });
+
+  document.getElementById('btnGuardarActualizacionVacante').addEventListener('click', () => {
+    const emp = document.getElementById('secEmpresaSelect').value;
+    const puesto = document.getElementById('secPuestoId').value.trim();
+    if (!emp || !puesto) return alert("❌ No hay vacante cargada para actualizar.");
+
+    const datos = {
+      estatus: document.getElementById('secEstatus').value,
+      bannerUrl: document.getElementById('secBannerUrl').value.trim(),
+      nombreVacante: document.getElementById('secVacanteNombre').value.trim(),
+      edad: document.getElementById('secEdad').value.trim(),
+      sexo: document.getElementById('secSexo').value,
+      experiencia: document.getElementById('secExperiencia').value.trim(),
+      escolaridad: document.getElementById('secEscolaridad').value.trim(),
+      salario: document.getElementById('secSalario').value.trim(),
+      lugarOrigen: document.getElementById('secLugarOrigen').value.trim(),
+      turnos: document.getElementById('secTurnos').value.trim(),
+      rutasTransporte: document.getElementById('secRutasTransporte').value.trim(),
+      actividades: document.getElementById('secActividades').value.trim(),
+      beneficios: document.getElementById('secBeneficios').value.trim(),
+      infoGeneral: document.getElementById('secInfoGeneral').value.trim()
+    };
+
+    if (db) db.ref(`vacantes_detalles/${emp}/${puesto}`).update(datos).then(() => {
+      alert('✅ Vacante actualizada de forma permanente.');
+      registrarLogSistema("Vacantes", `Actualizada: ${puesto} en ${emp}`);
+    });
+  });
+
+  document.getElementById('btnBorrarVacanteWeb').addEventListener('click', () => {
+    const emp = document.getElementById('secEmpresaSelect').value;
+    const selector = document.getElementById('selectorVacantesEnFirebase').value;
+    if (!emp || !selector) return alert("❌ Selecciona la vacante a eliminar.");
+    
+    const vacante = listaVacantesGlobal.find(v => v.idFirebase === selector);
+    if (!vacante) return;
+
+    if (confirm(`¿Eliminar vacante "${vacante.idClave}" de ${emp}?`)) {
+      db.ref(`vacantes_detalles/${emp}/${vacante.idClave}`).remove().then(() => {
+        alert('🗑️ Vacante eliminada de Firebase.');
+        registrarLogSistema("Vacantes", `Eliminada: ${vacante.idClave} en ${emp}`);
+      });
+    }
+  });
+
+  document.getElementById('btnLimpiarVacanteForm').addEventListener('click', () => {
+    ['secPuestoId', 'secBannerUrl', 'secVacanteNombre', 'secEdad', 'secExperiencia', 
+     'secEscolaridad', 'secSalario', 'secLugarOrigen', 'secTurnos', 'secRutasTransporte', 
+     'secActividades', 'secBeneficios', 'secInfoGeneral'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+  });
+}
+
+// ============================================================
+// PESTAÑA 3 - GRÁFICOS ANALÍTICOS DEMOGRÁFICOS REALES
+// ============================================================
+window.renderizarGraficosPestañaTres = function() {
+  const conteoEmpresas = {};
+  listaPostulantesGlobal.forEach(p => {
+    const emp = (p.empresa || p.empresaId || "Sin especificar").toString().trim();
+    conteoEmpresas[emp] = (conteoEmpresas[emp] || 0) + 1;
+  });
+  
+  const empresasOrdenadas = Object.entries(conteoEmpresas).sort((a, b) => b[1] - a[1]);
+  const labelsEmp = empresasOrdenadas.slice(0, 5).map(e => e[0]);
+  const dataEmp = empresasOrdenadas.slice(0, 5).map(e => e[1]);
+  
+  const ctxEmpReales = document.getElementById('chartEmpresasReales');
+  if (ctxEmpReales) {
+    if (chartEmpresasRealesInst) chartEmpresasRealesInst.destroy();
+    chartEmpresasRealesInst = new Chart(ctxEmpReales, {
+      type: 'bar',
+      data: {
+        labels: labelsEmp.length ? labelsEmp : ["Sin Datos"],
+        datasets: [{
+          label: 'Postulantes',
+          data: dataEmp.length ? dataEmp : [0],
+          backgroundColor: '#ff6600',
+          borderRadius: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: '#94a3b8' } },
+          y: { beginAtZero: true, ticks: { color: '#94a3b8', stepSize: 1 } }
+        }
+      }
+    });
+  }
+
+  const conteoVacantes = {};
+  listaPostulantesGlobal.forEach(p => {
+    const vac = (p.vacanteInteres || p.vacante || "Sin especificar").toString().toUpperCase().trim();
+    conteoVacantes[vac] = (conteoVacantes[vac] || 0) + 1;
+  });
+  
+  const vacantesOrdenadas = Object.entries(conteoVacantes).sort((a, b) => b[1] - a[1]);
+  const labelsVac = vacantesOrdenadas.slice(0, 5).map(v => v[0]);
+  const dataVac = vacantesOrdenadas.slice(0, 5).map(v => v[1]);
+  
+  const ctxVacReales = document.getElementById('chartVacantesReales');
+  if (ctxVacReales) {
+    if (chartVacantesRealesInst) chartVacantesRealesInst.destroy();
+    chartVacantesRealesInst = new Chart(ctxVacReales, {
+      type: 'bar',
+      data: {
+        labels: labelsVac.length ? labelsVac : ["Sin Datos"],
+        datasets: [{
+          label: 'Postulantes',
+          data: dataVac.length ? dataVac : [0],
+          backgroundColor: '#8b5cf6',
+          borderRadius: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: '#94a3b8' } },
+          y: { beginAtZero: true, ticks: { color: '#94a3b8', stepSize: 1 } }
+        }
+      }
+    });
+  }
+};
+
+// ============================================================
+// PESTAÑA 4 - ESTADÍSTICAS DEMOGRÁFICAS (CONTEOS REALES)
+// ============================================================
+window.renderizarEstadisticasPestañaTres = function() {
+    const totalCand = listaPostulantesGlobal.length;
+    let hombres = 0, mujeres = 0, sumaEdades = 0, conteoEdades = 0;
+    let ciudades = {};
+    
+    listaPostulantesGlobal.forEach(p => {
+        const gen = p.sexo ? p.sexo.toLowerCase().trim() : '';
+        if (gen.includes('masc') || gen === 'm' || gen === 'hombre' || gen === 'masculino') hombres++;
+        else if (gen.includes('fem') || gen === 'f' || gen === 'mujer' || gen === 'femenino') mujeres++;
+        
+        const edad = parseInt(p.edad, 10);
+        if (!isNaN(edad)) { sumaEdades += edad; conteoEdades++; }
+        
+        const ciudad = p.direccion || p.origen || "No especificada";
+        ciudades[ciudad] = (ciudades[ciudad] || 0) + 1;
+    });
+    
+    const edadPromedio = conteoEdades > 0 ? Math.round(sumaEdades / conteoEdades) : 0;
+    let ubicacionPrincipal = "No especificada";
+    let maxUbi = 0;
+    for (let key in ciudades) {
+        if (ciudades[key] > maxUbi) { maxUbi = ciudades[key]; ubicacionPrincipal = key; }
+    }
+    
+    document.getElementById('cand-total').textContent = totalCand;
+    document.getElementById('cand-edad').textContent = `${edadPromedio} años`;
+    document.getElementById('cand-ubicacion').textContent = ubicacionPrincipal;
+    
+    const ctxCand = document.getElementById('chartCandidatos');
+    if (ctxCand) {
+        if (chartCandidatosInst) chartCandidatosInst.destroy();
+        chartCandidatosInst = new Chart(ctxCand, {
+            type: 'doughnut',
+            data: {
+                labels: ['Hombres', 'Mujeres'],
+                datasets: [{
+                    data: [hombres, mujeres],
+                    backgroundColor: ['#38bdf8', '#f472b6'],
+                    borderColor: '#18273c',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { labels: { color: '#f1f5f9' } } }
+            }
+        });
+    }
+
+    const conteoVacantes = {};
+    listaPostulantesGlobal.forEach(p => {
+        const vacante = (p.vacanteInteres || p.vacante || "Sin especificar").toString().toUpperCase().trim();
+        conteoVacantes[vacante] = (conteoVacantes[vacante] || 0) + 1;
+    });
+    
+    const vacantesOrdenadas = Object.entries(conteoVacantes).sort((a, b) => b[1] - a[1]);
+    const totalVacantesSistema = listaVacantesGlobal.length;
+    const vacantesActivas = listaVacantesGlobal.filter(v => v.estatus === 'disponible').length;
+    const vacanteTop = vacantesOrdenadas[0] ? vacantesOrdenadas[0][0] : "Sin datos";
+    const vacanteTopCantidad = vacantesOrdenadas[0] ? vacantesOrdenadas[0][1] : 0;
+    
+    document.getElementById('vac-activas').textContent = `${vacantesActivas} de ${totalVacantesSistema} totales`;
+    document.getElementById('vac-area').textContent = vacanteTop;
+    document.getElementById('vac-sueldo').textContent = `${vacanteTopCantidad} postulantes`;
+    
+    const topVacantesLabels = vacantesOrdenadas.slice(0, 7).map(v => v[0]);
+    const topVacantesData = vacantesOrdenadas.slice(0, 7).map(v => v[1]);
+    
+    const ctxVac = document.getElementById('chartVacantes');
+    if (ctxVac) {
+        if (chartVacantesInst) chartVacantesInst.destroy();
+        chartVacantesInst = new Chart(ctxVac, {
+            type: 'bar',
+            data: {
+                labels: topVacantesLabels.length ? topVacantesLabels : ["Sin datos aún"],
+                datasets: [{
+                    label: 'Cantidad de Postulantes',
+                    data: topVacantesData.length ? topVacantesData : [0],
+                    backgroundColor: [
+                        'rgba(255, 102, 0, 0.9)',
+                        'rgba(139, 92, 246, 0.85)',
+                        'rgba(16, 185, 129, 0.85)',
+                        'rgba(56, 189, 248, 0.85)',
+                        'rgba(244, 114, 182, 0.85)',
+                        'rgba(245, 158, 11, 0.85)',
+                        'rgba(239, 68, 68, 0.85)'
+                    ],
+                    borderRadius: 6,
+                    borderSkipped: false
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    x: { beginAtZero: true, ticks: { color: '#94a3b8', stepSize: 1 } },
+                    y: { ticks: { color: '#f1f5f9', font: { size: 11 } } }
+                }
+            }
+        });
+    }
+
+    const conteoEmpresas = {};
+    listaPostulantesGlobal.forEach(p => {
+        const empresa = (p.empresa || p.empresaId || "Sin especificar").toString().trim();
+        conteoEmpresas[empresa] = (conteoEmpresas[empresa] || 0) + 1;
+    });
+    
+    const empresasOrdenadas = Object.entries(conteoEmpresas).sort((a, b) => b[1] - a[1]);
+    const totalEmpresas = listaEmpresasGlobal.length;
+    const empresaTop = empresasOrdenadas[0] ? empresasOrdenadas[0][0] : "Sin datos";
+    const empresaTopCantidad = empresasOrdenadas[0] ? empresasOrdenadas[0][1] : 0;
+    
+    document.getElementById('emp-total').textContent = `${totalEmpresas} aliadas`;
+    document.getElementById('emp-giro').textContent = empresaTop;
+    document.getElementById('emp-region').textContent = `${empresaTopCantidad} postulantes`;
+    
+    const topEmpresasLabels = empresasOrdenadas.slice(0, 5).map(e => e[0]);
+    const topEmpresasData = empresasOrdenadas.slice(0, 5).map(e => e[1]);
+    
+    const ctxEmp = document.getElementById('chartEmpresas');
+    if (ctxEmp) {
+        if (chartEmpresasInst) chartEmpresasInst.destroy();
+        chartEmpresasInst = new Chart(ctxEmp, {
+            type: 'doughnut',
+            data: {
+                labels: topEmpresasLabels.length ? topEmpresasLabels : ["Sin datos aún"],
+                datasets: [{
+                    data: topEmpresasData.length ? topEmpresasData : [1],
+                    backgroundColor: ['#ff6600', '#8b5cf6', '#10b981', '#38bdf8', '#f472b6'],
+                    borderColor: '#18273c',
+                    borderWidth: 3
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '55%',
+                plugins: {
+                    legend: { position: 'right', labels: { color: '#f1f5f9', font: { size: 11 } } }
+                }
+            }
+        });
+    }
+};
+
+// ==============================================
+// CONEXIÓN AUTOMÁTICA A FIREBASE
+// ==============================================
+function conectarFirebaseConApiKey(apiKey) {
+  if (!apiKey || apiKey.trim() === "") return;
+  try {
+    const firebaseConfig = {
+      apiKey: apiKey.trim(),
+      authDomain: "bolsa-trabajo-a52e4.firebaseapp.com",
+      databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com",
+      projectId: "bolsa-trabajo-a52e4",
+      storageBucket: "bolsa-trabajo-a52e4.appspot.com",
+      messagingSenderId: "103248576912",
+      appId: "1:103248576912:web:a1b2c3d4e5f6g7h8"
+    };
+    
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    db = firebase.database();
+    
+    document.getElementById('estadoConexionApi').innerHTML = 
+      '<i class="fas fa-circle-check" style="color:#10b981;"></i> Firebase CONECTADO';
+    registrarLogSistema("Firebase", "Conexión exitosa");
+    escucharNodosFirebase();
+    
+  } catch (error) {
+    document.getElementById('estadoConexionApi').innerHTML = 
+      `<i class="fas fa-circle-xmark" style="color:#ef4444;"></i> Error`;
+    registrarLogSistema("Error Firebase", error.message);
+  }
+}
+
+function escucharNodosFirebase() {
+  if (!db) return;
+  
+  db.ref('empresas').on('value', (snapshot) => {
+    listaEmpresasGlobal = [];
+    if (snapshot.exists()) {
+      const datos = snapshot.val();
+      for (let key in datos) listaEmpresasGlobal.push({ idFirebase: key, ...datos[key] });
+    }
+    renderizarTablaEmpresas();
+    actualizarSelectoresEmpresa();
+  });
+  
+  db.ref('vacantes_detalles').on('value', (snapshot) => {
+    listaVacantesGlobal = [];
+    if (snapshot.exists()) {
+      const empresasVacantes = snapshot.val();
+      for (let empKey in empresasVacantes) {
+        for (let puestoKey in empresasVacantes[empKey]) {
+          listaVacantesGlobal.push({
+            idFirebase: `${empKey}/${puestoKey}`,
+            empresaMatriz: empKey,
+            idClave: puestoKey,
+            ...empresasVacantes[empKey][puestoKey]
+          });
+        }
+      }
+    }
+    actualizarSelectoresVacantes();
+  });
+  
+  db.ref('reclutadores').on('value', (snapshot) => {
+    listaReclutadoresGlobal = [];
+    if (snapshot.exists()) {
+      const datos = snapshot.val();
+      for (let key in datos) listaReclutadoresGlobal.push({ idFirebase: key, ...datos[key] });
+    }
+    renderizarTablaReclutadores();
+    actualizarSelectoresReclutadores();
+  });
+  
+  db.ref('postulantes').on('value', (snapshot) => {
+    listaPostulantesGlobal = [];
+    if (snapshot.exists()) {
+      const datos = snapshot.val();
+      for (let key in datos) listaPostulantesGlobal.push({ idFirebase: key, ...datos[key] });
+    }
+    calcularMetricasDemograficas();
+    renderizarTablaPostulantes();
+    
+    if (document.getElementById('tabRegistros').classList.contains('active')) {
+      renderizarGraficosPestañaTres();
+    }
+  });
+}
+
+function actualizarEnlaceGithub() {
+  const inputId = document.getElementById('empIdInput');
+  const spanId = document.getElementById('idEmpresaSpan');
+  const btnAbrir = document.getElementById('btnAbrirLink');
+  const id = inputId.value.trim().toUpperCase();
+  spanId.textContent = id || '{ID_EMPRESA}';
+  btnAbrir.href = id ? BASE_URL_GITHUB + id : '#';
+}
+
+function obtenerDatosFormularioEmpresa() {
+  return {
+    nombre: document.getElementById('empNombreInput').value.trim(),
+    tags: document.getElementById('empTagsInput').value.trim(),
+    ubicacion: document.getElementById('empUbicacionInput').value.trim(),
+    imagen: document.getElementById('empLogoInput').value.trim(),
+    link: BASE_URL_GITHUB + document.getElementById('empIdInput').value.trim().toUpperCase()
+  };
+}
+
+function validarFormEmpresa() {
+  const id = document.getElementById('empIdInput').value.trim();
+  const nombre = document.getElementById('empNombreInput').value.trim();
+  const ubicacion = document.getElementById('empUbicacionInput').value.trim();
+  if (!id) { alert('❌ El ID de empresa es OBLIGATORIO'); return false; }
+  if (!nombre) { alert('❌ El Nombre Comercial es OBLIGATORIO'); return false; }
+  if (!ubicacion) { alert('❌ La Ubicación Base es OBLIGATORIA'); return false; }
+  return true;
+}
+
+function cambiarModoBotones(modo) {
+  const btnGuardar = document.getElementById('btnGuardarEmpresa');
+  const btnLimpiar = document.getElementById('btnLimpiarFormEmpresa');
+  const btnBorrar = document.getElementById('btnBorrarIdEmpresa');
+  const btnActualizar = document.getElementById('btnActualizarEmpresa');
+  const btnCancelar = document.getElementById('btnCancelarEdicionEmpresa');
+  const layout = document.getElementById('layoutBotonesEmpresa');
+  
+  if (modo === 'edicion') {
+    btnGuardar.style.display = 'none';
+    btnLimpiar.style.display = 'none';
+    btnBorrar.style.display = 'none';
+    btnActualizar.style.display = 'block';
+    btnCancelar.style.display = 'block';
+    layout.style.gridTemplateColumns = '1fr 1fr';
+  } else {
+    btnGuardar.style.display = 'block';
+    btnLimpiar.style.display = 'block';
+    btnBorrar.style.display = 'block';
+    btnActualizar.style.display = 'none';
+    btnCancelar.style.display = 'none';
+    layout.style.gridTemplateColumns = 'repeat(3, 1fr)';
+  }
+}
+
+function renderizarTablaEmpresas() {
+  const tbody = document.getElementById('tbodyEmpresas');
+  const filtro = document.getElementById('buscarEmpresaInput').value.toLowerCase().trim();
+  const contador = document.getElementById('contadorEmpresas');
+  if (!tbody) return;
+  
+  tbody.innerHTML = "";
+  contador.textContent = listaEmpresasGlobal.length;
+  
+  const empresasFiltradas = listaEmpresasGlobal.filter(emp => {
+    const nombre = emp.nombre || '-';
+    const tags = emp.tags || '';
+    const ubicacion = emp.ubicacion || '';
+    const texto = `${emp.idFirebase} ${nombre} ${tags} ${ubicacion}`.toLowerCase();
+    return texto.includes(filtro);
+  });
+  
+  empresasFiltradas.forEach(emp => {
+    const tr = document.createElement('tr');
+    const urlLogo = emp.imagen || emp.logoUrl || LOGO_POR_DEFECTO;
+    const linkVacante = emp.link || BASE_URL_GITHUB + emp.idFirebase;
+    const tagsArray = (emp.tags || '').split(',').filter(t => t.trim());
+    
+    tr.innerHTML = `
+     <td>
+       <img src="${urlLogo}" alt="Logo" onerror="this.style.display='none';">
+     </td>
+     <td style="font-weight:bold; color:var(--primary-orange); font-family:'Courier New',monospace;">${emp.idFirebase}</td>
+     <td style="font-weight:600;">${emp.nombre || '-'}</td>
+     <td><i class="fas fa-map-marker-alt" style="color:#f59e0b; font-size:0.75rem;"></i> ${emp.ubicacion || '-'}</td>
+     <td style="font-size:0.78rem;">
+       ${tagsArray.length ? tagsArray.map(tag => 
+         `<span style="display:inline-block; background:#1e293b; color:#cbd5e1; padding:2px 8px; border-radius:10px; margin:2px; border:1px solid var(--border-color);">${tag.trim()}</span>`
+       ).join('') : '<span style="color:var(--text-muted);">Sin tags</span>'}
+     </td>
+     <td>
+        <a href="${linkVacante}" target="_blank" class="btn-wa-premium" style="background:#0ea5e9; box-shadow:0 0 8px rgba(14,165,233,0.3); padding:4px 10px; font-size:0.75rem;">
+          <i class="fas fa-link"></i>
+        </a>
+      </td>
+      <td>
+        <div class="actions-layout" style="margin-top:0; justify-content:flex-end;">
+          <button class="btn-edit-mode" style="padding:5px 9px; font-size:0.8rem;" onclick="cargarEmpresaEnEdicion('${emp.idFirebase}')">
+            <i class="fas fa-edit"></i> Editar
+          </button>
+          <button class="btn-delete-mode" style="padding:5px 9px; font-size:0.8rem;" onclick="eliminarEmpresaSistema('${emp.idFirebase}')">
+            <i class="fas fa-trash-alt"></i>
+          </button>
+        </div>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function cargarEmpresaEnEdicion(idEmpresa) {
+  const empresa = listaEmpresasGlobal.find(e => e.idFirebase === idEmpresa);
+  if (!empresa) return;
+  
+  idEmpresaEdicionActiva = idEmpresa;
+  document.getElementById('empIdInput').value = empresa.idFirebase;
+  document.getElementById('empIdInput').disabled = true;
+  document.getElementById('empNombreInput').value = empresa.nombre || "";
+  document.getElementById('empTagsInput').value = empresa.tags || "";
+  document.getElementById('empUbicacionInput').value = empresa.ubicacion || "";
+  document.getElementById('empLogoInput').value = empresa.imagen || empresa.logoUrl || "";
+  
+  actualizarEnlaceGithub();
+  cambiarModoBotones('edicion');
+  document.getElementById('tabPrincipal').scrollIntoView({ behavior: 'smooth' });
+  registrarLogSistema("Empresas", `Edición: ${idEmpresa}`);
+}
+
+function cancelarEdicionEmpresa() {
+  idEmpresaEdicionActiva = null;
+  const inputId = document.getElementById('empIdInput');
+  inputId.value = '';
+  inputId.disabled = false;
+  document.getElementById('empNombreInput').value = '';
+  document.getElementById('empTagsInput').value = '';
+  document.getElementById('empUbicacionInput').value = '';
+  document.getElementById('empLogoInput').value = '';
+  actualizarEnlaceGithub();
+  cambiarModoBotones('nuevo');
+}
+
+function eliminarEmpresaSistema(idEmpresa) {
+  if (!confirm(`¿Borrar empresa "${idEmpresa}" PERMANENTEMENTE?`)) return;
+  if (db) db.ref(`empresas/${idEmpresa}`).remove()
+    .then(() => registrarLogSistema("BAJA EMPRESA", idEmpresa));
+}
+
+function registrarLogSistema(modulo, accion) {
+  const consola = document.getElementById('consolaSistemaLogs');
+  if (!consola) return;
+  const ahora = new Date();
+  const timestamp = `[${ahora.toLocaleDateString('es-MX')} ${ahora.toLocaleTimeString('es-MX')}]`;
+  const logItem = document.createElement('div');
+  logItem.className = 'log-item';
+  logItem.innerHTML = `<span class="log-time">${timestamp} [${modulo}]</span> <span class="log-action">${accion}</span>`;
+  consola.appendChild(logItem);
+  consola.scrollTop = consola.scrollHeight;
+}
+
+function actualizarSelectoresEmpresa() {
+  const select = document.getElementById('secEmpresaSelect');
+  if (!select) return;
+  const valorGuardado = select.value;
+  select.innerHTML = '<option value="">-- Elige una Empresa --</option>';
+  listaEmpresasGlobal.forEach(emp => {
+    const opt = document.createElement('option');
+    opt.value = emp.idFirebase;
+    opt.textContent = emp.nombre || emp.idFirebase;
+    select.appendChild(opt);
+  });
+  select.value = valorGuardado;
+}
+
+function actualizarSelectoresVacantes() {
+  const selectEmpresa = document.getElementById('secEmpresaSelect');
+  const boxGestion = document.getElementById('boxGestionVacantes');
+  const selectorFB = document.getElementById('selectorVacantesEnFirebase');
+  if (!selectEmpresa || !boxGestion || !selectorFB) return;
+  
+  const empSel = selectEmpresa.value;
+  if (!empSel) { boxGestion.style.display = "none"; return; }
+  
+  const vacantes = listaVacantesGlobal.filter(v => v.empresaMatriz === empSel);
+  if (vacantes.length === 0) { boxGestion.style.display = "none"; return; }
+  
+  boxGestion.style.display = "block";
+  selectorFB.innerHTML = '<option value="">-- Selecciona Vacante --</option>';
+  vacantes.forEach(vac => {
+    const opt = document.createElement('option');
+    opt.value = vac.idFirebase;
+    opt.textContent = `[${vac.idClave}] ${vac.nombreVacante || 'Sin Nombre'}`;
+    selectorFB.appendChild(opt);
+  });
+}
+
+function actualizarSelectoresReclutadores() {
+  const select = document.getElementById('editPostulanteReclutador');
+  if (!select) return;
+  select.innerHTML = '<option value="">-- Sin Reclutador --</option>';
+  listaReclutadoresGlobal.forEach(rec => {
+    const opt = document.createElement('option');
+    opt.value = rec.idFirebase;
+    opt.textContent = rec.nombre || rec.idFirebase;
+    select.appendChild(opt);
+  });
+}
+
+function renderizarTablaReclutadores() {
+  const tbody = document.getElementById('tbodyReclutadores');
+  const buscador = document.getElementById('buscarReclutadorInput')?.value.toLowerCase().trim() || '';
+  if (!tbody) return;
+  tbody.innerHTML = "";
+  
+  listaReclutadoresGlobal.filter(rec => 
+    rec.idFirebase.toLowerCase().includes(buscador) || 
+    (rec.nombre && rec.nombre.toLowerCase().includes(buscador))
+  ).forEach(rec => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${rec.idFirebase}</td>
+      <td>${rec.nombre || '-'}</td>
+      <td>${rec.telefono || '-'}</td>
+      <td>${rec.estatus || 'activo'}</td>
+      <td>
+        <div class="actions-layout" style="margin-top:0;">
+          <button class="btn-edit-mode" style="padding:4px 8px;" onclick="cargarReclutadorEnEdicion('${rec.idFirebase}')"><i class="fas fa-edit"></i></button>
+          <button class="btn-delete-mode" style="padding:4px 8px;" onclick="eliminarReclutadorSistema('${rec.idFirebase}')"><i class="fas fa-trash-alt"></i></button>
+        </div>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function cargarReclutadorEnEdicion(id) {
+  const rec = listaReclutadoresGlobal.find(r => r.idFirebase === id);
+  if (!rec) return;
+  idReclutadorEdicionActiva = id;
+  document.getElementById('recIdInput').value = rec.idFirebase;
+  document.getElementById('recIdInput').disabled = true;
+  document.getElementById('recNombreInput').value = rec.nombre || "";
+  document.getElementById('recTelefonoInput').value = rec.telefono || "";
+  document.getElementById('recEstatusSelect').value = rec.estatus || "activo";
+  document.getElementById('btnGuardarReclutador').style.display = "none";
+  document.getElementById('btnActualizarReclutador').style.display = "block";
+  document.getElementById('btnCancelarEdicionReclutador').style.display = "block";
+}
+
+function eliminarReclutadorSistema(id) {
+  if (!confirm(`¿Eliminar reclutador ${id}?`)) return;
+  if (db) db.ref(`reclutadores/${id}`).remove()
+    .then(() => registrarLogSistema("Reclutadores", `Eliminado: ${id}`));
+}
+
+function calcularMetricasDemograficas() {
+  const total = listaPostulantesGlobal.length;
+  let hombres = 0, mujeres = 0, sumaEdades = 0, conteoEdades = 0;
+  
+  listaPostulantesGlobal.forEach(p => {
+    const gen = (p.sexo || '').toLowerCase().trim();
+    if (gen.includes('masc') || gen === 'm' || gen === 'hombre') hombres++;
+    else if (gen.includes('fem') || gen === 'f' || gen === 'mujer') mujeres++;
+    const edad = parseInt(p.edad, 10);
+    if (!isNaN(edad)) { sumaEdades += edad; conteoEdades++; }
+  });
+  
+  document.getElementById('totalPostulantesMetrica').textContent = total;
+  document.getElementById('metHombres').textContent = total ? `${Math.round((hombres/total)*100)}%` : '0%';
+  document.getElementById('metMujeres').textContent = total ? `${Math.round((mujeres/total)*100)}%` : '0%';
+  document.getElementById('metPromedioEdad').textContent = conteoEdades ? `${Math.round(sumaEdades/conteoEdades)} años` : '0';
+}
+
+function filtrarAgendaPorEstatus(dia) {
+  filtroAgendaActual = dia.toUpperCase();
+  document.getElementById('lblFiltroAgendaActivo').textContent = 
+    dia === 'TODOS' ? 'Todos los postulantes' : `Citados el día ${dia}`;
+  renderizarTablaPostulantes();
+}
+
+function renderizarTablaPostulantes() {
+  const tbody = document.getElementById('tbodyPostulantes');
+  const buscador = document.getElementById('buscarPostulanteInput')?.value.toLowerCase().trim() || '';
+  if (!tbody) return;
+  tbody.innerHTML = "";
+  
+  listaPostulantesGlobal.filter(p => {
+    const dia = (p.diaEntrevista || '').toUpperCase();
+    const cumpleFiltro = filtroAgendaActual === 'TODOS' || dia === filtroAgendaActual;
+    const cumpleBusqueda = !buscador || 
+      (p.nombre && p.nombre.toLowerCase().includes(buscador)) ||
+      (p.telefono && p.telefono.includes(buscador)) ||
+      (p.vacanteInteres && p.vacanteInteres.toLowerCase().includes(buscador)) ||
+      (p.empresa && p.empresa.toLowerCase().includes(buscador));
+    return cumpleFiltro && cumpleBusqueda;
+  }).forEach(p => {
+    const tr = document.createElement('tr');
+    const estatus = p.estatus || 'Pendiente';
+    let badge = `<span style="background:#fed7aa;color:#ea580c;padding:3px 8px;border-radius:12px;font-size:0.75rem;font-weight:bold;">${estatus}</span>`;
+    let waBtn = '-';
+    if (p.telefono) {
+      const num = p.telefono.replace(/\D/g, "");
+      const msg = encodeURIComponent(`Hola ${p.nombre || 'Candidato'}, de Bolsa de Trabajo`);
+      waBtn = `<a href="https://wa.me/${num}?text=${msg}" target="_blank" class="btn-wa-premium" style="font-size:0.75rem;padding:4px 10px;"><i class="fab fa-whatsapp"></i></a>`;
+    }
+    
+   tr.innerHTML = `
+      <td style="font-weight:bold;">${p.nombre || '-'}</td>
+      <td style="font-family: monospace; font-size: 0.9em;">${p.curp || '-'}</td> <!-- AQUÍ AGREGAMOS LA CURP -->
+      <td>${waBtn}</td>
+      <td><span style="color:var(--primary-orange);font-weight:500;">${p.empresa || '-'}</span> / ${p.vacanteInteres || '-'}</td>
+      <td style="color:#d6d3d1;">${p.edad || '-'} años (${p.sexo || '-'})</td>
+      <td>
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          ${badge}
+          <span style="font-size:0.75rem;color:#a8a29e;"><i class="far fa-calendar-alt"></i> ${p.diaEntrevista || 'Sin agendar'} ${p.horaCita ? `a las ${p.horaCita}` : ''}</span>
+        </div>
+      </td>
+      <td>
+        <div class="actions-layout" style="margin-top:0;">
+          <button class="btn-edit-mode" style="padding:6px 10px;" onclick="abrirEditorPostulante('${p.idFirebase}')"><i class="fas fa-user-edit"></i></button>
+          <button class="btn-delete-mode" style="padding:6px 10px;" onclick="eliminarPostulanteSistema('${p.idFirebase}')"><i class="fas fa-trash-alt"></i></button>
+        </div>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function abrirEditorPostulante(id) {
+  const p = listaPostulantesGlobal.find(c => c.idFirebase === id);
+  if (!p) return;
+  document.getElementById('editPostulanteId').value = id;
+  document.getElementById('editPostulanteEstatus').value = p.estatus || "Pendiente";
+  document.getElementById('editPostulanteDia').value = p.diaEntrevista || "";
+  document.getElementById('editPostulanteHora').value = p.horaCita || "";
+  document.getElementById('editPostulanteReclutador').value = p.reclutadorAsignado || "";
+  document.getElementById('editPostulanteNotas').value = p.notesInternas || p.notasInternas || "";
+  document.getElementById('panelEdicionPostulante').classList.add('open');
+}
+
+function eliminarPostulanteSistema(id) {
+  if (!confirm("¿Eliminar postulación?")) return;
+  if (db) db.ref(`postulantes/${id}`).remove()
+    .then(() => registrarLogSistema("Postulantes", `Eliminado: ${id}`));
+}
+
+// ==============================================
+// EVENTOS GLOBALES E INICIALIZACIÓN
+// ==============================================
+document.addEventListener("DOMContentLoaded", () => {
+  inicializarNavegacionTabs();
+  registrarEventosVacantesForm();
+  
+  // Hacer clic en zona drop abre el selector manual
+  document.getElementById('drop-zone').addEventListener('click', () => {
+    document.getElementById('file-input').click();
+  });
+
+  const inputId = document.getElementById('empIdInput');
+  inputId.addEventListener('input', actualizarEnlaceGithub);
+  actualizarEnlaceGithub();
+  
+  document.getElementById('toggleApiKey').addEventListener('click', (e) => {
+    const input = document.getElementById('geminiApiKeyInput');
+    const icon = e.currentTarget.querySelector('i');
+    input.type = input.type === 'password' ? 'text' : 'password';
+    icon.className = input.type === 'text' ? 'fas fa-eye-slash' : 'fas fa-eye';
+  });
+  
+  const apiKeyInput = document.getElementById('geminiApiKeyInput');
+  document.getElementById('btnConectarApiKey').addEventListener('click', () => {
+    const clave = apiKeyInput.value.trim();
+    if (!clave) return alert('❌ Pega tu API Key primero');
+    localStorage.setItem('apiKeyGemini', clave);
+    conectarFirebaseConApiKey(clave);
+  });
+  
+  const claveGuardada = localStorage.getItem('apiKeyGemini');
+  if (claveGuardada) {
+    apiKeyInput.value = claveGuardada;
+    conectarFirebaseConApiKey(claveGuardada);
+  }
+  
+  document.getElementById('btnProbarConexion').addEventListener('click', async () => {
+    const estado = document.getElementById('estadoConexionApi');
+    estado.innerHTML = '<i class="fas fa-circle-notch fa-spin" style="color:#f59e0b;"></i> Probando...';
+    if (!db) {
+      setTimeout(() => estado.innerHTML = '<i class="fas fa-circle-xmark" style="color:#ef4444;"></i> Sin conexión', 600);
+      return;
+    }
+    try {
+      await db.ref('empresas').once('value');
+      estado.innerHTML = '<i class="fas fa-circle-check" style="color:#10b981;"></i> CONEXIÓN EXITOSA';
+      registrarLogSistema("Sistema", "Conexión verificada");
+    } catch (err) {
+      estado.innerHTML = `<i class="fas fa-circle-xmark" style="color:#ef4444;"></i> Error: ${err.message}`;
+    }
+  });
+  
+  document.getElementById('btnCopiarLink').addEventListener('click', async () => {
+    const id = document.getElementById('empIdInput').value.trim().toUpperCase();
+    if (!id) return alert('❌ Escribe un ID primero');
+    try {
+      await navigator.clipboard.writeText(BASE_URL_GITHUB + id);
+      const btn = document.getElementById('btnCopiarLink');
+      const txt = btn.innerHTML;
+      btn.innerHTML = '<i class="fas fa-check"></i> ¡Copiado!';
+      setTimeout(() => btn.innerHTML = txt, 1800);
+    } catch (err) { alert('Error al copiar'); }
+  });
+  
+  document.getElementById('btnLimpiarFormEmpresa').addEventListener('click', () => {
+    if (confirm('¿Limpiar formulario?')) cancelarEdicionEmpresa();
+  });
+  
+  document.getElementById('btnBorrarIdEmpresa').addEventListener('click', () => {
+    const id = document.getElementById('empIdInput').value.trim().toUpperCase();
+    if (!id) return alert('❌ Escribe un ID primero');
+    eliminarEmpresaSistema(id);
+  });
+  
+  document.getElementById('btnGuardarEmpresa').addEventListener('click', async () => {
+    if (!validarFormEmpresa() || !db) return;
+    const id = document.getElementById('empIdInput').value.trim().toUpperCase();
+    const snap = await db.ref(`empresas/${id}`).once('value');
+    if (snap.exists() && !confirm(`El ID "${id}" ya existe. ¿Sobreescribir?`)) return;
+    
+    db.ref(`empresas/${id}`).set(obtenerDatosFormularioEmpresa())
+      .then(() => {
+        registrarLogSistema("NUEVA EMPRESA", `${id} - ${obtenerDatosFormularioEmpresa().nombre}`);
+        cancelarEdicionEmpresa();
+      });
+  });
+  
+  document.getElementById('btnActualizarEmpresa').addEventListener('click', () => {
+    if (!validarFormEmpresa() || !idEmpresaEdicionActiva || !db) return;
+    db.ref(`empresas/${idEmpresaEdicionActiva}`).update(obtenerDatosFormularioEmpresa())
+      .then(() => {
+        registrarLogSistema("EMPRESA ACTUALIZADA", idEmpresaEdicionActiva);
+        cancelarEdicionEmpresa();
+      });
+  });
+  
+  document.getElementById('btnCancelarEdicionEmpresa').addEventListener('click', cancelarEdicionEmpresa);
+  
+  document.getElementById('buscarEmpresaInput').addEventListener('input', renderizarTablaEmpresas);
+  document.getElementById('secEmpresaSelect').addEventListener('change', actualizarSelectoresVacantes);
+  document.getElementById('buscarReclutadorInput').addEventListener('input', renderizarTablaReclutadores);
+  document.getElementById('buscarPostulanteInput').addEventListener('input', renderizarTablaPostulantes);
+  
+  document.getElementById('btnGuardarReclutador').addEventListener('click', () => {
+    const id = document.getElementById('recIdInput').value.trim();
+    if (!id) return alert('❌ ID obligatorio');
+    const datos = {
+      nombre: document.getElementById('recNombreInput').value.trim(),
+      telefono: document.getElementById('recTelefonoInput').value.trim(),
+      estatus: document.getElementById('recEstatusSelect').value
+    };
+    if (db) db.ref(`reclutadores/${id}`).set(datos).then(() => {
+      ['recIdInput','recNombreInput','recTelefonoInput'].forEach(id => document.getElementById(id).value = "");
+      registrarLogSistema("RECLUTADOR", `Nuevo: ${id}`);
+    });
+  });
+  
+  document.getElementById('btnActualizarReclutador').addEventListener('click', () => {
+    if (!idReclutadorEdicionActiva || !db) return;
+    const datos = {
+      nombre: document.getElementById('recNombreInput').value.trim(),
+      telefono: document.getElementById('recTelefonoInput').value.trim(),
+      estatus: document.getElementById('recEstatusSelect').value
+    };
+    db.ref(`reclutadores/${idReclutadorEdicionActiva}`).update(datos).then(() => {
+      idReclutadorEdicionActiva = null;
+      document.getElementById('recIdInput').disabled = false;
+      ['recIdInput','recNombreInput','recTelefonoInput'].forEach(id => document.getElementById(id).value = "");
+      document.getElementById('btnGuardarReclutador').style.display = "block";
+      document.getElementById('btnActualizarReclutador').style.display = "none";
+      document.getElementById('btnCancelarEdicionReclutador').style.display = "none";
+    });
+  });
+  
+  document.getElementById('btnCancelarEdicionReclutador').addEventListener('click', () => {
+    idReclutadorEdicionActiva = null;
+    document.getElementById('recIdInput').disabled = false;
+    ['recIdInput','recNombreInput','recTelefonoInput'].forEach(id => document.getElementById(id).value = "");
+    document.getElementById('btnGuardarReclutador').style.display = "block";
+    document.getElementById('btnActualizarReclutador').style.display = "none";
+    document.getElementById('btnCancelarEdicionReclutador').style.display = "none";
+  });
+  
+  document.getElementById('btnCerrarEdicionPostulante').addEventListener('click', () => {
+    document.getElementById('panelEdicionPostulante').classList.remove('open');
+  });
+  
+  document.getElementById('btnGuardarCambiosPostulante').addEventListener('click', () => {
+    const id = document.getElementById('editPostulanteId').value;
+    if (!id || !db) return;
+    db.ref(`postulantes/${id}`).update({
+      estatus: document.getElementById('editPostulanteEstatus').value,
+      diaEntrevista: document.getElementById('editPostulanteDia').value,
+      horaCita: document.getElementById('editPostulanteHora').value,
+      reclutadorAsignado: document.getElementById('editPostulanteReclutador').value,
+      notasInternas: document.getElementById('editPostulanteNotas').value
+    }).then(() => {
+      document.getElementById('panelEdicionPostulante').classList.remove('open');
+      registrarLogSistema("Postulantes", `Actualizado: ${id}`);
+    });
+  });
+  
+  document.getElementById('btnLimpiarLogsPantalla').addEventListener('click', () => {
+    document.getElementById('consolaSistemaLogs').innerHTML = 
+      '<div class="log-item"><span class="log-time">[SISTEMA]</span> <span class="log-action" style="color:#10b981;">Consola limpiada</span></div>';
+  });
+});
+// ==========================================
+// CONTROLADOR DE LA PESTAÑA 2: VACANTES E IA
+// ==========================================
+document.addEventListener("DOMContentLoaded", () => {
+  
+  // --- 1. REFERENCIAS DE ELEMENTOS HTML ---
+  const secEmpresaSelect = document.getElementById("secEmpresaSelect");
+  const boxGestionVacantes = document.getElementById("boxGestionVacantes");
+  const selectorVacantesEnFirebase = document.getElementById("selectorVacantesEnFirebase");
+  
+  // Botones de Acción
+  const btnCargarVacante = document.getElementById("btnCargarVacante");
+  const btnBorrarVacanteWeb = document.getElementById("btnBorrarVacanteWeb");
+  const btnLimpiarVacanteForm = document.getElementById("btnLimpiarVacanteForm");
+  const btnGuardarNuevaVacante = document.getElementById("btnGuardarNuevaVacante");
+  const btnGuardarActualizacionVacante = document.getElementById("btnGuardarActualizacionVacante");
+  
+  // Campos del Formulario de Vacante
+  const formCampos = {
+    puestoId: document.getElementById("secPuestoId"),
+    estatus: document.getElementById("secEstatus"),
+    bannerUrl: document.getElementById("secBannerUrl"),
+    nombre: document.getElementById("secVacanteNombre"),
+    edad: document.getElementById("secEdad"),
+    sexo: document.getElementById("secSexo"),
+    experiencia: document.getElementById("secExperiencia"),
+    escolaridad: document.getElementById("secEscolaridad"),
+    salario: document.getElementById("secSalario"),
+    lugarOrigen: document.getElementById("secLugarOrigen"),
+    turnos: document.getElementById("secTurnos"),
+    rutasTransporte: document.getElementById("secRutasTransporte"),
+    actividades: document.getElementById("secActividades"),
+    beneficios: document.getElementById("secBeneficios"),
+    infoGeneral: document.getElementById("secInfoGeneral")
+  };
+
+  // --- 2. FUNCIONES DE APOYO (LÓGICA LOCAL) ---
+  
+  // Limpia visualmente todos los campos del formulario
+  const limpiarFormularioVacante = () => {
+    Object.values(formCampos).forEach(campo => {
+      if (campo) campo.value = "";
+    });
+    // Forzar valores por defecto en selects
+    if (formCampos.estatus) formCampos.estatus.value = "disponible";
+    if (formCampos.sexo) formCampos.sexo.value = "Indistinto";
+    
+    // Mostrar/Ocultar botones correctos para creación limpia
+    if (btnGuardarNuevaVacante) btnGuardarNuevaVacante.style.display = "block";
+    if (btnGuardarActualizacionVacante) btnGuardarActualizacionVacante.style.display = "none";
+    
+    registrarLogSistema("Formulario de vacante limpio y listo para nuevo registro.");
+  };
+
+  // Registra eventos en la consola de auditoría (Pestaña 6) si existe
+  const registrarLogSistema = (mensaje) => {
+    const consolaLogs = document.getElementById("consolaSistemaLogs");
+    if (consolaLogs) {
+      const logItem = document.createElement("div");
+      logItem.className = "log-item";
+      const ahora = new Date().toLocaleTimeString();
+      logItem.innerHTML = `<span class="log-time">[${ahora}]</span> <span class="log-action" style="color: var(--purple-ia);">${mensaje}</span>`;
+      consolaLogs.appendChild(logItem);
+      consolaLogs.scrollTop = consolaLogs.scrollHeight;
+    }
+  };
+
+  // --- 3. ASIGNACIÓN SEGURA DE EVENTOS ---
+  
+  // Cambio de Empresa Matriz (Muestra u oculta el gestor de vacantes existentes)
+  if (secEmpresaSelect) {
+    secEmpresaSelect.addEventListener("change", (e) => {
+      const empresaSeleccionada = e.target.value;
+      if (empresaSeleccionada && boxGestionVacantes) {
+        boxGestionVacantes.style.display = "block";
+        registrarLogSistema(`Empresa matriz cambiada a: ${empresaSeleccionada}`);
+        // Aquí puedes disparar la carga de vacantes de Firebase correspondientes a esa empresa
+      } else if (boxGestionVacantes) {
+        boxGestionVacantes.style.display = "none";
+      }
+    });
+  }
+
+  // Botón Limpiar Formulario
+  if (btnLimpiarVacanteForm) {
+    btnLimpiarVacanteForm.addEventListener("click", (e) => {
+      e.preventDefault();
+      limpiarFormularioVacante();
+    });
+  }
+
+  // Inicialización segura del acordeón de IA
+  window.toggleAccordionIa = () => {
+    const content = document.getElementById("accordionIaContent");
+    const arrow = document.getElementById("accordionArrow");
+    if (content) {
+      const isVisible = content.style.display === "block" || content.classList.contains("open");
+      if (isVisible) {
+        content.style.display = "none";
+        content.classList.remove("open");
+        if (arrow) arrow.style.transform = "rotate(0deg)";
+      } else {
+        content.style.display = "block";
+        content.classList.add("open");
+        if (arrow) arrow.style.transform = "rotate(180deg)";
+        registrarLogSistema("Extractor Inteligente IA desplegado.");
+      }
+    }
+  };
+
+  // Inicializar estado por defecto de los botones finales
+  if (btnGuardarActualizacionVacante) btnGuardarActualizacionVacante.style.display = "none";
+
+  registrarLogSistema("Controlador de Vacantes e IA inicializado correctamente.");
+});
+</script>
+</body>
+</html>
