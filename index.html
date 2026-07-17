@@ -546,7 +546,7 @@
             animation: shineBtn 4s infinite linear;
         }
 
-        @keyframes shineBtn {
+        @pragma shineBtn {
             0% { transform: translate(-100%, -100%) rotate(30deg); }
             100% { transform: translate(100%, 100%) rotate(30deg); }
         }
@@ -589,10 +589,6 @@
         footer .highlight-footer { color: var(--white); font-weight: 600; }
         .security-badge { color: var(--green-whatsapp); font-weight: 700; text-transform: uppercase; margin-bottom: 15px; letter-spacing: 0.5px; }
 
-        .secret-admin-trigger { cursor: pointer; user-select: none; transition: color 0.2s ease; text-decoration: underline; }
-        .secret-admin-trigger:hover { color: var(--primary-orange); }
-
-        /* NUEVOS ESTILOS PARA ACCESO ADMINISTRATIVO QUIRÚRGICO */
         .btn-admin-access {
             background-color: rgba(15, 42, 74, 0.5);
             color: var(--text-muted);
@@ -619,33 +615,66 @@
             transform: translateY(-2px);
         }
 
+        /* MODIFICACIÓN DE CONTENEDOR A VENTANA MODAL CENTRADA Y FONDO OPACADO */
         .admin-login-wrapper {
-            max-height: 0;
-            overflow: hidden;
-            transition: max-height 0.5s cubic-bezier(0, 1, 0, 1);
-            margin: 0 auto;
-            max-width: 450px;
-            width: 100%;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(3, 7, 18, 0.8); 
+            backdrop-filter: blur(8px); 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s ease;
         }
 
         .admin-login-wrapper.open {
-            max-height: 1000px;
-            transition: max-height 0.5s cubic-bezier(1, 0, 1, 0);
+            opacity: 1;
+            pointer-events: auto;
         }
 
         .admin-login-card {
             background: #0d1b3e;
             border: 2px solid var(--primary-orange);
             border-radius: var(--radius-md);
-            padding: 30px;
-            margin-top: 20px;
-            box-shadow: 0 15px 35px rgba(0,0,0,0.6), 0 0 25px rgba(255, 102, 0, 0.1);
+            padding: 35px;
+            max-width: 450px;
+            width: 90%;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 30px rgba(255, 102, 0, 0.15);
             text-align: left;
+            position: relative;
+            transform: scale(0.9);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .admin-login-wrapper.open .admin-login-card {
+            transform: scale(1);
+        }
+
+        .admin-close-btn {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.4rem;
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+
+        .admin-close-btn:hover {
+            color: #ef4444;
         }
 
         .admin-login-card h3 {
             color: var(--white);
-            font-size: 1.3rem;
+            font-size: 1.4rem;
             font-weight: 700;
             margin-bottom: 6px;
             text-align: center;
@@ -653,13 +682,13 @@
 
         .admin-login-card p {
             color: var(--text-muted);
-            font-size: 0.85rem;
-            margin-bottom: 20px;
+            font-size: 0.88rem;
+            margin-bottom: 25px;
             text-align: center;
         }
 
         .admin-input-group {
-            margin-bottom: 16px;
+            margin-bottom: 18px;
         }
 
         .admin-input-group label {
@@ -673,7 +702,7 @@
         .admin-input-group select,
         .admin-input-group input {
             width: 100%;
-            padding: 12px 16px;
+            padding: 14px 16px;
             background-color: #15264a;
             border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 8px;
@@ -699,7 +728,7 @@
             background: linear-gradient(135deg, var(--primary-orange) 0%, #e05500 100%);
             color: var(--white);
             border: none;
-            padding: 14px;
+            padding: 15px;
             font-size: 1rem;
             font-weight: 700;
             border-radius: 8px;
@@ -730,6 +759,7 @@
             .links-section { padding: 25px 15px; min-height: 140px; margin-top: 35px; }
             .separator-gradient { margin: 40px auto; width: 90%; }
             .form-section { padding: 30px 20px; }
+            .admin-login-card { padding: 25px 20px; }
         }
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -841,16 +871,17 @@
         </div>
         <p>© 2026 Todos los derechos reservados.</p>
         <p class="highlight-footer">Prohibida la copia y su distribución.</p>
-        <p>Derechos intelectuales protegidos por el <span class="secret-admin-trigger" onclick="accesoAdministrativo()">programador</span>.</p>
+        <p>Derechos intelectuales protegidos por el programador.</p>
         
-        <!-- BOTÓN DE ACCESO ADMINISTRATIVO PROFESIONAL -->
-        <button class="btn-admin-access" onclick="accesoAdministrativo()">
+        <!-- BOTÓN DE ACCESO ADMINISTRATIVO -->
+        <button class="btn-admin-access" onclick="abrirAdminModal()">
             <i class="fas fa-lock"></i> Acceso Administrativo
         </button>
 
-        <!-- SUBMENÚ OCULTO (FORMULARIO DE ACCESO) -->
-        <div id="adminLoginWrapper" class="admin-login-wrapper">
+        <!-- SUBMENÚ MODAL AL CENTRO CON FONDO OPACADO -->
+        <div id="adminLoginWrapper" class="admin-login-wrapper" onclick="cerrarAdminModalExterna(event)">
             <div class="admin-login-card">
+                <button type="button" class="admin-close-btn" onclick="cerrarAdminModal()"><i class="fas fa-times"></i></button>
                 <h3>Acceso al Sistema</h3>
                 <p>Ingresa tus credenciales para administrar el portal</p>
                 <form id="adminLoginForm">
@@ -885,7 +916,6 @@
 </a>
 
 <script type="module">
-    // INTEGRACIÓN FIREBASE (Contador y Registro)
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getDatabase, ref, onValue, set, push, increment, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
@@ -896,7 +926,6 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
     
-    // --- Contador de visitas (Incrementa al cargar) ---
     const visitasRef = ref(db, 'visitas/total');
     set(visitasRef, increment(1));
 
@@ -1158,7 +1187,6 @@
         const empresaTexto = comboEmpresa.options[comboEmpresa.selectedIndex].text;
         const vacante = document.getElementById('vacante').value;
 
-        // --- Registro en Firebase ---
         push(ref(db, 'candidatos'), {
             nombre: nombre,
             curp: curp,
@@ -1183,17 +1211,24 @@
         window.open(urlWhatsApp, '_blank');
     };
 
-    // --- ACCESO ADMINISTRATIVO CON DESPLEGABLE Y EFECTO VISUAL ---
-    window.accesoAdministrativo = function() {
-        const wrapper = document.getElementById('adminLoginWrapper');
-        wrapper.classList.toggle('open');
-        
-        if (wrapper.classList.contains('open')) {
-            wrapper.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    // --- LÓGICA DE CONTROL DE LA VENTANA MODAL DE ACCESO ---
+    window.abrirAdminModal = function() {
+        document.getElementById('adminLoginWrapper').classList.add('open');
+        document.body.style.overflow = 'hidden'; // Bloquea el scroll del fondo
+    };
+
+    window.cerrarAdminModal = function() {
+        document.getElementById('adminLoginWrapper').classList.remove('open');
+        document.body.style.overflow = 'auto'; // Restaura el scroll del fondo
+    };
+
+    // Permite cerrar si hacen clic fuera del cuadro azul
+    window.cerrarAdminModalExterna = function(event) {
+        if (event.target.id === 'adminLoginWrapper') {
+            window.cerrarAdminModal();
         }
     };
 
-    // Procesamiento del formulario de acceso administrativo
     document.getElementById('adminLoginForm').addEventListener('submit', function(event) {
         event.preventDefault();
 
@@ -1206,22 +1241,16 @@
             return;
         }
 
-        // Acceso directo con contraseña especial o consulta directa a Firebase
         const usuarioRef = ref(db, `usuarios/usr_${username}`);
 
         get(usuarioRef).then((snapshot) => {
             if (snapshot.exists()) {
                 const usuario = snapshot.val();
                 
-                // Validamos contraseña y que el cargo seleccionado coincida con el rol guardado
                 if (usuario.password === password) {
                     if (usuario.rol === cargo) {
                         alert(`¡Bienvenido, ${usuario.nombre}! Acceso autorizado como ${usuario.rol}.`);
-                        
-                        // Guardamos la información del usuario en sessionStorage
                         sessionStorage.setItem('usuarioLogueado', JSON.stringify(usuario));
-                        
-                        // Redireccionamos a la pantalla del dashboard administrativo
                         window.location.href = "https://valdomtec-arch.github.io/bolsa-trabajo-principal/admin.html";
                     } else {
                         alert("El rol seleccionado no coincide con tu cargo registrado.");
@@ -1230,7 +1259,6 @@
                     alert("Contraseña incorrecta.");
                 }
             } else {
-                // Validación alternativa de emergencia en duro (Admin default si no hay base de datos conectada aún)
                 if (username === "admin" && password === "Admin2026*" && cargo === "Administrador") {
                     const usuarioDefault = {
                         nombre: "admin",
