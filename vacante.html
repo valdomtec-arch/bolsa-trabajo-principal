@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Postulación de Vacante | Portal de Reclutamiento</title>
+    <title>Detalle de Vacante | Portal de Reclutamiento</title>
     <!-- FontAwesome para iconos modernos -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Google Fonts consistent con index/admin -->
+    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
     <style>
@@ -39,13 +39,12 @@
             padding: 20px 10px 40px 10px;
         }
 
-        /* Contenedor Principal alineado a layouts administrativos */
         .container {
             max-width: 600px;
             margin: 0 auto;
         }
 
-        /* Banner de la Empresa - Diseño Profesional */
+        /* Banner de la Empresa */
         .company-header {
             background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
             border-radius: var(--border-radius);
@@ -102,7 +101,7 @@
             font-weight: 300;
         }
 
-        /* Tarjetas de Información en consonancia con admin.html */
+        /* Tarjetas de Información */
         .card {
             background: var(--card-bg);
             border-radius: var(--border-radius);
@@ -128,7 +127,40 @@
             color: var(--primary-color);
         }
 
-        /* Campos de Formulario Alineados al Estilo del Admin */
+        /* Especificidades de la Vacante */
+        .spec-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            margin-bottom: 16px;
+        }
+
+        .spec-item {
+            background-color: #f8fafc;
+            padding: 10px 12px;
+            border-radius: 8px;
+            border: 1px solid #f1f5f9;
+        }
+
+        .spec-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-weight: 500;
+            display: block;
+            margin-bottom: 2px;
+        }
+
+        .spec-value {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .spec-full {
+            grid-column: span 2;
+        }
+
+        /* Campos de Formulario */
         .form-group {
             margin-bottom: 16px;
         }
@@ -160,7 +192,6 @@
             box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
         }
 
-        /* Contenedor de Autocita Elegante */
         .toggle-container {
             display: flex;
             align-items: center;
@@ -187,7 +218,6 @@
             color: var(--text-muted);
         }
 
-        /* Switch Deslizable */
         .switch {
             position: relative;
             display: inline-block;
@@ -230,7 +260,6 @@
             transform: translateX(20px);
         }
 
-        /* Animación Bloque Agenda */
         .agenda-block {
             max-height: 0;
             overflow: hidden;
@@ -246,7 +275,6 @@
             border-top: 1px solid #f1f5f9;
         }
 
-        /* Botones del Ecosistema */
         .btn-submit {
             width: 100%;
             background-color: var(--primary-color);
@@ -282,12 +310,15 @@
             <p class="vacant-title" id="vacantTitle">Buscando vacante disponible...</p>
         </header>
 
+        <!-- DETALLES DE LA VACANTE INYECTADOS AQUÍ -->
+        <div id="contenedorEspecificaciones"></div>
+
         <main id="mainContent">
-            <!-- La estructura dinámica se inyecta desde aquí -->
+            <!-- Interfaz de geolocalización y formulario -->
         </main>
     </div>
 
-    <!-- SDKs de Firebase (Versión Compat) -->
+    <!-- SDKs de Firebase -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
 
@@ -307,8 +338,12 @@
         // ==========================================
         const urlParams = new URLSearchParams(window.location.search);
         const idEmpresaUrl = urlParams.get('empresa'); 
+        const idPuestoUrl = urlParams.get('puesto'); // Opcional: para forzar una vacante específica
 
         let datosEmpresaGlobal = null;
+        let idVacanteSeleccionada = "";
+        let textoPuestoSeleccionado = "";
+        let mapaRutasVacantes = {};
 
         function aplicarBranding(datosEmpresa) {
             if (!datosEmpresa) return;
@@ -357,7 +392,7 @@
         // ==========================================
         const mainContent = document.getElementById('mainContent');
         mainContent.innerHTML = `
-            <div class="card" id="geoCard">
+            <div class="card" id="geoCard" style="display:none;">
                 <h3 class="card-title"><i class="fa-solid fa-location-crosshairs"></i> Ubicación de planta</h3>
                 <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;">
                     Compártenos tu ubicación aproximada para validar las rutas de transporte y vacantes más cercanas.
@@ -371,7 +406,6 @@
         `;
 
         let coordsCandidato = null;
-
         const btnGeolocalizar = document.getElementById('btnGeolocalizar');
         const geoFeedback = document.getElementById('geoFeedback');
 
@@ -382,7 +416,6 @@
                 geoFeedback.style.display = 'block';
                 return;
             }
-
             btnGeolocalizar.disabled = true;
             btnGeolocalizar.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Obteniendo ubicación...';
 
@@ -421,12 +454,12 @@
         });
 
         // ==========================================
-        // 5. INYECCIÓN DEL FORMULARIO
+        // 5. INYECCIÓN DEL FORMULARIO DE POSTULACIÓN
         // ==========================================
         const vacanteDetalleContenedor = document.getElementById('vacanteDetalleContenedor');
         vacanteDetalleContenedor.innerHTML = `
             <form id="formPostulacion" class="card" style="display: none;">
-                <h3 class="card-title"><i class="fa-solid fa-file-signature"></i> Formulario de Postulación</h3>
+                <h3 class="card-title"><i class="fa-solid fa-file-signature"></i> Tu Información de Registro</h3>
 
                 <div class="form-group">
                     <label class="form-label" for="nombreCompleto">Nombre Completo</label>
@@ -441,13 +474,6 @@
                 <div class="form-group">
                     <label class="form-label" for="telefono">Teléfono (10 dígitos)</label>
                     <input type="tel" id="telefono" class="form-control" placeholder="8112345678" maxlength="10" required autocomplete="tel">
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label" for="selectVacante">¿A qué puesto te postulas?</label>
-                    <select id="selectVacante" class="form-control" required>
-                        <option value="">Selecciona una opción...</option>
-                    </select>
                 </div>
 
                 <div class="form-group" id="grupoTransporte" style="display: none;">
@@ -496,7 +522,6 @@
         `;
 
         const formPostulacion = document.getElementById('formPostulacion');
-        const selectVacante = document.getElementById('selectVacante');
         const grupoTransporte = document.getElementById('grupoTransporte');
         const selectTransporte = document.getElementById('selectTransporte');
         const selectReclutador = document.getElementById('selectReclutador');
@@ -507,65 +532,127 @@
         const errorFecha = document.getElementById('errorFecha');
         const errorHora = document.getElementById('errorHora');
 
-        let mapaRutasVacantes = {};
-
         // ==========================================
-        // 6. PARCHE DE CARGA DE VACANTES DESDE FIREBASE (CORREGIDO)
+        // 6. CARGA Y DESPLIEGUE DE ESPECIFICACIONES (ABAJO DEL BANNER)
         // ==========================================
         function cargarVacantesYReclutadores() {
             if (!idEmpresaUrl) return;
 
-            // 1. Carga de vacantes mapeando correctamente la estructura de dos niveles de Firebase
             db.ref(`vacantes_detalles/${idEmpresaUrl}`).once('value')
                 .then((snapshot) => {
                     if (snapshot.exists()) {
-                        selectVacante.innerHTML = '<option value="">Selecciona una opción...</option>';
-                        let contadorVacantes = 0;
+                        let datosVacanteSeleccionada = null;
 
-                        // PRIMER BUCLE: Recorre los identificadores de puesto (ej: operadorgeneral)
-                        snapshot.forEach((puestoSnapshot) => {
-                            const idPuesto = puestoSnapshot.key;
-                            const datosVacante = puestoSnapshot.val();
-
-                            // Validamos que existan datos válidos dentro del nodo del puesto
-                            if (datosVacante && typeof datosVacante === 'object') {
-                                contadorVacantes++;
-
-                                // Mapeo adaptado 100% a tus propiedades de Firebase reales
-                                const nombrePuesto = datosVacante.vacanteNombre || datosVacante.nombreVacante || datosVacante.puesto || idPuesto;
-                                const horarioTurno = datosVacante.turnos || datosVacante.turno || 'Turno no especificado';
-                                
-                                // Parche crítico para procesar rutasTransporte si viene como string, vacío u objeto
-                                let rutasRaw = datosVacante.rutasTransporte || datosVacante.rutas_transporte || "";
-                                if (typeof rutasRaw === 'string') {
-                                    mapaRutasVacantes[idPuesto] = rutasRaw.trim() !== "" ? rutasRaw.split(',').map(r => r.trim()) : [];
-                                } else if (Array.isArray(rutasRaw)) {
-                                    mapaRutasVacantes[idPuesto] = rutasRaw;
-                                } else {
-                                    mapaRutasVacantes[idPuesto] = [];
-                                }
-
-                                const option = document.createElement('option');
-                                option.value = idPuesto; // Se envía el ID del puesto como valor
-                                option.textContent = `${nombrePuesto} (${horarioTurno})`;
-                                selectVacante.appendChild(option);
-                            }
-                        });
-                        
-                        if (contadorVacantes > 0) {
-                            formPostulacion.style.display = 'block';
-                            document.getElementById('vacantTitle').textContent = "Completa tu registro aquí abajo";
+                        // Si viene un puesto en la URL lo buscamos, si no, agarramos el primero
+                        if (idPuestoUrl && snapshot.hasChild(idPuestoUrl)) {
+                            idVacanteSeleccionada = idPuestoUrl;
+                            datosVacanteSeleccionada = snapshot.child(idPuestoUrl).val();
                         } else {
-                            document.getElementById('vacantTitle').textContent = "No hay vacantes activas por el momento";
+                            snapshot.forEach((child) => {
+                                if (!datosVacanteSeleccionada) {
+                                    idVacanteSeleccionada = child.key;
+                                    datosVacanteSeleccionada = child.val();
+                                }
+                            });
+                        }
+
+                        if (datosVacanteSeleccionada) {
+                            const nombreVacante = datosVacanteSeleccionada.vacanteNombre || datosVacanteSeleccionada.nombreVacante || datosVacanteSeleccionada.puesto || idVacanteSeleccionada;
+                            const turnos = datosVacanteSeleccionada.turnos || datosVacanteSeleccionada.turno || 'No especificado';
+                            textoPuestoSeleccionado = `${nombreVacante} (${turnos})`;
+
+                            // Actualizar Títulos de la cabecera
+                            document.getElementById('vacantTitle').textContent = "Detalles y Registro";
+
+                            // Inyectar Especificidades abajo del banner
+                            const contenedorEspecificaciones = document.getElementById('contenedorEspecificaciones');
+                            contenedorEspecificaciones.innerHTML = `
+                                <div class="card">
+                                    <h3 class="card-title"><i class="fa-solid fa-briefcase"></i> Especificaciones del Puesto</h3>
+                                    <div class="spec-grid">
+                                        <div class="spec-item">
+                                            <span class="spec-label">Puesto</span>
+                                            <span class="spec-value">${nombreVacante}</span>
+                                        </div>
+                                        <div class="spec-item">
+                                            <span class="spec-label">Sueldo / Salario</span>
+                                            <span class="spec-value">${datosVacanteSeleccionada.salario || 'Competitivo'}</span>
+                                        </div>
+                                        <div class="spec-item">
+                                            <span class="spec-label">Turnos / Horarios</span>
+                                            <span class="spec-value">${turnos}</span>
+                                        </div>
+                                        <div class="spec-item">
+                                            <span class="spec-label">Ubicación / Origen</span>
+                                            <span class="spec-value">${datosVacanteSeleccionada.lugarOrigen || 'Planta General'}</span>
+                                        </div>
+                                        <div class="spec-item">
+                                            <span class="spec-label">Escolaridad</span>
+                                            <span class="spec-value">${datosVacanteSeleccionada.escolaridad || 'No requerida'}</span>
+                                        </div>
+                                        <div class="spec-item">
+                                            <span class="spec-label">Experiencia</span>
+                                            <span class="spec-value">${datosVacanteSeleccionada.experiencia || 'Sin experiencia'}</span>
+                                        </div>
+                                        <div class="spec-item">
+                                            <span class="spec-label">Edad Requerida</span>
+                                            <span class="spec-value">${datosVacanteSeleccionada.edad || 'Mayor de edad'}</span>
+                                        </div>
+                                        <div class="spec-item">
+                                            <span class="spec-label">Género</span>
+                                            <span class="spec-value">${datosVacanteSeleccionada.sexo || 'Indistinto'}</span>
+                                        </div>
+                                        <div class="spec-item spec-full">
+                                            <span class="spec-label">Actividades</span>
+                                            <span class="spec-value" style="font-weight: 400;">${datosVacanteSeleccionada.actividades || 'Las actividades se detallarán en entrevista.'}</span>
+                                        </div>
+                                        <div class="spec-item spec-full">
+                                            <span class="spec-label">Beneficios y Prestaciones</span>
+                                            <span class="spec-value" style="font-weight: 400; color: #16a34a;"><i class="fa-solid fa-gift"></i> ${datosVacanteSeleccionada.beneficios || 'Prestaciones de ley.'}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+
+                            // Configurar Rutas de Transporte para esta vacante
+                            let rutasRaw = datosVacanteSeleccionada.rutasTransporte || datosVacanteSeleccionada.rutas_transporte || "";
+                            let rutasArr = [];
+                            if (typeof rutasRaw === 'string') {
+                                rutasArr = rutasRaw.trim() !== "" ? rutasRaw.split(',').map(r => r.trim()) : [];
+                            } else if (Array.isArray(rutasRaw)) {
+                                rutasArr = rutasRaw;
+                            }
+
+                            mapaRutasVacantes[idVacanteSeleccionada] = rutasArr;
+
+                            selectTransporte.innerHTML = `
+                                <option value="">Selecciona una ruta...</option>
+                                <option value="No necesito transporte">No necesito transporte de personal</option>
+                            `;
+
+                            if (rutasArr.length > 0) {
+                                rutasArr.forEach((ruta) => {
+                                    const option = document.createElement('option');
+                                    option.value = ruta;
+                                    option.textContent = ruta;
+                                    selectTransporte.appendChild(option);
+                                });
+                                grupoTransporte.style.display = 'block';
+                            } else {
+                                grupoTransporte.style.display = 'none';
+                            }
+
+                            // Mostrar contenedor de geolocalización y el formulario
+                            document.getElementById('geoCard').style.display = 'block';
+                            formPostulacion.style.display = 'block';
+                        } else {
+                            document.getElementById('vacantTitle').textContent = "No hay detalles de vacantes disponibles";
                         }
                     } else {
                         document.getElementById('vacantTitle').textContent = "No hay vacantes activas por el momento";
                     }
                 })
-                .catch((err) => {
-                    console.error("Error al cargar vacantes:", err);
-                    document.getElementById('vacantTitle').textContent = "Error al conectar con el servidor";
-                });
+                .catch((err) => console.error("Error al cargar vacantes:", err));
 
             // 2. Cargar Reclutadores
             db.ref('reclutadores').once('value')
@@ -591,33 +678,8 @@
         }
 
         // ==========================================
-        // 7. LISTENERS Y VALIDACIONES EN TIEMPO REAL
+        // 7. LISTENERS Y VALIDACIONES DE CITAS
         // ==========================================
-        selectVacante.addEventListener('change', (e) => {
-            const idVacanteSeleccionada = e.target.value;
-            selectTransporte.innerHTML = `
-                <option value="">Selecciona una ruta...</option>
-                <option value="No necesito transporte">No necesito transporte de personal</option>
-            `;
-
-            if (idVacanteSeleccionada && mapaRutasVacantes[idVacanteSeleccionada]) {
-                const rutas = mapaRutasVacantes[idVacanteSeleccionada];
-                if (rutas.length > 0) {
-                    rutas.forEach((ruta) => {
-                        const option = document.createElement('option');
-                        option.value = ruta;
-                        option.textContent = ruta;
-                        selectTransporte.appendChild(option);
-                    });
-                    grupoTransporte.style.display = 'block';
-                } else {
-                    grupoTransporte.style.display = 'none';
-                }
-            } else {
-                grupoTransporte.style.display = 'none';
-            }
-        });
-
         chkAgendarCita.addEventListener('change', (e) => {
             if (e.target.checked) {
                 blockAgenda.classList.add('show');
@@ -684,8 +746,6 @@
             const nombre = document.getElementById('nombreCompleto').value.trim();
             const curp = document.getElementById('curp').value.trim().toUpperCase();
             const telefono = document.getElementById('telefono').value.trim();
-            const idVacante = selectVacante.value;
-            const puestoTexto = selectVacante.options[selectVacante.selectedIndex].text;
             const rutaTransporte = selectTransporte.value || "No requiere / No especificado";
             const idReclutador = selectReclutador.value;
             const reclutadorOpt = selectReclutador.options[selectReclutador.selectedIndex];
@@ -713,7 +773,7 @@
                 if (snapshotDuplicados.exists()) {
                     snapshotDuplicados.forEach((childSnapshot) => {
                         const postulacion = childSnapshot.val();
-                        if (postulacion.id_vacante === idVacante) {
+                        if (postulacion.id_vacante === idVacanteSeleccionada) {
                             registroDuplicadoExistente = { id: childSnapshot.key, ...postulacion };
                         }
                     });
@@ -735,8 +795,8 @@
                     nombre_candidato: nombre,
                     curp: curp,
                     telefono: telefono,
-                    id_vacante: idVacante,
-                    vacante_puesto: puestoTexto,
+                    id_vacante: idVacanteSeleccionada,
+                    vacante_puesto: textoPuestoSeleccionado,
                     ruta_transporte: rutaTransporte,
                     id_reclutador: idReclutador,
                     nombre_reclutador: nombreReclutador,
@@ -761,7 +821,7 @@
                     `👤 *Nombre:* ${nombre}\n` +
                     `📄 *CURP:* ${curp}\n` +
                     `📞 *Teléfono:* ${telefono}\n` +
-                    `💼 *Vacante:* ${puestoTexto}\n` +
+                    `💼 *Vacante:* ${textoPuestoSeleccionado}\n` +
                     `🚌 *Transporte:* ${rutaTransporte}\n` +
                     `🤝 *Reclutador:* ${nombreReclutador}` +
                     mensajeCitaText + `\n\n` +
