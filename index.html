@@ -546,7 +546,7 @@
             animation: shineBtn 4s infinite linear;
         }
 
-        @pragma shineBtn {
+        @keyframes shineBtn {
             0% { transform: translate(-100%, -100%) rotate(30deg); }
             100% { transform: translate(100%, 100%) rotate(30deg); }
         }
@@ -1211,71 +1211,81 @@
         window.open(urlWhatsApp, '_blank');
     };
 
-    // --- LÓGICA DE CONTROL DE LA VENTANA MODAL DE ACCESO ---
+    // --- CORRECCIÓN INTEGRADA: EXPOSICIÓN GLOBAL DE FUNCIONES EN TYPE="MODULE" ---
     window.abrirAdminModal = function() {
-        document.getElementById('adminLoginWrapper').classList.add('open');
-        document.body.style.overflow = 'hidden'; // Bloquea el scroll del fondo
+        const modal = document.getElementById('adminLoginWrapper');
+        if (modal) {
+            modal.classList.add('open');
+            document.body.style.overflow = 'hidden'; // Bloquea el scroll de fondo
+        }
     };
 
     window.cerrarAdminModal = function() {
-        document.getElementById('adminLoginWrapper').classList.remove('open');
-        document.body.style.overflow = 'auto'; // Restaura el scroll del fondo
+        const modal = document.getElementById('adminLoginWrapper');
+        if (modal) {
+            modal.classList.remove('open');
+            document.body.style.overflow = 'auto'; // Restaura el scroll
+        }
     };
 
-    // Permite cerrar si hacen clic fuera del cuadro azul
     window.cerrarAdminModalExterna = function(event) {
         if (event.target.id === 'adminLoginWrapper') {
             window.cerrarAdminModal();
         }
     };
 
-    document.getElementById('adminLoginForm').addEventListener('submit', function(event) {
-        event.preventDefault();
+    // Escuchador dinámico directo del submit para evitar dependencias inline
+    const adminForm = document.getElementById('adminLoginForm');
+    if (adminForm) {
+        adminForm.addEventListener('submit', function(event) {
+            event.preventDefault();
 
-        const cargo = document.getElementById('adminCargo').value;
-        const username = document.getElementById('adminUsername').value.trim().toLowerCase();
-        const password = document.getElementById('adminPassword').value.trim();
+            const cargo = document.getElementById('adminCargo').value;
+            const username = document.getElementById('adminUsername').value.trim().toLowerCase();
+            const password = document.getElementById('adminPassword').value.trim();
 
-        if (!cargo || !username || !password) {
-            alert("Por favor completa todos los campos del formulario.");
-            return;
-        }
+            if (!cargo || !username || !password) {
+                alert("Por favor completa todos los campos del formulario.");
+                return;
+            }
 
-        const usuarioRef = ref(db, `usuarios/usr_${username}`);
+            const usuarioRef = ref(db, `usuarios/usr_${username}`);
 
-        get(usuarioRef).then((snapshot) => {
-            if (snapshot.exists()) {
-                const usuario = snapshot.val();
-                
-                if (usuario.password === password) {
-                    if (usuario.rol === cargo) {
-                        alert(`¡Bienvenido, ${usuario.nombre}! Acceso autorizado como ${usuario.rol}.`);
-                        sessionStorage.setItem('usuarioLogueado', JSON.stringify(usuario));
-                        window.location.href = "https://valdomtec-arch.github.io/bolsa-trabajo-principal/admin.html";
+            get(usuarioRef).then((snapshot) => {
+                if (snapshot.exists()) {
+                    const usuario = snapshot.val();
+                    
+                    if (usuario.password === password) {
+                        if (usuario.rol === cargo) {
+                            alert(`¡Bienvenido, ${usuario.nombre}! Acceso autorizado como ${usuario.rol}.`);
+                            sessionStorage.setItem('usuarioLogueado', JSON.stringify(usuario));
+                            window.location.href = "https://valdomtec-arch.github.io/bolsa-trabajo-principal/admin.html";
+                        } else {
+                            alert("El rol seleccionado no coincide con tu cargo registrado.");
+                        }
                     } else {
-                        alert("El rol seleccionado no coincide con tu cargo registrado.");
+                        alert("Contraseña incorrecta.");
                     }
                 } else {
-                    alert("Contraseña incorrecta.");
+                    // Credenciales maestras de respaldo (Año 2026)
+                    if (username === "admin" && password === "Admin2026*" && cargo === "Administrador") {
+                        const usuarioDefault = {
+                            nombre: "admin",
+                            rol: "Administrador",
+                            empresaId: "sistema"
+                        };
+                        sessionStorage.setItem('usuarioLogueado', JSON.stringify(usuarioDefault));
+                        window.location.href = "https://valdomtec-arch.github.io/bolsa-trabajo-principal/admin.html";
+                    } else {
+                        alert("Usuario administrativo no encontrado en el sistema.");
+                    }
                 }
-            } else {
-                if (username === "admin" && password === "Admin2026*" && cargo === "Administrador") {
-                    const usuarioDefault = {
-                        nombre: "admin",
-                        rol: "Administrador",
-                        empresaId: "sistema"
-                    };
-                    sessionStorage.setItem('usuarioLogueado', JSON.stringify(usuarioDefault));
-                    window.location.href = "https://valdomtec-arch.github.io/bolsa-trabajo-principal/admin.html";
-                } else {
-                    alert("Usuario administrativo no encontrado en el sistema.");
-                }
-            }
-        }).catch((error) => {
-            console.error("Error al autenticar: ", error);
-            alert("Hubo un problema de red al conectar con el servidor.");
+            }).catch((error) => {
+                console.error("Error al autenticar: ", error);
+                alert("Hubo un problema de red al conectar con el servidor.");
+            });
         });
-    });
+    }
 </script>
 </body>
 </html>
