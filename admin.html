@@ -1012,6 +1012,7 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
       <span class="log-action" style="color: var(--green-success);">Iniciado...</span>
     </div>
   </div>
+<!-- ... [Mantener todo el código HTML previo intacto hasta la línea de logs] ... -->
 </div>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
@@ -1040,7 +1041,92 @@ let chartCandidatosInst = null, chartVacantesInst = null, chartEmpresasInst = nu
 let chartEmpresasRealesInst = null, chartVacantesRealesInst = null;
 
 // ==============================================
-// FUNCIONAMIENTO DE PESTAÑAS (100% CORREGIDO)
+// INITIALIZACIÓN GENERAL Y EVENTOS (DOM CONTENT)
+// ==============================================
+document.addEventListener('DOMContentLoaded', () => {
+  inicializarNavegacionTabs();
+  registrarEventosVacantesForm();
+  
+  // Cargar API Key guardada de forma automática si existe
+  const savedKey = localStorage.getItem('apiKeyGemini');
+  if (savedKey) {
+    document.getElementById('geminiApiKeyInput').value = savedKey;
+    conectarFirebaseConApiKey(savedKey);
+  }
+
+  // Eventos de la pestaña 1
+  document.getElementById('btnConectarApiKey').addEventListener('click', () => {
+    const key = document.getElementById('geminiApiKeyInput').value.trim();
+    if (!key) return alert("❌ Introduce una API Key válida.");
+    localStorage.setItem('apiKeyGemini', key);
+    conectarFirebaseConApiKey(key);
+  });
+
+  document.getElementById('btnProbarConexion').addEventListener('click', () => {
+    if (db) {
+      alert("📡 Firebase está respondiendo correctamente.");
+    } else {
+      alert("❌ No hay conexión activa a Firebase. Guarda tu Clave Maestra primero.");
+    }
+  });
+
+  document.getElementById('toggleApiKey').addEventListener('click', function() {
+    const input = document.getElementById('geminiApiKeyInput');
+    const icon = this.querySelector('i');
+    if (input.type === "password") {
+      input.type = "text";
+      icon.className = "fas fa-eye-slash";
+    } else {
+      input.type = "password";
+      icon.className = "fas fa-eye";
+    }
+  });
+
+  document.getElementById('empIdInput').addEventListener('input', actualizarEnlaceGithub);
+  document.getElementById('buscarEmpresaInput').addEventListener('input', renderizarTablaEmpresas);
+  document.getElementById('secEmpresaSelect').addEventListener('change', actualizarSelectoresVacantes);
+
+  document.getElementById('btnGuardarEmpresa').addEventListener('click', () => {
+    if (!validarFormEmpresa()) return;
+    const id = document.getElementById('empIdInput').value.trim().toUpperCase();
+    const datos = obtenerDatosFormularioEmpresa();
+    if (db) db.ref(`empresas/${id}`).set(datos).then(() => {
+      alert('✅ Empresa registrada exitosamente.');
+      cancelarEdicionEmpresa();
+    });
+  });
+
+  document.getElementById('btnActualizarEmpresa').addEventListener('click', () => {
+    if (!idEmpresaEdicionActiva) return;
+    const datos = obtenerDatosFormularioEmpresa();
+    if (db) db.ref(`empresas/${idEmpresaEdicionActiva}`).update(datos).then(() => {
+      alert('✅ Empresa actualizada correctamente.');
+      cancelarEdicionEmpresa();
+    });
+  });
+
+  document.getElementById('btnCancelarEdicionEmpresa').addEventListener('click', cancelarEdicionEmpresa);
+  document.getElementById('btnLimpiarFormEmpresa').addEventListener('click', cancelarEdicionEmpresa);
+
+  document.getElementById('btnGuardarReclutador').addEventListener('click', () => {
+    const id = document.getElementById('recIdInput').value.trim();
+    if (!id) return alert("❌ ID requerido");
+    const datos = {
+      nombre: document.getElementById('recNombreInput').value.trim(),
+      telefono: document.getElementById('recTelefonoInput').value.trim(),
+      estatus: document.getElementById('recEstatusSelect').value
+    };
+    if (db) db.ref(`reclutadores/${id}`).set(datos).then(() => {
+      alert("✅ Reclutador guardado");
+      document.getElementById('recIdInput').value = '';
+      document.getElementById('recNombreInput').value = '';
+      document.getElementById('recTelefonoInput').value = '';
+    });
+  });
+});
+
+// ==============================================
+// FUNCIONAMIENTO DE PESTAÑAS
 // ==============================================
 function inicializarNavegacionTabs() {
   const botonesTab = document.querySelectorAll('.tabs-menu .tab-btn');
@@ -1133,7 +1219,6 @@ function handleFileSelect(e) {
   }
 }
 
-// Lector de Documentos (PDF, DOCX, TXT)
 function procesarArchivoLocal(file) {
   const statusDiv = document.getElementById('file-status');
   const nameSpan = document.getElementById('file-name');
@@ -1190,7 +1275,7 @@ function procesarArchivoLocal(file) {
   }
 }
 
-// Consumo directo de la API de Google Gemini en Frontend
+// Consumo directo de la API de Google Gemini en Frontend (UNIFICADO)
 async function ejecutarAnalisisIA() {
   const apiKey = localStorage.getItem('apiKeyGemini');
   if (!apiKey) return alert("❌ Configura y guarda tu API Key en la Pestaña 1 primero.");
@@ -1201,7 +1286,7 @@ async function ejecutarAnalisisIA() {
 
   const promptVacantes = `Analiza el siguiente perfil laboral y devuelve un array JSON estructurado de objetos vacante. Devuelve ÚNICAMENTE el JSON como texto plano.
 Cada objeto debe tener la estructura:
-{
+[{
   "puestoId": "id-unico-minusculas-sin-espacios",
   "nombreVacante": "Nombre Oficial de la Vacante",
   "salario": "Sueldo/salario especificado",
@@ -1215,11 +1300,11 @@ Cada objeto debe tener la estructura:
   "actividades": "Actividades a realizar",
   "beneficios": "Prestaciones y beneficios",
   "infoGeneral": "Notas extra"
-}`;
+}]`;
 
   const promptLogistica = `Analiza la siguiente información de transporte laboral o logística corporativa y extrae las rutas. Devuelve ÚNICAMENTE un array JSON estructurado de objetos.
 Cada objeto debe tener la estructura:
-{
+[{
   "puestoId": "id-ruta-minusculas",
   "nombreVacante": "Nombre de la Ruta de Transporte",
   "salario": "No aplica",
@@ -1233,7 +1318,7 @@ Cada objeto debe tener la estructura:
   "actividades": "Especificaciones técnicas de transporte",
   "beneficios": "No aplica",
   "infoGeneral": "Notas extra"
-}`;
+}]`;
 
   const instruction = activeMotor === 'vacantes' ? promptVacantes : promptLogistica;
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
@@ -1247,25 +1332,48 @@ Cada objeto debe tener la estructura:
       })
     });
 
-    const data = await response.json();
-    let textResult = data.candidates[0].content.parts[0].text;
+    if (!response.ok) throw new Error(`Error en la API de Gemini: ${response.statusText}`);
     
-    // Limpiar bloques de código markdown
-    textResult = textResult.replace(/```json/g, '').replace(/```/g, '').trim();
+    const resultJson = await response.json();
+    let textResult = resultJson?.candidates?.[0]?.content?.parts?.[0]?.text;
     
-    document.getElementById('iaTextoPegar').value = textResult;
-    document.getElementById('codigoJsonVerde').textContent = textResult;
-    document.getElementById('codigoJsonVerde').style.display = 'block';
+    if (!textResult) throw new Error("La respuesta de la IA llegó vacía.");
 
-    analyzedDataLote = JSON.parse(textResult);
+    // Limpiar bloques de código markdown si existen
+    textResult = textResult.replace(/```json/gi, '').replace(/```/g, '').trim();
+
+    // Extraer bloque JSON estructurado de manera segura
+    const jsonMatch = textResult.match(/[\{\s\[]([\s\S]*?)[\]\s\}]/);
+    let cleanJsonText = textResult;
+    
+    if (jsonMatch) {
+        cleanJsonText = textResult.substring(
+            textResult.indexOf(jsonMatch[0].trim().charAt(0)), 
+            textResult.lastIndexOf(jsonMatch[0].trim().charAt(jsonMatch[0].trim().length - 1)) + 1
+        );
+    }
+
+    if (!cleanJsonText) throw new Error("No se detectó una estructura de datos válida en el análisis.");
+
+    document.getElementById('iaTextoPegar').value = cleanJsonText;
+    
+    const codigoJsonVerde = document.getElementById('codigoJsonVerde');
+    if (codigoJsonVerde) {
+        codigoJsonVerde.textContent = cleanJsonText;
+        codigoJsonVerde.style.display = 'block';
+    }
+
+    analyzedDataLote = JSON.parse(cleanJsonText);
     actualizarSelectorLoteDetectado();
     
-    document.getElementById('contenedorResultadoVerde').style.display = 'block';
+    const contenedorVerde = document.getElementById('contenedorResultadoVerde');
+    if (contenedorVerde) contenedorVerde.style.display = 'block';
+    
     registrarLogSistema("Extractor IA", "Estructuración completada con éxito.");
 
-  } catch (err) {
-    alert("Error al procesar con Gemini. Revisa la consola y tu API Key.");
-    console.error(err);
+  } catch (error) {
+    console.error("❌ Error procesando el análisis de la IA:", error);
+    alert("Hubo un problema al leer la respuesta de la IA o el formato JSON no es el correcto.");
   } finally {
     btn.innerHTML = '<i class="fas fa-brain"></i> Analizar con IA';
     btn.disabled = false;
@@ -2009,6 +2117,7 @@ function renderizarTablaReclutadores() {
     tr.innerHTML = `
       <td>${rec.idFirebase}</td>
       <td>${rec.nombre || '-'}</td>
+      <td>-</td>
       <td>${rec.telefono || '-'}</td>
       <td>${rec.estatus || 'activo'}</td>
       <td>
@@ -2062,358 +2171,83 @@ function calcularMetricasDemograficas() {
 function filtrarAgendaPorEstatus(dia) {
   filtroAgendaActual = dia.toUpperCase();
   document.getElementById('lblFiltroAgendaActivo').textContent = 
-    dia === 'TODOS' ? 'Todos los postulantes' : `Citados el día ${dia}`;
+    dia === 'TODOS' ? 'Todos los postulantes' : `Citados: ${dia}`;
   renderizarTablaPostulantes();
 }
 
 function renderizarTablaPostulantes() {
   const tbody = document.getElementById('tbodyPostulantes');
-  const buscador = document.getElementById('buscarPostulanteInput')?.value.toLowerCase().trim() || '';
   if (!tbody) return;
   tbody.innerHTML = "";
   
-  listaPostulantesGlobal.filter(p => {
-    const dia = (p.diaEntrevista || '').toUpperCase();
-    const cumpleFiltro = filtroAgendaActual === 'TODOS' || dia === filtroAgendaActual;
-    const cumpleBusqueda = !buscador || 
+  let filtrados = listaPostulantesGlobal;
+  if (filtroAgendaActual !== 'TODOS') {
+    filtrados = listaPostulantesGlobal.filter(p => (p.diaCitado || '').toUpperCase() === filtroAgendaActual);
+  }
+  
+  const buscador = document.getElementById('buscarPostulanteInput')?.value.toLowerCase().trim() || '';
+  if (buscador) {
+    filtrados = filtrados.filter(p => 
       (p.nombre && p.nombre.toLowerCase().includes(buscador)) ||
-      (p.telefono && p.telefono.includes(buscador)) ||
-      (p.vacanteInteres && p.vacanteInteres.toLowerCase().includes(buscador)) ||
-      (p.empresa && p.empresa.toLowerCase().includes(buscador));
-    return cumpleFiltro && cumpleBusqueda;
-  }).forEach(p => {
+      (p.telefono && p.telefono.toLowerCase().includes(buscador)) ||
+      (p.vacanteInteres && p.vacanteInteres.toLowerCase().includes(buscador))
+    );
+  }
+
+  filtrados.forEach(p => {
     const tr = document.createElement('tr');
-    const estatus = p.estatus || 'Pendiente';
-    let badge = `<span style="background:#fed7aa;color:#ea580c;padding:3px 8px;border-radius:12px;font-size:0.75rem;font-weight:bold;">${estatus}</span>`;
-    let waBtn = '-';
-    if (p.telefono) {
-      const num = p.telefono.replace(/\D/g, "");
-      const msg = encodeURIComponent(`Hola ${p.nombre || 'Candidato'}, de Bolsa de Trabajo`);
-      waBtn = `<a href="https://wa.me/${num}?text=${msg}" target="_blank" class="btn-wa-premium" style="font-size:0.75rem;padding:4px 10px;"><i class="fab fa-whatsapp"></i></a>`;
-    }
-    
-   tr.innerHTML = `
-      <td style="font-weight:bold;">${p.nombre || '-'}</td>
-      <td style="font-family: monospace; font-size: 0.9em;">${p.curp || '-'}</td> <!-- AQUÍ AGREGAMOS LA CURP -->
-      <td>${waBtn}</td>
-      <td><span style="color:var(--primary-orange);font-weight:500;">${p.empresa || '-'}</span> / ${p.vacanteInteres || '-'}</td>
-      <td style="color:#d6d3d1;">${p.edad || '-'} años (${p.sexo || '-'})</td>
+    tr.innerHTML = `
+      <td><strong>${p.nombre || '-'}</strong></td>
+      <td>${p.telefono || '-'}</td>
+      <td>${p.vacanteInteres || p.vacante || '-'} / ${p.empresa || '-'}</td>
+      <td>${p.edad || '-'} / ${p.sexo || '-'}</td>
+      <td><span class="badge" style="background:#1e293b; padding:4px 8px; border-radius:4px;">${p.estatus || 'Pendiente'}</span></td>
       <td>
-        <div style="display:flex;flex-direction:column;gap:4px;">
-          ${badge}
-          <span style="font-size:0.75rem;color:#a8a29e;"><i class="far fa-calendar-alt"></i> ${p.diaEntrevista || 'Sin agendar'} ${p.horaCita ? `a las ${p.horaCita}` : ''}</span>
-        </div>
-      </td>
-      <td>
-        <div class="actions-layout" style="margin-top:0;">
-          <button class="btn-edit-mode" style="padding:6px 10px;" onclick="abrirEditorPostulante('${p.idFirebase}')"><i class="fas fa-user-edit"></i></button>
-          <button class="btn-delete-mode" style="padding:6px 10px;" onclick="eliminarPostulanteSistema('${p.idFirebase}')"><i class="fas fa-trash-alt"></i></button>
-        </div>
+        <button class="btn-edit-mode" style="padding:4px 8px;" onclick="abrirEdicionCandidato('${p.idFirebase}')"><i class="fas fa-edit"></i></button>
       </td>`;
     tbody.appendChild(tr);
   });
 }
 
-function abrirEditorPostulante(id) {
-  const p = listaPostulantesGlobal.find(c => c.idFirebase === id);
-  if (!p) return;
+function abrirEdicionCandidato(id) {
+  const cand = listaPostulantesGlobal.find(p => p.idFirebase === id);
+  if (!cand) return;
+  
   document.getElementById('editPostulanteId').value = id;
-  document.getElementById('editPostulanteEstatus').value = p.estatus || "Pendiente";
-  document.getElementById('editPostulanteDia').value = p.diaEntrevista || "";
-  document.getElementById('editPostulanteHora').value = p.horaCita || "";
-  document.getElementById('editPostulanteReclutador').value = p.reclutadorAsignado || "";
-  document.getElementById('editPostulanteNotas').value = p.notesInternas || p.notasInternas || "";
+  document.getElementById('editPostulanteEstatus').value = cand.estatus || 'Pendiente';
+  document.getElementById('editPostulanteDia').value = cand.diaCitado || '';
+  document.getElementById('editPostulanteHora').value = cand.horaCitado || '';
+  document.getElementById('editPostulanteReclutador').value = cand.reclutadorAsignado || '';
+  document.getElementById('editPostulanteNotas').value = cand.notas || '';
+  
   document.getElementById('panelEdicionPostulante').classList.add('open');
 }
 
-function eliminarPostulanteSistema(id) {
-  if (!confirm("¿Eliminar postulación?")) return;
-  if (db) db.ref(`postulantes/${id}`).remove()
-    .then(() => registrarLogSistema("Postulantes", `Eliminado: ${id}`));
-}
+document.getElementById('btnCerrarEdicionPostulante')?.addEventListener('click', () => {
+  document.getElementById('panelEdicionPostulante').classList.remove('open');
+});
 
-// ==============================================
-// EVENTOS GLOBALES E INICIALIZACIÓN
-// ==============================================
-document.addEventListener("DOMContentLoaded", () => {
-  inicializarNavegacionTabs();
-  registrarEventosVacantesForm();
+document.getElementById('btnGuardarCambiosPostulante')?.addEventListener('click', () => {
+  const id = document.getElementById('editPostulanteId').value;
+  if (!id || !db) return;
   
-  // Hacer clic en zona drop abre el selector manual
-  document.getElementById('drop-zone').addEventListener('click', () => {
-    document.getElementById('file-input').click();
-  });
-
-  const inputId = document.getElementById('empIdInput');
-  inputId.addEventListener('input', actualizarEnlaceGithub);
-  actualizarEnlaceGithub();
+  const updates = {
+    estatus: document.getElementById('editPostulanteEstatus').value,
+    diaCitado: document.getElementById('editPostulanteDia').value,
+    horaCitado: document.getElementById('editPostulanteHora').value,
+    reclutadorAsignado: document.getElementById('editPostulanteReclutador').value,
+    notas: document.getElementById('editPostulanteNotas').value
+  };
   
-  document.getElementById('toggleApiKey').addEventListener('click', (e) => {
-    const input = document.getElementById('geminiApiKeyInput');
-    const icon = e.currentTarget.querySelector('i');
-    input.type = input.type === 'password' ? 'text' : 'password';
-    icon.className = input.type === 'text' ? 'fas fa-eye-slash' : 'fas fa-eye';
-  });
-  
-  const apiKeyInput = document.getElementById('geminiApiKeyInput');
-  document.getElementById('btnConectarApiKey').addEventListener('click', () => {
-    const clave = apiKeyInput.value.trim();
-    if (!clave) return alert('❌ Pega tu API Key primero');
-    localStorage.setItem('apiKeyGemini', clave);
-    conectarFirebaseConApiKey(clave);
-  });
-  
-  const claveGuardada = localStorage.getItem('apiKeyGemini');
-  if (claveGuardada) {
-    apiKeyInput.value = claveGuardada;
-    conectarFirebaseConApiKey(claveGuardada);
-  }
-  
-  document.getElementById('btnProbarConexion').addEventListener('click', async () => {
-    const estado = document.getElementById('estadoConexionApi');
-    estado.innerHTML = '<i class="fas fa-circle-notch fa-spin" style="color:#f59e0b;"></i> Probando...';
-    if (!db) {
-      setTimeout(() => estado.innerHTML = '<i class="fas fa-circle-xmark" style="color:#ef4444;"></i> Sin conexión', 600);
-      return;
-    }
-    try {
-      await db.ref('empresas').once('value');
-      estado.innerHTML = '<i class="fas fa-circle-check" style="color:#10b981;"></i> CONEXIÓN EXITOSA';
-      registrarLogSistema("Sistema", "Conexión verificada");
-    } catch (err) {
-      estado.innerHTML = `<i class="fas fa-circle-xmark" style="color:#ef4444;"></i> Error: ${err.message}`;
-    }
-  });
-  
-  document.getElementById('btnCopiarLink').addEventListener('click', async () => {
-    const id = document.getElementById('empIdInput').value.trim().toUpperCase();
-    if (!id) return alert('❌ Escribe un ID primero');
-    try {
-      await navigator.clipboard.writeText(BASE_URL_GITHUB + id);
-      const btn = document.getElementById('btnCopiarLink');
-      const txt = btn.innerHTML;
-      btn.innerHTML = '<i class="fas fa-check"></i> ¡Copiado!';
-      setTimeout(() => btn.innerHTML = txt, 1800);
-    } catch (err) { alert('Error al copiar'); }
-  });
-  
-  document.getElementById('btnLimpiarFormEmpresa').addEventListener('click', () => {
-    if (confirm('¿Limpiar formulario?')) cancelarEdicionEmpresa();
-  });
-  
-  document.getElementById('btnBorrarIdEmpresa').addEventListener('click', () => {
-    const id = document.getElementById('empIdInput').value.trim().toUpperCase();
-    if (!id) return alert('❌ Escribe un ID primero');
-    eliminarEmpresaSistema(id);
-  });
-  
-  document.getElementById('btnGuardarEmpresa').addEventListener('click', async () => {
-    if (!validarFormEmpresa() || !db) return;
-    const id = document.getElementById('empIdInput').value.trim().toUpperCase();
-    const snap = await db.ref(`empresas/${id}`).once('value');
-    if (snap.exists() && !confirm(`El ID "${id}" ya existe. ¿Sobreescribir?`)) return;
-    
-    db.ref(`empresas/${id}`).set(obtenerDatosFormularioEmpresa())
-      .then(() => {
-        registrarLogSistema("NUEVA EMPRESA", `${id} - ${obtenerDatosFormularioEmpresa().nombre}`);
-        cancelarEdicionEmpresa();
-      });
-  });
-  
-  document.getElementById('btnActualizarEmpresa').addEventListener('click', () => {
-    if (!validarFormEmpresa() || !idEmpresaEdicionActiva || !db) return;
-    db.ref(`empresas/${idEmpresaEdicionActiva}`).update(obtenerDatosFormularioEmpresa())
-      .then(() => {
-        registrarLogSistema("EMPRESA ACTUALIZADA", idEmpresaEdicionActiva);
-        cancelarEdicionEmpresa();
-      });
-  });
-  
-  document.getElementById('btnCancelarEdicionEmpresa').addEventListener('click', cancelarEdicionEmpresa);
-  
-  document.getElementById('buscarEmpresaInput').addEventListener('input', renderizarTablaEmpresas);
-  document.getElementById('secEmpresaSelect').addEventListener('change', actualizarSelectoresVacantes);
-  document.getElementById('buscarReclutadorInput').addEventListener('input', renderizarTablaReclutadores);
-  document.getElementById('buscarPostulanteInput').addEventListener('input', renderizarTablaPostulantes);
-  
-  document.getElementById('btnGuardarReclutador').addEventListener('click', () => {
-    const id = document.getElementById('recIdInput').value.trim();
-    if (!id) return alert('❌ ID obligatorio');
-    const datos = {
-      nombre: document.getElementById('recNombreInput').value.trim(),
-      telefono: document.getElementById('recTelefonoInput').value.trim(),
-      estatus: document.getElementById('recEstatusSelect').value
-    };
-    if (db) db.ref(`reclutadores/${id}`).set(datos).then(() => {
-      ['recIdInput','recNombreInput','recTelefonoInput'].forEach(id => document.getElementById(id).value = "");
-      registrarLogSistema("RECLUTADOR", `Nuevo: ${id}`);
-    });
-  });
-  
-  document.getElementById('btnActualizarReclutador').addEventListener('click', () => {
-    if (!idReclutadorEdicionActiva || !db) return;
-    const datos = {
-      nombre: document.getElementById('recNombreInput').value.trim(),
-      telefono: document.getElementById('recTelefonoInput').value.trim(),
-      estatus: document.getElementById('recEstatusSelect').value
-    };
-    db.ref(`reclutadores/${idReclutadorEdicionActiva}`).update(datos).then(() => {
-      idReclutadorEdicionActiva = null;
-      document.getElementById('recIdInput').disabled = false;
-      ['recIdInput','recNombreInput','recTelefonoInput'].forEach(id => document.getElementById(id).value = "");
-      document.getElementById('btnGuardarReclutador').style.display = "block";
-      document.getElementById('btnActualizarReclutador').style.display = "none";
-      document.getElementById('btnCancelarEdicionReclutador').style.display = "none";
-    });
-  });
-  
-  document.getElementById('btnCancelarEdicionReclutador').addEventListener('click', () => {
-    idReclutadorEdicionActiva = null;
-    document.getElementById('recIdInput').disabled = false;
-    ['recIdInput','recNombreInput','recTelefonoInput'].forEach(id => document.getElementById(id).value = "");
-    document.getElementById('btnGuardarReclutador').style.display = "block";
-    document.getElementById('btnActualizarReclutador').style.display = "none";
-    document.getElementById('btnCancelarEdicionReclutador').style.display = "none";
-  });
-  
-  document.getElementById('btnCerrarEdicionPostulante').addEventListener('click', () => {
+  db.ref(`postulantes/${id}`).update(updates).then(() => {
+    alert("✅ Candidato actualizado con éxito");
     document.getElementById('panelEdicionPostulante').classList.remove('open');
   });
-  
-  document.getElementById('btnGuardarCambiosPostulante').addEventListener('click', () => {
-    const id = document.getElementById('editPostulanteId').value;
-    if (!id || !db) return;
-    db.ref(`postulantes/${id}`).update({
-      estatus: document.getElementById('editPostulanteEstatus').value,
-      diaEntrevista: document.getElementById('editPostulanteDia').value,
-      horaCita: document.getElementById('editPostulanteHora').value,
-      reclutadorAsignado: document.getElementById('editPostulanteReclutador').value,
-      notasInternas: document.getElementById('editPostulanteNotas').value
-    }).then(() => {
-      document.getElementById('panelEdicionPostulante').classList.remove('open');
-      registrarLogSistema("Postulantes", `Actualizado: ${id}`);
-    });
-  });
-  
-  document.getElementById('btnLimpiarLogsPantalla').addEventListener('click', () => {
-    document.getElementById('consolaSistemaLogs').innerHTML = 
-      '<div class="log-item"><span class="log-time">[SISTEMA]</span> <span class="log-action" style="color:#10b981;">Consola limpiada</span></div>';
-  });
 });
-// ==========================================
-// CONTROLADOR DE LA PESTAÑA 2: VACANTES E IA
-// ==========================================
-document.addEventListener("DOMContentLoaded", () => {
-  
-  // --- 1. REFERENCIAS DE ELEMENTOS HTML ---
-  const secEmpresaSelect = document.getElementById("secEmpresaSelect");
-  const boxGestionVacantes = document.getElementById("boxGestionVacantes");
-  const selectorVacantesEnFirebase = document.getElementById("selectorVacantesEnFirebase");
-  
-  // Botones de Acción
-  const btnCargarVacante = document.getElementById("btnCargarVacante");
-  const btnBorrarVacanteWeb = document.getElementById("btnBorrarVacanteWeb");
-  const btnLimpiarVacanteForm = document.getElementById("btnLimpiarVacanteForm");
-  const btnGuardarNuevaVacante = document.getElementById("btnGuardarNuevaVacante");
-  const btnGuardarActualizacionVacante = document.getElementById("btnGuardarActualizacionVacante");
-  
-  // Campos del Formulario de Vacante
-  const formCampos = {
-    puestoId: document.getElementById("secPuestoId"),
-    estatus: document.getElementById("secEstatus"),
-    bannerUrl: document.getElementById("secBannerUrl"),
-    nombre: document.getElementById("secVacanteNombre"),
-    edad: document.getElementById("secEdad"),
-    sexo: document.getElementById("secSexo"),
-    experiencia: document.getElementById("secExperiencia"),
-    escolaridad: document.getElementById("secEscolaridad"),
-    salario: document.getElementById("secSalario"),
-    lugarOrigen: document.getElementById("secLugarOrigen"),
-    turnos: document.getElementById("secTurnos"),
-    rutasTransporte: document.getElementById("secRutasTransporte"),
-    actividades: document.getElementById("secActividades"),
-    beneficios: document.getElementById("secBeneficios"),
-    infoGeneral: document.getElementById("secInfoGeneral")
-  };
 
-  // --- 2. FUNCIONES DE APOYO (LÓGICA LOCAL) ---
-  
-  // Limpia visualmente todos los campos del formulario
-  const limpiarFormularioVacante = () => {
-    Object.values(formCampos).forEach(campo => {
-      if (campo) campo.value = "";
-    });
-    // Forzar valores por defecto en selects
-    if (formCampos.estatus) formCampos.estatus.value = "disponible";
-    if (formCampos.sexo) formCampos.sexo.value = "Indistinto";
-    
-    // Mostrar/Ocultar botones correctos para creación limpia
-    if (btnGuardarNuevaVacante) btnGuardarNuevaVacante.style.display = "block";
-    if (btnGuardarActualizacionVacante) btnGuardarActualizacionVacante.style.display = "none";
-    
-    registrarLogSistema("Formulario de vacante limpio y listo para nuevo registro.");
-  };
-
-  // Registra eventos en la consola de auditoría (Pestaña 6) si existe
-  const registrarLogSistema = (mensaje) => {
-    const consolaLogs = document.getElementById("consolaSistemaLogs");
-    if (consolaLogs) {
-      const logItem = document.createElement("div");
-      logItem.className = "log-item";
-      const ahora = new Date().toLocaleTimeString();
-      logItem.innerHTML = `<span class="log-time">[${ahora}]</span> <span class="log-action" style="color: var(--purple-ia);">${mensaje}</span>`;
-      consolaLogs.appendChild(logItem);
-      consolaLogs.scrollTop = consolaLogs.scrollHeight;
-    }
-  };
-
-  // --- 3. ASIGNACIÓN SEGURA DE EVENTOS ---
-  
-  // Cambio de Empresa Matriz (Muestra u oculta el gestor de vacantes existentes)
-  if (secEmpresaSelect) {
-    secEmpresaSelect.addEventListener("change", (e) => {
-      const empresaSeleccionada = e.target.value;
-      if (empresaSeleccionada && boxGestionVacantes) {
-        boxGestionVacantes.style.display = "block";
-        registrarLogSistema(`Empresa matriz cambiada a: ${empresaSeleccionada}`);
-        // Aquí puedes disparar la carga de vacantes de Firebase correspondientes a esa empresa
-      } else if (boxGestionVacantes) {
-        boxGestionVacantes.style.display = "none";
-      }
-    });
-  }
-
-  // Botón Limpiar Formulario
-  if (btnLimpiarVacanteForm) {
-    btnLimpiarVacanteForm.addEventListener("click", (e) => {
-      e.preventDefault();
-      limpiarFormularioVacante();
-    });
-  }
-
-  // Inicialización segura del acordeón de IA
-  window.toggleAccordionIa = () => {
-    const content = document.getElementById("accordionIaContent");
-    const arrow = document.getElementById("accordionArrow");
-    if (content) {
-      const isVisible = content.style.display === "block" || content.classList.contains("open");
-      if (isVisible) {
-        content.style.display = "none";
-        content.classList.remove("open");
-        if (arrow) arrow.style.transform = "rotate(0deg)";
-      } else {
-        content.style.display = "block";
-        content.classList.add("open");
-        if (arrow) arrow.style.transform = "rotate(180deg)";
-        registrarLogSistema("Extractor Inteligente IA desplegado.");
-      }
-    }
-  };
-
-  // Inicializar estado por defecto de los botones finales
-  if (btnGuardarActualizacionVacante) btnGuardarActualizacionVacante.style.display = "none";
-
-  registrarLogSistema("Controlador de Vacantes e IA inicializado correctamente.");
+document.getElementById('btnLimpiarLogsPantalla')?.addEventListener('click', () => {
+  const consola = document.getElementById('consolaSistemaLogs');
+  if (consola) consola.innerHTML = '<div class="log-item"><span class="log-time">[SISTEMA]</span> <span class="log-action" style="color: var(--green-success);">Iniciado...</span></div>';
 });
 </script>
 </body>
