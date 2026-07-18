@@ -38,7 +38,7 @@
 --red-danger: #ef4444; 
 --blue-update: #0284c7; 
 } 
-* { box-sizing: border-box; }
+* { box-spacing: border-box; }
 body { 
 background-color: var(--bg-page); 
 color: var(--text-light); 
@@ -1329,7 +1329,7 @@ Cada objeto debe tener la estructura:
   "zonaCorta": "Destino o zona base",
   "turnosCubre": "Turnos que cubre la ruta",
   "itinerarioDetallado": "Detalle completo de calles, paradas, horarios e itinerario de la ruta",
-  "especificaciones": "Especificaciones técnicas de transporte, camión o notas operativas extras"
+  "specificaciones": "Especificaciones técnicas de transporte, camión o notas operativas extras"
 }]`;
 
   const instruction = activeMotor === 'vacantes' ? promptVacantes : promptLogistica;
@@ -1631,9 +1631,9 @@ function llenarCamposVacanteForm(vacante) {
   document.getElementById('secInfoGeneral').value = vacante.infoGeneral || '';
 }
 
-// ============================================================
+// ==============================================
 // PESTAÑA 3 - GRÁFICOS ANALÍTICOS DEMOGRÁFICOS REALES
-// ============================================================
+// ==============================================
 window.renderizarGraficosPestañaTres = function() {
   const conteoEmpresas = {};
   listaPostulantesGlobal.forEach(p => {
@@ -1682,9 +1682,6 @@ window.renderizarGraficosPestañaTres = function() {
   }
 };
 
-// ==============================================
-// BUSCAR ESTA FUNCIÓN Y REEMPLAZAR EL BUCLE INTERNO:
-// ==============================================
 function calcularMetricasDemograficas() {
   const total = listaPostulantesGlobal.length;
   document.getElementById('totalPostulantesMetrica').textContent = total;
@@ -1693,7 +1690,6 @@ function calcularMetricasDemograficas() {
   let hombres = 0, mujeres = 0, sumaEdad = 0, conteoEdad = 0;
   
   listaPostulantesGlobal.forEach(p => {
-    // Normalización estricta de cadenas para el Género (soporta variaciones de entrada)
     const gen = (p.sexo || '').toLowerCase().trim();
     if (gen.includes('masc') || gen === 'm' || gen === 'hombre' || gen === 'masculino') {
       hombres++;
@@ -1708,12 +1704,10 @@ function calcularMetricasDemograficas() {
     }
   });
 
-  // Inyección de métricas rápidas en el DOM
   document.getElementById('metHombres').textContent = Math.round((hombres / total) * 100) + '%';
   document.getElementById('metMujeres').textContent = Math.round((mujeres / total) * 100) + '%';
   document.getElementById('metPromedioEdad').textContent = conteoEdad > 0 ? Math.round(sumaEdad / conteoEdad) : '—';
 
-  // DISPARADOR ACTIVO: Forzar renderizado y actualización de gráficos basados en la pestaña activa
   if (typeof window.renderizarGraficosPestañaTres === 'function') {
     window.renderizarGraficosPestañaTres();
   }
@@ -1731,7 +1725,6 @@ window.renderizarEstadisticasPestañaTres = function() {
     let ciudades = {};
     
     listaPostulantesGlobal.forEach(p => {
-        // Normalización de género para la gráfica circular de estadísticas
         const gen = p.sexo ? p.sexo.toLowerCase().trim() : '';
         if (gen.includes('masc') || gen === 'm' || gen === 'hombre' || gen === 'masculino') hombres++;
         else if (gen.includes('fem') || gen === 'f' || gen === 'mujer' || gen === 'femenino') mujeres++;
@@ -1739,7 +1732,6 @@ window.renderizarEstadisticasPestañaTres = function() {
         const edad = parseInt(p.edad, 10);
         if (!isNaN(edad)) { sumaEdades += edad; conteoEdades++; }
         
-        // Mapeo geográfico dinámico basado en la dirección del aplicante
         const ciudad = p.direccion || p.origen || "No especificada";
         ciudades[ciudad] = (ciudades[ciudad] || 0) + 1;
     });
@@ -2085,6 +2077,9 @@ function actualizarSelectoresEmpresa() {
   select.value = valorGuardado;
 }
 
+// ==============================================
+// AGENDA, TABLAS Y FUNCIONES COMPLEMENTARIAS
+// ==============================================
 function actualizarSelectoresVacantes() {
   const selectEmpresa = document.getElementById('secEmpresaSelect');
   const boxGestion = document.getElementById('boxGestionVacantes');
@@ -2107,9 +2102,6 @@ function actualizarSelectoresVacantes() {
   });
 }
 
-// ==============================================
-// AGENDA, TABLAS Y FUNCIONES COMPLEMENTARIAS
-// ==============================================
 window.filtrarAgendaPorEstatus = function(dia) {
   filtroAgendaActual = dia;
   document.getElementById('lblFiltroAgendaActivo').textContent = `Mostrando: ${dia}`;
@@ -2184,126 +2176,56 @@ window.guardarCambiosPostulante = function() {
   };
 
   db.ref(`postulantes/${id}`).update(updates).then(() => {
-    alert("✅ Postulante actualizado.");
+    alert("✅ Postulante actualizado con éxito.");
     window.cerrarEdicionPostulante();
+  }).catch(err => {
+    alert("❌ Error al actualizar: " + err.message);
   });
 };
 
-window.enviarRecordatoriosMasivos = function() {
-  const filtrados = listaPostulantesGlobal.filter(p => filtroAgendaActual === 'TODOS' || p.diaAgenda === filtroAgendaActual);
-  if (filtrados.length === 0) return alert("No hay postulantes en este segmento.");
-  
-  filtrados.forEach(p => {
-    if (!p.telefono) return;
-    const msg = encodeURIComponent(`Hola ${p.nombre || 'Candidato'}, te recordamos tu cita para la vacante ${p.vacanteInteres || ''} el día ${p.diaAgenda || ''} a las ${p.horaAgenda || ''}. ¡Te esperamos!`);
-    window.open(`https://wa.me/${p.telefono}?text=${msg}`, '_blank');
-  });
-};
-
-window.exportarExcelMasivo = function() {
-  if (listaPostulantesGlobal.length === 0) return alert("No hay datos para exportar.");
-  const ws = XLSX.utils.json_to_sheet(listaPostulantesGlobal);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Postulantes");
- XLSX.writeFile(wb, `Reporte_Postulantes_${filtroAgendaActual}.xlsx`);
-};
-
-// ==============================================
-// GESTIÓN Y RENDERIZADO DE RECLUTADORES
-// ==============================================
 function renderizarTablaReclutadores() {
   const tbody = document.getElementById('tbodyReclutadores');
   const filtro = document.getElementById('buscarReclutadorInput').value.toLowerCase().trim();
   if (!tbody) return;
-  
   tbody.innerHTML = "";
   
-  const filtrados = listaReclutadoresGlobal.filter(rec => {
-    return `${rec.idFirebase} ${rec.nombre} ${rec.telefono}`.toLowerCase().includes(filtro);
-  });
-  
+  const filtrados = listaReclutadoresGlobal.filter(rec => 
+    `${rec.idFirebase} ${rec.nombre} ${rec.telefono}`.toLowerCase().includes(filtro)
+  );
+
   filtrados.forEach(rec => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td style="font-weight:bold; color:var(--purple-ia);">${rec.idFirebase}</td>
-      <td style="font-weight:600;">${rec.nombre || '-'}</td>
-      <td><i class="fab fa-whatsapp" style="color:var(--green-whatsapp);"></i> ${rec.telefono || '-'}</td>
-      <td><span style="padding:4px 8px; border-radius:6px; font-weight:bold; background:#1e293b;">${rec.estatus || 'activo'}</span></td>
+      <td>${rec.idFirebase}</td>
+      <td>${rec.nombre || '—'}</td>
+      <td>${rec.telefono || '—'}</td>
+      <td>${rec.estatus === 'activo' ? '✅ Activo' : '❌ Inactivo'}</td>
       <td>
-        <div class="actions-layout" style="margin:0;">
-          <button class="btn-edit-mode" onclick="cargarReclutadorEnEdicion('${rec.idFirebase}')"><i class="fas fa-edit"></i></button>
-          <button class="btn-delete-mode" onclick="eliminarReclutadorSistema('${rec.idFirebase}')"><i class="fas fa-trash-alt"></i></button>
-        </div>
+        <button class="btn-delete-mode" onclick="eliminarReclutador('${rec.idFirebase}')"><i class="fas fa-trash-alt"></i></button>
       </td>
     `;
     tbody.appendChild(tr);
   });
 }
 
+function eliminarReclutador(id) {
+  if (confirm(`¿Eliminar reclutador ${id}?`)) {
+    db.ref(`reclutadores/${id}`).remove();
+  }
+}
+
 function actualizarSelectoresReclutadores() {
-  const selectPostulante = document.getElementById('editPostulanteReclutador');
-  if (!selectPostulante) return;
-  
-  const valorGuardado = selectPostulante.value;
-  selectPostulante.innerHTML = '<option value="">-- Sin Reclutador --</option>';
-  
+  const select = document.getElementById('editPostulanteReclutador');
+  if (!select) return;
+  select.innerHTML = '<option value="">-- Sin Reclutador --</option>';
   listaReclutadoresGlobal.forEach(rec => {
     if (rec.estatus === 'activo') {
       const opt = document.createElement('option');
-      opt.value = rec.nombre; // O rec.idFirebase según prefieras guardar en la BD
-      opt.textContent = rec.nombre;
-      selectPostulante.appendChild(opt);
+      opt.value = rec.idFirebase;
+      opt.textContent = rec.nombre || rec.idFirebase;
+      select.appendChild(opt);
     }
   });
-  selectPostulante.value = valorGuardado;
-}
-
-window.cargarReclutadorEnEdicion = function(id) {
-  const rec = listaReclutadoresGlobal.find(r => r.idFirebase === id);
-  if (!rec) return;
-  
-  idReclutadorEdicionActiva = id;
-  document.getElementById('recIdInput').value = rec.idFirebase;
-  document.getElementById('recIdInput').disabled = true;
-  document.getElementById('recNombreInput').value = rec.nombre || '';
-  document.getElementById('recTelefonoInput').value = rec.telefono || '';
-  document.getElementById('recEstatusSelect').value = rec.estatus || 'activo';
-  
-  document.getElementById('btnGuardarReclutador').style.display = 'none';
-  document.getElementById('btnActualizarReclutador').style.display = 'block';
-  document.getElementById('btnCancelarEdicionReclutador').style.display = 'block';
-};
-
-window.cancelarEdicionReclutador = function() {
-  idReclutadorEdicionActiva = null;
-  document.getElementById('recIdInput').value = '';
-  document.getElementById('recIdInput').disabled = false;
-  document.getElementById('recNombreInput').value = '';
-  document.getElementById('recTelefonoInput').value = '';
-  
-  document.getElementById('btnGuardarReclutador').style.display = 'block';
-  document.getElementById('btnActualizarReclutador').style.display = 'none';
-  document.getElementById('btnCancelarEdicionReclutador').style.display = 'none';
-};
-
-window.guardarCambiosReclutador = function() {
-  if (!idReclutadorEdicionActiva || !db) return;
-  
-  const datos = {
-    nombre: document.getElementById('recNombreInput').value.trim(),
-    telefono: document.getElementById('recTelefonoInput').value.trim(),
-    estatus: document.getElementById('recEstatusSelect').value
-  };
-  
-  db.ref(`reclutadores/${idReclutadorEdicionActiva}`).update(datos).then(() => {
-    alert("✅ Reclutador actualizado de forma permanente.");
-    window.cancelarEdicionReclutador();
-  });
-};
-
-function eliminarReclutadorSistema(id) {
-  if (!confirm(`¿Eliminar al reclutador "${id}" del sistema?`)) return;
-  if (db) db.ref(`reclutadores/${id}`).remove();
 }
 </script>
 </body>
