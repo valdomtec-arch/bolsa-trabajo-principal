@@ -1726,26 +1726,23 @@ function calcularMetricasDemograficas() {
 // PESTAÑA 4 - ESTADÍSTICAS DEMOGRÁFICAS (CONTEOS REALES)
 // ============================================================
 window.renderizarEstadisticasPestañaTres = function() {
-  const totalCand = listaPostulantesGlobal.length;
-  let hombres = 0, mujeres = 0, sumaEdades = 0, conteoEdades = 0;
-  let ciudades = {};
-  
-  listaPostulantesGlobal.forEach(p => {
-    // Normalización de género para la gráfica circular de estadísticas
-    const gen = p.sexo ? p.sexo.toLowerCase().trim() : '';
-    if (gen.includes('masc') || gen === 'm' || gen === 'hombre' || gen === 'masculino') hombres++;
-    else if (gen.includes('fem') || gen === 'f' || gen === 'mujer' || gen === 'femenino') mujeres++;
+    const totalCand = listaPostulantesGlobal.length;
+    let hombres = 0, mujeres = 0, sumaEdades = 0, conteoEdades = 0;
+    let ciudades = {};
     
-    const edad = parseInt(p.edad, 10);
-    if (!isNaN(edad)) { sumaEdades += edad; conteoEdades++; }
-    
-    // Mapeo geográfico dinámico basado en la dirección del aplicante
-    const ciudad = p.direccion || p.origen || "No especificada";
-    ciudades[ciudad] = (ciudades[ciudad] || 0) + 1;
-  });
-  
-  // ... (Aquí continúa el código existente que actualiza chartCandidatosInst, chartVacantesInst, etc.)
-};
+    listaPostulantesGlobal.forEach(p => {
+        // Normalización de género para la gráfica circular de estadísticas
+        const gen = p.sexo ? p.sexo.toLowerCase().trim() : '';
+        if (gen.includes('masc') || gen === 'm' || gen === 'hombre' || gen === 'masculino') hombres++;
+        else if (gen.includes('fem') || gen === 'f' || gen === 'mujer' || gen === 'femenino') mujeres++;
+        
+        const edad = parseInt(p.edad, 10);
+        if (!isNaN(edad)) { sumaEdades += edad; conteoEdades++; }
+        
+        // Mapeo geográfico dinámico basado en la dirección del aplicante
+        const ciudad = p.direccion || p.origen || "No especificada";
+        ciudades[ciudad] = (ciudades[ciudad] || 0) + 1;
+    });
     
     const edadPromedio = conteoEdades > 0 ? Math.round(sumaEdades / conteoEdades) : 0;
     let ubicacionPrincipal = "No especificada";
@@ -1760,14 +1757,18 @@ window.renderizarEstadisticasPestañaTres = function() {
     
     const ctxCand = document.getElementById('chartCandidatos');
     if (ctxCand) {
-        if (chartCandidatosInst) chartCandidatosInst.destroy();
-        chartCandidatosInst = new Chart(ctxCand, {
+        if (window.chartCandidatosInst) window.chartCandidatosInst.destroy();
+        window.chartCandidatosInst = new Chart(ctxCand, {
             type: 'doughnut',
             data: {
                 labels: ['Hombres', 'Mujeres'],
                 datasets: [{ data: [hombres, mujeres], backgroundColor: ['#38bdf8', '#f472b6'], borderColor: '#18273c', borderWidth: 2 }]
             },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#f1f5f9' } } } }
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false, 
+                plugins: { legend: { labels: { color: '#f1f5f9' } } } 
+            }
         });
     }
 
@@ -1778,8 +1779,8 @@ window.renderizarEstadisticasPestañaTres = function() {
     });
     
     const vacantesOrdenadas = Object.entries(conteoVacantes).sort((a, b) => b[1] - a[1]);
-    const totalVacantesSistema = listaVacantesGlobal.length;
-    const vacantesActivas = listaVacantesGlobal.filter(v => v.estatus === 'disponible').length;
+    const totalVacantesSistema = typeof listaVacantesGlobal !== 'undefined' ? listaVacantesGlobal.length : 0;
+    const vacantesActivas = typeof listaVacantesGlobal !== 'undefined' ? listaVacantesGlobal.filter(v => v.estatus === 'disponible').length : 0;
     const vacanteTop = vacantesOrdenadas[0] ? vacantesOrdenadas[0][0] : "Sin datos";
     const vacanteTopCantidad = vacantesOrdenadas[0] ? vacantesOrdenadas[0][1] : 0;
     
@@ -1792,14 +1793,23 @@ window.renderizarEstadisticasPestañaTres = function() {
     
     const ctxVac = document.getElementById('chartVacantes');
     if (ctxVac) {
-        if (chartVacantesInst) chartVacantesInst.destroy();
-        chartVacantesInst = new Chart(ctxVac, {
+        if (window.chartVacantesInst) window.chartVacantesInst.destroy();
+        window.chartVacantesInst = new Chart(ctxVac, {
             type: 'bar',
             data: {
                 labels: topVacantesLabels.length ? topVacantesLabels : ["Sin datos aún"],
-                datasets: [{ label: 'Cantidad', data: topVacantesData.length ? topVacantesData : [0], backgroundColor: 'rgba(255, 102, 0, 0.9)' }]
+                datasets: [{ label: 'Postulantes', data: topVacantesData.length ? topVacantesData : [0], backgroundColor: 'rgba(255, 102, 0, 0.9)' }]
             },
-            options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
+            options: { 
+                indexAxis: 'y', 
+                responsive: true, 
+                maintainAspectRatio: false,
+                scales: {
+                    x: { ticks: { color: '#f1f5f9', stepSize: 1 } },
+                    y: { ticks: { color: '#f1f5f9' } }
+                },
+                plugins: { legend: { labels: { color: '#f1f5f9' } } }
+            }
         });
     }
 
@@ -1810,7 +1820,7 @@ window.renderizarEstadisticasPestañaTres = function() {
     });
     
     const empresasOrdenadas = Object.entries(conteoEmpresas).sort((a, b) => b[1] - a[1]);
-    const totalEmpresas = listaEmpresasGlobal.length;
+    const totalEmpresas = typeof listaEmpresasGlobal !== 'undefined' ? listaEmpresasGlobal.length : 0;
     const empresaTop = empresasOrdenadas[0] ? empresasOrdenadas[0][0] : "Sin datos";
     const empresaTopCantidad = empresasOrdenadas[0] ? empresasOrdenadas[0][1] : 0;
     
@@ -1823,14 +1833,18 @@ window.renderizarEstadisticasPestañaTres = function() {
     
     const ctxEmp = document.getElementById('chartEmpresas');
     if (ctxEmp) {
-        if (chartEmpresasInst) chartEmpresasInst.destroy();
-        chartEmpresasInst = new Chart(ctxEmp, {
+        if (window.chartEmpresasInst) window.chartEmpresasInst.destroy();
+        window.chartEmpresasInst = new Chart(ctxEmp, {
             type: 'doughnut',
             data: {
                 labels: topEmpresasLabels.length ? topEmpresasLabels : ["Sin datos aún"],
-                datasets: [{ data: topEmpresasData.length ? topEmpresasData : [1], backgroundColor: ['#ff6600', '#8b5cf6', '#10b981', '#38bdf8', '#f472b6'] }]
+                datasets: [{ data: topEmpresasData.length ? topEmpresasData : [1], backgroundColor: ['#ff6600', '#8b5cf6', '#10b981', '#38bdf8', '#f472b6'], borderColor: '#18273c', borderWidth: 2 }]
             },
-            options: { responsive: true, maintainAspectRatio: false }
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false,
+                plugins: { legend: { labels: { color: '#f1f5f9' } } }
+            }
         });
     }
 };
