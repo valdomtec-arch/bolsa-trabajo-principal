@@ -1683,7 +1683,7 @@ window.renderizarGraficosPestañaTres = function() {
 };
 
 // ==============================================
-// METRICAS DEMOGRÁFICAS EN VIVO
+// BUSCAR ESTA FUNCIÓN Y REEMPLAZAR EL BUCLE INTERNO:
 // ==============================================
 function calcularMetricasDemograficas() {
   const total = listaPostulantesGlobal.length;
@@ -1691,39 +1691,61 @@ function calcularMetricasDemograficas() {
   if (total === 0) return;
 
   let hombres = 0, mujeres = 0, sumaEdad = 0, conteoEdad = 0;
+  
   listaPostulantesGlobal.forEach(p => {
-    const gen = (p.sexo || '').toLowerCase();
-    if (gen.includes('masc') || gen === 'm' || gen === 'hombre') hombres++;
-    else if (gen.includes('fem') || gen === 'f' || gen === 'mujer') mujeres++;
+    // Normalización estricta de cadenas para el Género (soporta variaciones de entrada)
+    const gen = (p.sexo || '').toLowerCase().trim();
+    if (gen.includes('masc') || gen === 'm' || gen === 'hombre' || gen === 'masculino') {
+      hombres++;
+    } else if (gen.includes('fem') || gen === 'f' || gen === 'mujer' || gen === 'femenino') {
+      mujeres++;
+    }
 
     const edad = parseInt(p.edad, 10);
-    if (!isNaN(edad)) { sumaEdad += edad; conteoEdad++; }
+    if (!isNaN(edad)) { 
+      sumaEdad += edad; 
+      conteoEdad++; 
+    }
   });
 
+  // Inyección de métricas rápidas en el DOM
   document.getElementById('metHombres').textContent = Math.round((hombres / total) * 100) + '%';
   document.getElementById('metMujeres').textContent = Math.round((mujeres / total) * 100) + '%';
   document.getElementById('metPromedioEdad').textContent = conteoEdad > 0 ? Math.round(sumaEdad / conteoEdad) : '—';
-}
+
+  // DISPARADOR ACTIVO: Forzar renderizado y actualización de gráficos basados en la pestaña activa
+  if (typeof window.renderizarGraficosPestañaTres === 'function') {
+    window.renderizarGraficosPestañaTres();
+  }
+  if (typeof window.renderizarEstadisticasPestañaTres === 'function') {
+    window.renderizarEstadisticasPestañaTres();
+  }
+} 
 
 // ============================================================
 // PESTAÑA 4 - ESTADÍSTICAS DEMOGRÁFICAS (CONTEOS REALES)
 // ============================================================
 window.renderizarEstadisticasPestañaTres = function() {
-    const totalCand = listaPostulantesGlobal.length;
-    let hombres = 0, mujeres = 0, sumaEdades = 0, conteoEdades = 0;
-    let ciudades = {};
+  const totalCand = listaPostulantesGlobal.length;
+  let hombres = 0, mujeres = 0, sumaEdades = 0, conteoEdades = 0;
+  let ciudades = {};
+  
+  listaPostulantesGlobal.forEach(p => {
+    // Normalización de género para la gráfica circular de estadísticas
+    const gen = p.sexo ? p.sexo.toLowerCase().trim() : '';
+    if (gen.includes('masc') || gen === 'm' || gen === 'hombre' || gen === 'masculino') hombres++;
+    else if (gen.includes('fem') || gen === 'f' || gen === 'mujer' || gen === 'femenino') mujeres++;
     
-    listaPostulantesGlobal.forEach(p => {
-        const gen = p.sexo ? p.sexo.toLowerCase().trim() : '';
-        if (gen.includes('masc') || gen === 'm' || gen === 'hombre' || gen === 'masculino') hombres++;
-        else if (gen.includes('fem') || gen === 'f' || gen === 'mujer' || gen === 'femenino') mujeres++;
-        
-        const edad = parseInt(p.edad, 10);
-        if (!isNaN(edad)) { sumaEdades += edad; conteoEdades++; }
-        
-        const ciudad = p.direccion || p.origen || "No especificada";
-        ciudades[ciudad] = (ciudades[ciudad] || 0) + 1;
-    });
+    const edad = parseInt(p.edad, 10);
+    if (!isNaN(edad)) { sumaEdades += edad; conteoEdades++; }
+    
+    // Mapeo geográfico dinámico basado en la dirección del aplicante
+    const ciudad = p.direccion || p.origen || "No especificada";
+    ciudades[ciudad] = (ciudades[ciudad] || 0) + 1;
+  });
+  
+  // ... (Aquí continúa el código existente que actualiza chartCandidatosInst, chartVacantesInst, etc.)
+};
     
     const edadPromedio = conteoEdades > 0 ? Math.round(sumaEdades / conteoEdades) : 0;
     let ubicacionPrincipal = "No especificada";
