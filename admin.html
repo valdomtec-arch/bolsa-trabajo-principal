@@ -2169,58 +2169,73 @@ window.exportarExcelMasivo = function() {
   const ws = XLSX.utils.json_to_sheet(listaPostulantesGlobal);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Postulantes");
-  XLSX.writeFile(wb, "Reporte_Postulantes.xlsx");
+ XLSX.writeFile(wb, `Reporte_Postulantes_${filtroAgendaActual}.xlsx`);
 };
 
+// ==============================================
+// GESTIÓN Y RENDERIZADO DE RECLUTADORES
+// ==============================================
 function renderizarTablaReclutadores() {
   const tbody = document.getElementById('tbodyReclutadores');
   const filtro = document.getElementById('buscarReclutadorInput').value.toLowerCase().trim();
   if (!tbody) return;
-  tbody.innerHTML = '';
-
-  const filtrados = listaReclutadoresGlobal.filter(r => `${r.idFirebase} ${r.nombre}`.toLowerCase().includes(filtro));
-  filtrados.forEach(r => {
+  
+  tbody.innerHTML = "";
+  
+  const filtrados = listaReclutadoresGlobal.filter(rec => {
+    return `${rec.idFirebase} ${rec.nombre} ${rec.telefono}`.toLowerCase().includes(filtro);
+  });
+  
+  filtrados.forEach(rec => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td>${r.idFirebase}</td>
-      <td><strong>${r.nombre || '—'}</strong></td>
-      <td>${r.telefono || '—'}</td>
-      <td>${r.estatus || 'activo'}</td>
+      <td style="font-weight:bold; color:var(--purple-ia);">${rec.idFirebase}</td>
+      <td style="font-weight:600;">${rec.nombre || '-'}</td>
+      <td><i class="fab fa-whatsapp" style="color:var(--green-whatsapp);"></i> ${rec.telefono || '-'}</td>
+      <td><span style="padding:4px 8px; border-radius:6px; font-weight:bold; background:#1e293b;">${rec.estatus || 'activo'}</span></td>
       <td>
-        <button class="btn-edit-mode" onclick="window.cargarReclutadorEdicion('${r.idFirebase}')"><i class="fas fa-edit"></i></button>
-        <button class="btn-delete-mode" onclick="window.eliminarReclutador('${r.idFirebase}')"><i class="fas fa-trash-alt"></i></button>
+        <div class="actions-layout" style="margin:0;">
+          <button class="btn-edit-mode" onclick="cargarReclutadorEnEdicion('${rec.idFirebase}')"><i class="fas fa-edit"></i></button>
+          <button class="btn-delete-mode" onclick="eliminarReclutadorSistema('${rec.idFirebase}')"><i class="fas fa-trash-alt"></i></button>
+        </div>
       </td>
     `;
     tbody.appendChild(tr);
   });
 }
 
-window.cargarReclutadorEdicion = function(id) {
-  const r = listaReclutadoresGlobal.find(item => item.idFirebase === id);
-  if (!r) return;
-  idReclutadorEdicionActiva = id;
-  document.getElementById('recIdInput').value = r.idFirebase;
-  document.getElementById('recIdInput').disabled = true;
-  document.getElementById('recNombreInput').value = r.nombre || '';
-  document.getElementById('recTelefonoInput').value = r.telefono || '';
-  document.getElementById('recEstatusSelect').value = r.estatus || 'activo';
+function actualizarSelectoresReclutadores() {
+  const selectPostulante = document.getElementById('editPostulanteReclutador');
+  if (!selectPostulante) return;
+  
+  const valorGuardado = selectPostulante.value;
+  selectPostulante.innerHTML = '<option value="">-- Sin Reclutador --</option>';
+  
+  listaReclutadoresGlobal.forEach(rec => {
+    if (rec.estatus === 'activo') {
+      const opt = document.createElement('option');
+      opt.value = rec.nombre; // O rec.idFirebase según prefieras guardar en la BD
+      opt.textContent = rec.nombre;
+      selectPostulante.appendChild(opt);
+    }
+  });
+  selectPostulante.value = valorGuardado;
+}
 
+window.cargarReclutadorEnEdicion = function(id) {
+  const rec = listaReclutadoresGlobal.find(r => r.idFirebase === id);
+  if (!rec) return;
+  
+  idReclutadorEdicionActiva = id;
+  document.getElementById('recIdInput').value = rec.idFirebase;
+  document.getElementById('recIdInput').disabled = true;
+  document.getElementById('recNombreInput').value = rec.nombre || '';
+  document.getElementById('recTelefonoInput').value = rec.telefono || '';
+  document.getElementById('recEstatusSelect').value = rec.estatus || 'activo';
+  
   document.getElementById('btnGuardarReclutador').style.display = 'none';
   document.getElementById('btnActualizarReclutador').style.display = 'block';
   document.getElementById('btnCancelarEdicionReclutador').style.display = 'block';
-};
-
-window.guardarCambiosReclutador = function() {
-  if (!idReclutadorEdicionActiva || !db) return;
-  const updates = {
-    nombre: document.getElementById('recNombreInput').value.trim(),
-    telefono: document.getElementById('recTelefonoInput').value.trim(),
-    estatus: document.getElementById('recEstatusSelect').value
-  };
-  db.ref(`reclutadores/${idReclutadorEdicionActiva}`).update(updates).then(() => {
-    alert("✅ Reclutador actualizado.");
-    window.cancelarEdicionReclutador();
-  });
 };
 
 window.cancelarEdicionReclutador = function() {
@@ -2235,25 +2250,25 @@ window.cancelarEdicionReclutador = function() {
   document.getElementById('btnCancelarEdicionReclutador').style.display = 'none';
 };
 
-window.eliminarReclutador = function(id) {
-  if(confirm("¿Eliminar este reclutador?") && db) {
-    db.ref(`reclutadores/${id}`).remove();
-  }
+window.guardarCambiosReclutador = function() {
+  if (!idReclutadorEdicionActiva || !db) return;
+  
+  const datos = {
+    nombre: document.getElementById('recNombreInput').value.trim(),
+    telefono: document.getElementById('recTelefonoInput').value.trim(),
+    estatus: document.getElementById('recEstatusSelect').value
+  };
+  
+  db.ref(`reclutadores/${idReclutadorEdicionActiva}`).update(datos).then(() => {
+    alert("✅ Reclutador actualizado de forma permanente.");
+    window.cancelarEdicionReclutador();
+  });
 };
 
-function actualizarSelectoresReclutadores() {
-  const select = document.getElementById('editPostulanteReclutador');
-  if (!select) return;
-  select.innerHTML = '<option value="">-- Sin Reclutador --</option>';
-  listaReclutadoresGlobal.forEach(r => {
-    if(r.estatus !== 'inactivo') {
-      const opt = document.createElement('option');
-      opt.value = r.idFirebase;
-      opt.textContent = r.nombre || r.idFirebase;
-      select.appendChild(opt);
-    }
-  });
+function eliminarReclutadorSistema(id) {
+  if (!confirm(`¿Eliminar al reclutador "${id}" del sistema?`)) return;
+  if (db) db.ref(`reclutadores/${id}`).remove();
 }
 </script>
-</body> 
+</body>
 </html>
