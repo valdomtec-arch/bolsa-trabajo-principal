@@ -525,9 +525,29 @@ pre.json-view { background:#061c15; color:#34d399; border:1px solid var(--green-
     height: 220px;
   }
 }
+
+/* ==============================================
+   EFECTO DE HUNDIMIENTO EN LA ZONA DE ARRASTRE
+   ============================================== */
+#drop-zone {
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.2s ease, border-color 0.2s ease;
+  user-select: none;
+}
+#drop-zone:hover {
+  transform: translateY(-1px);
+}
+#drop-zone:active {
+  transform: scale(0.97) translateY(1px);
+  box-shadow: inset 0 4px 6px -1px rgba(0, 0, 0, 0.3), 
+              0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+#nombre-archivo-visual, #nombre-archivo-visual * {
+  pointer-events: none;
+}
 </style> 
 </head> 
-<body> 
+<body>
 
 <div class="admin-container"> 
   <h1><i class="fas fa-sliders-h"></i> Panel de Administración Global</h1> 
@@ -1177,7 +1197,7 @@ window.toggleAccordionIa = function() {
 }
 
 // ==============================================
-// ASISTENTE IA DE EXTRACCIÓN (MOTOR Y ARCHIVOS)
+// ASISTENTE IA DE EXTRACCIÓN (MOTOR Y ARCHIVOS) -- RECTIFICADO
 // ==============================================
 function setMotor(motor) {
   activeMotor = motor;
@@ -1209,6 +1229,8 @@ function handleDrop(e) {
   document.getElementById('drop-zone').classList.remove('drag-active');
   const files = e.dataTransfer.files;
   if (files.length > 0) {
+    // ASIGNACIÓN CLAVE: Guardamos el archivo físico globalmente
+    window.archivoActual = files[0]; 
     procesarArchivoLocal(files[0]);
   }
 }
@@ -1216,6 +1238,8 @@ function handleDrop(e) {
 function handleFileSelect(e) {
   const files = e.target.files;
   if (files.length > 0) {
+    // ASIGNACIÓN CLAVE: Guardamos el archivo físico globalmente
+    window.archivoActual = files[0]; 
     procesarArchivoLocal(files[0]);
   }
 }
@@ -1230,49 +1254,48 @@ function procesarArchivoLocal(file) {
   nameSpan.textContent = file.name;
   sizeSpan.textContent = (file.size / (1024 * 1024)).toFixed(2) + ' MB';
   
-  const reader = new FileReader();
-  
-  if (file.type === "application/pdf") {
-    reader.onload = function() {
-      const typedarray = new Uint8Array(this.result);
-      pdfjsLib.getDocument(typedarray).promise.then(pdf => {
-        let maxPages = pdf.numPages;
-        let countPromises = [];
-        for (let j = 1; j <= maxPages; j++) {
-          let pagePromise = pdf.getPage(j).then(page => {
-            return page.getTextContent().then(textContent => {
-              return textContent.items.map(item => item.str).join(' ');
-            });
-          });
-          countPromises.push(pagePromise);
-        }
-        Promise.all(countPromises).then(texts => {
-          fileTextContent = texts.join('\n');
-          btnAnalizar.disabled = false;
-          registrarLogSistema("Extractor Lector", `PDF leído con éxito. Caracteres: ${fileTextContent.length}`);
-        });
-      });
-    };
-    reader.readAsArrayBuffer(file);
+  const fileName = file.name.toLowerCase();
+  const fileType = file.type;
+
+  // 1. SI ES IMAGEN O PDF: No extraemos texto local, dejamos que el motor multimodal lo haga vía Base64
+  if (fileType === "application/pdf" || fileType === "image/png" || fileName.endsWith('.pdf') || fileName.endsWith('.png')) {
+    btnAnalizar.disabled = false;
+    registrarLogSistema("Extractor Lector", `Archivo Binario (${fileName.endsWith('.pdf') ? 'PDF' : 'PNG'}) preparado para análisis multimodal.`);
   } 
-  else if (file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
+  
+  // 2. SI ES WORD (.docx): Mantiene tu lector Mammoth activo por si acaso
+  else if (fileType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || fileName.endsWith('.docx')) {
+    const reader = new FileReader();
     reader.onload = function(loadEvent) {
       mammoth.extractRawText({ arrayBuffer: loadEvent.target.result })
         .then(function(result) {
           fileTextContent = result.value;
           btnAnalizar.disabled = false;
-          registrarLogSistema("Extractor Lector", `DOCX leído. Caracteres: ${fileTextContent.length}`);
+          registrarLogSistema("Extractor Lector", `DOCX leído localmente. Caracteres: ${fileTextContent.length}`);
+        })
+        .catch(function(err) {
+          registrarLogSistema("Extractor Lector", `Error leyendo DOCX: ${err.message}`);
         });
     };
     reader.readAsArrayBuffer(file);
   } 
-  else {
+  
+  // 3. SI ES TEXTO PLANO (.txt)
+  else if (fileType === "text/plain" || fileName.endsWith('.txt')) {
+    const reader = new FileReader();
     reader.onload = function(e) {
       fileTextContent = e.target.result;
       btnAnalizar.disabled = false;
-      registrarLogSistema("Extractor Lector", `Texto / Imagen cargada.`);
+      registrarLogSistema("Extractor Lector", `Texto plano leído localmente. Caracteres: ${fileTextContent.length}`);
     };
     reader.readAsText(file);
+  } 
+  
+  // 4. FORMATO NO CONTROLADO
+  else {
+    btnAnalizar.disabled = true;
+    alert("❌ Formato no soportado. Por favor sube .txt, .docx, .pdf o .png");
+    statusDiv.style.display = 'none';
   }
 }
 
@@ -1282,6 +1305,10 @@ function procesarArchivoLocal(file) {
 async function ejecutarAnalisisIA() {
   const apiKey = localStorage.getItem('apiKeyGemini');
   if (!apiKey) return alert("❌ Configura y guarda tu API Key en la Pestaña 1 primero.");
+  
+  // Validamos que exista un archivo cargado globalmente desde la UI
+  const file = window.archivoActual;
+  if (!file) return alert("❌ Por favor, selecciona o arrastra un archivo (.txt, .docx, .pdf, .png) primero.");
   
   const btn = document.getElementById('btn-analizar');
   btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Procesando...';
@@ -1320,11 +1347,54 @@ Cada objeto debe tener la estructura e indexarse de forma independiente:
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
   try {
+    const fileType = file.type;
+    const fileName = file.name.toLowerCase();
+    let partsPayload = [];
+
+    // 1. PROCESAR TEXTO PLANO (.txt)
+    if (fileType === "text/plain" || fileName.endsWith('.txt')) {
+      const texto = await leerArchivoComoTexto(file);
+      partsPayload = [
+        { text: instruction },
+        { text: `Texto a analizar:\n${texto}` }
+      ];
+    } 
+    
+    // 2. PROCESAR WORD (.docx)
+    else if (fileType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || fileName.endsWith('.docx')) {
+      const textoWord = await leerDocxConMammoth(file);
+      partsPayload = [
+        { text: instruction },
+        { text: `Texto a analizar extraído de Word:\n${textoWord}` }
+      ];
+    } 
+    
+    // 3. PROCESAR MULTIMODAL (.pdf o .png) ENVIANDO BASE64 DIRECTO A GEMINI
+    else if (fileType === "application/pdf" || fileType === "image/png" || fileName.endsWith('.pdf') || fileName.endsWith('.png')) {
+      const base64Data = await leerArchivoComoBase64(file);
+      const mimeTypeExacto = fileType || (fileName.endsWith('.pdf') ? "application/pdf" : "image/png");
+      
+      partsPayload = [
+        { text: instruction },
+        {
+          inlineData: {
+            data: base64Data,
+            mimeType: mimeTypeExacto
+          }
+        }
+      ];
+    } 
+    else {
+      throw new Error("Formato de archivo no soportado. Usa .txt, .docx, .pdf o .png");
+    }
+
+    // Petición HTTP optimizada a la API de Gemini con estructura adaptable
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: `${instruction}\n\nTexto a analizar:\n${fileTextContent}` }] }]
+        contents: [{ parts: partsPayload }],
+        generationConfig: { responseMimeType: "application/json" } // Forzar JSON limpio desde la raíz de la IA
       })
     });
 
@@ -1335,6 +1405,7 @@ Cada objeto debe tener la estructura e indexarse de forma independiente:
     
     if (!textResult) throw new Error("La respuesta de la IA llegó vacía.");
 
+    // Sanitización y limpieza del bloque de código JSON devuelto
     textResult = textResult.replace(/```json/gi, '').replace(/```/g, '').trim();
 
     const jsonMatch = textResult.match(/[\{\s\[]([\s\S]*?)[\]\s\}]/);
@@ -1437,7 +1508,6 @@ function transferirCamposAFormulario() {
     document.getElementById('secBeneficios').value = item.beneficios || '';
     document.getElementById('secInfoGeneral').value = item.infoGeneral || '';
   } else {
-    // Mapeo Inteligente e Independiente hacia los elementos del formulario final
     document.getElementById('secPuestoId').value = item.rutaId || '';
     document.getElementById('secVacanteNombre').value = item.nombreRuta || '';
     document.getElementById('secLugarOrigen').value = item.zonaCorta || '';
@@ -1445,7 +1515,6 @@ function transferirCamposAFormulario() {
     document.getElementById('secRutasTransporte').value = item.itinerarioDetallado || '';
     document.getElementById('secActividades').value = item.especificaciones || 'Ruta generada por Asistente IA';
     
-    // Limpieza de campos redundantes de reclutamiento para evitar contaminación visual
     document.getElementById('secEdad').value = 'N/A';
     document.getElementById('secSexo').value = 'Indistinto';
     document.getElementById('secExperiencia').value = 'N/A';
@@ -1457,6 +1526,7 @@ function transferirCamposAFormulario() {
 
   registrarLogSistema("Extractor IA", `Campos de ${activeMotor.toUpperCase()} copiados al formulario.`);
 }
+
 async function guardarLoteMasivo() {
   const selectEmpresa = document.getElementById('secEmpresaSelect');
   const idEmpresa = selectEmpresa.value;
@@ -1492,6 +1562,37 @@ async function guardarLoteMasivo() {
   } catch (err) {
     alert("Error al guardar: " + err.message);
   }
+}
+
+// ==============================================
+// FUNCIONES AUXILIARES ASÍNCRONAS PARA ARCHIVOS
+// ==============================================
+function leerArchivoComoTexto(file) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => resolve(e.target.result);
+    reader.readAsText(file);
+  });
+}
+
+function leerArchivoComoBase64(file) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => resolve(e.target.result.split(',')[1]);
+    reader.readAsDataURL(file);
+  });
+}
+
+function leerDocxConMammoth(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      mammoth.extractRawText({ arrayBuffer: e.target.result })
+        .then(result => resolve(result.value))
+        .catch(err => reject(err));
+    };
+    reader.readAsArrayBuffer(file);
+  });
 }
 
 // ==============================================
