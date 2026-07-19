@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ERP - Gestión de Empresas</title>
+    
+    <!-- Frameworks de Estilo e Iconos -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --primary-orange: #ff6600;
+            --primary-orange-hover: #e05500;
+            --primary-blue: #0084ff;
+            --primary-red: #dc3545;
+            --primary-yellow: #ffc107;
+            --bg-page: #030712;          
+            --card-bg: rgba(15, 23, 42, 0.55);          
+            --border-subtle: rgba(255, 102, 0, 0.12);     
+            --text-main: #f8fafc;       
+            --text-muted: #94a3b8;       
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+
+        body {
+            background: radial-gradient(circle at 50% 0%, #0d1e3d 0%, var(--bg-page) 85%);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding-bottom: 60px;
+        }
+
+        /* BARRA DE NAVEGACIÓN LIMPIA */
+        .navbar-clean {
+            background: rgba(3, 7, 18, 0.8);
+            border-bottom: 2px solid var(--border-subtle);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            padding: 16px 0;
+        }
+
+        .navbar-brand-tech {
+            color: var(--text-main) !important;
+            font-size: 1.1rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-weight: 700;
+            text-decoration: none;
+        }
+
+        .navbar-brand-tech span {
+            color: var(--primary-orange);
+        }
+
+        /* CONTENEDOR CENTRAL ESTRICTO MULTI-DISPOSITIVO */
+        .main-container {
+            width: 100%;
+            max-width: 1400px; /* Ampliado para mejor despliegue horizontal */
+            margin: 0 auto;
+            padding: 40px 20px 0 20px;
+        }
+
+        /* CABECERA DE CONEXIÓN FIREBASE */
+        .connection-header {
+            background: rgba(15, 23, 42, 0.35);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 14px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 16px;
+            margin-bottom: 30px;
+        }
+
+        .btn-panel-action {
+            background: var(--primary-blue);
+            color: #ffffff;
+            border: none;
+            padding: 8px 18px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: background 0.2s;
+        }
+
+        .btn-panel-action:hover {
+            background: #006cdb;
+        }
+
+        .status-dot {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-dot i {
+            font-size: 0.5rem;
+            color: #94a3b8;
+        }
+
+        .status-dot.connected i {
+            color: #22c55e;
+            text-shadow: 0 0 8px #22c55e;
+        }
+
+        /* SECCIÓN DEL FORMULARIO PRINCIPAL */
+        .panel-box {
+            background: var(--card-bg);
+            border: 1px solid var(--border-subtle);
+            border-radius: 14px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+
+        .panel-box-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #00a2ff;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* DISEÑO DE INPUTS PREMIUM INDUSTRIALES */
+        .form-label-tech {
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .form-control-tech {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            color: var(--text-main) !important;
+            font-size: 0.88rem;
+            padding: 10px 14px;
+            transition: all 0.25s;
+        }
+
+        .form-control-tech:focus {
+            background: rgba(15, 23, 42, 0.9);
+            border-color: rgba(255, 102, 0, 0.4);
+            box-shadow: 0 0 10px rgba(255, 102, 0, 0.1);
+            outline: none;
+        }
+
+        .form-control-tech::placeholder {
+            color: rgba(148, 163, 184, 0.35);
+        }
+
+        /* GRID INDUSTRIAL OPTIMIZADO HORIZONTAL (PC / TABLET / MÓVIL) */
+        .inputs-horizontal-row {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr); /* 5 Columnas exactas de extremo a extremo en PC */
+            gap: 16px;
+        }
+
+        /* CONTENEDOR DE ENLACE AUTO-GENERADO (VERDE PUNTEADO) */
+        .generated-link-box {
+            border: 1px dashed #22c55e;
+            background: rgba(34, 197, 94, 0.03);
+            border-radius: 10px;
+            padding: 16px 20px;
+            margin: 24px 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+        }
+
+        .link-title-tag {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #22c55e;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .link-display-input {
+            background: rgba(3, 7, 18, 0.6);
+            border: 1px solid rgba(34, 197, 94, 0.15);
+            color: #22c55e;
+            font-family: monospace;
+            font-size: 0.82rem;
+            padding: 8px 12px;
+            border-radius: 6px;
+            width: 100%;
+        }
+
+        .btn-link-action {
+            padding: 8px 16px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            border: none;
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            text-decoration: none;
+            text-transform: uppercase;
+        }
+
+        .btn-copy { background: #22c55e; color: #fff; }
+        .btn-copy:hover { background: #16a34a; }
+        .btn-open { background: #0084ff; color: #fff; }
+        .btn-open:hover { background: #006cdb; }
+
+        /* TRIPLE BOTONERA DE ACCIÓN FORMULARIO */
+        .action-button-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+        }
+
+        .btn-form-master {
+            padding: 12px 20px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-radius: 8px;
+            border: 1px solid transparent;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+
+        .btn-save { background: var(--primary-orange); color: #fff; }
+        .btn-save:hover { background: var(--primary-orange-hover); }
+        .btn-clear { background: var(--primary-blue); color: #fff; }
+        .btn-clear:hover { background: #006cdb; }
+        .btn-delete { background: var(--primary-red); color: #fff; }
+        .btn-delete:hover { background: #bd2130; }
+
+        /* CONSOLA DE BÚSQUEDA Y TABLA INFERIOR */
+        .search-wrapper {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .search-control {
+            padding-left: 42px;
+            padding-right: 120px;
+        }
+
+        .counter-badge {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        /* TABLA DE REGISTROS */
+        .table-responsive-tech {
+            background: rgba(11, 19, 41, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .table-tech {
+            width: 100%;
+            margin-bottom: 0;
+            color: var(--text-main);
+            border-collapse: collapse;
+        }
+
+        .table-tech th {
+            background: rgba(3, 7, 18, 0.6);
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 700;
+            color: var(--primary-orange);
+            padding: 14px 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .table-tech td {
+            padding: 12px 16px;
+            font-size: 0.85rem;
+            vertical-align: middle;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        .table-tech tbody tr:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .logo-preview-cell {
+            width: 36px;
+            height: 36px;
+            object-fit: cover;
+            border-radius: 6px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        /* BOTONES DE LA COLUMNA DE ACCIONES CORRECTA */
+        .actions-cell-wrapper {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-action-table {
+            border: none;
+            color: #030712;
+            padding: 5px 12px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .btn-table-edit { background: var(--primary-yellow); color: #000; }
+        .btn-table-edit:hover { background: #e0a800; transform: translateY(-1px); }
+        .btn-table-delete { background: var(--primary-red); color: #fff; }
+        .btn-table-delete:hover { background: #bd2130; transform: translateY(-1px); }
+
+        /* MEDIAS QUERIES QUIRÚRGICAS PARA OPTIMIZACIÓN MULTI-DISPOSITIVO */
+        @media (max-width: 1200px) {
+            /* Tablets de alta resolución / Pantallas Medianas */
+            .inputs-horizontal-row {
+                grid-template-columns: repeat(3, 1fr); /* Se reacomoda en 3 y 2 columnas simétricas */
+            }
+        }
+
+        @media (max-width: 768px) {
+            /* Tablets estándar / Celulares Grandes */
+            .inputs-horizontal-row {
+                grid-template-columns: repeat(2, 1fr); /* Distribución 2x2 */
+            }
+            .action-button-row { grid-template-columns: 1fr; gap: 10px; }
+            .generated-link-box { flex-direction: column; align-items: stretch; }
+            .btn-link-action { justify-content: center; }
+        }
+
+        @media (max-width: 576px) {
+            /* Celulares */
+            .inputs-horizontal-row {
+                grid-template-columns: 1fr; /* Columna única perfecta, sin espacio muerto */
+            }
+            .actions-cell-wrapper {
+                flex-direction: column; /* Apila editar y borrar en móvil para que no rompa la tabla */
+                gap: 4px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- NAV BAR PRINCIPAL -->
+    <nav class="navbar navbar-clean">
+        <div class="container px-4 d-flex justify-content-between align-items-center">
+            <a href="admin.html" class="navbar-brand-tech">
+                <i class="fa-solid fa-arrow-left me-2" style="font-size: 0.9rem; color: var(--primary-orange);"></i>Core<span>Hub</span>
+            </a>
+            <span class="user-pill" style="background: rgba(255,102,0,0.06); border: 1px solid rgba(255,102,0,0.2); padding: 5px 14px; border-radius: 20px; font-size: 0.75rem; color: var(--primary-orange);">
+                Módulo 1: Empresas
+            </span>
+        </div>
+    </nav>
+
+    <!-- ÁREA DE TRABAJO MAESTRA -->
+    <main class="main-container">
+        
+        <!-- CONTROL CONEXIÓN FIREBASE -->
+        <section class="connection-header">
+            <button id="btnProbarConexion" class="btn-panel-action">
+                <i class="fa-solid fa-network-wired me-1"></i> Probar Conexión Firebase
+            </button>
+            <div id="statusIndicator" class="status-dot">
+                <i class="fa-solid fa-circle"></i> Sin conectar
+            </div>
+        </section>
+
+        <!-- FORMULARIO DE ALTA, BAJA Y EDICIÓN (REDISEÑADO HORIZONTAL) -->
+        <section class="panel-box">
+            <div class="panel-box-title">
+                <i class="fa-solid fa-building"></i> Gestión de Empresas · Alta / Edición / Baja
+            </div>
+            
+            <form id="empresaForm" onsubmit="event.preventDefault();">
+                <!-- Grid Horizontal de 5 columnas optimizado -->
+                <div class="inputs-horizontal-row">
+                    <div>
+                        <label class="form-label-tech"><i class="fa-solid fa-fingerprint"></i> ID Único *</label>
+                        <input type="text" id="inputID" class="form-control-tech w-100" placeholder="Ej: GLOVISCC" required>
+                    </div>
+                    <div>
+                        <label class="form-label-tech"><i class="fa-solid fa-signature"></i> Nombre Comercial *</label>
+                        <input type="text" id="inputNombre" class="form-control-tech w-100" placeholder="Ej: Hyundai Glovis" required>
+                    </div>
+                    <div>
+                        <label class="form-label-tech"><i class="fa-solid fa-tags"></i> Etiquetas / TAG</label>
+                        <input type="text" id="inputTags" class="form-control-tech w-100" placeholder="Ej: Logística">
+                    </div>
+                    <div>
+                        <label class="form-label-tech"><i class="fa-solid fa-location-dot"></i> Ubicación Base *</label>
+                        <input type="text" id="inputUbicacion" class="form-control-tech w-100" placeholder="Ej: Ciénega de Flores" required>
+                    </div>
+                    <div>
+                        <label class="form-label-tech"><i class="fa-solid fa-image"></i> URL del Logo Corporativo</label>
+                        <input type="text" id="inputImagen" class="form-control-tech w-100" placeholder="https://ejemplo.com/logo.png">
+                    </div>
+                </div>
+
+                <!-- CONTENEDOR ENLACE AUTO-GENERADO -->
+                <div class="generated-link-box">
+                    <div class="w-100">
+                        <div class="link-title-tag"><i class="fa-solid fa-link"></i> Enlace Público de Vacantes (AUTO-GENERADO)</div>
+                        <input type="text" id="linkAutogenerado" class="link-display-input" readonly value="https://valdomtec-arch.github.io/bolsa-trabajo-principal/vacante.html?empresa=">
+                    </div>
+                    <div class="d-flex gap-2 align-self-end">
+                        <button type="button" onclick="copiarEnlace()" class="btn-link-action btn-copy"><i class="fa-solid fa-copy"></i> Copiar</button>
+                        <a href="#" id="btnAbrirEnlace" target="_blank" class="btn-link-action btn-open"><i class="fa-solid fa-external-link"></i> Abrir</a>
+                    </div>
+                </div>
+
+                <!-- TRIPLE BOTONERA ALINEADA SIMÉTRICA -->
+                <div class="action-button-row">
+                    <button type="button" onclick="guardarEmpresa()" class="btn-form-master btn-save">
+                        <i class="fa-solid fa-cloud-arrow-up"></i> Guardar Empresa
+                    </button>
+                    <button type="button" onclick="limpiarFormulario()" class="btn-form-master btn-clear">
+                        <i class="fa-solid fa-broom"></i> Limpiar Formulario
+                    </button>
+                    <button type="button" onclick="eliminarEmpresaPorFormulario()" class="btn-form-master btn-delete">
+                        <i class="fa-solid fa-trash-can"></i> Borrar / Eliminar ID
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <!-- BUSCADOR Y TABLA DE REGISTROS -->
+        <section class="panel-box">
+            <div class="search-wrapper">
+                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                <input type="text" id="inputBuscar" oninput="filtrarTabla()" class="form-control-tech search-control w-100" placeholder="Buscar empresa...">
+                <span id="contadorRegistros" class="counter-badge"><i class="fa-solid fa-box-archive"></i> 0 registradas</span>
+            </div>
+
+            <div class="table-responsive-tech">
+                <table class="table-tech" id="tablaEmpresas">
+                    <thead>
+                        <tr>
+                            <th>Logo</th>
+                            <th>ID</th>
+                            <th>Nombre Comercial</th>
+                            <th>Ubicación</th>
+                            <th>Tags</th>
+                            <th>Enlace</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaBodyEmpresas">
+                        <!-- Carga dinámica desde Firebase -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- INTEGRACIÓN OFICIAL FIREBASE -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
+    <script>
+        const firebaseConfig = {
+            databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com/"
+        };
+
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.database();
+
+        let catalogoEmpresasCompleto = {};
+
+        document.addEventListener("DOMContentLoaded", () => {
+            const inputID = document.getElementById("inputID");
+            inputID.addEventListener("input", () => {
+                const idLimpio = inputID.value.trim().toLowerCase();
+                const urlBase = "https://valdomtec-arch.github.io/bolsa-trabajo-principal/vacante.html?empresa=";
+                document.getElementById("linkAutogenerado").value = urlBase + idLimpio;
+                document.getElementById("btnAbrirEnlace").href = urlBase + idLimpio;
+            });
+
+            document.getElementById("btnProbarConexion").addEventListener("click", () => {
+                db.ref(".info/connected").once("value", (snap) => {
+                    if (snap.val() === true) {
+                        const indicador = document.getElementById("statusIndicator");
+                        indicador.className = "status-dot connected";
+                        indicador.innerHTML = '<i class="fa-solid fa-circle"></i> Conectado';
+                        alert("Conexión con Firebase establecida exitosamente.");
+                    } else {
+                        alert("Error: No se pudo establecer conexión remota.");
+                    }
+                });
+            });
+
+            sincronizarTablaTiempoReal();
+        });
+
+        function sincronizarTablaTiempoReal() {
+            db.ref("empresas").on("value", (snapshot) => {
+                const tbody = document.getElementById("tablaBodyEmpresas");
+                tbody.innerHTML = "";
+                
+                if (!snapshot.exists()) {
+                    document.getElementById("contadorRegistros").innerHTML = `<i class="fa-solid fa-box-archive"></i> 0 registradas`;
+                    catalogoEmpresasCompleto = {};
+                    return;
+                }
+
+                catalogoEmpresasCompleto = snapshot.val();
+                let registrosContados = 0;
+
+                Object.keys(catalogoEmpresasCompleto).forEach((key) => {
+                    const emp = catalogoEmpresasCompleto[key];
+                    registrosContados++;
+
+                    const tr = document.createElement("tr");
+                    
+                    tr.innerHTML = `
+                        <td><img src="${emp.imagen || ''}" onerror="this.src='https://placehold.co/100x100/0b1329/fff?text=Logo'" class="logo-preview-cell"></td>
+                        <td class="font-monospace text-warning">${emp.id || key}</td>
+                        <td class="fw-bold">${emp.nombre || ''}</td>
+                        <td>${emp.ubicacion || ''}</td>
+                        <td><span class="text-muted small">${emp.tags || ''}</span></td>
+                        <td><span class="text-success small font-monospace">Listo</span></td>
+                        <td>
+                            <div class="actions-cell-wrapper">
+                                <button onclick="cargarEmpresaEnFormulario('${key}')" class="btn-action-table btn-table-edit">
+                                    <i class="fa-solid fa-pen-to-square"></i> Editar
+                                </button>
+                                <button onclick="eliminarEmpresaDirecto('${key}')" class="btn-action-table btn-table-delete">
+                                    <i class="fa-solid fa-trash"></i> Borrar
+                                </button>
+                            </div>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+                document.getElementById("contadorRegistros").innerHTML = `<i class="fa-solid fa-box-archive"></i> ${registrosContados} registradas`;
+            });
+        }
+
+        function guardarEmpresa() {
+            const id = document.getElementById("inputID").value.trim().toLowerCase();
+            const nombre = document.getElementById("inputNombre").value.trim();
+            const ubicacion = document.getElementById("inputUbicacion").value.trim();
+            const tags = document.getElementById("inputTags").value.trim();
+            const imagen = document.getElementById("inputImagen").value.trim();
+            const link = document.getElementById("linkAutogenerado").value.trim();
+
+            if (!id || !nombre || !ubicacion) {
+                alert("Por favor rellene todos los campos obligatorios (*)");
+                return;
+            }
+
+            const payload = {
+                id: id,
+                nombre: nombre,
+                ubicacion: ubicacion,
+                tags: tags,
+                imagen: imagen,
+                link: link,
+                actualizado: new Date().toISOString()
+            };
+
+            db.ref("empresas/" + id).set(payload)
+                .then(() => {
+                    alert(`Empresa [${id.toUpperCase()}] procesada de forma exitosa.`);
+                    limpiarFormulario();
+                })
+                .catch((err) => alert("Error crítico de escritura: " + err));
+        }
+
+        function cargarEmpresaEnFormulario(key) {
+            const emp = catalogoEmpresasCompleto[key];
+            if (!emp) return;
+
+            document.getElementById("inputID").value = emp.id || key;
+            document.getElementById("inputID").disabled = true; 
+            document.getElementById("inputNombre").value = emp.nombre || '';
+            document.getElementById("inputUbicacion").value = emp.ubicacion || '';
+            document.getElementById("inputTags").value = emp.tags || '';
+            document.getElementById("inputImagen").value = emp.imagen || '';
+            
+            const urlBase = "https://valdomtec-arch.github.io/bolsa-trabajo-principal/vacante.html?empresa=";
+            document.getElementById("linkAutogenerado").value = emp.link || (urlBase + key);
+            document.getElementById("btnAbrirEnlace").href = emp.link || (urlBase + key);
+            window.scrollTo({ top: 0, behavior: 'smooth' }); // Sube el formulario suavemente
+        }
+
+        // ELIMINAR DESDE LA TABLA DIRECTAMENTE
+        function eliminarEmpresaDirecto(key) {
+            if (confirm(`¿Está completamente seguro de eliminar de forma irreversible la empresa [${key.toUpperCase()}] de la base de datos?`)) {
+                db.ref("empresas/" + key).remove()
+                    .then(() => {
+                        alert("Registro eliminado permanentemente de Firebase.");
+                        limpiarFormulario();
+                    })
+                    .catch((err) => alert("Error al eliminar: " + err));
+            }
+        }
+
+        // ELIMINAR DESDE EL FORMULARIO SUPERIOR
+        function eliminarEmpresaPorFormulario() {
+            const id = document.getElementById("inputID").value.trim().toLowerCase();
+            if (!id) {
+                alert("Seleccione una empresa de la tabla para darla de baja.");
+                return;
+            }
+            eliminarEmpresaDirecto(id);
+        }
+
+        function limpiarFormulario() {
+            document.getElementById("empresaForm").reset();
+            document.getElementById("inputID").disabled = false;
+            document.getElementById("linkAutogenerado").value = "https://valdomtec-arch.github.io/bolsa-trabajo-principal/vacante.html?empresa=";
+            document.getElementById("btnAbrirEnlace").href = "#";
+        }
+
+        function copiarEnlace() {
+            const inputLink = document.getElementById("linkAutogenerado");
+            if (inputLink.value.endsWith("empresa=")) {
+                alert("Asigne un ID para generar un enlace válido.");
+                return;
+            }
+            inputLink.select();
+            navigator.clipboard.writeText(inputLink.value);
+            alert("Enlace corporativo copiado.");
+        }
+
+        function filtrarTabla() {
+            const textoBuscar = document.getElementById("inputBuscar").value.toLowerCase();
+            const filas = document.querySelectorAll("#tablaBodyEmpresas tr");
+
+            filas.forEach((fila) => {
+                if (fila.textContent.toLowerCase().includes(textoBuscar)) {
+                    fila.style.display = "";
+                } else {
+                    fila.style.display = "none";
+                }
+            });
+        }
+    </script>
+</body>
+</html>
