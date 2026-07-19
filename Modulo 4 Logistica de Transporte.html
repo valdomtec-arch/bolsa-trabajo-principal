@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Módulo 4: Sistema Inteligente y Control de Logística</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 font-sans min-h-screen antialiased">
+
+    <div class="p-6 max-w-7xl mx-auto">
+        <!-- HEADER -->
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-800 pb-6 mb-6 gap-4">
+            <div>
+                <span class="bg-cyan-500/10 text-cyan-400 text-xs px-2.5 py-1 rounded-full font-mono font-bold tracking-wider uppercase">Módulo 4 - Control Unificado</span>
+                <h1 class="text-3xl font-extrabold text-white mt-1 tracking-tight">Logística de Transporte Inteligente</h1>
+                <p class="text-slate-400 text-sm mt-1">Ingesta cognitiva multimedios (PDF, TXT, Mapas) con Gemini 2.5 Flash y administración CRUD en tiempo real.</p>
+            </div>
+            <div class="w-full md:w-auto bg-slate-800/80 p-3 rounded-lg border border-slate-700/50 flex flex-col gap-1.5">
+                <label class="text-xs font-mono text-slate-400 uppercase tracking-wider block">Gemini API Key</label>
+                <input type="password" id="apiKeyGemini" placeholder="AIzaSy..." class="bg-slate-950 border border-slate-700 rounded px-3 py-1 text-sm font-mono text-cyan-400 focus:outline-none focus:border-cyan-500 w-64">
+            </div>
+        </div>
+
+        <!-- SECCIÓN 1: MOTOR COGNITIVO (INGESTA DE DATOS) -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <!-- DROPZONE MULTIFORMATO -->
+            <div class="bg-slate-800 rounded-xl border border-slate-700/60 p-6 shadow-xl flex flex-col justify-between">
+                <div>
+                    <h2 class="text-lg font-bold text-white mb-2">📁 Lector Multiformato IA</h2>
+                    <p class="text-slate-400 text-xs mb-4">Sube reportes, contratos o imágenes de rutas (<span class="text-cyan-400 font-semibold">PDF, TXT, PNG, JPG</span>). La IA mapeará paradas y calculará coordenadas de forma autónoma.</p>
+                    
+                    <div id="dropZone" class="border-2 border-dashed border-slate-600 hover:border-cyan-500/50 bg-slate-950/40 rounded-xl p-8 text-center cursor-pointer transition-all flex flex-col items-center justify-center group">
+                        <span class="text-4xl group-hover:scale-110 transition-transform mb-2">🗺️</span>
+                        <p class="text-sm font-semibold text-slate-300">Arrastra o selecciona el archivo de rutas</p>
+                        <input type="file" id="fileInput" class="hidden" accept=".txt,.pdf,.png,.jpg,.jpeg">
+                    </div>
+                    <div id="fileFeedback" class="mt-3 text-xs text-cyan-400 font-mono hidden"></div>
+                </div>
+                <div class="mt-6">
+                    <button onclick="procesarDocumentoConIA()" id="btnProcesar" class="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold py-3 px-4 rounded-lg shadow-lg text-sm uppercase tracking-wider">
+                        🧠 Analizar con Gemini 2.5 Flash
+                    </button>
+                </div>
+            </div>
+
+            <!-- CUADRO VERDE JSON -->
+            <div class="bg-slate-800 rounded-xl border border-slate-700/60 p-6 shadow-xl flex flex-col justify-between">
+                <div>
+                    <div class="flex justify-between items-center mb-3">
+                        <h2 class="text-lg font-bold text-emerald-400 flex items-center gap-2">Previsualización JSON</h2>
+                        <span class="text-xs font-mono bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20">Modo Espera</span>
+                    </div>
+                    <textarea id="jsonOutput" class="w-full h-44 bg-slate-950/80 border border-emerald-500/30 text-emerald-400 p-4 rounded-xl font-mono text-xs focus:outline-none" placeholder="// El JSON estructurado aparecerá aquí..."></textarea>
+                </div>
+                <div class="grid grid-cols-2 gap-3 mt-4">
+                    <button onclick="guardarRutaPorRuta()" class="bg-slate-900 hover:bg-slate-950 text-emerald-400 border border-emerald-500/40 font-bold py-2.5 px-3 rounded-lg text-xs uppercase transition-all">
+                        🔍 Cargar Ruta por Ruta
+                    </button>
+                    <button onclick="cargarTodoAlServer()" class="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-2.5 px-3 rounded-lg text-xs uppercase transition-all">
+                        ⚡ Cargar Todo de Golpe
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECCIÓN 2: FORMULARIO MANUAL + TABLA CENTRAL (CRUD) -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <!-- FORMULARIO DE ALTA / EDICIÓN MANUAL -->
+            <div class="bg-slate-800 p-6 rounded-xl border border-slate-700/60 shadow-xl h-fit">
+                <h2 id="formTitle" class="text-sm font-bold uppercase text-purple-400 mb-4 tracking-wide">🚌 Registro Manual de Ruta</h2>
+                <form id="formRuta" onsubmit="guardarRutaManual(event)" class="space-y-4">
+                    <input type="hidden" id="editRutaId">
+                    <div>
+                        <label class="block text-[11px] font-mono text-slate-400 uppercase mb-1">Nombre de la Ruta</label>
+                        <input type="text" id="nombreRuta" required placeholder="Ej: Ruta 1 - Ciénega Centro" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-sm text-slate-200">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-mono text-slate-400 uppercase mb-1">Empresa Destino</label>
+                        <input type="text" id="empresaDestino" required placeholder="Ej: Fimex" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-sm text-slate-200">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-[11px] font-mono text-slate-400 uppercase mb-1">Horario Paso</label>
+                            <input type="text" id="horarioPaso" required placeholder="06:15 AM" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-sm text-slate-200">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-mono text-slate-400 uppercase mb-1">Cupo Máximo</label>
+                            <input type="number" id="cupoMaximo" required placeholder="40" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-sm text-slate-200">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-mono text-slate-400 uppercase mb-1">Coordenadas (Lat, Lng)</label>
+                        <input type="text" id="coordenadasAbordaje" required placeholder="25.9555, -100.1664" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-sm text-cyan-400 font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-mono text-slate-400 uppercase mb-1">Puntos de Abordaje / Paradas</label>
+                        <textarea id="puntosAbordaje" required placeholder="Parada Soriana, Cruce de vías..." rows="2" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-sm text-slate-200"></textarea>
+                    </div>
+                    <div class="flex gap-2">
+                        <button type="submit" id="btnSubmitForm" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded text-xs uppercase tracking-wider transition-all">
+                            Guardar Ruta
+                        </button>
+                        <button type="button" id="btnCancelarEdicion" onclick="cancelarEdicion()" class="hidden bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold py-2 px-3 rounded text-xs uppercase">
+                            ❌
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- MONITOR DE RUTAS EN EL SERVIDOR -->
+            <div class="bg-slate-800 p-6 rounded-xl border border-slate-700/60 shadow-xl lg:col-span-2 flex flex-col">
+                <h2 class="text-sm font-bold uppercase text-slate-300 mb-4 tracking-wide">📋 Listado de Unidades en Servidor</h2>
+                <div class="overflow-x-auto flex-1">
+                    <table class="w-full text-left text-xs border-collapse">
+                        <thead>
+                            <tr class="bg-slate-950 text-slate-400 uppercase font-mono border-b border-slate-700">
+                                <th class="p-3">Ruta / Empresa</th>
+                                <th class="p-3">Itinerario y Coordenadas</th>
+                                <th class="p-3 text-center">Cupo Max</th>
+                                <th class="p-3 text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaRutas" class="divide-y divide-slate-700/50">
+                            <!-- Inyección dinámica en tiempo real -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECCIÓN 3: MOTOR DE PROXIMIDAD GEOGRÁFICA -->
+        <div class="bg-slate-800 rounded-xl border border-slate-700/60 p-6 shadow-xl">
+            <h2 class="text-xl font-bold text-white mb-1">📍 Algoritmo de Proximidad de Colonias (Haversine)</h2>
+            <p class="text-slate-400 text-xs mb-4">Calcula en tiempo real qué rutas pasan más cerca de la ubicación o colonia simulada del candidato.</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div>
+                    <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Colonia / Origen Candidato</label>
+                    <input type="text" id="ubicacionCandidato" placeholder="Ej: Real de Palmas" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-sm text-slate-200">
+                </div>
+                <div>
+                    <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Coordenadas Candidato (Lat, Lng)</label>
+                    <input type="text" id="coordenadasCandidato" placeholder="25.9555, -100.1664" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-sm text-slate-200 font-mono">
+                </div>
+                <div class="flex items-end">
+                    <button onclick="ejecutarMatchGeografico()" class="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2 px-4 rounded text-sm uppercase tracking-wider transition-all">
+                        🎯 Filtrar por Cercanía
+                    </button>
+                </div>
+            </div>
+            <div id="resultadoGeolocalizador" class="hidden bg-slate-950/60 p-4 rounded-xl border border-slate-700/50">
+                <div id="listaMatchRutas" class="space-y-2"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCRIPTS DE BASE DE DATOS Y LÓGICA -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <script>
+        const firebaseConfig = { databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com" };
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        let todasLasRutas = {};
+
+        document.addEventListener("DOMContentLoaded", () => {
+            // Escucha activa en tiempo real para mantener la tabla actualizada
+            db.ref("rutas").on("value", (snap) => {
+                todasLasRutas = snap.val() || {};
+                renderizarTablaRutas();
+            });
+        });
+
+        // CONTROLADOR DE ARRASTRE DE ARCHIVOS
+        const dropZone = document.getElementById("dropZone");
+        const fileInput = document.getElementById("fileInput");
+        const fileFeedback = document.getElementById("fileFeedback");
+        let archivoCargadoRaw = null;
+
+        dropZone.addEventListener("click", () => fileInput.click());
+        fileInput.addEventListener("change", (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            archivoCargadoRaw = file;
+            fileFeedback.innerText = `📄 Listo para procesar: ${file.name}`;
+            fileFeedback.classList.remove("hidden");
+        });
+
+        // CONECTOR CON GEMINI 2.5 FLASH (PROCESADOR COGNITIVO MULTIFORMATO)
+        async function procesarDocumentoConIA() {
+            const apiKey = document.getElementById("apiKeyGemini").value.trim();
+            if (!apiKey) return alert("Por favor ingresa la API Key de Gemini.");
+            if (!archivoCargadoRaw) return alert("Arrastra o selecciona un archivo (.txt, .pdf, o imagen).");
+
+            const btn = document.getElementById("btnProcesar");
+            btn.innerText = "🧠 Procesando Información...";
+            btn.disabled = true;
+
+            try {
+                const base64Data = await transformarArchivoABase64(archivoCargadoRaw);
+                const bytesLimpios = base64Data.split(",")[1];
+                
+                const promptInstrucciones = `
+                    Analiza el archivo de texto, PDF o imagen de mapa adjunto. Extrae el itinerario de transporte. 
+                    Genera obligatoriamente un arreglo JSON limpio de objetos con esta estructura (sin bloques markdown \`\`\`json):
+                    [{
+                        "nombreRuta": "Nombre",
+                        "empresaDestino": "Empresa",
+                        "horarioPaso": "Hora",
+                        "puntosAbordaje": "Calles o Colonias de paso",
+                        "coordenadasAbordaje": "latitud, longitud aproximada en Nuevo León",
+                        "cupoMaximo": 40
+                    }]
+                `;
+
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+                const payload = {
+                    contents: [{
+                        parts: [
+                            { text: promptInstrucciones },
+                            { inlineData: { mimeType: archivoCargadoRaw.type || "application/octet-stream", data: bytesLimpios } }
+                        ]
+                    }]
+                };
+
+                const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+                const jsonRes = await res.json();
+                let textoIA = jsonRes.candidates[0].content.parts[0].text;
+                textoIA = textoIA.replace(/```json/g, "").replace(/```/g, "").trim();
+                
+                document.getElementById("jsonOutput").value = textoIA;
+            } catch (err) {
+                alert("Error de procesamiento: " + err.message);
+            } finally {
+                btn.innerText = "🧠 Analizar con Gemini 2.5 Flash";
+                btn.disabled = false;
+            }
+        }
+
+        // CONTROLADORES DE INYECCIÓN DE IA A BASE DE DATOS (.push para acumular)
+        function obtenerJSONValido() {
+            try { return JSON.parse(document.getElementById("jsonOutput").value); } 
+            catch(e) { alert("JSON inválido."); return null; }
+        }
+
+        function guardarRutaPorRuta() {
+            const data = obtenerJSONValido(); if (!data) return;
+            const arreglo = Array.isArray(data) ? data : [data];
+            if(arreglo.length === 0) return;
+
+            const ruta = arreglo.shift();
+            db.ref("rutas").push(ruta, (err) => {
+                if(!err) document.getElementById("jsonOutput").value = arreglo.length > 0 ? JSON.stringify(arreglo, null, 2) : "";
+            });
+        }
+
+        function cargarTodoAlServer() {
+            const data = obtenerJSONValido(); if (!data) return;
+            const arreglo = Array.isArray(data) ? data : [data];
+            arreglo.forEach(ruta => db.ref("rutas").push(ruta));
+            document.getElementById("jsonOutput").value = "";
+            alert("Todas las rutas se han acumulado en el servidor con éxito.");
+        }
+
+        // RENDERIZADOR DEL LISTADO CRUD (TIEMPO REAL)
+        function renderizarTablaRutas() {
+            const tbody = document.getElementById("tablaRutas");
+            tbody.innerHTML = "";
+            Object.entries(todasLasRutas).forEach(([id, r]) => {
+                if(id === "_inicializador") return;
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-800/40 border-b border-slate-800 text-slate-300">
+                        <td class="p-3">
+                            <div class="font-bold text-white">${r.nombreRuta}</div>
+                            <div class="text-purple-400 font-medium">${r.empresaDestino}</div>
+                        </td>
+                        <td class="p-3 font-mono text-[11px]">
+                            <div class="text-amber-400">⏱️ ${r.horarioPaso}</div>
+                            <div class="text-slate-400 truncate max-w-xs">${r.puntosAbordaje}</div>
+                            <div class="text-cyan-500">${r.coordenadasAbordaje || 'Sin Coordenadas'}</div>
+                        </td>
+                        <td class="p-3 text-center font-bold text-slate-400">${r.cupoMaximo}</td>
+                        <td class="p-3 text-center space-x-2">
+                            <button onclick="cargarRutaEnFormulario('${id}')" class="text-blue-400 hover:text-blue-300 font-bold">✏️</button>
+                            <button onclick="eliminarRuta('${id}')" class="text-red-400 hover:text-red-300 font-bold">🗑️</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        // LOGICA DE OPERACIONES MANUALES (CREAR / EDITAR)
+        function guardarRutaManual(e) {
+            e.preventDefault();
+            const id = document.getElementById("editRutaId").value;
+            const rutaData = {
+                nombreRuta: document.getElementById("nombreRuta").value.trim(),
+                empresaDestino: document.getElementById("empresaDestino").value.trim(),
+                horarioPaso: document.getElementById("horarioPaso").value.trim(),
+                cupoMaximo: parseInt(document.getElementById("cupoMaximo").value) || 40,
+                coordenadasAbordaje: document.getElementById("coordenadasAbordaje").value.trim(),
+                puntosAbordaje: document.getElementById("puntosAbordaje").value.trim()
+            };
+
+            if(id) {
+                // Actualiza la ruta específica sin alterar el resto
+                db.ref(`rutas/${id}`).update(rutaData).then(() => cancelarEdicion());
+            } else {
+                // Genera un registro nuevo acumulativo
+                db.ref("rutas").push(rutaData).then(() => document.getElementById("formRuta").reset());
+            }
+        }
+
+        function cargarRutaEnFormulario(id) {
+            const r = todasLasRutas[id];
+            document.getElementById("editRutaId").value = id;
+            document.getElementById("nombreRuta").value = r.nombreRuta;
+            document.getElementById("empresaDestino").value = r.empresaDestino;
+            document.getElementById("horarioPaso").value = r.horarioPaso;
+            document.getElementById("cupoMaximo").value = r.cupoMaximo;
+            document.getElementById("coordenadasAbordaje").value = r.coordenadasAbordaje || "";
+            document.getElementById("puntosAbordaje").value = r.puntosAbordaje;
+
+            document.getElementById("formTitle").innerText = "✏️ Editando Ruta Escogida";
+            document.getElementById("btnSubmitForm").innerText = "Actualizar Cambios";
+            document.getElementById("btnCancelarEdicion").classList.remove("hidden");
+        }
+
+        function cancelarEdicion() {
+            document.getElementById("editRutaId").value = "";
+            document.getElementById("formRuta").reset();
+            document.getElementById("formTitle").innerText = "🚌 Registro Manual de Ruta";
+            document.getElementById("btnSubmitForm").innerText = "Guardar Ruta";
+            document.getElementById("btnCancelarEdicion").classList.add("hidden");
+        }
+
+        function eliminarRuta(id) {
+            if(confirm("¿Remover esta ruta del servidor de forma permanente?")) db.ref(`rutas/${id}`).remove();
+        }
+
+        // FÓRMULA MATEMÁTICA DE HAVERSINE (PROXIMIDAD GEOMÉTRICA)
+        function calcularDistanciaKm(lat1, lon1, lat2, lon2) {
+            const R = 6371;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+        }
+
+        function ejecutarMatchGeografico() {
+            const coordsRaw = document.getElementById("coordenadasCandidato").value.trim();
+            if(!coordsRaw) return alert("Inserta coordenadas base para calcular.");
+            const [cLat, cLng] = coordsRaw.split(",").map(Number);
+
+            let matches = [];
+            Object.entries(todasLasRutas).forEach(([id, r]) => {
+                if(id === "_inicializador" || !r.coordenadasAbordaje) return;
+                const [rLat, rLng] = r.coordenadasAbordaje.split(",").map(Number);
+                if(!isNaN(rLat) && !isNaN(rLng)) {
+                    matches.push({ nombre: r.nombreRuta, empresa: r.empresaDestino, puntos: r.puntosAbordaje, dist: calcularDistanciaKm(cLat, cLng, rLat, rLng) });
+                }
+            });
+
+            matches.sort((a, b) => a.dist - b.dist);
+            const resCaja = document.getElementById("resultadoGeolocalizador");
+            const lista = document.getElementById("listaMatchRutas");
+            lista.innerHTML = ""; resCaja.classList.remove("hidden");
+
+            matches.forEach(m => {
+                lista.innerHTML += `
+                    <div class="flex justify-between items-center bg-slate-900 p-2.5 rounded border border-slate-800 text-xs">
+                        <div>
+                            <span class="font-bold text-white block">${m.nombre} ➔ <span class="text-purple-400">${m.empresa}</span></span>
+                            <span class="text-slate-400 text-[11px] block">Paradas: ${m.puntos}</span>
+                        </div>
+                        <span class="bg-cyan-500/10 text-cyan-400 font-mono font-bold px-2 py-1 rounded border border-cyan-500/20">📍 A ${m.dist.toFixed(2)} Km</span>
+                    </div>`;
+            });
+        }
+
+        function transformarArchivoABase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader(); reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result); reader.onerror = e => reject(e);
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ERP - Control de Vacantes + Motor Multivacante IA</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { background-color: #f4f6f9; font-family: 'Segoe UI', sans-serif; }
+        .navbar-custom { background-color: #1e293b; }
+        .card-custom { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; }
+        .table-custom th { font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
+        
+        /* Identidad Visual Solicitada */
+        .bg-motor-morado { background-color: #f5f3ff; border: 2px solid #7c3aed; }
+        .text-morado { color: #6d28d9; }
+        .btn-morado { background-color: #7c3aed; color: white; }
+        .btn-morado:hover { background-color: #6d28d9; color: white; }
+        
+        .bg-json-verde { background-color: #f0fdf4; border: 2px solid #16a34a; }
+        .text-verde { color: #15803d; }
+        .json-textarea { font-family: 'Courier New', Courier, monospace; background-color: #14532d; color: #4ade80; font-size: 12px; }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-custom shadow-sm">
+        <div class="container-fluid px-4">
+            <span class="navbar-brand fw-bold"><i class="fa-solid fa-microchip me-2"></i>MÓDULO 2: CONTROL DE VACANTES & MOTOR IA 2.5 FLASH</span>
+            <div class="navbar-nav ms-auto">
+                <a href="admin.html" class="btn btn-sm btn-outline-light"><i class="fa-solid fa-arrow-left me-2"></i>Volver al Hub</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container-fluid px-4 my-4">
+        <div class="row g-4">
+            
+            <!-- COLUMNA IZQUIERDA: MOTOR IA Y CONVERSIÓN JSON -->
+            <div class="col-12 col-xl-6">
+                
+                <!-- TARJETA FIJA SUPERIOR: MOTOR MORADO -->
+                <div class="card card-custom shadow-sm p-4 mb-4 bg-motor-morado">
+                    <h5 class="fw-bold text-morado mb-1"><i class="fa-solid fa-wand-magic-sparkles me-2"></i>Motor de Inteligencia Artificial (Entrada)</h5>
+                    <p class="text-muted small mb-3">Sube flyers (.png, .jpg), archivos estructurados (.txt, .docx, .pdf) o añade notas sueltas.</p>
+                    
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-secondary">Gemini API Key</label>
+                            <input type="password" id="gemini-key" class="form-control form-control-sm" placeholder="AIzaSy...">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-secondary">Empresa / Socio Comercial Destino</label>
+                            <select id="extractor-empresa-id" class="form-select form-select-sm">
+                                <option value="" disabled selected>Cargando socios...</option>
+                            </select>
+                        </div>
+                        <div class="col-12 mt-2">
+                            <label class="form-label small fw-bold text-secondary">Documento o Imagen del Perfil (.txt, .png, .jpg, .pdf, .docx)</label>
+                            <input type="file" id="extractor-archivo" class="form-control form-control-sm" accept=".txt,.png,.jpg,.jpeg,.docx,.pdf">
+                        </div>
+                        <div class="col-12 mt-2">
+                            <label class="form-label small fw-bold text-secondary">Notas manuales / Instrucciones adicionales</label>
+                            <textarea id="extractor-texto" class="form-control form-control-sm" rows="2" placeholder="Ej. Agregar bono de asistencia extra de $200..."></textarea>
+                        </div>
+                    </div>
+                    <div class="text-end mt-3">
+                        <button type="button" class="btn btn-sm btn-morado fw-bold shadow-sm" onclick="procesarConMotorGemini()">
+                            <i class="fa-solid fa-gears me-2"></i>Ejecutar Extracción Inteligente
+                        </button>
+                    </div>
+                </div>
+
+                <!-- TARJETA FIJA INFERIOR: CUADRO VERDE JSON -->
+                <div class="card card-custom shadow-sm p-4 bg-json-verde">
+                    <div class="d-flex justify-content-between align-middle mb-2">
+                        <h5 class="fw-bold text-verde mb-0"><i class="fa-solid fa-code me-2"></i>Conversión a Formato JSON Estructurado</h5>
+                        <div id="badge-contador" class="badge bg-success d-none">0 Vacantes Detectadas</div>
+                    </div>
+                    <p class="text-muted small mb-2">Audita el árbol de datos devuelto por el motor antes de su inyección al formulario o servidor.</p>
+                    
+                    <textarea id="json-output" class="form-control json-textarea rows mb-3" rows="10" readonly placeholder='[ { "esperando": "ejecución del motor..." } ]'></textarea>
+                    
+                    <!-- SELECTORES DE FLUJO Y CONFIRMACIÓN GLOBAL -->
+                    <div class="row g-2 align-items-center bg-white p-3 border rounded shadow-sm">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-dark mb-1">Método de Procesamiento de Carga</label>
+                            <select id="control-modo-carga" class="form-select form-select-sm" disabled onchange="cambiarModoDeCarga()">
+                                <option value="individual">Vacante por Vacante (Control Manual Fino)</option>
+                                <option value="bloque">Subir Todo el Bloque de una vez a Firebase (Masivo)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 text-end pt-3">
+                            <div id="paginador-individual" class="btn-group btn-group-sm d-none me-2" role="group">
+                                <!-- Botones de paginación dinámica se inyectan aquí -->
+                            </div>
+                            <button type="button" id="btn-subida-bloque" class="btn btn-sm btn-danger fw-bold shadow-sm d-none" onclick="ejecutarSubidaMasivaDirecta()">
+                                <i class="fa-solid fa-cloud-arrow-up me-2"></i>Subir todo el Bloque
+                            </button>
+                        </div>
+                        
+                        <hr class="my-2">
+                        
+                        <!-- BOTONES DE REGLA OPERATIVA SOLICITADOS -->
+                        <div class="col-12 d-flex gap-2 justify-content-end">
+                            <button type="button" id="btn-aplicar-todo" class="btn btn-sm btn-success fw-bold px-3 shadow-sm" disabled onclick="procesarReglaGlobal('NUEVO')">
+                                <i class="fa-solid fa-copy me-2"></i>Aplicar todo lo nuevo
+                            </button>
+                            <button type="button" id="btn-conservar-todo" class="btn btn-sm btn-outline-success fw-bold px-3 shadow-sm" disabled onclick="procesarReglaGlobal('CONSERVAR')">
+                                <i class="fa-solid fa-shield-halved me-2"></i>Conservar todo lo actual
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- COLUMNA DERECHA: FORMULARIO DE VALIDACIÓN Y LISTADO -->
+            <div class="col-12 col-xl-6">
+                
+                <!-- FORMULARIO MAESTRO DE DESTINO -->
+                <div class="card card-custom shadow-sm p-4 mb-4">
+                    <h5 class="fw-bold text-dark mb-1" id="form-title">Publicar / Validar Puesto Operativo</h5>
+                    <p class="text-muted small mb-3">Datos finales listos para ser empujados al servidor.</p>
+                    <hr class="mt-0">
+                    
+                    <form id="form-vacante">
+                        <input type="hidden" id="vacante-id-oculto">
+                        <input type="hidden" id="vacante-empresa-original">
+
+                        <div class="mb-2">
+                            <label class="form-label small fw-bold text-secondary">Empresa / Socio Comercial Asignado</label>
+                            <select id="vacante-empresa-id" class="form-select form-select-sm" required>
+                                <option value="" disabled selected>Selecciona empresa...</option>
+                            </select>
+                        </div>
+
+                        <div class="row g-2 mb-2">
+                            <div class="col-6">
+                                <label class="form-label small fw-bold text-secondary">Nombre de Vacante (Corto)</label>
+                                <input type="text" id="vacante-nombre" class="form-control form-control-sm" required placeholder="Ej. Operador General">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small fw-bold text-secondary">Vacante Nombre (Largo / Detalle)</label>
+                                <input type="text" id="vacante-nombre-largo" class="form-control form-control-sm" required placeholder="Ej. OPERADORES GENERALES">
+                            </div>
+                        </div>
+
+                        <div class="mb-2">
+                            <label class="form-label small fw-bold text-secondary">Salario / Esquema de Pago</label>
+                            <input type="text" id="vacante-salario" class="form-control form-control-sm" required>
+                        </div>
+
+                        <div class="mb-2">
+                            <label class="form-label small fw-bold text-secondary">Turnos / Jornada Laboral</label>
+                            <input type="text" id="vacante-turnos" class="form-control form-control-sm" required>
+                        </div>
+
+                        <div class="row g-2 mb-2">
+                            <div class="col-4">
+                                <label class="form-label small fw-bold text-secondary">Sexo</label>
+                                <select id="vacante-sexo" class="form-select form-select-sm">
+                                    <option value="Masculino">Masculino</option>
+                                    <option value="Femenino">Femenino</option>
+                                    <option value="Indistinto">Indistinto</option>
+                                </select>
+                            </div>
+                            <div class="col-4">
+                                <label class="form-label small fw-bold text-secondary">Edad</label>
+                                <input type="text" id="vacante-edad" class="form-control form-control-sm" value="18 a 55 años">
+                            </div>
+                            <div class="col-4">
+                                <label class="form-label small fw-bold text-secondary">Escolaridad</label>
+                                <input type="text" id="vacante-escolaridad" class="form-control form-control-sm" value="Secundaria mínima">
+                            </div>
+                        </div>
+
+                        <div class="row g-2 mb-2">
+                            <div class="col-6">
+                                <label class="form-label small fw-bold text-secondary">Experiencia Requerida</label>
+                                <input type="text" id="vacante-experiencia" class="form-control form-control-sm" value="Sin experiencia">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small fw-bold text-secondary">Lugar de Origen / Zona</label>
+                                <input type="text" id="vacante-origen" class="form-control form-control-sm" value="Ciénega de Flores, Nuevo León (cuenta con Transporte)">
+                            </div>
+                        </div>
+
+                        <div class="mb-2">
+                            <label class="form-label small fw-bold text-secondary">Actividades Principales</label>
+                            <input type="text" id="vacante-actividades" class="form-control form-control-sm" required>
+                        </div>
+
+                        <div class="mb-2">
+                            <label class="form-label small fw-bold text-secondary">Beneficios Ofrecidos</label>
+                            <textarea id="vacante-beneficios" class="form-control form-control-sm" rows="2" required></textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-secondary">Estatus en Portal</label>
+                            <select id="vacante-estatus" class="form-select form-select-sm">
+                                <option value="disponible">disponible</option>
+                                <option value="pausada">pausada</option>
+                                <option value="cubierta">cubierta</option>
+                            </select>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-sm btn-dark" id="btn-submit"><i class="fa-solid fa-cloud-arrow-up me-2"></i>Subir Puesto Validado al Servidor</button>
+                            <button type="button" class="btn btn-sm btn-light border d-none" id="btn-cancelar">Cancelar Edición</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- LISTADO COMPACTO DE MONITOREO -->
+                <div class="card card-custom shadow-sm p-4">
+                    <h5 class="fw-bold text-dark mb-1">Estructura Activa en Servidor</h5>
+                    <div class="table-responsive mt-2">
+                        <table class="table table-hover align-middle table-custom small m-0">
+                            <thead class="table-light text-secondary">
+                                <tr>
+                                    <th>Empresa</th>
+                                    <th>Puesto / Salario</th>
+                                    <th>Estatus</th>
+                                    <th class="text-end">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-vacantes-body">
+                                <tr><td colspan="4" class="text-center text-muted py-3">Sincronizando nodos...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+    </main>
+
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
+    <script>
+        // CONFIGURACIÓN DE BASE DE DATOS REAL
+        const firebaseConfig = {
+            apiKey: "TU_API_KEY",
+            authDomain: "TU_AUTH_DOMAIN",
+            databaseURL: "TU_DATABASE_URL",
+            projectId: "TU_PROJECT_ID",
+            storageBucket: "TU_STORAGE_BUCKET",
+            messagingSenderId: "TU_MESSAGING_SENDER_ID",
+            appId: "TU_APP_ID"
+        };
+
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const OPERADOR_SISTEMA = "SuperAdmin";
+        
+        let catalogoEmpresasLocal = {};
+        let poolVacantesDetectadas = []; // Buffer temporal de la IA
+        let indiceVacanteActiva = 0;
+
+        document.addEventListener("DOMContentLoaded", () => {
+            cargarSelectorEmpresas();
+            configurarManejadorFormulario();
+        });
+
+        function cargarSelectorEmpresas() {
+            const selectEmpresa = document.getElementById("vacante-empresa-id");
+            const selectExtractor = document.getElementById("extractor-empresa-id");
+            db.ref("empresas").on("value", (snapshot) => {
+                selectEmpresa.innerHTML = '<option value="" disabled selected>Selecciona empresa...</option>';
+                selectExtractor.innerHTML = '<option value="" disabled selected>Selecciona empresa...</option>';
+                catalogoEmpresasLocal = {};
+                if (!snapshot.exists()) return;
+                snapshot.forEach((childSnapshot) => {
+                    const emp = childSnapshot.val();
+                    catalogoEmpresasLocal[childSnapshot.key] = emp.nombre || childSnapshot.key;
+                    
+                    const op1 = document.createElement("option"); op1.value = childSnapshot.key; op1.textContent = emp.nombre || childSnapshot.key;
+                    selectEmpresa.appendChild(op1);
+                    const op2 = document.createElement("option"); op2.value = childSnapshot.key; op2.textContent = emp.nombre || childSnapshot.key;
+                    selectExtractor.appendChild(op2);
+                });
+                inicializarEscuchaVacantesAnidadas();
+            });
+        }
+
+        // MOTOR INTEGRAL CON CAPACIDAD MULTIVACANTE (TXT, PNG, JPG, PDF, DOCX)
+        async function procesarConMotorGemini() {
+            const apiKey = document.getElementById("gemini-key").value;
+            const empresaSeleccionada = document.getElementById("extractor-empresa-id").value;
+            const archivoInput = document.getElementById("extractor-archivo");
+            const textoNotas = document.getElementById("extractor-texto").value.trim();
+
+            if (!apiKey) return alert("Ingresa tu Gemini API Key.");
+            if (!empresaSeleccionada) return alert("Selecciona la empresa destino.");
+
+            let fileData = null;
+            let fileType = "";
+            let textFromTxt = "";
+
+            if (archivoInput.files.length > 0) {
+                const archivo = archivoInput.files[0];
+                fileType = archivo.name.split('.').pop().toLowerCase();
+                if (fileType === "txt") {
+                    textFromTxt = await archivo.text();
+                } else {
+                    fileData = await convertirBase64(archivo);
+                }
+            }
+
+            if (!textFromTxt && !fileData && !textoNotas) {
+                return alert("Inserta un archivo o notas para que el motor pueda trabajar.");
+            }
+
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+            
+            // Ingeniería de prompt para obligar el retorno de un ARREGLO JSON estructurado plano
+            const promptInstruction = `Analiza el documento, imagen o texto provisto. Extrae CADA UNA de las vacantes descritas. Debes devolver EXCLUSIVAMENTE una lista o arreglo JSON plano (Array de objetos, sin markdown \`\`\`json ni textos extras).
+            Si vienen múltiples puestos, sepáralos como elementos individuales del arreglo.
+            Esquema obligatorio por objeto:
+            {
+                "actividades": "Detalle de funciones",
+                "beneficios": "Prestaciones y bonos",
+                "edad": "Si no se indica usa: 18 a 55 años",
+                "escolaridad": "Si no se indica usa: Secundaria mínima",
+                "experiencia": "Si no se indica usa: Sin experiencia",
+                "lugarOrigen": "Si no se indica usa: Ciénega de Flores, Nuevo León (cuenta con Transporte)",
+                "nombreVacante": "Nombre corto del puesto (ej: Operador General)",
+                "salario": "Esquema económico detallado",
+                "sexo": "Masculino, Femenino, o Indistinto",
+                "turnos": "Horarios y jornadas",
+                "vacanteNombre": "Nombre largo en MAYÚSCULAS"
+            }
+            Notas manuales del operador: "${textoNotas}" \n\n Texto limpio del documento si aplica: "${textFromTxt}"`;
+
+            let contentsParts = [{ text: promptInstruction }];
+            if (fileData) {
+                let mimeType = "application/octet-stream";
+                if (fileType === "png") mimeType = "image/png";
+                if (fileType === "jpg" || fileType === "jpeg") mimeType = "image/jpeg";
+                if (fileType === "pdf") mimeType = "application/pdf";
+
+                contentsParts.push({ inlineData: { mimeType: mimeType, data: fileData.split(',')[1] } });
+            }
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ parts: contentsParts }] })
+                });
+
+                const data = await response.json();
+                let respuestaTexto = data.candidates[0].content.parts[0].text.trim();
+                respuestaTexto = respuestaTexto.replace(/^```json\s*/i, '').replace(/```$/, '').trim();
+                
+                // Guardar en el cuadro verde de lectura
+                document.getElementById("json-output").value = respuestaTexto;
+                
+                const parseado = JSON.parse(respuestaTexto);
+                // Asegurar que sea tratado siempre como arreglo
+                poolVacantesDetectadas = Array.isArray(parseado) ? parseado : [parseado];
+                indiceVacanteActiva = 0;
+
+                // Actualizar interfaz del motor
+                const badge = document.getElementById("badge-contador");
+                badge.textContent = `${poolVacantesDetectadas.length} Vacante(s) Detectada(s)`;
+                badge.classList.remove("d-none");
+
+                // Habilitar controles lógicos
+                document.getElementById("control-modo-carga").disabled = false;
+                document.getElementById("btn-aplicar-todo").disabled = false;
+                document.getElementById("btn-conservar-todo").disabled = false;
+
+                cambiarModoDeCarga();
+                alert("Motor IA finalizado con éxito. Revisa el cuadro verde y selecciona tu regla de negocio.");
+            } catch (err) {
+                console.error(err);
+                alert("Error en la lectura del motor. Revisa tu API Key o el formato del archivo.");
+            }
+        }
+
+        // CAMBIO DE FLUJO: INDIVIDUAL VS BLOQUE MASIVO
+        function cambiarModoDeCarga() {
+            const modo = document.getElementById("control-modo-carga").value;
+            const paginador = document.getElementById("paginador-individual");
+            const btnBloque = document.getElementById("btn-subida-bloque");
+
+            if (modo === "individual") {
+                btnBloque.classList.add("d-none");
+                paginador.classList.remove("d-none");
+                renderizarPaginador();
+            } else {
+                paginador.classList.add("d-none");
+                btnBloque.classList.remove("d-none");
+            }
+        }
+
+        function renderizarPaginador() {
+            const paginador = document.getElementById("paginador-individual");
+            paginador.innerHTML = "";
+            poolVacantesDetectadas.forEach((_, index) => {
+                const btn = document.createElement("button");
+                btn.type = "button";
+                btn.className = `btn btn-sm ${index === indiceVacanteActiva ? 'btn-morado' : 'btn-outline-secondary'}`;
+                btn.textContent = `Puesto ${index + 1}`;
+                btn.onclick = () => {
+                    indiceVacanteActiva = index;
+                    renderizarPaginador();
+                };
+                paginador.appendChild(btn);
+            });
+        }
+
+        // IMPLEMENTACIÓN DE LAS DOS REGLAS GLOBALES SOLICITADAS
+        function procesarReglaGlobal(regra) {
+            if (poolVacantesDetectadas.length === 0) return;
+            
+            const vacanteIA = poolVacantesDetectadas[indiceVacanteActiva];
+            const empresaSeleccionada = document.getElementById("extractor-empresa-id").value;
+            
+            // Elementos del formulario derecho
+            const campos = {
+                empresa: document.getElementById("vacante-empresa-id"),
+                nombre: document.getElementById("vacante-nombre"),
+                nombreLargo: document.getElementById("vacante-nombre-largo"),
+                salario: document.getElementById("vacante-salario"),
+                turnos: document.getElementById("vacante-turnos"),
+                sexo: document.getElementById("vacante-sexo"),
+                edad: document.getElementById("vacante-edad"),
+                escolaridad: document.getElementById("vacante-escolaridad"),
+                experiencia: document.getElementById("vacante-experiencia"),
+                origen: document.getElementById("vacante-origen"),
+                actividades: document.getElementById("vacante-actividades"),
+                beneficios: document.getElementById("vacante-beneficios")
+            };
+
+            if (regra === 'NUEVO') {
+                // Sobrescribe u otorga todo lo nuevo sin miramientos
+                campos.empresa.value = empresaSeleccionada;
+                campos.nombre.value = vacanteIA.nombreVacante || "";
+                campos.nombreLargo.value = vacanteIA.vacanteNombre || "";
+                campos.salario.value = vacanteIA.salario || "";
+                campos.turnos.value = vacanteIA.turnos || "";
+                campos.sexo.value = vacanteIA.sexo || "Indistinto";
+                campos.edad.value = vacanteIA.edad || "18 a 55 años";
+                campos.escolaridad.value = vacanteIA.escolaridad || "Secundaria mínima";
+                campos.experiencia.value = vacanteIA.experiencia || "Sin experiencia";
+                campos.origen.value = vacanteIA.lugarOrigen || "";
+                campos.actividades.value = vacanteIA.actividades || "";
+                campos.beneficios.value = vacanteIA.beneficios || "";
+            } 
+            else if (regra === 'CONSERVAR') {
+                // Conserva lo que está en pantalla. Solo añade si el campo está 100% vacío.
+                if(!campos.empresa.value) campos.empresa.value = empresaSeleccionada;
+                if(!campos.nombre.value) campos.nombre.value = vacanteIA.nombreVacante || "";
+                if(!campos.nombreLargo.value) campos.nombreLargo.value = vacanteIA.vacanteNombre || "";
+                if(!campos.salario.value) campos.salario.value = vacanteIA.salario || "";
+                if(!campos.turnos.value) campos.turnos.value = vacanteIA.turnos || "";
+                if(!campos.sexo.value) campos.sexo.value = vacanteIA.sexo || "Indistinto";
+                
+                // Evaluaciones estrictas de cadenas por defecto para campos de texto libre
+                if(campos.edad.value === "" || campos.edad.value === "18 a 55 años") campos.edad.value = vacanteIA.edad || "18 a 55 años";
+                if(campos.escolaridad.value === "" || campos.escolaridad.value === "Secundaria mínima") campos.escolaridad.value = vacanteIA.escolaridad || "Secundaria mínima";
+                if(campos.experiencia.value === "" || campos.experiencia.value === "Sin experiencia") campos.experiencia.value = vacanteIA.experiencia || "Sin experiencia";
+                if(campos.origen.value === "" || campos.origen.value === "Ciénega de Flores, Nuevo León (cuenta con Transporte)") campos.origen.value = vacanteIA.lugarOrigen || "";
+                
+                if(!campos.actividades.value) campos.actividades.value = vacanteIA.actividades || "";
+                if(!campos.beneficios.value) campos.beneficios.value = vacanteIA.beneficios || "";
+            }
+            
+            document.getElementById("vacante-estatus").value = "disponible";
+        }
+
+        // CONFIRMACIÓN MASIVA: SUBIDA EN BLOQUE DIRECTA A FIREBASE
+        function ejecutarSubidaMasivaDirecta() {
+            const empresaSeleccionada = document.getElementById("extractor-empresa-id").value;
+            if(!empresaSeleccionada) return alert("Selecciona una empresa destino primero.");
+            if(poolVacantesDetectadas.length === 0) return alert("No hay datos en el bloque.");
+
+            if(confirm(`¿Estás seguro de subir las ${poolVacantesDetectadas.length} vacantes en bloque directo a Firebase para la empresa ${empresaSeleccionada}?`)) {
+                let promesas = [];
+                
+                poolVacantesDetectadas.forEach((vac) => {
+                    let puestoId = vac.nombreVacante.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+                    
+                    const nodoObjeto = {
+                        actividades: vac.actividades || "",
+                        bannerUrl: "",
+                        beneficios: vac.beneficios || "",
+                        edad: vac.edad || "18 a 55 años",
+                        escolaridad: vac.escolaridad || "Secundaria mínima",
+                        estatus: "disponible",
+                        experiencia: vac.experiencia || "Sin experiencia",
+                        infoGeneral: "",
+                        lugarOrigen: vac.lugarOrigen || "Ciénega de Flores, Nuevo León (cuenta con Transporte)",
+                        nombreVacante: vac.nombreVacante,
+                        puestoId: puestoId,
+                        rutasTransporte: "",
+                        salario: vac.salario || "",
+                        sexo: vac.sexo || "Indistinto",
+                        turnos: vac.turnos || "",
+                        vacanteNombre: vac.vacanteNombre || vac.nombreVacante.toUpperCase(),
+                        visitas: 1
+                    };
+                    
+                    promesas.push(db.ref(`vacantes_detalles/${empresaSeleccionada}/${puestoId}`).set(nodoObjeto));
+                });
+
+                Promise.all(promesas).then(() => {
+                    registrarEnCajaNegra("CREAR_MASIVO", `Se subieron ${poolVacantesDetectadas.length} vacantes en bloque a /vacantes_detalles/${empresaSeleccionada}`);
+                    alert("¡Bloque masivo guardado con éxito en Firebase!");
+                    restablecerFormulario();
+                    limpiarMotor();
+                });
+            }
+        }
+
+        // LECTURA RECURSIVA EN TIEMPO REAL
+        function inicializarEscuchaVacantesAnidadas() {
+            const tbody = document.getElementById("tabla-vacantes-body");
+            db.ref("vacantes_detalles").on("value", (snapshot) => {
+                tbody.innerHTML = "";
+                if (!snapshot.exists()) {
+                    tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-3">Sin registros activos.</td></tr>`;
+                    return;
+                }
+                snapshot.forEach((empresaSnapshot) => {
+                    const empresaId = empresaSnapshot.key;
+                    const nombreEmpresa = catalogoEmpresasLocal[empresaId] || empresaId;
+                    empresaSnapshot.forEach((vacanteSnapshot) => {
+                        const vac = vacanteSnapshot.val();
+                        const fila = document.createElement("tr");
+                        fila.innerHTML = `
+                            <td><div class="fw-bold">${nombreEmpresa}</div></td>
+                            <td><div class="fw-bold">${vac.nombreVacante || vacanteSnapshot.key}</div><div class="text-muted" style="font-size:11px;">${vac.salario || ''}</div></td>
+                            <td><span class="badge ${vac.estatus === 'disponible' ? 'bg-success' : 'bg-secondary'}">${vac.estatus || 'disponible'}</span></td>
+                            <td class="text-end">
+                                <button class="btn btn-sm btn-light border text-primary me-1" onclick="cargarVacanteReal('${empresaId}', '${vacanteSnapshot.key}')"><i class="fa-solid fa-pen-to-square"></i></button>
+                                <button class="btn btn-sm btn-light border text-danger" onclick="eliminarVacanteReal('${empresaId}', '${vacanteSnapshot.key}', '${vac.nombreVacante}')"><i class="fa-solid fa-trash-can"></i></button>
+                            </td>
+                        `;
+                        tbody.appendChild(fila);
+                    });
+                });
+            });
+        }
+
+        // MANEJADOR DEL FORMULARIO PRINCIPAL DERECHO (SUBIDA INDIVIDUAL)
+        function configurarManejadorFormulario() {
+            const form = document.getElementById("form-vacante");
+            form.addEventListener("submit", (e) => {
+                e.preventDefault();
+                const idOculto = document.getElementById("vacante-id-oculto").value;
+                const empresaOriginal = document.getElementById("vacante-empresa-original").value;
+                const empresaSelect = document.getElementById("vacante-empresa-id").value;
+                const nombreVacante = document.getElementById("vacante-nombre").value.trim();
+                
+                let puestoId = idOculto || nombreVacante.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+
+                if (idOculto && empresaOriginal !== empresaSelect) {
+                    db.ref(`vacantes_detalles/${empresaOriginal}/${idOculto}`).remove();
+                }
+
+                const objetoVacanteReal = {
+                    actividades: document.getElementById("vacante-actividades").value.trim(),
+                    bannerUrl: "",
+                    beneficios: document.getElementById("vacante-beneficios").value.trim(),
+                    edad: document.getElementById("vacante-edad").value.trim(),
+                    escolaridad: document.getElementById("vacante-escolaridad").value.trim(),
+                    estatus: document.getElementById("vacante-estatus").value,
+                    experiencia: document.getElementById("vacante-experiencia").value.trim(),
+                    infoGeneral: "",
+                    lugarOrigen: document.getElementById("vacante-origen").value.trim(),
+                    nombreVacante: nombreVacante,
+                    puestoId: puestoId,
+                    rutasTransporte: "",
+                    salario: document.getElementById("vacante-salario").value.trim(),
+                    sexo: document.getElementById("vacante-sexo").value,
+                    turnos: document.getElementById("vacante-turnos").value.trim(),
+                    vacanteNombre: document.getElementById("vacante-nombre-largo").value.trim(),
+                    visitas: 1
+                };
+
+                db.ref(`vacantes_detalles/${empresaSelect}/${puestoId}`).set(objetoVacanteReal).then(() => {
+                    registrarEnCajaNegra(idOculto ? "MODIFICAR" : "CREAR", `Vacante: ${nombreVacante} en /vacantes_detalles/${empresaSelect}/${puestoId}`);
+                    restablecerFormulario();
+                    alert("Servidor Firebase actualizado correctamente.");
+                });
+            });
+        }
+
+        function registrarEnCajaNegra(operacion, detalles) {
+            const refLogs = db.ref("sistema_logs").push();
+            refLogs.set({ id: refLogs.key, timestamp: new Date().toISOString(), usuario_id: OPERADOR_SISTEMA, modulo: "M2 - Control de Vacantes", operacion: operacion, detalles: detalles });
+        }
+
+        window.cargarVacanteReal = function(empresaId, vacanteId) {
+            db.ref(`vacantes_detalles/${empresaId}/${vacanteId}`).once("value", (snapshot) => {
+                if (!snapshot.exists()) return;
+                const vac = snapshot.val();
+                document.getElementById("vacante-id-oculto").value = vacanteId;
+                document.getElementById("vacante-empresa-original").value = empresaId;
+                document.getElementById("vacante-empresa-id").value = empresaId;
+                document.getElementById("vacante-nombre").value = vac.nombreVacante || "";
+                document.getElementById("vacante-nombre-largo").value = vac.vacanteNombre || "";
+                document.getElementById("vacante-salario").value = vac.salario || "";
+                document.getElementById("vacante-turnos").value = vac.turnos || "";
+                document.getElementById("vacante-sexo").value = vac.sexo || "Masculino";
+                document.getElementById("vacante-edad").value = vac.edad || "18 a 55 años";
+                document.getElementById("vacante-escolaridad").value = vac.escolaridad || "Secundaria mínima";
+                document.getElementById("vacante-experiencia").value = vac.experiencia || "Sin experiencia";
+                document.getElementById("vacante-origen").value = vac.lugarOrigen || "";
+                document.getElementById("vacante-actividades").value = vac.actividades || "";
+                document.getElementById("vacante-beneficios").value = vac.beneficios || "";
+                document.getElementById("vacante-estatus").value = vac.estatus || "disponible";
+
+                document.getElementById("form-title").innerText = "Editar Puesto Validado";
+                document.getElementById("btn-submit").className = "btn btn-sm btn-primary";
+                document.getElementById("btn-cancelar").classList.remove("d-none");
+            });
+        };
+
+        window.eliminarVacanteReal = function(empresaId, vacanteId, nombre) {
+            if (confirm(`¿Eliminar la vacante "${nombre}"?`)) {
+                db.ref(`vacantes_detalles/${empresaId}/${vacanteId}`).remove().then(() => {
+                    registrarEnCajaNegra("ELIMINAR", `Se eliminó vacante: /vacantes_detalles/${empresaId}/${vacanteId}`);
+                });
+            }
+        };
+
+        function convertirBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+        }
+
+        function limpiarMotor() {
+            poolVacantesDetectadas = [];
+            indiceVacanteActiva = 0;
+            document.getElementById("json-output").value = "";
+            document.getElementById("badge-contador").classList.add("d-none");
+            document.getElementById("control-modo-carga").disabled = true;
+            document.getElementById("btn-aplicar-todo").disabled = true;
+            document.getElementById("btn-conservar-todo").disabled = true;
+            document.getElementById("paginador-individual").classList.add("d-none");
+            document.getElementById("btn-subida-bloque").classList.add("d-none");
+        }
+
+        function restablecerFormulario() {
+            document.getElementById("form-vacante").reset();
+            document.getElementById("extractor-archivo").value = "";
+            document.getElementById("vacante-id-oculto").value = "";
+            document.getElementById("vacante-empresa-original").value = "";
+            document.getElementById("form-title").innerText = "Publicar / Validar Puesto Operativo";
+            document.getElementById("btn-submit").className = "btn btn-sm btn-dark";
+            document.getElementById("btn-cancelar").classList.add("d-none");
+            document.getElementById("vacante-edad").value = "18 a 55 años";
+            document.getElementById("vacante-escolaridad").value = "Secundaria mínima";
+            document.getElementById("vacante-experiencia").value = "Sin experiencia";
+            document.getElementById("vacante-origen").value = "Ciénega de Flores, Nuevo León (cuenta con Transporte)";
+        }
+        document.getElementById("btn-cancelar").addEventListener("click", restablecerFormulario);
+    </script>
+</body>
+</html>

@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ERP - Registrar Empresas</title>
+    
+    <!-- 1. Dependencias Estéticas Core -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body {
+            background-color: #f4f6f9;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .navbar-custom {
+            background-color: #1e293b;
+        }
+        .card-custom {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+        }
+        /* Tabla ejecutiva compacta */
+        .table-custom th {
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 0.5px;
+        }
+        .empresa-logo-preview {
+            width: 45px;
+            height: 45px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Barra de Navegación Retornable -->
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-custom shadow-sm">
+        <div class="container">
+            <span class="navbar-brand fw-bold">
+                <i class="fa-solid fa-building me-2"></i>MÓDULO 1: REGISTRAR EMPRESAS
+            </span>
+            <div class="navbar-nav ms-auto">
+                <a href="admin.html" class="btn btn-sm btn-outline-light d-flex align-items-center">
+                    <i class="fa-solid fa-arrow-left me-2"></i> Volver al Hub General
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Contenedor de Operaciones de Dos Columnas -->
+    <main class="container my-5">
+        <div class="row g-4">
+            
+            <!-- COLUMNA IZQUIERDA: Formulario de Registro / Modificación -->
+            <div class="col-12 col-lg-5">
+                <div class="card card-custom shadow-sm p-4">
+                    <h5 class="fw-bold text-dark mb-1" id="form-title">Registrar Nueva Empresa</h5>
+                    <p class="text-muted small mb-3">Ingrese los datos correspondientes para dar de alta al cliente corporativo.</p>
+                    <hr class="mt-0">
+                    
+                    <form id="form-empresa">
+                        <!-- ID Oculto para control de edición -->
+                        <input type="hidden" id="empresa-id">
+
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-secondary">Nombre Comercial de la Empresa</label>
+                            <input type="text" id="empresa-nombre" class="form-control form-control-sm" required placeholder="Ej. Grupo Arcoíris">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-secondary">Ubicación Operativa / Planta</label>
+                            <input type="text" id="empresa-ubicacion" class="form-control form-control-sm" required value="Ciénega de Flores - Nuevo León">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-secondary">Nombre de la Imagen del Logo (o URL)</label>
+                            <input type="text" id="empresa-imagen" class="form-control form-control-sm" required placeholder="Ej. image-arcoiris.jpg">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-secondary">Tags de Búsqueda (Separados por espacios)</label>
+                            <input type="text" id="empresa-tags" class="form-control form-control-sm" placeholder="Ej. Grupo Arcoíris Ciénega de Flores">
+                        </div>
+
+                        <div class="d-grid gap-2 pt-2">
+                            <button type="submit" class="btn btn-sm btn-dark" id="btn-submit">
+                                <i class="fa-solid fa-floppy-disk me-2"></i>Guardar Empresa
+                            </button>
+                            <button type="button" class="btn btn-sm btn-light border d-none" id="btn-cancelar">
+                                Cancelar Edición
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- COLUMNA DERECHA: Catálogo en Tiempo Real -->
+            <div class="col-12 col-lg-7">
+                <div class="card card-custom shadow-sm p-4">
+                    <h5 class="fw-bold text-dark mb-1">Catálogo de Clientes Corporativos</h5>
+                    <p class="text-muted small mb-3">Vista en tiempo real de los nodos en la ruta <code class="small">/empresas</code>.</p>
+                    <hr class="mt-0">
+
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle table-custom small m-0">
+                            <thead class="table-light text-secondary">
+                                <tr>
+                                    <th>Logo</th>
+                                    <th>Empresa / Ubicación</th>
+                                    <th class="text-end">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-empresas-body">
+                                <!-- El JavaScript inyectará las filas activas aquí -->
+                                <tr>
+                                    <td colspan="3" class="text-center text-muted py-4">
+                                        <div class="spinner-border spinner-border-sm text-secondary me-2" role="status"></div>
+                                        Sincronizando con Firebase Realtime Database...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- SDK de Firebase en Versión de Compatibilidad Estable -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
+    <!-- LOGICIAL DEL MÓDULO 1 -->
+    <script>
+        // 1. Configuración de Conexión de tu Entorno
+        const firebaseConfig = {
+            apiKey: "TU_API_KEY",
+            authDomain: "TU_AUTH_DOMAIN",
+            databaseURL: "TU_DATABASE_URL",
+            projectId: "TU_PROJECT_ID",
+            storageBucket: "TU_STORAGE_BUCKET",
+            messagingSenderId: "TU_MESSAGING_SENDER_ID",
+            appId: "TU_APP_ID"
+        };
+
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.database();
+
+        // Identidad fija del operador para el registro de auditoría (M7)
+        const OPERADOR_SISTEMA = "SuperAdmin";
+
+        // 2. Escuchador de Arranque Estricto
+        document.addEventListener("DOMContentLoaded", () => {
+            inicializarEscuchaEmpresas();
+            configurarManejadorFormulario();
+        });
+
+        // 3. MOTOR EN TIEMPO REAL: Sincroniza y dibuja el nodo /empresas
+        function inicializarEscuchaEmpresas() {
+            const tbody = document.getElementById("tabla-empresas-body");
+
+            db.ref("empresas").on("value", (snapshot) => {
+                tbody.innerHTML = "";
+
+                if (!snapshot.exists()) {
+                    tbody.innerHTML = `<tr><td colspan="3" class="text-center text-muted py-4">No se encontraron empresas registradas en la base de datos.</td></tr>`;
+                    return;
+                }
+
+                snapshot.forEach((childSnapshot) => {
+                    const emp = childSnapshot.val();
+                    
+                    // Tratamiento visual de la imagen (por si viene nombre de archivo o url completa)
+                    let imagenSrc = emp.imagen;
+                    if (imagenSrc && !imagenSrc.startsWith("http")) {
+                        imagenSrc = "images/" + imagenSrc; // O tu ruta por defecto de recursos locales
+                    }
+
+                    const fila = document.createElement("tr");
+                    fila.innerHTML = `
+                        <td>
+                            <img src="${imagenSrc || 'https://via.placeholder.com/45'}" class="empresa-logo-preview" onerror="this.src='https://via.placeholder.com/45';">
+                        </td>
+                        <td>
+                            <div class="fw-bold text-dark">${emp.nombre || emp.id}</div>
+                            <div class="text-muted" style="font-size: 11px;">
+                                <i class="fa-solid fa-location-dot me-1 text-secondary"></i>${emp.ubicacion || 'No definida'}
+                            </div>
+                        </td>
+                        <td class="text-end">
+                            <button class="btn btn-sm btn-light border text-primary me-1 shadow-sm" onclick="cargarEmpresaParaEdicion('${childSnapshot.key}')" title="Editar">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                            </button>
+                            <button class="btn btn-sm btn-light border text-danger shadow-sm" onclick="eliminarEmpresa('${childSnapshot.key}', '${emp.nombre}')" title="Eliminar">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </td>
+                    `;
+                    tbody.appendChild(fila);
+                });
+            }, (error) => {
+                console.error("Error en flujo en tiempo real:", error);
+            });
+        }
+
+        // 4. ACCIÓN: Guardado e inyección estructurada en Firebase
+        function configurarManejadorFormulario() {
+            const form = document.getElementById("form-empresa");
+
+            form.addEventListener("submit", (e) => {
+                e.preventDefault();
+
+                const idOculto = document.getElementById("empresa-id").value;
+                const nombre = document.getElementById("empresa-nombre").value.trim();
+                const ubicacion = document.getElementById("empresa-ubicacion").value.trim();
+                const imagen = document.getElementById("empresa-imagen").value.trim();
+                const tags = document.getElementById("empresa-tags").value.trim();
+
+                // Generar ID único limpio en minúsculas si es registro nuevo (ej. "Grupo Arcoíris" -> "grupoarcoiris")
+                let idEmpresa = idOculto;
+                if (!idEmpresa) {
+                    idEmpresa = nombre.toLowerCase()
+                                      .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Remueve acentos
+                                      .replace(/[^a-z0-9]/g, ""); // Remueve caracteres especiales
+                }
+
+                const marcaDeTiempo = new Date().toISOString();
+
+                // Construcción exacta basada en tu esquema analizado de Firebase
+                const datosEmpresa = {
+                    id: idEmpresa,
+                    nombre: nombre,
+                    ubicacion: ubicacion,
+                    imagen: imagen,
+                    link: `https://valdomtec-arch.github.io/bolsa-trabajo-principal/vacante.html?empresa=${idEmpresa}`,
+                    tags: tags || `${nombre} ${ubicacion}`,
+                    actualizado: marcaDeTiempo
+                };
+
+                const operacion = idOculto ? "MODIFICAR" : "CREAR";
+
+                // Guardado directo en el nodo aislado de la empresa
+                db.ref(`empresas/${idEmpresa}`).set(datosEmpresa)
+                    .then(() => {
+                        // Enlace inmediato con la caja negra (Módulo 7)
+                        registrarEnCajaNegra(operacion, `Empresa: ${nombre} (${idEmpresa}). Ubicación: ${ubicacion}`);
+                        restablecerFormulario();
+                        alert(`Empresa procesada y guardada con éxito.`);
+                    })
+                    .catch((error) => {
+                        console.error("Error de escritura en Firebase:", error);
+                    });
+            });
+        }
+
+        // 5. CAJA NEGRA: Inyección automatizada en el nodo /sistema_logs
+        function registrarEnCajaNegra(operacion, detalles) {
+            const refLogs = db.ref("sistema_logs").push();
+            refLogs.set({
+                id: refLogs.key,
+                timestamp: new Date().toISOString(),
+                usuario_id: OPERADOR_SISTEMA,
+                modulo: "M1 - Registrar Empresas",
+                operacion: operacion,
+                detalles: detalles
+            });
+        }
+
+        // 6. ACCIÓN: Recuperación y carga de datos para edición
+        window.cargarEmpresaParaEdicion = function(id) {
+            db.ref(`empresas/${id}`).once("value", (snapshot) => {
+                if (snapshot.exists()) {
+                    const emp = snapshot.val();
+                    
+                    document.getElementById("empresa-id").value = emp.id;
+                    document.getElementById("empresa-nombre").value = emp.nombre || "";
+                    document.getElementById("empresa-ubicacion").value = emp.ubicacion || "";
+                    document.getElementById("empresa-imagen").value = emp.imagen || "";
+                    document.getElementById("empresa-tags").value = emp.tags || "";
+
+                    // Mutación visual del formulario hacia modo edición
+                    document.getElementById("form-title").innerText = "Modificar Datos de Empresa";
+                    document.getElementById("btn-submit").className = "btn btn-sm btn-primary";
+                    document.getElementById("btn-cancelar").classList.remove("d-none");
+                }
+            });
+        };
+
+        // 7. ACCIÓN: Eliminación de nodo
+        window.eliminarEmpresa = function(id, nombre) {
+            if (confirm(`¿Confirma la eliminación permanente de la empresa "${nombre}"?\nEsta acción impactará los filtros vinculados.`)) {
+                db.ref(`empresas/${id}`).remove()
+                    .then(() => {
+                        registrarEnCajaNegra("ELIMINAR", `Se eliminó la empresa: ${nombre} (${id})`);
+                        alert("Empresa removida exitosamente.");
+                    })
+                    .catch((error) => console.error("Error al remover nodo:", error));
+            }
+        };
+
+        // 8. AUXILIAR: Reseteo de Formulario
+        function restablecerFormulario() {
+            document.getElementById("form-empresa").reset();
+            document.getElementById("empresa-id").value = "";
+            document.getElementById("form-title").innerText = "Registrar Nueva Empresa";
+            document.getElementById("btn-submit").className = "btn btn-sm btn-dark";
+            document.getElementById("btn-cancelar").classList.add("d-none");
+            // Devolvemos el valor por defecto de la locación principal
+            document.getElementById("empresa-ubicacion").value = "Ciénega de Flores - Nuevo León";
+        }
+
+        document.getElementById("btn-cancelar").addEventListener("click", restablecerFormulario);
+    </script>
+</body>
+</html>
