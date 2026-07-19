@@ -280,12 +280,34 @@
     <script>
         lucide.createIcons();
 
-        // Inicialización de Firebase Realtime Database
-        const firebaseConfig = {
-            databaseURL: "https://bolsa-trabajo-a52e4-default-rtdb.firebaseio.com"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const database = firebase.database();
+     // 1. Esto se REEMPLAZA para corregir la URL del servidor
+const firebaseConfig = {
+    databaseURL: "https://bolsa-trabajo-a52e4-default-rtdb.firebaseio.com/"
+};
+
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+} else {
+    firebase.app();
+}
+
+const database = firebase.database();
+
+
+// 2. Esto lo AÑADES justo aquí abajo (el detector de conexión)
+const connectedRef = firebase.database().ref(".info/connected");
+connectedRef.on("value", (snap) => {
+    const statusLabel = document.querySelector('span[class*="Server Status"]');
+    if (!statusLabel) return;
+
+    if (snap.val() === true) {
+        statusLabel.className = "text-xs text-emerald-400 font-mono bg-[#11271f] px-3 py-1 rounded-full border border-[#1b5e46] transition-all duration-300";
+        statusLabel.innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse mr-1.5"></span> Server Status: Live [Firebase]`;
+    } else {
+        statusLabel.className = "text-xs text-rose-400 font-mono bg-[#2e171a] px-3 py-1 rounded-full border border-[#5e1b24] transition-all duration-300";
+        statusLabel.innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-rose-500 mr-1.5"></span> Server Status: Offline`;
+    }
+});
 
         let extractedFileText = ""; 
         let attachedFileBase64 = ""; 
