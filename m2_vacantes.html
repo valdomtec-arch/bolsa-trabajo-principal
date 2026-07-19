@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Control - Gestión de Vacantes Dinámico</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- Iconos Lucide -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Firebase App y Realtime Database -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <!-- Librerías de lectura de archivos -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    
+    <style>
+        body { background-color: #111e2e; color: #e2e8f0; }
+        .input-dark {
+            background-color: #1b2a3a;
+            border: 1px solid #2d4156;
+            color: #f8fafc;
+            transition: all 0.2s ease;
+        }
+        .input-dark:focus {
+            outline: none;
+            border-color: #f97316;
+            box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.2);
+        }
+    </style>
+</head>
+<body class="p-6 min-h-screen">
+
+    <div class="max-w-7xl mx-auto">
+        <!-- Encabezado Principal -->
+        <header class="flex items-center justify-between mb-8 border-b border-[#2d4156] pb-4">
+            <div class="flex items-center gap-3">
+                <i data-lucide="layout-dashboard" class="text-blue-400 w-8 h-8"></i>
+                <h1 class="text-2xl font-bold text-blue-400">Panel Administrativo Dinámico - Mini ERP</h1>
+            </div>
+            <span class="text-xs text-slate-400 font-mono bg-[#1b2a3a] px-3 py-1 rounded-full border border-[#2d4156]">
+                Server Status: Live [Firebase]
+            </span>
+        </header>
+
+        <!-- Contenedor Maestro -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
+            
+            <!-- ================= COLUMNA IZQUIERDA: CONTROLES DE ENTRADA (4 Cols) ================= -->
+            <div class="lg:col-span-4 flex flex-col gap-6">
+                
+                <!-- BLOQUE 1: Configuración de Destino Dinámica -->
+                <div class="bg-[#162231] border border-[#2d4156] p-5 rounded-xl shadow-lg flex flex-col gap-4">
+                    <div>
+                        <div class="flex items-center gap-2 mb-4 text-[#f97316] font-bold text-sm tracking-wide uppercase">
+                            <h2 class="text-[#f97316]">Configuración de Destino</h2>
+                        </div>
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="block text-xs text-[#f97316] font-bold">Selecciona Empresa:</label>
+                            <button id="btnRefreshEmpresas" class="text-xs text-slate-400 hover:text-white flex items-center gap-1 transition cursor-pointer">
+                                <i data-lucide="refresh-cw" class="w-3 h-3"></i> Actualizar
+                            </button>
+                        </div>
+                        <select id="selectEmpresa" class="w-full p-3 rounded-lg input-dark text-sm font-medium">
+                            <option value="">-- Cargando empresas dinámicas... --</option>
+                        </select>
+                    </div>
+
+                    <!-- SUB-BLOQUE: CRUD de Vacantes -->
+                    <div class="border border-dashed border-red-500/60 bg-[#1a151b] p-4 rounded-xl flex flex-col gap-3">
+                        <div class="flex items-center gap-2 text-red-400 font-bold text-sm">
+                            <i data-lucide="folder-minus" class="w-4 h-4 text-red-400"></i>
+                            <span>Modificar o Eliminar Vacantes</span>
+                        </div>
+                        
+                        <select id="selectVacante" class="w-full p-2.5 rounded-lg bg-[#24171a] border border-red-900 text-red-200 text-sm focus:outline-none focus:border-red-500">
+                            <option value="">-- Selecciona vacante --</option>
+                        </select>
+
+                        <div class="grid grid-cols-3 gap-2 mt-1">
+                            <button type="button" id="btnLoadVacante" class="py-2 px-3 bg-[#f59e0b] hover:bg-[#d97706] text-slate-900 font-bold rounded-lg text-xs flex items-center justify-center gap-1 transition cursor-pointer">
+                                <i data-lucide="edit-3" class="w-3.5 h-3.5"></i> Cargar
+                            </button>
+                            <button type="button" id="btnDeleteVacante" class="py-2 px-3 bg-[#ef4444] hover:bg-[#dc2626] text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1 transition cursor-pointer">
+                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Borrar
+                            </button>
+                            <button type="button" id="btnClearForm" class="py-2 px-3 bg-[#475569] hover:bg-[#334155] text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1 transition cursor-pointer">
+                                <i data-lucide="eraser" class="w-3.5 h-3.5"></i> Limpiar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- BLOQUE 2: Extractor Inteligente IA -->
+                <div class="bg-[#1e1b4b] border border-[#4338ca] p-5 rounded-xl shadow-lg">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-2 text-indigo-300 font-semibold">
+                            <i data-lucide="sparkles" class="w-5 h-5"></i>
+                            <h2>Extractor Inteligente IA</h2>
+                        </div>
+                        <span class="text-[10px] bg-[#312e81] text-indigo-300 font-mono px-2 py-0.5 rounded border border-[#4338ca]">Gemini 2.5 Flash</span>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-xs text-indigo-200 uppercase tracking-wider mb-2 font-bold">Texto de la Vacante / WhatsApp</label>
+                        <textarea id="rawText" rows="5" placeholder="Pega aquí el texto informal..." class="w-full p-3 rounded-lg bg-[#111827] border border-[#374151] text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:border-indigo-500"></textarea>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-xs text-indigo-200 uppercase tracking-wider mb-2 font-bold">Adjuntar Documento o Imagen</label>
+                        <label class="flex flex-col items-center justify-center w-full h-24 border-2 border-[#4338ca] border-dashed rounded-lg cursor-pointer bg-[#111827] hover:bg-[#161445] transition">
+                            <div class="flex flex-col items-center justify-center pt-3 pb-4 text-center px-2">
+                                <i data-lucide="upload-cloud" class="w-6 h-6 text-indigo-400 mb-1"></i>
+                                <p class="text-xs text-slate-300"><span class="font-semibold">Haz clic para subir</span></p>
+                            </div>
+                            <input id="fileInput" type="file" accept=".txt,.pdf,.docx,.png,.jpg,.jpeg" class="hidden" />
+                        </label>
+                        <div id="fileStatus" class="text-xs text-emerald-400 mt-2 font-mono hidden flex items-center gap-1">
+                            <i data-lucide="check-circle" class="w-3.5 h-3.5"></i> <span>Archivo listo.</span>
+                        </div>
+                    </div>
+
+                    <button id="btnExtract" type="button" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg shadow-md transition flex items-center justify-center gap-2 text-sm uppercase tracking-wide cursor-pointer">
+                        <i data-lucide="cpu" class="w-4 h-4"></i>
+                        <span>Autorellenar Formulario</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- ================= COLUMNA DERECHA: FORMULARIO DE REGISTRO ================= -->
+            <div class="lg:col-span-8 flex flex-col gap-6">
+                <form id="vacanteForm" class="bg-[#162231] border border-[#2d4156] p-6 rounded-xl shadow-lg flex flex-col gap-6">
+                    
+                    <!-- ENLACES E IDENTIFICACIÓN -->
+                    <div>
+                        <div class="flex items-center gap-2 mb-3 text-blue-400 font-medium text-sm tracking-wide border-b border-[#2d4156] pb-1">
+                            <i data-lucide="link" class="w-4 h-4"></i>
+                            <h3>🔗 ENLACES E IDENTIFICACIÓN</h3>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">ID Clave (puestoId)</label>
+                                <input type="text" id="puestoId" readonly class="w-full p-2.5 rounded-lg input-dark text-sm font-mono bg-[#111e2e] opacity-70 cursor-not-allowed" placeholder="auto-generado">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">Estatus de Publicación</label>
+                                <select id="estatus" class="w-full p-2.5 rounded-lg input-dark text-sm">
+                                    <option value="disponible">disponible</option>
+                                    <option value="pausada">pausada</option>
+                                    <option value="cerrada">cerrada</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">URL Banner Promocional</label>
+                                <input type="text" id="bannerUrl" class="w-full p-2.5 rounded-lg input-dark text-sm" placeholder="https://...">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- REQUISITOS DEL PERFIL -->
+                    <div>
+                        <div class="flex items-center gap-2 mb-3 text-blue-400 font-medium text-sm tracking-wide border-b border-[#2d4156] pb-1">
+                            <i data-lucide="graduation-cap" class="w-4 h-4"></i>
+                            <h3>🎓 REQUISITOS DEL PERFIL</h3>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">Nombre Comercial de Vacante</label>
+                                <input type="text" id="nombreVacante" class="w-full p-2.5 rounded-lg input-dark text-sm" placeholder="Ej: Operador General">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">Título Oficial Completo (vacanteNombre)</label>
+                                <input type="text" id="vacanteNombre" class="w-full p-2.5 rounded-lg input-dark text-sm" placeholder="Ej: OPERADORES GENERALES">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">Rango de Edad</label>
+                                <input type="text" id="edad" class="w-full p-2.5 rounded-lg input-dark text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">Género / Sexo</label>
+                                <input type="text" id="sexo" class="w-full p-2.5 rounded-lg input-dark text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">Experiencia Requerida</label>
+                                <input type="text" id="experiencia" class="w-full p-2.5 rounded-lg input-dark text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">Escolaridad Mínima</label>
+                                <input type="text" id="escolaridad" class="w-full p-2.5 rounded-lg input-dark text-sm">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- CONDICIONES DE TRABAJO -->
+                    <div>
+                        <div class="flex items-center gap-2 mb-3 text-blue-400 font-medium text-sm tracking-wide border-b border-[#2d4156] pb-1">
+                            <i data-lucide="briefcase" class="w-4 h-4"></i>
+                            <h3>💼 CONDICIONES DE TRABAJO</h3>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">Salario y Retribución</label>
+                                <input type="text" id="salario" class="w-full p-2.5 rounded-lg input-dark text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">Zona / Ubicación (lugarOrigen)</label>
+                                <input type="text" id="lugarOrigen" class="w-full p-2.5 rounded-lg input-dark text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">Turnos y Horarios</label>
+                                <input type="text" id="turnos" class="w-full p-2.5 rounded-lg input-dark text-sm">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">Rutas de Transporte Disponibles</label>
+                                <input type="text" id="rutasTransporte" class="w-full p-2.5 rounded-lg input-dark text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">Información General Extra</label>
+                                <input type="text" id="infoGeneral" class="w-full p-2.5 rounded-lg input-dark text-sm">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- DESCRIPCIÓN DETALLADA -->
+                    <div>
+                        <div class="flex items-center gap-2 mb-3 text-blue-400 font-medium text-sm tracking-wide border-b border-[#2d4156] pb-1">
+                            <i data-lucide="file-text" class="w-4 h-4"></i>
+                            <h3>📝 DESCRIPCIÓN DETALLADA</h3>
+                        </div>
+                        <div class="grid grid-cols-1 gap-4">
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">Actividades Principales</label>
+                                <textarea id="actividades" rows="2" class="w-full p-2.5 rounded-lg input-dark text-sm"></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">Prestaciones y Beneficios</label>
+                                <textarea id="beneficios" rows="2" class="w-full p-2.5 rounded-lg input-dark text-sm"></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- BOTONES DE ACCIÓN PIE -->
+                    <div class="flex items-center justify-end gap-4 border-t border-[#2d4156] pt-4">
+                        <button type="button" id="btnSaveChange" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg text-sm transition flex items-center gap-2 cursor-pointer">
+                            <i data-lucide="save" class="w-4 h-4"></i> Guardar Cambios
+                        </button>
+                        <button type="submit" id="btnPublish" class="px-6 py-2.5 bg-orange-500 hover:bg-orange-400 text-white font-bold rounded-lg text-sm transition flex items-center gap-2 shadow-md cursor-pointer">
+                            <i data-lucide="globe" class="w-4 h-4"></i> Publicar Vacante
+                        </button>
+                    </div>
+                </form>
+
+                <!-- NUEVO: CUADRO VERDE DE SALIDA JSON -->
+                <div class="bg-[#11271f] border border-[#1b5e46] p-5 rounded-xl shadow-lg">
+                    <div class="flex items-center gap-2 mb-3 text-[#10b981] font-bold text-sm uppercase tracking-wide">
+                        <i data-lucide="code" class="w-4 h-4 text-[#10b981]"></i>
+                        <h2>Estructura JSON en Tiempo Real (Procesado)</h2>
+                    </div>
+                    <pre id="jsonOutput" class="w-full p-4 rounded-lg bg-[#0a1813] border border-[#144232] text-[#34d399] text-xs font-mono overflow-x-auto max-h-60">{}</pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- CONFIGURACIÓN DE API KEY -->
+        <div class="bg-[#162231] border border-[#2d4156] p-5 rounded-xl shadow-lg mt-6">
+            <div class="flex items-center gap-2 mb-3 text-[#f97316] font-bold text-sm uppercase tracking-wide">
+                <i data-lucide="key" class="w-4 h-4 text-[#f97316]"></i>
+                <h2>Configuración de API Key (Gemini)</h2>
+            </div>
+            <input type="password" id="apiKeyInput" class="w-full p-3 rounded-lg input-dark text-sm font-mono tracking-widest" placeholder="••••••••••••••••••••••••••••••••••••••••••••••••">
+        </div>
+
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        // Inicialización de Firebase Realtime Database
+        const firebaseConfig = {
+            databaseURL: "https://bolsa-trabajo-a52e4-default-rtdb.firebaseio.com"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        let extractedFileText = ""; 
+        let attachedFileBase64 = ""; 
+        let attachedFileType = "";
+        let cacheVacantesEmpresa = {};
+
+        // CARGA Y LECTURA DINÁMICA DE EMPRESAS DESDE EL SERVIDOR
+        function loadEmpresasDinamicas() {
+            const selectEmpresa = document.getElementById('selectEmpresa');
+            selectEmpresa.innerHTML = '<option value="">-- Selecciona una empresa --</option>';
+
+            database.ref('vacantes_detalles').once('value', function(snapshot) {
+                const data = snapshot.val();
+                if (data) {
+                    Object.keys(data).forEach(empresaKey => {
+                        const option = document.createElement('option');
+                        option.value = empresaKey;
+                        // Hacemos el texto más legible (ej. "grupoarcoiris" -> "GRUPOARCOIRIS")
+                        option.textContent = empresaKey.toUpperCase();
+                        selectEmpresa.appendChild(option);
+                    });
+                } else {
+                    selectEmpresa.innerHTML = '<option value="">-- No hay empresas en la BD --</option>';
+                }
+            }, error => {
+                console.error("Error cargando empresas:", error);
+                selectEmpresa.innerHTML = '<option value="">-- Error al cargar --</option>';
+            });
+        }
+
+        // Ejecutar carga dinámica al iniciar y en el botón refrescar
+        loadEmpresasDinamicas();
+        document.getElementById('btnRefreshEmpresas').addEventListener('click', loadEmpresasDinamicas);
+
+        // Al cambiar de empresa dinámicamente, cargar sus vacantes
+        document.getElementById('selectEmpresa').addEventListener('change', function(e) {
+            const empresa = e.target.value;
+            const selectVacante = document.getElementById('selectVacante');
+            
+            selectVacante.innerHTML = '<option value="">-- Selecciona vacante --</option>';
+            cacheVacantesEmpresa = {};
+
+            if (!empresa) return;
+
+            database.ref('vacantes_detalles/' + empresa).once('value', function(snapshot) {
+                const vacantes = snapshot.val();
+                if (vacantes) {
+                    cacheVacantesEmpresa = vacantes;
+                    Object.keys(vacantes).forEach(key => {
+                        const v = vacantes[key];
+                        const option = document.createElement('option');
+                        option.value = key;
+                        option.textContent = v.nombreVacante || key;
+                        selectVacante.appendChild(option);
+                    });
+                }
+            });
+        });
+
+        // BOTÓN: Cargar datos al formulario y actualizar visor verde JSON
+        document.getElementById('btnLoadVacante').addEventListener('click', function() {
+            const vKey = document.getElementById('selectVacante').value;
+            if (!vKey || !cacheVacantesEmpresa[vKey]) {
+                alert("Por favor selecciona una vacante válida.");
+                return;
+            }
+            const data = cacheVacantesEmpresa[vKey];
+            
+            document.getElementById('puestoId').value = data.puestoId || vKey;
+            document.getElementById('nombreVacante').value = data.nombreVacante || "";
+            document.getElementById('vacanteNombre').value = data.vacanteNombre || "";
+            document.getElementById('estatus').value = data.estatus || "disponible";
+            document.getElementById('bannerUrl').value = data.bannerUrl || "";
+            document.getElementById('edad').value = data.edad || "";
+            document.getElementById('sexo').value = data.sexo || "";
+            document.getElementById('escolaridad').value = data.escolaridad || "";
+            document.getElementById('experiencia').value = data.experiencia || "";
+            document.getElementById('salario').value = data.salario || "";
+            document.getElementById('lugarOrigen').value = data.lugarOrigen || "";
+            document.getElementById('turnos').value = data.turnos || "";
+            document.getElementById('rutasTransporte').value = data.rutasTransporte || "";
+            document.getElementById('infoGeneral').value = data.infoGeneral || "";
+            document.getElementById('actividades').value = data.actividades || "";
+            document.getElementById('beneficios').value = data.beneficios || "";
+            
+            updateJsonOutput(data);
+            alert("¡Datos cargados al formulario!");
+        });
+
+        // BOTÓN: Borrar permanente
+        document.getElementById('btnDeleteVacante').addEventListener('click', function() {
+            const empresa = document.getElementById('selectEmpresa').value;
+            const vKey = document.getElementById('selectVacante').value;
+
+            if (!empresa || !vKey) {
+                alert("Selecciona la empresa y vacante a borrar.");
+                return;
+            }
+
+            if (confirm(`¿Eliminar la vacante "${vKey}" permanentemente?`)) {
+                database.ref('vacantes_detalles/' + empresa + '/' + vKey).remove(function(error) {
+                    if (error) alert("Error: " + error.message);
+                    else {
+                        alert("Vacante eliminada.");
+                        document.getElementById('selectEmpresa').dispatchEvent(new Event('change'));
+                        resetFormFields();
+                    }
+                });
+            }
+        });
+
+        document.getElementById('btnClearForm').addEventListener('click', resetFormFields);
+
+        function resetFormFields() {
+            document.getElementById('vacanteForm').reset();
+            document.getElementById('puestoId').value = "";
+            document.getElementById('selectVacante').value = "";
+            document.getElementById('jsonOutput').innerText = "{}";
+        }
+
+        function updateJsonOutput(data) {
+            document.getElementById('jsonOutput').innerText = JSON.stringify(data, null, 2);
+        }
+
+        // Lector de archivos
+        document.getElementById('fileInput').addEventListener('change', async function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const fileStatus = document.getElementById('fileStatus');
+            fileStatus.querySelector('span').innerText = `Procesando...`;
+            fileStatus.classList.remove('hidden');
+
+            extractedFileText = ""; attachedFileBase64 = ""; attachedFileType = "";
+
+            if (file.type === "text/plain" || file.name.endsWith('.txt')) {
+                const reader = new FileReader();
+                reader.onload = e => { extractedFileText = e.target.result; fileStatus.querySelector('span').innerText = "Texto cargado."; };
+                reader.readAsText(file);
+            } 
+            else if (file.type === "application/pdf" || file.name.endsWith('.pdf')) {
+                const reader = new FileReader();
+                reader.onload = async function(e) {
+                    const typedarray = new Uint8Array(e.target.result);
+                    const pdf = await pdfjsLib.getDocument(typedarray).promise;
+                    let text = "";
+                    for (let i = 1; i <= pdf.numPages; i++) {
+                        const page = await pdf.getPage(i);
+                        const content = await page.getTextContent();
+                        text += content.items.map(item => item.str).join(" ") + "\n";
+                    }
+                    extractedFileText = text;
+                    fileStatus.querySelector('span').innerText = "PDF extraído.";
+                };
+                reader.readAsArrayBuffer(file);
+            } 
+            else if (file.name.endsWith('.docx')) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    mammoth.extractRawText({ arrayBuffer: e.target.result })
+                        .then(r => { extractedFileText = r.value; fileStatus.querySelector('span').innerText = "Word extraído."; });
+                };
+                reader.readAsArrayBuffer(file);
+            } 
+            else if (file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    attachedFileBase64 = e.target.result.split(',')[1];
+                    attachedFileType = file.type;
+                    fileStatus.querySelector('span').innerText = "Flyer visual listo.";
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        document.getElementById('nombreVacante').addEventListener('input', e => {
+            document.getElementById('puestoId').value = cleanId(e.target.value);
+        });
+
+        function cleanId(text) {
+            return text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '').trim();
+        }
+
+        // PROCESADOR INTELIGENTE IA GEMINI
+        document.getElementById('btnExtract').addEventListener('click', async function() {
+            const apiKey = document.getElementById('apiKeyInput').value.trim();
+            if (!apiKey) return alert("Ingresa tu API Key abajo.");
+
+            const rawTextContent = document.getElementById('rawText').value.trim();
+            if (!rawTextContent && !extractedFileText && !attachedFileBase64) return alert("Provee información para procesar.");
+
+            const btn = this;
+            btn.disabled = true; btn.innerText = "Procesando...";
+
+            const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+            const promptContext = `Analiza la información y extrae los datos de la vacante. Responde UNICAMENTE con un objeto JSON válido sin formateadores Markdown. Estructura:
+            {
+              "nombreVacante": "Nombre comercial",
+              "vacanteNombre": "NOMBRE EN MAYUSCULAS",
+              "edad": "", "sexo": "", "escolaridad": "", "experiencia": "", "salario": "", "lugarOrigen": "", "turnos": "", "actividades": "", "beneficios": "", "rutasTransporte": "", "infoGeneral": ""
+            }`;
+
+            let parts = [{ text: promptContext + "\n\nDatos:\n" + rawTextContent + "\n" + extractedFileText }];
+            if (attachedFileBase64) parts.push({ inlineData: { mimeType: attachedFileType, data: attachedFileBase64 } });
+
+            try {
+                const response = await fetch(GEMINI_ENDPOINT, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ parts: parts }], generationConfig: { responseMimeType: "application/json" } })
+                });
+                const responseData = await response.json();
+                const result = JSON.parse(responseData.candidates[0].content.parts[0].text.replace(/```json|```/g, "").trim());
+
+                Object.keys(result).forEach(key => {
+                    if(document.getElementById(key)) document.getElementById(key).value = result[key] || "";
+                });
+                document.getElementById('puestoId').value = cleanId(result.nombreVacante || "");
+                
+                // Pintar en el cuadro verde el JSON recién estructurado por la IA
+                updateJsonOutput(result);
+                alert("¡Campos autocompletados!");
+            } catch (error) {
+                alert("Error de procesamiento. Confirma que tu API Key sea correcta.");
+            } finally {
+                btn.disabled = false; btn.innerHTML = `<i data-lucide="cpu" class="w-4 h-4"></i> <span>Autorellenar Formulario</span>`;
+                lucide.createIcons();
+            }
+        });
+
+        // FUNCIÓN INTEGRAL DE CARGA A FIREBASE E IMPRESIÓN DEL CUADRO VERDE
+        document.getElementById('vacanteForm').addEventListener('submit', e => { e.preventDefault(); pushToFirebase(); });
+        document.getElementById('btnSaveChange').addEventListener('click', pushToFirebase);
+
+        function pushToFirebase() {
+            let empresa = document.getElementById('selectEmpresa').value.trim();
+            const puestoId = document.getElementById('puestoId').value;
+            
+            if (!empresa) {
+                // Si no hay empresa seleccionada en el dropdown dinámico, preguntar al usuario para crear un nodo nuevo
+                const nuevaEmpresa = prompt("No has seleccionado ninguna empresa. Ingresa el nombre de la empresa para crear su nodo:");
+                if (!nuevaEmpresa) return alert("Operación cancelada. Se requiere una empresa de destino.");
+                empresa = cleanId(nuevaEmpresa);
+            }
+
+            if (!puestoId) return alert("Falta el ID Clave del puesto.");
+
+            const vacanteData = {
+                puestoId: puestoId,
+                nombreVacante: document.getElementById('nombreVacante').value,
+                vacanteNombre: document.getElementById('vacanteNombre').value,
+                estatus: document.getElementById('estatus').value,
+                bannerUrl: document.getElementById('bannerUrl').value,
+                edad: document.getElementById('edad').value,
+                sexo: document.getElementById('sexo').value,
+                escolaridad: document.getElementById('escolaridad').value,
+                experiencia: document.getElementById('experiencia').value,
+                salario: document.getElementById('salario').value,
+                lugarOrigen: document.getElementById('lugarOrigen').value,
+                turnos: document.getElementById('turnos').value,
+                rutasTransporte: document.getElementById('rutasTransporte').value,
+                infoGeneral: document.getElementById('infoGeneral').value,
+                actividades: document.getElementById('actividades').value,
+                beneficios: document.getElementById('beneficios').value,
+                visitas: 1
+            };
+
+            // Mostrar el JSON final en el cuadro verde
+            updateJsonOutput(vacanteData);
+
+            // Subir al nodo exacto vacantes_detalles/{empresa}/{puestoId}
+            database.ref('vacantes_detalles/' + empresa + '/' + puestoId).set(vacanteData, err => {
+                if (err) alert("Error al subir al servidor: " + err.message);
+                else {
+                    alert(`¡Vacante subida con éxito bajo el nodo "${empresa}"!`);
+                    loadEmpresasDinamicas(); // Refrescar por si es una empresa nueva
+                }
+            });
+        }
+    </script>
+</body>
+</html>
