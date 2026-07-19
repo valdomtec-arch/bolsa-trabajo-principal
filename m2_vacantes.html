@@ -8,9 +8,9 @@
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <!-- Iconos Lucide -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- Firebase App y Realtime Database -->
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <!-- Firebase App y Realtime Database (Versión 8 Independiente Rectificada) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <!-- Librerías de lectura de archivos -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
@@ -39,7 +39,7 @@
                 <i data-lucide="layout-dashboard" class="text-blue-400 w-8 h-8"></i>
                 <h1 class="text-2xl font-bold text-blue-400">Panel Administrativo Dinámico - Mini ERP</h1>
             </div>
-            <span class="text-xs text-slate-400 font-mono bg-[#1b2a3a] px-3 py-1 rounded-full border border-[#2d4156]">
+            <span class="text-xs text-slate-400 font-mono bg-[#1b2a3a] px-3 py-1 rounded-full border border-[#2d4156] transition-all duration-300">
                 Server Status: Live [Firebase]
             </span>
         </header>
@@ -255,7 +255,7 @@
                     </div>
                 </form>
 
-                <!-- NUEVO: CUADRO VERDE DE SALIDA JSON -->
+                <!-- CUADRO VERDE DE SALIDA JSON -->
                 <div class="bg-[#11271f] border border-[#1b5e46] p-5 rounded-xl shadow-lg">
                     <div class="flex items-center gap-2 mb-3 text-[#10b981] font-bold text-sm uppercase tracking-wide">
                         <i data-lucide="code" class="w-4 h-4 text-[#10b981]"></i>
@@ -280,34 +280,31 @@
     <script>
         lucide.createIcons();
 
-     // 1. Esto se REEMPLAZA para corregir la URL del servidor
-const firebaseConfig = {
-    databaseURL: "https://bolsa-trabajo-a52e4-default-rtdb.firebaseio.com/"
-};
+        // Inicialización Rectificada con SDK v8 Independiente
+        const firebaseConfig = {
+            databaseURL: "https://bolsa-trabajo-a52e4-default-rtdb.firebaseio.com/"
+        };
 
-if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
-} else {
-    firebase.app();
-}
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
 
-const database = firebase.database();
+        const database = firebase.database();
 
+        // Monitor de Conexión en Tiempo Real Interactivo
+        const connectedRef = database.ref(".info/connected");
+        connectedRef.on("value", (snap) => {
+            const statusLabel = document.querySelector('span[class*="Server Status"]');
+            if (!statusLabel) return;
 
-// 2. Esto lo AÑADES justo aquí abajo (el detector de conexión)
-const connectedRef = firebase.database().ref(".info/connected");
-connectedRef.on("value", (snap) => {
-    const statusLabel = document.querySelector('span[class*="Server Status"]');
-    if (!statusLabel) return;
-
-    if (snap.val() === true) {
-        statusLabel.className = "text-xs text-emerald-400 font-mono bg-[#11271f] px-3 py-1 rounded-full border border-[#1b5e46] transition-all duration-300";
-        statusLabel.innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse mr-1.5"></span> Server Status: Live [Firebase]`;
-    } else {
-        statusLabel.className = "text-xs text-rose-400 font-mono bg-[#2e171a] px-3 py-1 rounded-full border border-[#5e1b24] transition-all duration-300";
-        statusLabel.innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-rose-500 mr-1.5"></span> Server Status: Offline`;
-    }
-});
+            if (snap.val() === true) {
+                statusLabel.className = "text-xs text-emerald-400 font-mono bg-[#11271f] px-3 py-1 rounded-full border border-[#1b5e46] transition-all duration-300";
+                statusLabel.innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse mr-1.5"></span> Server Status: Live [Firebase]`;
+            } else {
+                statusLabel.className = "text-xs text-rose-400 font-mono bg-[#2e171a] px-3 py-1 rounded-full border border-[#5e1b24] transition-all duration-300";
+                statusLabel.innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-rose-500 mr-1.5"></span> Server Status: Offline`;
+            }
+        });
 
         let extractedFileText = ""; 
         let attachedFileBase64 = ""; 
@@ -325,7 +322,6 @@ connectedRef.on("value", (snap) => {
                     Object.keys(data).forEach(empresaKey => {
                         const option = document.createElement('option');
                         option.value = empresaKey;
-                        // Hacemos el texto más legible (ej. "grupoarcoiris" -> "GRUPOARCOIRIS")
                         option.textContent = empresaKey.toUpperCase();
                         selectEmpresa.appendChild(option);
                     });
@@ -527,7 +523,6 @@ connectedRef.on("value", (snap) => {
                 });
                 document.getElementById('puestoId').value = cleanId(result.nombreVacante || "");
                 
-                // Pintar en el cuadro verde el JSON recién estructurado por la IA
                 updateJsonOutput(result);
                 alert("¡Campos autocompletados!");
             } catch (error) {
@@ -547,7 +542,6 @@ connectedRef.on("value", (snap) => {
             const puestoId = document.getElementById('puestoId').value;
             
             if (!empresa) {
-                // Si no hay empresa seleccionada en el dropdown dinámico, preguntar al usuario para crear un nodo nuevo
                 const nuevaEmpresa = prompt("No has seleccionado ninguna empresa. Ingresa el nombre de la empresa para crear su nodo:");
                 if (!nuevaEmpresa) return alert("Operación cancelada. Se requiere una empresa de destino.");
                 empresa = cleanId(nuevaEmpresa);
@@ -575,15 +569,13 @@ connectedRef.on("value", (snap) => {
                 visitas: 1
             };
 
-            // Mostrar el JSON final en el cuadro verde
             updateJsonOutput(vacanteData);
 
-            // Subir al nodo exacto vacantes_detalles/{empresa}/{puestoId}
             database.ref('vacantes_detalles/' + empresa + '/' + puestoId).set(vacanteData, err => {
                 if (err) alert("Error al subir al servidor: " + err.message);
                 else {
                     alert(`¡Vacante subida con éxito bajo el nodo "${empresa}"!`);
-                    loadEmpresasDinamicas(); // Refrescar por si es una empresa nueva
+                    loadEmpresasDinamicas();
                 }
             });
         }
