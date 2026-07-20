@@ -132,6 +132,31 @@
       color: var(--white);
     }
 
+    /* CONTENEDOR MULTISELECCIÓN DE EMPRESAS */
+    .empresas-container {
+      background-color: var(--input-bg);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 12px;
+      max-height: 180px;
+      overflow-y: auto;
+    }
+
+    .empresas-container.disabled-box {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+
+    .form-check-input {
+      background-color: #0b1329;
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+
+    .form-check-input:checked {
+      background-color: var(--primary-orange);
+      border-color: var(--primary-orange);
+    }
+
     /* TABLAS */
     .table-responsive {
       border-radius: 0 0 var(--radius-md) var(--radius-md);
@@ -276,11 +301,22 @@
             </select>
           </div>
 
+          <!-- ASIGNACIÓN DE EMPRESAS (NUEVO CONTROL) -->
           <div class="col-md-8">
-            <label for="staffEmpresas" class="form-label fw-semibold text-light">Empresas / Cuentas Asignadas</label>
-            <input type="text" class="form-control" id="staffEmpresas" placeholder="Cargando empresas desde Firebase..." list="listaEmpresas" autocomplete="off">
-            <datalist id="listaEmpresas"></datalist>
-            <small class="text-muted">Puedes ingresar una o varias separadas por coma.</small>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <label class="form-label fw-semibold text-light mb-0">Empresas / Cuentas Asignadas</label>
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="chkTodasEmpresas">
+                <label class="form-check-input-label text-warning small fw-bold" for="chkTodasEmpresas">
+                  Asignar TODAS las empresas
+                </label>
+              </div>
+            </div>
+            
+            <div id="empresasContainer" class="empresas-container">
+              <span class="text-muted small">Cargando empresas desde Firebase...</span>
+            </div>
+            <small class="text-muted">Selecciona las empresas que atenderá este colaborador.</small>
           </div>
 
           <div class="col-md-4">
@@ -365,8 +401,10 @@
     const nombreInput = document.getElementById('staffNombre');
     const telefonoInput = document.getElementById('staffTelefono');
     const rolSelect = document.getElementById('staffRol');
-    const empresasInput = document.getElementById('staffEmpresas');
-    const listaEmpresas = document.getElementById('listaEmpresas');
+    
+    const chkTodasEmpresas = document.getElementById('chkTodasEmpresas');
+    const empresasContainer = document.getElementById('empresasContainer');
+    
     const estatusSelect = document.getElementById('staffEstatus');
     const tablaBody = document.getElementById('tablaStaffBody');
     const totalBadge = document.getElementById('totalStaffBadge');
@@ -375,24 +413,46 @@
     const statusDot = document.getElementById('statusDot');
     const connectionText = document.getElementById('connectionText');
 
-    // Carga de empresas desde Firebase
+    let listaEmpresasGlobal = [];
+
+    // Switch de TODAS LAS EMPRESAS
+    chkTodasEmpresas.addEventListener('change', (e) => {
+      if (e.target.checked) {
+        empresasContainer.classList.add('disabled-box');
+        document.querySelectorAll('.empresa-checkbox').forEach(cb => cb.checked = false);
+      } else {
+        empresasContainer.classList.remove('disabled-box');
+      }
+    });
+
+    // Carga dinámica de empresas desde Firebase
     onValue(empresasRef, (snapshot) => {
-      listaEmpresas.innerHTML = '';
+      empresasContainer.innerHTML = '';
+      listaEmpresasGlobal = [];
+
       if (snapshot.exists()) {
         const empresasData = snapshot.val();
         Object.keys(empresasData).forEach(key => {
           const emp = empresasData[key];
-          const option = document.createElement('option');
-          option.value = typeof emp === 'string' ? emp : (emp.nombre || key);
-          listaEmpresas.appendChild(option);
+          const nombreEmpresa = typeof emp === 'string' ? emp : (emp.nombre || key);
+          listaEmpresasGlobal.push(nombreEmpresa);
+
+          const div = document.createElement('div');
+          div.className = 'form-check mb-1';
+          div.innerHTML = `
+            <input class="form-check-input empresa-checkbox" type="checkbox" value="${nombreEmpresa}" id="emp_${key}">
+            <label class="form-check-label text-light small" for="emp_${key}">
+              ${nombreEmpresa}
+            </label>
+          `;
+          empresasContainer.appendChild(div);
         });
-        empresasInput.placeholder = "Ej. Ciénega de Flores, Planta Norte";
       } else {
-        empresasInput.placeholder = "Escribe las empresas asignadas...";
+        empresasContainer.innerHTML = '<span class="text-muted small">No hay empresas registradas en la base de datos.</span>';
       }
     });
 
-    // Sincronización en Tiempo Real de Staff
+    // Sincronización en Tiempo Real del Directorio
     onValue(staffRef, (snapshot) => {
       statusDot.className = "status-dot status-connected";
       connectionText.textContent = "Conectado en tiempo real a bolsa-de-trabajo-a52e4";
@@ -407,6 +467,17 @@
           const user = data[key];
           contador++;
           
+          let htmlEmpresas = '';
+          if (user.todasLasEmpresas) {
+            htmlEmpresas = '<span class="badge bg-warning text-dark"><i class="fas fa-globe me-1"></i>TODAS</span>';
+          } else if (Array.isArray(user.empresas) && user.empresas.length > 0) {
+            htmlEmpresas = user.empresas.map(e => `<span class="badge bg-secondary me-1 mb-1">${e}</span>`).join('');
+          } else if (typeof user.empresas === 'string' && user.empresas.trim() !== '') {
+            htmlEmpresas = `<small class="text-muted">${user.empresas}</small>`;
+          } else {
+            htmlEmpresas = '<small class="text-muted">Sin asignación</small>';
+          }
+
           const tr = document.createElement('tr');
           tr.innerHTML = `
             <td class="ps-4 fw-bold text-white">${user.nombre}</td>
@@ -417,7 +488,7 @@
                  <i class="fab fa-whatsapp me-1"></i> ${user.telefono}
               </a>
             </td>
-            <td><small class="text-muted">${user.empresas || 'Sin asignación'}</small></td>
+            <td>${htmlEmpresas}</td>
             <td>
               <span class="badge ${user.estatus === 'Activo' ? 'bg-success' : 'bg-danger'}">
                 ${user.estatus}
@@ -457,11 +528,21 @@
       e.preventDefault();
       
       const id = staffIdInput.value;
+      const esTodas = chkTodasEmpresas.checked;
+      let empresasSeleccionadas = [];
+
+      if (!esTodas) {
+        document.querySelectorAll('.empresa-checkbox:checked').forEach(cb => {
+          empresasSeleccionadas.push(cb.value);
+        });
+      }
+
       const payload = {
         nombre: nombreInput.value.trim(),
         telefono: telefonoInput.value.trim(),
         rol: rolSelect.value,
-        empresas: empresasInput.value.trim(),
+        todasLasEmpresas: esTodas,
+        empresas: esTodas ? ["TODAS"] : empresasSeleccionadas,
         estatus: estatusSelect.value,
         ultimaActualizacion: serverTimestamp()
       };
@@ -519,8 +600,25 @@
           nombreInput.value = data.nombre;
           telefonoInput.value = data.telefono;
           rolSelect.value = data.rol;
-          empresasInput.value = data.empresas || '';
           estatusSelect.value = data.estatus;
+          
+          // Cargar Empresas Asignadas
+          if (data.todasLasEmpresas) {
+            chkTodasEmpresas.checked = true;
+            empresasContainer.classList.add('disabled-box');
+            document.querySelectorAll('.empresa-checkbox').forEach(cb => cb.checked = false);
+          } else {
+            chkTodasEmpresas.checked = false;
+            empresasContainer.classList.remove('disabled-box');
+            
+            const asignadas = Array.isArray(data.empresas) 
+              ? data.empresas 
+              : (typeof data.empresas === 'string' ? data.empresas.split(',').map(s => s.trim()) : []);
+
+            document.querySelectorAll('.empresa-checkbox').forEach(cb => {
+              cb.checked = asignadas.includes(cb.value);
+            });
+          }
           
           btnCancelar.classList.remove('d-none');
           window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -531,6 +629,9 @@
     function limpiarFormulario() {
       formStaff.reset();
       staffIdInput.value = '';
+      chkTodasEmpresas.checked = false;
+      empresasContainer.classList.remove('disabled-box');
+      document.querySelectorAll('.empresa-checkbox').forEach(cb => cb.checked = false);
       btnCancelar.classList.add('d-none');
     }
 
