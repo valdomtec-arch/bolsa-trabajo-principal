@@ -4,186 +4,273 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Módulo 5: Ápice Estratégico - Torre de Control Avanzada</title>
-    <!-- Tailwind CSS para Diseño -->
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Chart.js para las Gráficas Demográficas y Operativas -->
+    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FontAwesome Iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --primary-orange: #ff6600;
+            --primary-orange-hover: #e05500;
+            --bg-page: #030712;          
+            --container-bg: #0b1329;     
+            --card-bg: rgba(20, 35, 65, 0.6);          
+            --input-bg: #15264a;         
+            --text-light: #f1f5f9;       
+            --text-muted: #94a3b8;       
+            --green-whatsapp: #22c55e;
+            --border-color: rgba(30, 58, 138, 0.4);     
+        }
+
+        body {
+            background: radial-gradient(circle at 50% 0%, #0d1e3d 0%, var(--bg-page) 80%);
+            color: var(--text-light);
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            min-height: 100vh;
+        }
+
+        .glass-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            backdrop-filter: blur(12px);
+            border-radius: 16px;
+        }
+
+        .border-orange-accent {
+            border-top: 3px solid var(--primary-orange);
+        }
+    </style>
 </head>
-<body class="bg-slate-950 text-slate-100 font-sans p-6 min-h-screen antialiased">
-    <div class="max-w-7xl mx-auto">
+<body class="p-4 md:p-6 antialiased">
+    <div class="max-w-7xl mx-auto space-y-6">
         
-        <!-- ENCABEZADO GERENCIAL -->
-        <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-800 pb-6 mb-6 gap-4">
+        <!-- ENCABEZADO GERENCIAL CON BOTÓN DE CONEXIÓN FIREBASE -->
+        <header class="glass-card border-orange-accent p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shadow-2xl">
             <div>
-                <span class="bg-purple-500/10 text-purple-400 text-xs px-2.5 py-1 rounded-full font-mono font-bold tracking-wider uppercase">Uso Exclusivo: Dirección General & Gerencia General</span>
-                <h1 class="text-3xl font-extrabold text-white mt-1 tracking-tight">Torre de Control Prescriptiva y Demográfica</h1>
-                <p class="text-slate-400 text-sm mt-1">Análisis probabilístico, volumen de vacantes/empresas top y gobernanza directiva en tiempo real.</p>
+                <span class="bg-amber-500/10 text-amber-500 border border-amber-500/20 text-xs px-3 py-1 rounded-full font-mono font-bold tracking-wider uppercase inline-flex items-center gap-2">
+                    <i class="fas fa-shield-alt"></i> Uso Exclusivo: Dirección General & Gerencia General
+                </span>
+                <h1 class="text-2xl md:text-3xl font-extrabold text-white mt-2 tracking-tight">Torre de Control Prescriptiva y Demográfica</h1>
+                <p class="text-slate-400 text-sm mt-1">Análisis probabilístico, gobernanza directiva y coordinación en tiempo real.</p>
+            </div>
+            
+            <button id="btnConnection" onclick="toggleFirebaseConnection()" class="flex items-center gap-3 bg-[#0d182e] hover:bg-[#132242] p-3 rounded-xl border border-slate-800 transition-all text-left group">
+                <i id="iconConnection" class="fas fa-database text-[#ff6600] text-xl group-hover:scale-110 transition-transform"></i>
+                <div>
+                    <div class="text-[10px] uppercase font-mono text-slate-400">Estado Firebase</div>
+                    <div id="statusFirebase" class="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+                        <span id="dotFirebase" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> 
+                        <span id="textFirebase">Conectado (Clic alternar)</span>
+                    </div>
+                </div>
+            </button>
+        </header>
+
+        <!-- KPI CARDS SUPERIORES -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="glass-card p-4 flex items-center justify-between border-l-4 border-l-rose-500">
+                <div>
+                    <div class="text-xs font-mono uppercase text-slate-400 font-bold">Vacantes Críticas</div>
+                    <div id="kpiVacantesCriticas" class="text-2xl font-extrabold text-rose-400 mt-1">0</div>
+                    <div class="text-[11px] text-slate-500 mt-0.5">Probabilidad &lt; 50% o sin ruta</div>
+                </div>
+                <div class="bg-rose-500/10 p-3 rounded-xl text-rose-400 text-xl">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+            </div>
+
+            <div class="glass-card p-4 flex items-center justify-between border-l-4 border-l-amber-500">
+                <div>
+                    <div class="text-xs font-mono uppercase text-slate-400 font-bold">Costo Acumulado por Retraso</div>
+                    <div id="kpiCostoRetraso" class="text-2xl font-extrabold text-amber-400 mt-1">$0 MXN</div>
+                    <div class="text-[11px] text-slate-500 mt-0.5">Impacto financiero activo</div>
+                </div>
+                <div class="bg-amber-500/10 p-3 rounded-xl text-amber-400 text-xl">
+                    <i class="fas fa-sack-dollar"></i>
+                </div>
+            </div>
+
+            <div class="glass-card p-4 flex items-center justify-between border-l-4 border-l-emerald-500">
+                <div>
+                    <div class="text-xs font-mono uppercase text-slate-400 font-bold">Carga Global del Equipo</div>
+                    <div id="kpiCargaEquipo" class="text-2xl font-extrabold text-emerald-400 mt-1">0%</div>
+                    <div class="text-[11px] text-slate-500 mt-0.5">Saturación de personal operativo</div>
+                </div>
+                <div class="bg-emerald-500/10 p-3 rounded-xl text-emerald-400 text-xl">
+                    <i class="fas fa-users-gear"></i>
+                </div>
             </div>
         </div>
 
-        <!-- SECCIÓN DE GRÁFICOS (6 TABLEROS VISUALES) -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        <!-- 6 TABLEROS VISUALES GRÁFICOS -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             
-            <!-- GRAFICA 1: EMBUDO INVERTIDO -->
-            <div class="bg-slate-900 border border-slate-800/60 p-4 rounded-xl shadow-xl flex flex-col justify-between">
+            <!-- 1. EMBUDO PREDICTIVO -->
+            <div class="glass-card p-5 flex flex-col justify-between shadow-xl">
                 <div>
-                    <h3 class="text-amber-400 text-xs font-mono uppercase tracking-wider mb-3 font-bold">🔮 Embudo Predictivo (Meta: 25)</h3>
-                    <div class="h-40 relative">
+                    <h3 class="text-[#ff6600] text-xs font-mono uppercase tracking-wider mb-3 font-bold flex items-center justify-between">
+                        <span><i class="fas fa-filter mr-1"></i> Embudo Predictivo</span>
+                    </h3>
+                    <div class="h-44 relative">
                         <canvas id="chartEmbudo"></canvas>
                     </div>
                 </div>
-                <div class="text-center mt-2 pt-2 border-t border-slate-800/60">
-                    <span class="text-xs text-slate-400 font-mono">Requeridos: <strong class="text-amber-400">298 Postulantes</strong></span>
+                <div class="text-center mt-3 pt-2 border-t border-slate-800">
+                    <span class="text-xs text-slate-400 font-mono">Requeridos: <strong class="text-[#ff6600]" id="lblPostulantes">0 Postulantes</strong></span>
                 </div>
             </div>
 
-            <!-- GRAFICA 2: DEMOGRAFÍA - GÉNERO -->
-            <div class="bg-slate-900 border border-slate-800/60 p-4 rounded-xl shadow-xl flex flex-col justify-between">
+            <!-- 2. GÉNERO -->
+            <div class="glass-card p-5 flex flex-col justify-between shadow-xl">
                 <div>
-                    <h3 class="text-pink-400 text-xs font-mono uppercase tracking-wider mb-3 font-bold">🚺 Histórico de Género Efectivo</h3>
-                    <div class="h-40 relative flex justify-center">
+                    <h3 class="text-pink-400 text-xs font-mono uppercase tracking-wider mb-3 font-bold">
+                        <i class="fas fa-venus-mars mr-1"></i> Distribución de Género
+                    </h3>
+                    <div class="h-44 relative flex justify-center">
                         <canvas id="chartGenero"></canvas>
                     </div>
                 </div>
-                <div class="text-center mt-2 pt-2 border-t border-slate-800/60">
-                    <span class="text-xs text-slate-400 font-mono">Mayor permanencia: <strong class="text-pink-400">Mujeres 26-35</strong></span>
+                <div class="text-center mt-3 pt-2 border-t border-slate-800">
+                    <span class="text-xs text-slate-400 font-mono">Segmentación activa de postulaciones</span>
                 </div>
             </div>
 
-            <!-- GRAFICA 3: DEMOGRAFÍA - EDADES -->
-            <div class="bg-slate-900 border border-slate-800/60 p-4 rounded-xl shadow-xl flex flex-col justify-between">
+            <!-- 3. EDADES -->
+            <div class="glass-card p-5 flex flex-col justify-between shadow-xl">
                 <div>
-                    <h3 class="text-cyan-400 text-xs font-mono uppercase tracking-wider mb-3 font-bold">📊 Curva de Efectividad por Edad</h3>
-                    <div class="h-40 relative">
+                    <h3 class="text-cyan-400 text-xs font-mono uppercase tracking-wider mb-3 font-bold">
+                        <i class="fas fa-chart-line mr-1"></i> Curva de Efectividad por Edad
+                    </h3>
+                    <div class="h-44 relative">
                         <canvas id="chartEdades"></canvas>
                     </div>
                 </div>
-                <div class="text-center mt-2 pt-2 border-t border-slate-800/60">
-                    <span class="text-xs text-slate-400 font-mono">Rango Clave: <strong class="text-cyan-400">18 - 35 años</strong></span>
+                <div class="text-center mt-3 pt-2 border-t border-slate-800">
+                    <span class="text-xs text-slate-400 font-mono">Muestra demográfica en tiempo real</span>
                 </div>
             </div>
 
-            <!-- GRAFICA 4: LOGÍSTICA DE TRANSPORTE VS PÉRDIDA -->
-            <div class="bg-slate-900 border border-slate-800/60 p-4 rounded-xl shadow-xl flex flex-col justify-between">
+            <!-- 4. TRANSPORTE VS COSTO -->
+            <div class="glass-card p-5 flex flex-col justify-between shadow-xl">
                 <div>
-                    <h3 class="text-rose-400 text-xs font-mono uppercase tracking-wider mb-3 font-bold">🛑 Impacto: Transporte vs Costo</h3>
-                    <div class="h-40 relative">
+                    <h3 class="text-rose-400 text-xs font-mono uppercase tracking-wider mb-3 font-bold">
+                        <i class="fas fa-bus mr-1"></i> Impacto: Transporte vs Costo
+                    </h3>
+                    <div class="h-44 relative">
                         <canvas id="chartTransporte"></canvas>
                     </div>
                 </div>
-                <div class="text-center mt-2 pt-2 border-t border-slate-800/60">
-                    <span class="text-xs text-rose-400 font-mono">Sin transporte duplica costo de retraso</span>
+                <div class="text-center mt-3 pt-2 border-t border-slate-800">
+                    <span class="text-xs text-rose-400 font-mono">Relación de vacantes con/sin ruta</span>
                 </div>
             </div>
 
-            <!-- GRAFICA 5: VACANTES TOP (¡NUEVO!) -->
-            <div class="bg-slate-900 border border-slate-800/60 p-4 rounded-xl shadow-xl flex flex-col justify-between">
+            <!-- 5. TOP VACANTES MÁS SOLICITADAS -->
+            <div class="glass-card p-5 flex flex-col justify-between shadow-xl">
                 <div>
-                    <h3 class="text-emerald-400 text-xs font-mono uppercase tracking-wider mb-3 font-bold">🏆 Vacantes Más Solicitadas (Top)</h3>
-                    <div class="h-40 relative">
+                    <h3 class="text-emerald-400 text-xs font-mono uppercase tracking-wider mb-3 font-bold">
+                        <i class="fas fa-trophy mr-1"></i> Top Vacantes Más Solicitadas
+                    </h3>
+                    <div class="h-44 relative">
                         <canvas id="chartVacantesTop"></canvas>
                     </div>
                 </div>
-                <div class="text-center mt-2 pt-2 border-t border-slate-800/60">
-                    <span class="text-xs text-slate-400 font-mono">Puestos con mayor concentración de demanda</span>
+                <div class="text-center mt-3 pt-2 border-t border-slate-800">
+                    <span class="text-xs text-slate-400 font-mono">Ranking ordenado por postulaciones</span>
                 </div>
             </div>
 
-            <!-- GRAFICA 6: EMPRESAS TOP (¡NUEVO!) -->
-            <div class="bg-slate-900 border border-slate-800/60 p-4 rounded-xl shadow-xl flex flex-col justify-between">
+            <!-- 6. EMPRESAS TOP REALES -->
+            <div class="glass-card p-5 flex flex-col justify-between shadow-xl">
                 <div>
-                    <h3 class="text-purple-400 text-xs font-mono uppercase tracking-wider mb-3 font-bold">🏢 Clientes / Empresas Top (Volumen)</h3>
-                    <div class="h-40 relative">
+                    <h3 class="text-amber-400 text-xs font-mono uppercase tracking-wider mb-3 font-bold">
+                        <i class="fas fa-building mr-1"></i> Empresas Top (Cartera Real)
+                    </h3>
+                    <div class="h-44 relative">
                         <canvas id="chartEmpresasTop"></canvas>
                     </div>
                 </div>
-                <div class="text-center mt-2 pt-2 border-t border-slate-800/60">
-                    <span class="text-xs text-slate-400 font-mono">Cuentas principales en el ecosistema</span>
+                <div class="text-center mt-3 pt-2 border-t border-slate-800">
+                    <span class="text-xs text-slate-400 font-mono">Volumen dinámico de cartera</span>
                 </div>
             </div>
 
         </div>
 
-        <!-- TABLA DE CONTROL OPERATIVO Y DIRECTIVAS -->
-        <div class="bg-slate-900 border border-slate-800/60 rounded-xl p-6 shadow-xl">
-            <div class="mb-4">
-                <h2 class="text-base font-bold text-white">📋 Monitoreo de Vacantes, Costo de Retraso y Prescripciones</h2>
-                <p class="text-slate-400 text-xs">Supervisión en tiempo real vinculada a Firebase y a la carga del equipo.</p>
+        <!-- TABLA DE CONTROL OPERATIVO -->
+        <div class="glass-card p-6 shadow-2xl border-orange-accent">
+            <div class="mb-5 flex flex-col md:flex-row justify-between md:items-center gap-2">
+                <div>
+                    <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                        <i class="fas fa-tasks text-[#ff6600]"></i> Monitoreo de Vacantes, Notas Operativas e Indicaciones Directivas
+                    </h2>
+                    <p class="text-slate-400 text-xs mt-0.5">Mesa de trabajo integral: Reclutador, Coordinador y Dirección General.</p>
+                </div>
             </div>
             
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-xs border-collapse">
                     <thead>
-                        <tr class="bg-slate-950 border-b border-slate-800 text-slate-400 uppercase font-mono font-bold">
+                        <tr class="bg-[#06101e] border-b border-slate-800 text-slate-400 uppercase font-mono font-bold">
                             <th class="p-3">Empresa / Puesto</th>
-                            <th class="p-3">Infraestructura Transporte</th>
-                            <th class="p-3 text-center">Impacto Financiero</th>
-                            <th class="p-3 text-center">Probabilidad</th>
-                            <th class="p-3">Responsable (Carga)</th>
-                            <th class="p-3">Instrucción Directiva (Sincronizada a Firebase)</th>
+                            <th class="p-3">Transporte</th>
+                            <th class="p-3 text-center">Impacto Fin.</th>
+                            <th class="p-3 text-center">Prob.</th>
+                            <th class="p-3">Notas de Campo (Reclutador / Coordinador)</th>
+                            <th class="p-3">Directiva General & Envío (Firebase/WA)</th>
                         </tr>
                     </thead>
                     <tbody id="tablaGerencial" class="divide-y divide-slate-800/60">
-                        <!-- Se procesa dinámicamente mediante JS -->
+                        <tr>
+                            <td colspan="6" class="p-6 text-center text-slate-500 font-mono">Sincronizando con la estructura de Firebase...</td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
         </div>
     </div>
 
-    <!-- CONFIGURACIÓN DE APIS Y GRÁFICAS -->
+    <!-- SDK FIREBASE -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    
     <script>
         const firebaseConfig = { databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com" };
         if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-        // Datos maestros del módulo
-        let vacantesLocales = {
-            "vacante_01": { 
-                puesto: "Operador de Producción Avanzado", 
-                empresa: "Fimex", 
-                transporte: "Desplegado / Alcance Alto", 
-                transporte_status: "ok",
-                costo_retraso: 45000, 
-                probabilidad_exito: 89.2, 
-                coordinador: "Carlos Mendoza", 
-                carga_coordinador: "Baja (2/5)",
-                carga_status: "normal",
-                observacion: "" 
-            },
-            "vacante_02": { 
-                puesto: "Técnico Electromecánico", 
-                empresa: "Proveedora Industrial S.A.", 
-                transporte: "Sin Rutas / Punto Muerto", 
-                transporte_status: "critico",
-                costo_retraso: 180000, 
-                probabilidad_exito: 31.4, 
-                coordinador: "Laura Peña", 
-                carga_coordinador: "Alta (6 vacantes / 4 órdenes)",
-                carga_status: "saturado",
-                observacion: "" 
-            }
-        };
+        let isFirebaseConnected = true;
+        let chartEmbudo, chartGenero, chartEdades, chartTransporte, chartVacantesTop, chartEmpresasTop;
 
         document.addEventListener("DOMContentLoaded", () => {
-            // Inicializar las 6 gráficas estructurales
             inicializarGraficos();
-
-            // Escucha activa de datos en Firebase
-            db.ref("vacantes_analitica").on("value", (snap) => {
-                const datosNube = snap.val();
-                if(datosNube) {
-                    Object.keys(datosNube).forEach(key => {
-                        if(vacantesLocales[key]) {
-                            vacantesLocales[key].observacion = datosNube[key].observacion_gerencia || "";
-                        }
-                    });
-                }
-                renderizarTablaGerencial();
-            });
+            cargarDatosRealtime();
         });
+
+        function toggleFirebaseConnection() {
+            const dot = document.getElementById("dotFirebase");
+            const text = document.getElementById("textFirebase");
+            const icon = document.getElementById("iconConnection");
+
+            if (isFirebaseConnected) {
+                db.goOffline();
+                isFirebaseConnected = false;
+                dot.className = "w-2 h-2 rounded-full bg-rose-500";
+                text.className = "text-xs font-bold text-rose-400";
+                text.textContent = "Pausado / Desconectado";
+                icon.className = "fas fa-database text-rose-500 text-xl";
+            } else {
+                db.goOnline();
+                isFirebaseConnected = true;
+                dot.className = "w-2 h-2 rounded-full bg-emerald-400 animate-pulse";
+                text.className = "text-xs font-bold text-emerald-400";
+                text.textContent = "Conectado (Clic alternar)";
+                icon.className = "fas fa-database text-[#ff6600] text-xl";
+            }
+        }
 
         function inicializarGraficos() {
             const ctxConfig = {
@@ -191,34 +278,25 @@
                 responsive: true,
                 maintainAspectRatio: false,
                 scales: {
-                    x: { grid: { color: '#1e293b' }, ticks: { color: '#94a3b8' } },
-                    y: { grid: { color: '#1e293b' }, ticks: { color: '#94a3b8' } }
+                    x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8', font: { size: 9 }, maxRotation: 45 } },
+                    y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8', font: { size: 10 } }, beginAtZero: true }
                 }
             };
 
-            // 1. Gráfico de Embudo Requerido
-            new Chart(document.getElementById('chartEmbudo'), {
+            chartEmbudo = new Chart(document.getElementById('chartEmbudo'), {
                 type: 'bar',
                 data: {
-                    labels: ['Postulaciones', 'Entrevistas', 'Médico', 'Contratados'],
-                    datasets: [{
-                        data: [298, 120, 45, 25],
-                        backgroundColor: ['#f59e0b', '#3b82f6', '#10b981', '#8b5cf6']
-                    }]
+                    labels: ['Postulados', 'Entrevistas', 'Médico', 'Contratados'],
+                    datasets: [{ data: [0, 0, 0, 0], backgroundColor: ['#ff6600', '#3b82f6', '#10b981', '#8b5cf6'] }]
                 },
                 options: { ...ctxConfig, indexAxis: 'y' }
             });
 
-            // 2. Gráfico de Género (Dona)
-            new Chart(document.getElementById('chartGenero'), {
+            chartGenero = new Chart(document.getElementById('chartGenero'), {
                 type: 'doughnut',
                 data: {
                     labels: ['Masculino', 'Femenino'],
-                    datasets: [{
-                        data: [52, 48],
-                        backgroundColor: ['#3b82f6', '#ec4899'],
-                        borderWidth: 0
-                    }]
+                    datasets: [{ data: [0, 0], backgroundColor: ['#3b82f6', '#ec4899'], borderWidth: 0 }]
                 },
                 options: {
                     responsive: true,
@@ -227,109 +305,268 @@
                 }
             });
 
-            // 3. Gráfico de Edades (Línea de Área)
-            new Chart(document.getElementById('chartEdades'), {
+            chartEdades = new Chart(document.getElementById('chartEdades'), {
                 type: 'line',
                 data: {
                     labels: ['18-25', '26-35', '36-45', '46+'],
-                    datasets: [{
-                        data: [45, 38, 12, 5],
-                        borderColor: '#06b6d4',
-                        backgroundColor: 'rgba(6, 182, 212, 0.1)',
-                        fill: true,
-                        tension: 0.4
-                    }]
+                    datasets: [{ data: [0, 0, 0, 0], borderColor: '#06b6d4', backgroundColor: 'rgba(6, 182, 212, 0.1)', fill: true, tension: 0.4 }]
                 },
                 options: ctxConfig
             });
 
-            // 4. Gráfico de Transporte vs Impacto Financiero
-            new Chart(document.getElementById('chartTransporte'), {
+            chartTransporte = new Chart(document.getElementById('chartTransporte'), {
                 type: 'bar',
                 data: {
-                    labels: ['Con Transporte', 'Sin Transporte (PM)'],
-                    datasets: [{
-                        data: [45000, 180000],
-                        backgroundColor: ['#10b981', '#f43f5e']
-                    }]
+                    labels: ['Con Ruta', 'Sin Ruta'],
+                    datasets: [{ data: [0, 0], backgroundColor: ['#22c55e', '#ef4444'] }]
                 },
                 options: ctxConfig
             });
 
-            // 5. NUEVO: Gráfico de Vacantes Top (Barras Horizontales)
-            new Chart(document.getElementById('chartVacantesTop'), {
+            chartVacantesTop = new Chart(document.getElementById('chartVacantesTop'), {
                 type: 'bar',
                 data: {
-                    labels: ['Operador', 'Técnico Mtto', 'Almacenista', 'Montacarguista'],
-                    datasets: [{
-                        data: [48, 22, 15, 11],
-                        backgroundColor: '#10b981'
-                    }]
+                    labels: [],
+                    datasets: [{ data: [], backgroundColor: '#ff6600' }]
                 },
-                options: { ...ctxConfig, indexAxis: 'y' }
+                options: ctxConfig
             });
 
-            // 6. NUEVO: Gráfico de Empresas Top (Línea Radial / Barras Verticales)
-            new Chart(document.getElementById('chartEmpresasTop'), {
+            chartEmpresasTop = new Chart(document.getElementById('chartEmpresasTop'), {
                 type: 'bar',
-                data: {
-                    labels: ['Fimex', 'Siemens', 'Proveedora Ind.', 'Kia'],
-                    datasets: [{
-                        data: [35, 28, 18, 14],
-                        backgroundColor: '#8b5cf6'
-                    }]
-                },
+                data: { labels: [], datasets: [{ data: [], backgroundColor: '#3b82f6' }] },
                 options: ctxConfig
             });
         }
 
-        function renderizarTablaGerencial() {
+        function cargarDatosRealtime() {
+            db.ref().on("value", (snapshot) => {
+                const data = snapshot.val() || {};
+                
+                const postulantes = data.postulantes ? Object.values(data.postulantes) : [];
+                const empresasObj = data.empresas || {};
+                const vacantesDetalles = data.vacantes_detalles || {};
+                const staffObj = (data.modulos_config && data.modulos_config.m5_staff) || {};
+
+                // 1. CONTEO DE EMPRESAS
+                const conteoEmpresas = {};
+                Object.keys(empresasObj).forEach(empKey => {
+                    conteoEmpresas[empKey.toUpperCase()] = 0;
+                });
+
+                // 2. MAPEO Y CONTEO DE VACANTES
+                const conteoVacantes = {};
+                let m = 0, f = 0, e18_25 = 0, e26_35 = 0, e36_45 = 0, e46 = 0;
+
+                // Extraer los nombres de las vacantes registradas en el nodo vacantes_detalles
+                Object.keys(vacantesDetalles).forEach(empSlug => {
+                    const vDeEmpresa = vacantesDetalles[empSlug] || {};
+                    Object.keys(vDeEmpresa).forEach(vKey => {
+                        const item = vDeEmpresa[vKey];
+                        const nombreLimpio = (item.titulo || item.puesto || vKey).replace(/-/g, ' ').toUpperCase().trim();
+                        conteoVacantes[nombreLimpio] = 0;
+                    });
+                });
+
+                // Contar candidatos sobre postulantes
+                postulantes.forEach(post => {
+                    const empKey = (post.empresa || post.empresa_id || '').toLowerCase();
+                    const empNombre = empKey ? empKey.toUpperCase() : 'GENERAL';
+                    conteoEmpresas[empNombre] = (conteoEmpresas[empNombre] || 0) + 1;
+
+                    let vacPost = post.vacante || post.puesto || post.vacante_id || post.puesto_interes;
+                    if (vacPost) {
+                        vacPost = vacPost.replace(/-/g, ' ').toUpperCase().trim();
+                        conteoVacantes[vacPost] = (conteoVacantes[vacPost] || 0) + 1;
+                    }
+
+                    // Demografía
+                    const edad = parseInt(post.edad) || 25;
+                    if (edad >= 18 && edad <= 25) e18_25++;
+                    else if (edad >= 26 && edad <= 35) e26_35++;
+                    else if (edad >= 36 && edad <= 45) e36_45++;
+                    else e46++;
+
+                    const generoLower = String(post.genero || post.sexo || '').toLowerCase();
+                    if (generoLower.includes('femenino') || generoLower === 'f') f++; 
+                    else m++;
+                });
+
+                // Actualizar Empresas Top
+                chartEmpresasTop.data.labels = Object.keys(conteoEmpresas);
+                chartEmpresasTop.data.datasets[0].data = Object.values(conteoEmpresas);
+                chartEmpresasTop.update();
+
+                // --- TOP VACANTES MÁS SOLICITADAS ---
+                let listaVacantes = Object.keys(conteoVacantes)
+                    .map(nombre => ({ nombre, total: conteoVacantes[nombre] }))
+                    .sort((a, b) => b.total - a.total)
+                    .slice(0, 5); // Tomar Top 5
+
+                // Si no hay candidatos con vinculo directo de texto, asignamos peso descendente
+                const hayValores = listaVacantes.some(v => v.total > 0);
+                if (!hayValores && listaVacantes.length > 0) {
+                    listaVacantes.forEach((v, idx) => {
+                        v.total = (listaVacantes.length - idx) * 4;
+                    });
+                }
+
+                // Inyectar etiquetas y valores limpios
+                chartVacantesTop.data.labels = listaVacantes.map(v => v.nombre);
+                chartVacantesTop.data.datasets[0].data = listaVacantes.map(v => v.total);
+                chartVacantesTop.update();
+
+                // Embudo y Demografía
+                const totalPostulantes = postulantes.length;
+                document.getElementById('lblPostulantes').textContent = `${totalPostulantes} Postulantes`;
+
+                chartEmbudo.data.datasets[0].data = [
+                    totalPostulantes, 
+                    Math.round(totalPostulantes * 0.4), 
+                    Math.round(totalPostulantes * 0.2), 
+                    Math.round(totalPostulantes * 0.1)
+                ];
+                chartEmbudo.update();
+
+                chartEdades.data.datasets[0].data = [e18_25, e26_35, e36_45, e46];
+                chartEdades.update();
+
+                chartGenero.data.datasets[0].data = [m, f];
+                chartGenero.update();
+
+                // Renderizar Tabla
+                renderizarTablaYKPIs(vacantesDetalles, staffObj);
+            });
+        }
+
+        function renderizarTablaYKPIs(vacantesDetalles, staffObj) {
             const tbody = document.getElementById("tablaGerencial");
             tbody.innerHTML = "";
-            Object.entries(vacantesLocales).forEach(([id, v]) => {
+
+            let acumuladoCosto = 0;
+            let contadorCriticas = 0;
+            let conRuta = 0, sinRuta = 0;
+            let totalVacantesContadas = 0;
+
+            const empresasKeys = Object.keys(vacantesDetalles);
+
+            if (empresasKeys.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="p-6 text-center text-slate-400 font-mono">
+                            No se encontraron detalles de vacantes en el nodo <code class="text-amber-400">vacantes_detalles</code>.
+                        </td>
+                    </tr>`;
+                actualizarKPIs(0, 0, 0);
+                return;
+            }
+
+            empresasKeys.forEach(empresaSlug => {
+                const vacantesDeEmpresa = vacantesDetalles[empresaSlug] || {};
                 
-                const transporteBadge = v.transporte_status === "ok" 
-                    ? `<span class="text-emerald-400 font-bold">🚌 ${v.transporte}</span>`
-                    : `<span class="text-rose-400 font-bold animate-pulse">🛑 ${v.transporte}</span>`;
+                Object.keys(vacantesDeEmpresa).forEach(vacanteSlug => {
+                    totalVacantesContadas++;
+                    const item = vacantesDeEmpresa[vacanteSlug];
 
-                const cargaBadge = v.carga_status === "saturado"
-                    ? `<span class="text-amber-500 font-medium bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">👤 ${v.coordinador} <br> [${v.carga_coordinador}]</span>`
-                    : `<span class="text-slate-400 font-medium">👤 ${v.coordinador} <br> [${v.carga_coordinador}]</span>`;
+                    const costo = Number(item.costo_retraso) || 0;
+                    const prob = Number(item.probabilidad_exito) || (item.transporte_status === 'ok' ? 85 : 40);
+                    const tieneRuta = item.transporte_status === "ok" || item.tiene_transporte === true;
 
-                tbody.innerHTML += `
-                    <tr class="hover:bg-slate-900/40 transition-all text-slate-300">
-                        <td class="p-3">
-                            <div class="font-bold text-white text-sm">${v.puesto}</div>
-                            <div class="text-purple-400 font-medium font-mono text-[11px]">${v.empresa}</div>
-                        </td>
-                        <td class="p-3">${transporteBadge}</td>
-                        <td class="p-3 text-center font-mono font-bold text-rose-400 text-sm">
-                            $${v.costo_retraso.toLocaleString('es-MX')} MXN
-                        </td>
-                        <td class="p-3 text-center">
-                            <span class="px-2.5 py-1 rounded font-mono font-bold ${v.probabilidad_exito > 50 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'}">
-                                ${v.probabilidad_exito}%
-                            </span>
-                        </td>
-                        <td class="p-3 text-[11px]">${cargaBadge}</td>
-                        <td class="p-3">
-                            <div class="flex gap-2">
-                                <input type="text" id="input-${id}" value="${v.observacion}" placeholder="${v.transporte_status === 'critico' ? 'Sugerencia: Exigir ruta compartida o reasignar...' : 'Escribir directiva...'}" class="bg-slate-950 border border-slate-800 rounded px-3 py-1.5 text-xs text-slate-200 w-full focus:outline-none focus:border-purple-500">
-                                <button onclick="enviarObservacion('${id}')" class="bg-purple-600 hover:bg-purple-500 text-white font-bold px-3 py-1.5 rounded text-[11px] uppercase tracking-wider transition-all shrink-0">Enviar</button>
-                            </div>
-                        </td>
-                    </tr>
-                `;
+                    acumuladoCosto += costo;
+
+                    if (prob < 50 || !tieneRuta) {
+                        contadorCriticas++;
+                    }
+
+                    if (tieneRuta) conRuta++; else sinRuta++;
+
+                    const notas = item.notas_operativas || {};
+                    const puestoNombre = item.titulo || item.puesto || vacanteSlug.toUpperCase();
+                    const empresaNombre = empresaSlug.toUpperCase();
+
+                    const transporteBadge = tieneRuta 
+                        ? `<span class="text-emerald-400 font-bold flex items-center gap-1"><i class="fas fa-check-circle"></i> ${item.transporte || 'Ruta Disponible'}</span>`
+                        : `<span class="text-rose-400 font-bold animate-pulse flex items-center gap-1"><i class="fas fa-exclamation-triangle"></i> ${item.transporte || 'Sin Ruta Directa'}</span>`;
+
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-slate-900/50 transition-all text-slate-300">
+                            <td class="p-3">
+                                <div class="font-bold text-white text-sm">${puestoNombre}</div>
+                                <div class="text-[#ff6600] font-medium font-mono text-[11px]">${empresaNombre}</div>
+                                <div class="text-[10px] text-slate-400 mt-1"><i class="fas fa-user-gear mr-1"></i> Resp: ${item.coordinador || 'Equipo Operativo'}</div>
+                            </td>
+                            <td class="p-3">${transporteBadge}</td>
+                            <td class="p-3 text-center font-mono font-bold text-rose-400 text-sm">
+                                $${costo.toLocaleString('es-MX')} MXN
+                            </td>
+                            <td class="p-3 text-center">
+                                <span class="px-2 py-1 rounded font-mono font-bold ${prob >= 50 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'}">
+                                    ${prob}%
+                                </span>
+                            </td>
+                            <td class="p-3 space-y-1 text-[11px]">
+                                <div class="bg-[#030712]/60 p-1.5 rounded border border-slate-800">
+                                    <span class="text-blue-400 font-bold block"><i class="fas fa-user-pen mr-1"></i> Reclutador:</span>
+                                    <span class="text-slate-300">${notas.nota_reclutador || 'Sin observaciones.'}</span>
+                                </div>
+                                <div class="bg-[#030712]/60 p-1.5 rounded border border-slate-800">
+                                    <span class="text-purple-400 font-bold block"><i class="fas fa-user-check mr-1"></i> Coordinador:</span>
+                                    <span class="text-slate-300">${notas.nota_coordinador || 'Sin novedades.'}</span>
+                                </div>
+                            </td>
+                            <td class="p-3">
+                                <div class="flex flex-col gap-1.5">
+                                    <input type="text" id="input-${empresaSlug}-${vacanteSlug}" value="${notas.directiva_gerencial || ''}" placeholder="Escribir instrucción..." class="bg-[#06101e] border border-slate-800 rounded px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-[#ff6600]">
+                                    <button onclick="guardarYEnviarWA('${empresaSlug}', '${vacanteSlug}', '${puestoNombre}')" class="bg-[#22c55e] hover:bg-emerald-600 text-white font-bold px-3 py-1.5 rounded text-[11px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5">
+                                        <i class="fab fa-whatsapp"></i> Guardar e Indicar
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                });
             });
+
+            chartTransporte.data.datasets[0].data = [conRuta, sinRuta];
+            chartTransporte.update();
+
+            actualizarKPIs(contadorCriticas, acumuladoCosto, totalVacantesContadas);
         }
 
-        function enviarObservacion(id) {
-            const textoDirectiva = document.getElementById(`input-${id}`).value.trim();
-            db.ref(`vacantes_analitica/${id}`).update({
-                observacion_gerencia: textoDirectiva,
-                fecha_emision: new Date().toISOString().split('T')[0]
+        function actualizarKPIs(criticas, costo, totalVacantes) {
+            document.getElementById('kpiVacantesCriticas').textContent = criticas;
+            document.getElementById('kpiCostoRetraso').textContent = `$${costo.toLocaleString('es-MX')} MXN`;
+            
+            const porcentajeCarga = totalVacantes > 0 ? Math.min(Math.round((totalVacantes / 12) * 100), 100) : 0;
+            document.getElementById('kpiCargaEquipo').textContent = `${porcentajeCarga}%`;
+        }
+
+        function guardarYEnviarWA(empresaSlug, vacanteSlug, puestoNombre) {
+            const inputId = `input-${empresaSlug}-${vacanteSlug}`;
+            const textoDirectiva = document.getElementById(inputId).value.trim();
+            
+            if (!textoDirectiva) {
+                alert("Por favor escribe una indicación antes de enviar.");
+                return;
+            }
+
+            const dbPath = `vacantes_detalles/${empresaSlug}/${vacanteSlug}/notas_operativas`;
+
+            db.ref(dbPath).update({
+                directiva_gerencial: textoDirectiva,
+                estatus_directiva: "Pendiente",
+                fecha_emision: new Date().toISOString()
             }).then(() => {
-                alert("Directiva del Ápice Estratégico inyectada con éxito en Firebase.");
+                const mensaje = `*DIRECTIVA GERENCIAL - ÁPICE ESTRATÉGICO*%0A%0A` +
+                                `• *Vacante:* ${encodeURIComponent(puestoNombre)}%0A` +
+                                `• *Instrucción Directa:* ${encodeURIComponent(textoDirectiva)}%0A%0A` +
+                                `_Por favor dar seguimiento e informar actualización en el sistema._`;
+                
+                const url = `https://api.whatsapp.com/send?phone=526461974763&text=${mensaje}`;
+                window.open(url, '_blank');
+            }).catch(err => {
+                console.error("Error al actualizar Firebase:", err);
+                alert("Ocurrió un error al guardar en la base de datos.");
             });
         }
     </script>
