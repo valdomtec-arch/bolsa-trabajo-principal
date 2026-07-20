@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Módulo 8: Creador de Módulos Dinámicos</title>
+    <!-- Tailwind CSS para Diseño -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans p-6 min-h-screen antialiased">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- ENCABEZADO TÁCTICO -->
+        <div class="border-b border-slate-800 pb-6 mb-6 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+            <div>
+                <span class="bg-indigo-500/10 text-indigo-400 text-xs px-2.5 py-1 rounded-full font-mono font-bold tracking-wider uppercase border border-indigo-500/20">Arquitectura ERP Escalable</span>
+                <h1 class="text-3xl font-extrabold text-white mt-1 tracking-tight">Creador de Módulos Dinámicos</h1>
+                <p class="text-slate-400 text-sm mt-1">Configura accesos al panel principal y genera código base estructurado para nuevas vistas.</p>
+            </div>
+            
+            <div class="bg-slate-900 border border-slate-800 px-4 py-2 rounded-xl text-right shrink-0">
+                <span class="text-[10px] font-mono text-slate-500 uppercase block">Conexión Firebase</span>
+                <span id="contadorModulos" class="text-xs font-bold text-emerald-400 font-mono">Cargando registros...</span>
+            </div>
+        </div>
+
+        <!-- CONTENIDO PRINCIPAL EN DOS COLUMNAS -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            <!-- COLUMNA IZQUIERDA: FORMULARIO DE REGISTRO / EDICIÓN (5 Cols) -->
+            <div class="lg:col-span-5 bg-slate-900 border border-slate-800/60 rounded-xl p-6 shadow-xl flex flex-col justify-between">
+                <div>
+                    <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                        <span>⚙️</span> <span id="tituloForm">Configurar Nuevo Módulo</span>
+                    </h2>
+                    
+                    <form id="formModulo" onsubmit="guardarModulo(event)" class="space-y-4">
+                        <input type="hidden" id="moduloIdHidden">
+
+                        <div>
+                            <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Título del Módulo</label>
+                            <input type="text" id="inputTitulo" required placeholder="Ej. M9 - Evaluaciones Psicológicas" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Icono (Emoji)</label>
+                                <input type="text" id="inputIcono" required placeholder="🧠" maxlength="4" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 text-center focus:outline-none focus:border-indigo-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Orden en Menú</label>
+                                <input type="number" id="inputOrden" required value="9" min="1" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Ruta Física / Enlace HTML</label>
+                            <input type="text" id="inputUrl" required placeholder="m9_evaluaciones.html" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 focus:outline-none focus:border-indigo-500">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Descripción Corta</label>
+                            <textarea id="inputDescripcion" rows="2" required placeholder="Módulo para la aplicación y calificación de pruebas a candidatos." class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"></textarea>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Roles Permitidos</label>
+                            <div class="flex flex-wrap gap-3 pt-1 text-xs">
+                                <label class="flex items-center gap-1.5 cursor-pointer text-slate-300">
+                                    <input type="checkbox" value="SuperAdmin" class="rol-check rounded bg-slate-950 border-slate-800" checked> SuperAdmin
+                                </label>
+                                <label class="flex items-center gap-1.5 cursor-pointer text-slate-300">
+                                    <input type="checkbox" value="Reclutador" class="rol-check rounded bg-slate-950 border-slate-800" checked> Reclutador
+                                </label>
+                                <label class="flex items-center gap-1.5 cursor-pointer text-slate-300">
+                                    <input type="checkbox" value="Logistico" class="rol-check rounded bg-slate-950 border-slate-800"> Logístico
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 flex gap-2">
+                            <button type="submit" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-mono text-xs font-bold py-2.5 rounded-xl transition-all shadow-lg shadow-indigo-600/20">
+                                💾 GUARDAR MÓDULO
+                            </button>
+                            <button type="button" onclick="limpiarFormulario()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono text-xs py-2.5 px-4 rounded-xl transition-all">
+                                Limpiar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- GENERADOR DE PLANTILLAS DE CÓDIGO HTML -->
+                <div class="mt-8 pt-6 border-t border-slate-800/80">
+                    <h3 class="text-xs font-mono text-indigo-400 uppercase font-bold mb-2 flex items-center gap-2">
+                        <span>⚡</span> Generador de Código Base (Scaffolding)
+                    </h3>
+                    <p class="text-[11px] text-slate-400 mb-3">Genera la estructura HTML lista con Tailwind CSS, Firebase y emisor de logs a M7.</p>
+
+                    <div class="space-y-2">
+                        <select id="selectPlantilla" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
+                            <option value="crud">Plantilla Tipo A: Formulario + Tabla (Estilo M1 / M5)</option>
+                            <option value="ia">Plantilla Tipo B: Motor IA de 2 Columnas (Estilo M2 / M6)</option>
+                            <option value="dashboard">Plantilla Tipo C: Dashboard / Métricas (Estilo M4)</option>
+                        </select>
+                        <button onclick="generarCodigoBase()" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-mono text-xs py-2 rounded-lg transition-all flex items-center justify-center gap-2">
+                            <span>📋</span> Copiar Código HTML al Portapapeles
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- COLUMNA DERECHA: LISTADO Y CONTROL DE ESTADO (7 Cols) -->
+            <div class="lg:col-span-7 bg-slate-900 border border-slate-800/60 rounded-xl p-6 shadow-xl">
+                <h2 class="text-lg font-bold text-white mb-4 flex items-center justify-between">
+                    <span>📦 Módulos Dinámicos Registrados</span>
+                    <span class="text-xs font-mono text-slate-400 font-normal">Nodo: /modulos_config</span>
+                </h2>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs border-collapse">
+                        <thead>
+                            <tr class="bg-slate-950 border-b border-slate-800 text-slate-400 uppercase font-mono font-bold">
+                                <th class="p-3 w-12 text-center">Ord</th>
+                                <th class="p-3">Módulo</th>
+                                <th class="p-3">Ruta</th>
+                                <th class="p-3 text-center">Estado</th>
+                                <th class="p-3 text-right">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaModulos" class="divide-y divide-slate-800/60 font-mono text-slate-300">
+                            <!-- Inyección dinámica -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- CONFIGURACIÓN DE FIREBASE -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script>
+        const firebaseConfig = { databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com" };
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        let listaModulos = [];
+
+        document.addEventListener("DOMContentLoaded", () => {
+            // Escuchar la colección de módulos dinámicos
+            db.ref("modulos_config").on("value", (snap) => {
+                const datos = snap.val() || {};
+                listaModulos = [];
+
+                Object.entries(datos).forEach(([id, mod]) => {
+                    if (typeof mod === 'object' && mod !== null) {
+                        listaModulos.push({
+                            id: id,
+                            titulo: mod.titulo || "Sin Título",
+                            icono: mod.icono || "📦",
+                            orden: Number(mod.orden) || 99,
+                            url: mod.url || "#",
+                            descripcion: mod.descripcion || "",
+                            activo: mod.activo !== false,
+                            roles_permitidos: mod.roles_permitidos || ["SuperAdmin"]
+                        });
+                    }
+                });
+
+                listaModulos.sort((a, b) => a.orden - b.orden);
+                document.getElementById("contadorModulos").textContent = `📡 ${listaModulos.length} Módulos Inyectados`;
+                renderizarTabla();
+            }, (error) => {
+                console.error("Error al consultar Firebase:", error);
+                document.getElementById("contadorModulos").textContent = "❌ Error de conexión";
+            });
+        });
+
+        function renderizarTabla() {
+            const tbody = document.getElementById("tablaModulos");
+            tbody.innerHTML = "";
+
+            if (listaModulos.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="p-8 text-center text-slate-500 italic">No hay módulos dinámicos registrados. Agrega uno nuevo desde el formulario.</td>
+                    </tr>`;
+                return;
+            }
+
+            listaModulos.forEach(mod => {
+                const estadoBadge = mod.activo 
+                    ? `<span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded text-[10px] font-bold">ACTIVO</span>`
+                    : `<span class="bg-rose-500/10 text-rose-400 border border-rose-500/20 px-2 py-0.5 rounded text-[10px] font-bold">PAUSADO</span>`;
+
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-900/40 transition-all border-b border-slate-800/30">
+                        <td class="p-3 text-center text-slate-500 font-bold">${mod.orden}</td>
+                        <td class="p-3">
+                            <div class="font-bold text-slate-100 flex items-center gap-1.5 font-sans text-xs">
+                                <span>${mod.icono}</span> ${mod.titulo}
+                            </div>
+                            <div class="text-[10px] text-slate-400 font-sans mt-0.5">${mod.descripcion}</div>
+                        </td>
+                        <td class="p-3 text-indigo-400 text-[11px]">${mod.url}</td>
+                        <td class="p-3 text-center">${estadoBadge}</td>
+                        <td class="p-3 text-right">
+                            <div class="flex items-center justify-end gap-1.5">
+                                <button onclick="toggleEstado('${mod.id}', ${mod.activo})" title="Cambiar Estado" class="p-1 hover:bg-slate-800 rounded transition-all text-xs">
+                                    ${mod.activo ? '⏸️' : '▶️'}
+                                </button>
+                                <button onclick="cargarParaEditar('${mod.id}')" title="Editar" class="p-1 hover:bg-slate-800 rounded transition-all text-xs">
+                                    ✏️
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function guardarModulo(e) {
+            e.preventDefault();
+
+            const idHidden = document.getElementById("moduloIdHidden").value;
+            const moduloId = idHidden || "mod_" + Date.now();
+
+            const roles = Array.from(document.querySelectorAll(".rol-check:checked")).map(cb => cb.value);
+            if (roles.length === 0) return alert("Selecciona al menos un rol permitido.");
+
+            const nuevoModulo = {
+                titulo: document.getElementById("inputTitulo").value.trim(),
+                icono: document.getElementById("inputIcono").value.trim() || "📦",
+                orden: Number(document.getElementById("inputOrden").value),
+                url: document.getElementById("inputUrl").value.trim(),
+                descripcion: document.getElementById("inputDescripcion").value.trim(),
+                roles_permitidos: roles,
+                activo: true
+            };
+
+            const operacionLog = idHidden ? "MODIFICAR_MODULO" : "CREAR_MODULO";
+
+            db.ref(`modulos_config/${moduloId}`).update(nuevoModulo)
+                .then(() => {
+                    // Registrar evento en la caja negra M7
+                    db.ref("sistema_logs").push({
+                        modulo: "Modulo 8 - Creador",
+                        operacion: operacionLog,
+                        detalles: `${operacionLog === 'CREAR_MODULO' ? 'Creado' : 'Actualizado'}: ${nuevoModulo.titulo} (${nuevoModulo.url})`,
+                        timestamp: firebase.database.ServerValue.TIMESTAMP,
+                        usuario_id: "Sistema Admin"
+                    });
+
+                    alert("✅ Módulo guardado exitosamente.");
+                    limpiarFormulario();
+                })
+                .catch(err => alert("Error al guardar en Firebase: " + err.message));
+        }
+
+        function toggleEstado(id, estadoActual) {
+            const nuevoEstado = !estadoActual;
+            db.ref(`modulos_config/${id}`).update({ activo: nuevoEstado }).then(() => {
+                db.ref("sistema_logs").push({
+                    modulo: "Modulo 8 - Creador",
+                    operacion: "ESTADO_MODULO",
+                    detalles: `Módulo ID ${id} cambiado a ${nuevoEstado ? 'ACTIVO' : 'PAUSADO'}`,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP,
+                    usuario_id: "Sistema Admin"
+                });
+            });
+        }
+
+        function cargarParaEditar(id) {
+            const mod = listaModulos.find(m => m.id === id);
+            if (!mod) return;
+
+            document.getElementById("moduloIdHidden").value = mod.id;
+            document.getElementById("inputTitulo").value = mod.titulo;
+            document.getElementById("inputIcono").value = mod.icono;
+            document.getElementById("inputOrden").value = mod.orden;
+            document.getElementById("inputUrl").value = mod.url;
+            document.getElementById("inputDescripcion").value = mod.descripcion;
+            document.getElementById("tituloForm").textContent = "Editar Módulo";
+
+            document.querySelectorAll(".rol-check").forEach(cb => {
+                cb.checked = mod.roles_permitidos.includes(cb.value);
+            });
+        }
+
+        function limpiarFormulario() {
+            document.getElementById("moduloIdHidden").value = "";
+            document.getElementById("formModulo").reset();
+            document.getElementById("tituloForm").textContent = "Configurar Nuevo Módulo";
+        }
+
+        // ===============================================================
+        // GENERADOR DE CÓDIGO HTML (SCAFFOLDING)
+        // ===============================================================
+
+        function generarCodigoBase() {
+            const tipo = document.getElementById("selectPlantilla").value;
+            const titulo = document.getElementById("inputTitulo").value || "Nuevo Módulo ERP";
+            const url = document.getElementById("inputUrl").value || "nuevo_modulo.html";
+
+            let plantillaHtml = `<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${titulo}</title>
+    <script src="https://cdn.tailwindcss.com"><\/script>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans p-6 min-h-screen">
+    <div class="max-w-7xl mx-auto">
+        <div class="border-b border-slate-800 pb-6 mb-6 flex justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-extrabold text-white">${titulo}</h1>
+                <p class="text-slate-400 text-sm mt-1">Módulo generado dinámicamente.</p>
+            </div>
+            <a href="admin.html" class="bg-slate-900 border border-slate-800 text-slate-300 text-xs px-4 py-2 rounded-xl">← Volver al Panel</a>
+        </div>
+        <!-- Contenido principal del módulo -->
+    </div>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"><\/script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"><\/script>
+    <script>
+        const firebaseConfig = { databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com" };
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // Registrar acceso en M7 (Caja Negra)
+        db.ref("sistema_logs").push({
+            modulo: "${titulo}",
+            operacion: "ACCESO",
+            detalles: "Usuario accedió al módulo ${url}",
+            timestamp: firebase.database.ServerValue.TIMESTAMP,
+            usuario_id: "Sistema Admin"
+        });
+    <\/script>
+</body>
+</html>`;
+
+            navigator.clipboard.writeText(plantillaHtml).then(() => {
+                alert("📋 Código base copiado al portapapeles. Puedes guardarlo como " + url);
+            }).catch(err => {
+                alert("Error al copiar: " + err.message);
+            });
+        }
+    </script>
+</body>
+</html>
