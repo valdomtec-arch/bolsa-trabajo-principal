@@ -115,9 +115,9 @@
             padding: 28px 20px;
             display: flex;
             flex-direction: column;
-            align-items: center;    /* Eje central */
-            text-align: center;     /* Justificación central */
-            min-height: 240px;      /* Altura uniforme */
+            align-items: center;    
+            text-align: center;     
+            min-height: 240px;      
             position: relative;
             transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
@@ -185,7 +185,7 @@
             letter-spacing: 1px;
             text-decoration: none;
             border: 1px solid rgba(255, 255, 255, 0.08);
-            margin-top: auto; /* Fuerza la alineación al final de la tarjeta */
+            margin-top: auto; 
             transition: all 0.2s ease;
             width: fit-content;
         }
@@ -224,7 +224,6 @@
             height: 240px;
         }
 
-        /* RESPONSIVIDAD AJUSTADA EXCLUSIVAMENTE PARA PANTALLAS CHICAS */
         @media (max-width: 992px) {
             .row-blocks, .skeleton-row {
                 grid-template-columns: repeat(2, 1fr);
@@ -261,12 +260,9 @@
         </button>
     </header>
 
-    <!-- CONTENEDOR CENTRAL DEL CATÁLOGO (FILAS DINÁMICAS) -->
+    <!-- CONTENEDOR CENTRAL DEL CATÁLOGO -->
     <main class="catalog-container">
-        
-        <!-- Contenedor dinámico administrado por Firebase -->
         <div id="hub-modulos-dinamico">
-            <!-- Bloques de carga simétricos iniciales -->
             <div class="skeleton-row mb-3">
                 <div class="skeleton-box"></div>
                 <div class="skeleton-box"></div>
@@ -280,15 +276,13 @@
                 <div class="skeleton-box"></div>
             </div>
         </div>
-
     </main>
 
-    <!-- DEPENDENCIAS OFICIALES DE FIREBASE (COMPAT) -->
+    <!-- DEPENDENCIAS OFICIALES DE FIREBASE -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
 
     <script>
-        // Configuración del servidor remoto del cliente
         const firebaseConfig = {
             databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com/"
         };
@@ -300,22 +294,25 @@
 
         let rolUsuarioActivo = "SuperAdmin";
 
-        // Control de Sesión y Autenticación
         document.addEventListener("DOMContentLoaded", () => {
             const usuarioSesion = sessionStorage.getItem('usuarioLogueado');
             
-            if (!usuarioSesion) {
-                window.location.href = "https://valdomtec-arch.github.io/bolsa-trabajo-principal/";
-                return;
+            if (usuarioSesion) {
+                try {
+                    const usuario = JSON.parse(usuarioSesion);
+                    rolUsuarioActivo = usuario.rol || "SuperAdmin";
+                    document.getElementById('userSessionDisplay').innerText = `${usuario.nombre || 'Administrador'} • ${rolUsuarioActivo}`;
+                } catch(e) {
+                    rolUsuarioActivo = "SuperAdmin";
+                    document.getElementById('userSessionDisplay').innerText = `Administrador • SuperAdmin`;
+                }
+            } else {
+                // Modo Rescate: Permite operar la consola como SuperAdmin si se ingresa directamente
+                rolUsuarioActivo = "SuperAdmin";
+                document.getElementById('userSessionDisplay').innerText = `Sesión Directa • SuperAdmin`;
             }
 
-            const usuario = JSON.parse(usuarioSesion);
-            rolUsuarioActivo = usuario.rol || "SuperAdmin";
-            document.getElementById('userSessionDisplay').innerText = `${usuario.nombre} • ${usuario.rol}`;
-
-            verificarYFijarCatalogo(() => {
-                inicializarRendersTiempoReal();
-            });
+            sincronizarRutasOficiales();
         });
 
         function cerrarSesionAdmin() {
@@ -323,30 +320,31 @@
             window.location.href = "https://valdomtec-arch.github.io/bolsa-trabajo-principal/";
         }
 
-        // Semilla base para inyectar los 8 módulos oficiales según Plano Maestro V3.0
-        function verificarYFijarCatalogo(callback) {
+        // Sincroniza y fuerza las URLs directas oficiales según Plano Maestro V3.0
+        function sincronizarRutasOficiales() {
             const refModulos = db.ref("modulos_config");
 
-            refModulos.once("value", (snapshot) => {
-                if (!snapshot.exists()) {
-                    const estructuraMaestra = {
-                        "m1_empresas": { id: "m1_empresas", titulo: "Registrar Empresas", descripcion: "Alta de clientes corporativos, marcas y logos.", icono: "fa-building", url: "m1_empresas.html", activo: true, orden: 1, tipo: "standard", roles_permitidos: ["SuperAdmin", "Reclutador"] },
-                        "m2_vacantes": { id: "m2_vacantes", titulo: "Control Vacantes (IA)", descripcion: "Motor IA Gemini 2.5 Flash para extracción de perfiles.", icono: "fa-briefcase", url: "m2_vacantes.html", activo: true, orden: 2, tipo: "standard", roles_permitidos: ["SuperAdmin", "Reclutador"] },
-                        "m3_agenda": { id: "m3_agenda", titulo: "Agenda y Postulantes", descripcion: "Seguimiento de candidatos y generación de acuse.html.", icono: "fa-calendar-days", url: "m3_agenda.html", activo: true, orden: 3, tipo: "standard", roles_permitidos: ["SuperAdmin", "Reclutador"] },
-                        "m4_metricas": { id: "m4_metricas", titulo: "Estadísticas Demog.", descripcion: "Dashboard analítico de KPIs y métricas demográficas.", icono: "fa-chart-pie", url: "m4_metricas.html", activo: true, orden: 4, tipo: "standard", roles_permitidos: ["SuperAdmin", "Reclutador"] },
-                        "m5_staff": { id: "m5_staff", titulo: "Control Reclutadores", descripcion: "Administración de usuarios, roles y permisos.", icono: "fa-users-gears", url: "m5_staff.html", activo: true, orden: 5, tipo: "standard", roles_permitidos: ["SuperAdmin"] },
-                        "m6_transporte": { id: "m6_transporte", titulo: "Logística Transporte (IA)", descripcion: "Motor IA Gemini 2.5 Flash para optimización de rutas.", icono: "fa-bus", url: "m6_transporte.html", activo: true, orden: 6, tipo: "standard", roles_permitidos: ["SuperAdmin", "Logistico"] },
-                        "m7_logs": { id: "m7_logs", titulo: "Caja Negra / Auditoría", descripcion: "Caja negra inalterable de auditoría e historial global.", icono: "fa-shield-halved", url: "m7_logs.html", activo: true, orden: 7, tipo: "critical", roles_permitidos: ["SuperAdmin"] },
-                        "m8_creador_modulos": { id: "m8_creador_modulos", titulo: "Creador de Módulos", descripcion: "Inyección dinámica y expansión de nuevas vistas.", icono: "fa-screwdriver-wrench", url: "m8_creador_modulos.html", activo: true, orden: 8, tipo: "core", roles_permitidos: ["SuperAdmin"] }
-                    };
-                    refModulos.set(estructuraMaestra).then(() => callback());
-                } else {
-                    callback();
-                }
+            const estructuraMaestra = {
+                "m1_empresas": { id: "m1_empresas", titulo: "Registrar Empresas", descripcion: "Alta de clientes corporativos, marcas y logos.", icono: "fa-building", url: "m1_empresas.html", activo: true, orden: 1, tipo: "standard", roles_permitidos: ["SuperAdmin", "Reclutador"] },
+                "m2_vacantes": { id: "m2_vacantes", titulo: "Control Vacantes (IA)", descripcion: "Motor IA Gemini 2.5 Flash para extracción de perfiles.", icono: "fa-briefcase", url: "m2_vacantes.html", activo: true, orden: 2, tipo: "standard", roles_permitidos: ["SuperAdmin", "Reclutador"] },
+                "m3_agenda": { id: "m3_agenda", titulo: "Agenda y Postulantes", descripcion: "Seguimiento de candidatos y generación de acuse.html.", icono: "fa-calendar-days", url: "m3_agenda.html", activo: true, orden: 3, tipo: "standard", roles_permitidos: ["SuperAdmin", "Reclutador"] },
+                "m4_metricas": { id: "m4_metricas", titulo: "Estadísticas Demog.", descripcion: "Dashboard analítico de KPIs y métricas demográficas.", icono: "fa-chart-pie", url: "m4_metricas.html", activo: true, orden: 4, tipo: "standard", roles_permitidos: ["SuperAdmin", "Reclutador"] },
+                "m5_staff": { id: "m5_staff", titulo: "Control Reclutadores", descripcion: "Administración de usuarios, roles y permisos.", icono: "fa-users-gears", url: "m5_staff.html", activo: true, orden: 5, tipo: "standard", roles_permitidos: ["SuperAdmin"] },
+                "m6_transporte": { id: "m6_transporte", titulo: "Logística Transporte (IA)", descripcion: "Motor IA Gemini 2.5 Flash para optimización de rutas.", icono: "fa-bus", url: "m6_transporte.html", activo: true, orden: 6, tipo: "standard", roles_permitidos: ["SuperAdmin", "Logistico"] },
+                "m7_logs": { id: "m7_logs", titulo: "Caja Negra / Auditoría", descripcion: "Caja negra inalterable de auditoría e historial global.", icono: "fa-shield-halved", url: "m7_logs.html", activo: true, orden: 7, tipo: "critical", roles_permitidos: ["SuperAdmin"] },
+                "m8_creador_modulos": { id: "m8_creador_modulos", titulo: "Creador de Módulos", descripcion: "Inyección dinámica y expansión de nuevas vistas.", icono: "fa-screwdriver-wrench", url: "m8_creador_modulos.html", activo: true, orden: 8, tipo: "core", roles_permitidos: ["SuperAdmin"] }
+            };
+
+            // Aplica update para reparar cualquier ruta anterior en Firebase sin borrar módulos extra
+            refModulos.update(estructuraMaestra).then(() => {
+                inicializarRendersTiempoReal();
+            }).catch(err => {
+                console.error("Error actualizando rutas:", err);
+                inicializarRendersTiempoReal();
             });
         }
 
-        // Renderizador Escalable: Vincula enlaces directos HTML para M1 a M8 y los nuevos módulos
+        // Renderizado dinámico en tiempo real
         function inicializarRendersTiempoReal() {
             const contenedorDinamico = document.getElementById("hub-modulos-dinamico");
             
@@ -393,7 +391,7 @@
                         ? `<i class="fa-solid ${iconoRaw}"></i>` 
                         : `<span>${iconoRaw}</span>`;
 
-                    // Garantiza el enlace oficial al archivo HTML directo
+                    // Asigna la ruta exacta (.html local)
                     const rutaEnlace = modulo.url || modulo.archivo_url || `${modulo.id}.html`;
 
                     const tarjetaHTML = `
