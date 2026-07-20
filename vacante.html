@@ -744,7 +744,7 @@
                                 );
                                 pintarPantallaRutas(filtrados);
                                 
-                                // Auto-selección inteligente si queda un único resultado exacto de coincidencia geográfica
+                                // Auto-selección inteligente si queda un único resultado exacto
                                 if(filtrados.length === 1) {
                                     inputOcultoPunto.value = `${filtrados[0].nombre} (${filtrados[0].horario || ''})`;
                                     setTimeout(() => {
@@ -778,7 +778,7 @@
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    // 4. CATÁLOGO DE ASESORES: Conexión actualizada conusuarios_reclutadores
+    // 4. CATÁLOGO DE ASESORES: Conexión actualizada con usuarios_reclutadores
     async function cargarCatalogoReclutadores() {
         const selectElement = document.getElementById("selReclutador");
         try {
@@ -873,7 +873,7 @@
             // Redirección unificada apuntando a acuse.html en GitHub Pages
             const urlAcuseDigital = `https://valdomtec-arch.github.io/bolsa-trabajo-principal/acuse.html?folio=${timestampId}`;
 
-            // Objeto unificado para persistir en el servidor Firebase
+            // Objeto unificado optimizado para el servidor Firebase y la consulta del Módulo 7
             const payloadPostulante = {
                 id: timestampId,
                 nombre: nombre,
@@ -883,14 +883,17 @@
                 edad: datosExtraidos.edad,
                 sexo: datosExtraidos.sexo,
                 genero: datosExtraidos.sexo,
-                empresa: empresaLimpia,
-                empresaDestino: empresaLimpia,
-                vacante: datosVacanteGlobal.vacanteNombre || "Desconocida",
-                puesto: datosVacanteGlobal.vacanteNombre || "Desconocida",
-                fechaRegistro: fechaYHoraActual,
-                atendidoPor: nombreReclutadorCorto,
+                empresa: empresaLimpia.toUpperCase(),
+                empresaDestino: empresaLimpia.toUpperCase(),
+                vacante: datosVacanteGlobal ? (datosVacanteGlobal.vacanteNombre || "Desconocida") : "Desconocida",
+                puesto: datosVacanteGlobal ? (datosVacanteGlobal.vacanteNombre || "Desconocida") : "Desconocida",
+                estatus: "Postulado",                       // Mantiene alineado el flujo de estados
+                asesor: nombreReclutadorCorto,              // Referencia rápida para paneles de reclutamiento
+                atendidoPor: nombreReclutadorCorto,         // Mantiene compatibilidad histórica
                 rutaTransporteSeleccionada: puntoElegido,
-                urlAcusePdf: urlAcuseDigital 
+                urlAcusePdf: urlAcuseDigital,              // PERSISTENCIA EN SERVIDOR PARA MÓDULO 7
+                fechaRegistro: fechaYHoraActual,
+                timestamp: firebase.database.ServerValue.TIMESTAMP
             };
 
             // Transacciones concurrentes seguras
@@ -902,7 +905,7 @@
                                     `*📌 Detalles de mi Postulación:*\n` +
                                     `• *Folio:* ${timestampId}\n` +
                                     `• *Puesto:* ${payloadPostulante.vacante}\n` +
-                                    `• *Empresa:* ${payloadPostulante.empresa.toUpperCase()}\n` +
+                                    `• *Empresa:* ${payloadPostulante.empresa}\n` +
                                     `• *Ruta Conveniente:* ${puntoElegido}\n\n` +
                                     `*👤 Mis Datos de Contacto:*\n` +
                                     `• *Nombre:* ${payloadPostulante.nombre}\n` +
