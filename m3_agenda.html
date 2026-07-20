@@ -101,8 +101,8 @@
             </div>
         </div>
 
-        <!-- FILTROS MAESTROS EN CASCADA -->
-        <div class="bg-[#0d1b3e] p-4 rounded-xl border border-blue-900/30 mb-6 grid grid-cols-1 md:grid-cols-2 gap-4 shadow-inner">
+        <!-- FILTROS MAESTROS EN CASCADA CON ASESOR -->
+        <div class="bg-[#0d1b3e] p-4 rounded-xl border border-blue-900/30 mb-6 grid grid-cols-1 md:grid-cols-3 gap-4 shadow-inner">
             <div>
                 <label class="block text-xs font-bold uppercase text-[#ff6600] mb-1"><i class="fas fa-filter"></i> Filtrar por Empresa</label>
                 <select id="filtroEmpresa" onchange="cargarPostulantes()" class="w-full bg-[#15264a] border border-blue-950 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-[#ff6600] transition-colors">
@@ -113,6 +113,12 @@
                 <label class="block text-xs font-bold uppercase text-[#ff6600] mb-1"><i class="fas fa-filter"></i> Filtrar por Vacante</label>
                 <select id="filtroVacante" onchange="cargarPostulantes()" class="w-full bg-[#15264a] border border-blue-950 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-[#ff6600] transition-colors">
                     <option value="TODAS">-- Todas las Vacantes --</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-bold uppercase text-[#ff6600] mb-1"><i class="fas fa-user-tie"></i> Filtrar por Asesor</label>
+                <select id="filtroAsesor" onchange="cargarPostulantes()" class="w-full bg-[#15264a] border border-blue-950 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-[#ff6600] transition-colors">
+                    <option value="TODOS">-- Todos los Asesores --</option>
                 </select>
             </div>
         </div>
@@ -133,7 +139,7 @@
             </div>
         </div>
 
-        <!-- TABLA DE POSTULANTES CON SEMÁFORO -->
+        <!-- TABLA DE POSTULANTES CON SEMÁFORO Y ASESOR -->
         <div class="bg-[#0d1b3e] rounded-xl border border-blue-900/30 overflow-hidden shadow-lg">
             <div class="overflow-x-auto">
                 <table class="w-full text-left border-collapse">
@@ -143,6 +149,7 @@
                             <th class="p-3.5 font-bold">Postulado</th>
                             <th class="p-3.5 font-bold">Identificación (CURP / Edad / Sexo)</th>
                             <th class="p-3.5 font-bold">Empresa y Vacante</th>
+                            <th class="p-3.5 font-bold">Asesor Asignado</th>
                             <th class="p-3.5 font-bold">Logística / Cita</th>
                             <th class="p-3.5 font-bold text-center">Acciones</th>
                         </tr>
@@ -156,7 +163,7 @@
 
     </div>
 
-    <!-- MODAL INTEGRADO PARA EDICIÓN Y GESTIÓN DE CITAS/ESTATUS -->
+    <!-- MODAL INTEGRADO PARA EDICIÓN Y GESTIÓN DE CITAS/ESTATUS/ASESOR -->
     <div id="modalEditar" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 transition-opacity">
         <div class="bg-[#0d1b3e] border-2 border-[#ff6600] rounded-xl shadow-2xl max-w-md w-full p-6 relative">
             <button type="button" onclick="cerrarModal()" class="absolute top-3 right-4 text-[#94a3b8] hover:text-[#ff6600] text-2xl font-bold transition-colors">&times;</button>
@@ -174,6 +181,13 @@
                 <div>
                     <label class="block text-xs font-bold uppercase text-[#94a3b8] mb-1">Teléfono</label>
                     <input type="text" id="editTelefono" class="w-full bg-[#15264a] border border-blue-950 text-white rounded-lg p-2 text-sm focus:outline-none focus:border-[#ff6600]">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase text-[#94a3b8] mb-1">Asesor Asignado</label>
+                    <!-- SELECT CONECTADO A usuarios_reclutadores -->
+                    <select id="editAsesor" class="w-full bg-[#15264a] border border-blue-950 text-white rounded-lg p-2 text-sm focus:outline-none focus:border-[#ff6600]">
+                        <option value="">-- Seleccionar Asesor --</option>
+                    </select>
                 </div>
                 <div>
                     <label class="block text-xs font-bold uppercase text-[#94a3b8] mb-1">Cambiar Estado (Semáforo)</label>
@@ -243,6 +257,7 @@
 
         // Control local de Datos de Memoria
         let todosLosPostulantes = {};
+        let listaReclutadores = [];
         let chartSexoInstance = null;
         let chartEdadInstance = null;
 
@@ -270,6 +285,17 @@
                 const data = snapshot.val() || {};
                 todosLosPostulantes = data.postulantes || {};
                 
+                // Obtener lista de Reclutadores / Asesores desde usuarios_reclutadores
+                listaReclutadores = [];
+                if (data.usuarios_reclutadores) {
+                    Object.values(data.usuarios_reclutadores).forEach(rec => {
+                        if (rec && rec.nombre) {
+                            listaReclutadores.push(rec.nombre.trim());
+                        }
+                    });
+                }
+                listaReclutadores.sort();
+
                 // Procesar Contadores Globales
                 const totalEmpresas = data.empresas ? Object.keys(data.empresas).length : 0;
                 const totalPostulados = Object.keys(todosLosPostulantes).length;
@@ -278,7 +304,6 @@
                 if (data.vacantes_detalles) {
                     Object.values(data.vacantes_detalles).forEach(empresaVac => {
                         if (empresaVac) {
-                            // Sumamos la cantidad exacta de nodos (puestos) que tiene cada empresa
                             totalVacantes += Object.keys(empresaVac).length; 
                         }
                     });
@@ -296,23 +321,20 @@
         function actualizarFiltrosEstructurales(data) {
             const filtroEmpresa = document.getElementById("filtroEmpresa");
             const filtroVacante = document.getElementById("filtroVacante");
+            const filtroAsesor = document.getElementById("filtroAsesor");
             
             const empresaSeleccionada = filtroEmpresa.value;
             const vacanteSeleccionada = filtroVacante.value;
+            const asesorSeleccionado = filtroAsesor.value;
 
-            // 1. Poblar catálogo de Empresas de forma limpia desde el nodo raíz
+            // 1. Poblar catálogo de Empresas
             filtroEmpresa.innerHTML = '<option value="TODAS">-- Todas las Empresas --</option>';
             if (data.empresas) {
                 Object.keys(data.empresas).forEach(emp => {
                     filtroEmpresa.innerHTML += `<option value="${emp}">${emp}</option>`;
                 });
             }
-            // Preservar la selección del usuario si aún existe
-            if (empresaSeleccionada && empresaSeleccionada !== "TODAS") {
-                filtroEmpresa.value = empresaSeleccionada;
-            } else {
-                filtroEmpresa.value = "TODAS";
-            }
+            filtroEmpresa.value = (empresaSeleccionada && empresaSeleccionada !== "TODAS") ? empresaSeleccionada : "TODAS";
 
             // 2. Poblar catálogo de Vacantes
             filtroVacante.innerHTML = '<option value="TODAS">-- Todas las Vacantes --</option>';
@@ -331,7 +353,6 @@
                     });
                 }
             } else {
-                // Si hay una empresa seleccionada, buscar sus vacantes específicas
                 const vacantesDeEmpresa = data.vacantes_detalles ? data.vacantes_detalles[filtroEmpresa.value] : null;
                 if (vacantesDeEmpresa) {
                     Object.values(vacantesDeEmpresa).forEach(detalles => {
@@ -342,7 +363,6 @@
                 }
             }
 
-            // Respaldo estructural: Por si hay postulantes amarrados a una vacante que ya se bajó del catálogo
             if (data.postulantes) {
                 Object.values(data.postulantes).forEach(p => {
                     const coincideEmpresa = filtroEmpresa.value === "TODAS" || p.empresa === filtroEmpresa.value;
@@ -352,16 +372,19 @@
                 });
             }
 
-            // Inyectar las vacantes únicas ordenadas alfabéticamente
             Array.from(vacantesSet).sort().forEach(vac => {
                 filtroVacante.innerHTML += `<option value="${vac}">${vac}</option>`;
             });
 
-            // Preservar la vacante seleccionada
-            filtroVacante.value = vacanteSeleccionada;
-            if (!filtroVacante.value) {
-                filtroVacante.value = "TODAS";
-            }
+            filtroVacante.value = vacanteSeleccionada && vacanteSeleccionada !== "" ? vacanteSeleccionada : "TODAS";
+
+            // 3. Poblar catálogo de Asesores apuntando a usuarios_reclutadores
+            filtroAsesor.innerHTML = '<option value="TODOS">-- Todos los Asesores --</option>';
+            listaReclutadores.forEach(asesor => {
+                filtroAsesor.innerHTML += `<option value="${asesor}">${asesor}</option>`;
+            });
+
+            filtroAsesor.value = asesorSeleccionado && asesorSeleccionado !== "" ? asesorSeleccionado : "TODOS";
         }
 
         function cargarPostulantes() {
@@ -370,6 +393,7 @@
 
             const empresaFiltro = document.getElementById("filtroEmpresa").value;
             const vacanteFiltro = document.getElementById("filtroVacante").value;
+            const asesorFiltro = document.getElementById("filtroAsesor").value;
 
             let metricaSexo = { Masculino: 0, Femenino: 0, Otro: 0 };
             let metricaEdad = { "18-25": 0, "26-35": 0, "36-45": 0, "46+": 0 };
@@ -377,6 +401,7 @@
             Object.entries(todosLosPostulantes).forEach(([id, p]) => {
                 if (empresaFiltro !== "TODAS" && p.empresa !== empresaFiltro) return;
                 if (vacanteFiltro !== "TODAS" && p.vacante !== vacanteFiltro) return;
+                if (asesorFiltro !== "TODOS" && p.asesor !== asesorFiltro) return;
 
                 if (p.sexo === "Masculino" || p.sexo === "Femenino") {
                     metricaSexo[p.sexo]++;
@@ -399,8 +424,9 @@
                 else if (estatusActual === "Declinante") claseSemaforo = "status-declinante";
 
                 let citaTexto = p.diaEntrevista || 'Por agendar';
+                let nombreAsesor = p.asesor || 'Sin asignar';
 
-                let mensajeWhatsApp = `Hola *${p.nombre}*, te saludamos de Reclutamiento. Con respecto a tu postulación para *${p.vacante}* en la empresa *${p.empresa}*, te informamos que tu estatus actual es: *${estatusActual}*.`;
+                let mensajeWhatsApp = `Hola *${p.nombre}*, te saludamos de Reclutamiento. Con respecto a tu postulación para *${p.vacante}* en la empresa *${p.empresa}*, te informamos que tu estatus actual es: *${estatusActual}*. Tu asesor asignado es: *${nombreAsesor}*.`;
                 if(estatusActual === "En Entrevista" && p.diaEntrevista) {
                     mensajeWhatsApp += ` Recuerda que tu cita está agendada para el día y hora: *${p.diaEntrevista}*.`;
                 }
@@ -428,6 +454,11 @@
                         <td class="p-3">
                             <div class="text-xs font-semibold text-[#ff6600]">${p.empresa}</div>
                             <div class="text-xs font-bold text-slate-200">${p.vacante}</div>
+                        </td>
+                        <td class="p-3">
+                            <div class="text-xs font-semibold text-emerald-400 flex items-center gap-1">
+                                <i class="fas fa-user-tie text-[10px]"></i> ${nombreAsesor}
+                            </div>
                         </td>
                         <td class="p-3">
                             <div class="text-xs text-slate-300">🗓️ Cita: <span class="font-semibold text-amber-400">${citaTexto}</span></div>
@@ -505,6 +536,18 @@
             document.getElementById("editId").value = id;
             document.getElementById("editNombre").value = p.nombre || "";
             document.getElementById("editTelefono").value = p.telefono || "";
+            
+            // Poblar dinámicamente el select de Asesores en el Modal
+            const selectAsesor = document.getElementById("editAsesor");
+            selectAsesor.innerHTML = '<option value="">-- Seleccionar Asesor --</option>';
+            
+            listaReclutadores.forEach(rec => {
+                selectAsesor.innerHTML += `<option value="${rec}">${rec}</option>`;
+            });
+
+            // Asignar la opción guardada previamente
+            selectAsesor.value = p.asesor || "";
+
             document.getElementById("editEstatus").value = p.estatus || "Postulado";
             
             let diaGuardado = "";
@@ -542,6 +585,7 @@
             const updates = {
                 nombre: document.getElementById("editNombre").value,
                 telefono: document.getElementById("editTelefono").value,
+                asesor: document.getElementById("editAsesor").value,
                 estatus: document.getElementById("editEstatus").value,
                 diaEntrevista: fechaStringConsolidada,
                 fechaActualizacionAdmin: new Date().toISOString()
@@ -585,10 +629,12 @@
             const dataToExport = [];
             const empresaFiltro = document.getElementById("filtroEmpresa").value;
             const vacanteFiltro = document.getElementById("filtroVacante").value;
+            const asesorFiltro = document.getElementById("filtroAsesor").value;
 
             Object.values(todosLosPostulantes).forEach(p => {
                 if (empresaFiltro !== "TODAS" && p.empresa !== empresaFiltro) return;
                 if (vacanteFiltro !== "TODAS" && p.vacante !== vacanteFiltro) return;
+                if (asesorFiltro !== "TODOS" && p.asesor !== asesorFiltro) return;
 
                 dataToExport.push({
                     "Nombre Completo": p.nombre,
@@ -598,6 +644,7 @@
                     "Sexo": p.sexo,
                     "Empresa": p.empresa,
                     "Vacante": p.vacante,
+                    "Asesor Asignado": p.asesor || "Sin Asignar",
                     "Estatus Proceso": p.estatus,
                     "Cita Agendada": p.diaEntrevista || "Pendiente",
                     "Ruta Logística Asignada": p.logistica_ruta_id || "Pendiente",
