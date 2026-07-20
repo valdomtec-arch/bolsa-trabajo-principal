@@ -778,34 +778,48 @@
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    // 4. CATÁLOGO DE ASESORES: Obtención de reclutadores desde Firebase
+    // 4. CATÁLOGO DE ASESORES: Conexión actualizada conusuarios_reclutadores
     async function cargarCatalogoReclutadores() {
         const selectElement = document.getElementById("selReclutador");
         try {
-            const snapReclutadores = await db.ref("reclutadores_autorizados").once('value');
+            const snapReclutadores = await db.ref("usuarios_reclutadores").once('value');
             selectElement.innerHTML = ""; 
+            
             if (snapReclutadores.exists()) {
                 const listado = snapReclutadores.val();
+                
                 const optDef = document.createElement("option");
-                optDef.value = ""; optDef.textContent = "— Selecciona tu Asesor Asignado —";
+                optDef.value = ""; 
+                optDef.textContent = "— Selecciona tu Asesor Asignado —";
                 selectElement.appendChild(optDef);
 
                 Object.keys(listado).forEach(key => {
                     const rec = listado[key];
-                    let telfLimpio = rec.telefono;
-                    if (telfLimpio && typeof telfLimpio === 'object') telfLimpio = rec.telefono.valor || rec.telefono.numero;
-                    if (telfLimpio) {
+                    
+                    // Filtrar que el estatus sea "Activo" (o sin definir por defecto)
+                    const estaActivo = !rec.estatus || rec.estatus === "Activo";
+                    
+                    if (estaActivo && rec.telefono) {
+                        const telfLimpio = String(rec.telefono).trim();
+                        const nombreMostrar = rec.nombre || "Asesor";
+                        const rolMostrar = rec.rol || "Asesor";
+
                         const option = document.createElement("option");
-                        option.value = String(telfLimpio).trim();
-                        option.dataset.nombreReal = rec.nombreCompleto || rec.nombre || "Asesor";
-                        option.textContent = `${rec.nombreCompleto || rec.nombre} (${rec.puesto || 'Asesor'})`;
+                        option.value = telfLimpio;
+                        option.dataset.nombreReal = nombreMostrar;
+                        option.textContent = `${nombreMostrar} (${rolMostrar})`;
                         selectElement.appendChild(option);
                     }
                 });
+
+                if (selectElement.children.length <= 1) {
+                    selectElement.innerHTML = `<option value="${fallbackTelefonoReclutador}" data-nombreReal="Asesor de Guardia">Asesor General de Guardia</option>`;
+                }
             } else {
                 selectElement.innerHTML = `<option value="${fallbackTelefonoReclutador}" data-nombreReal="Asesor de Guardia">Asesor General de Guardia</option>`;
             }
         } catch (e) {
+            console.error("Error al obtener reclutadores:", e);
             selectElement.innerHTML = `<option value="${fallbackTelefonoReclutador}" data-nombreReal="Asesor de Guardia">Asesor General de Guardia</option>`;
         }
     }
@@ -856,7 +870,7 @@
             const timestampId = "WF-" + Math.floor(100000 + Math.random() * 900000);
             const fechaYHoraActual = new Date().toLocaleString();
             
-            // CORRECCIÓN FIJA: Redirección unificada apuntando a acuse.html en GitHub Pages
+            // Redirección unificada apuntando a acuse.html en GitHub Pages
             const urlAcuseDigital = `https://valdomtec-arch.github.io/bolsa-trabajo-principal/acuse.html?folio=${timestampId}`;
 
             // Objeto unificado para persistir en el servidor Firebase
