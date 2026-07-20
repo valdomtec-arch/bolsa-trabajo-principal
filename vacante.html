@@ -406,6 +406,8 @@
             align-items: center; 
             gap: 10px; 
             transition: all 0.3s ease;
+            width: 100%;
+            justify-content: center;
         }
 
         .btn-submit:hover { 
@@ -505,10 +507,10 @@
             <input type="hidden" id="selPuntoRecoleccion" value="">
         </div>
 
-        <!-- FORMULARIO OFICIAL DE POSTULACIÓN -->
+        <!-- FORMULARIO OFICIAL DE POSTULACIÓN CON AGENDADO DE ENTREVISTA -->
         <div class="links-section">
             <h3 style="color: var(--white); margin-bottom: 20px; font-size: 1.3rem; border-bottom: 2px solid rgba(56, 189, 248, 0.15); padding-bottom: 10px;">
-                <i class="fas fa-user-pen"></i> Formulario de Postulación Oficial
+                <i class="fas fa-user-pen"></i> Formulario de Postulación y Agendado de Entrevista
             </h3>
             
             <form id="formPostulacion" onsubmit="enviarPostulacion(event)">
@@ -528,6 +530,33 @@
                     <input type="text" id="postCurp" required maxlength="18" minlength="18" style="text-transform: uppercase;" placeholder="Ingresa tu CURP completa">
                 </div>
 
+                <!-- SECCIÓN DE AGENDADO DE ENTREVISTA -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; background: rgba(8, 17, 34, 0.6); padding: 18px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 20px;">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="postFechaEntrevista" style="color: var(--wf-accent-blue);">
+                            <i class="fa-regular fa-calendar-check"></i> Fecha de Entrevista:
+                        </label>
+                        <input type="date" id="postFechaEntrevista" required>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="postHoraEntrevista" style="color: var(--wf-accent-blue);">
+                            <i class="fa-regular fa-clock"></i> Horario Conveniente:
+                        </label>
+                        <select id="postHoraEntrevista" required>
+                            <option value="">— Selecciona Hora —</option>
+                            <option value="08:00 AM">08:00 AM</option>
+                            <option value="09:00 AM">09:00 AM</option>
+                            <option value="10:00 AM">10:00 AM</option>
+                            <option value="11:00 AM">11:00 AM</option>
+                            <option value="12:00 PM">12:00 PM</option>
+                            <option value="01:00 PM">01:00 PM</option>
+                            <option value="02:00 PM">02:00 PM</option>
+                            <option value="03:00 PM">03:00 PM</option>
+                            <option value="04:00 PM">04:00 PM</option>
+                        </select>
+                    </div>
+                </div>
+
                 <div class="form-group">
                     <label for="selReclutador" style="color: var(--wf-accent-blue); font-weight: bold;">
                         <i class="fas fa-headset"></i> Selecciona al Asesor que te Atiende:
@@ -539,7 +568,7 @@
 
                 <div style="margin-top: 25px;">
                     <button type="submit" class="btn-submit" id="btnSubmitForm">
-                        <i class="fab fa-whatsapp"></i> Enviar Postulación Formal
+                        <i class="fab fa-whatsapp"></i> Confirmar Cita y Enviar a WhatsApp
                     </button>
                 </div>
             </form>
@@ -567,6 +596,15 @@
     let puntosLimpiosGlobal = []; 
     const fallbackTelefonoReclutador = "526461974763";
 
+    // Establecer fecha mínima para el selector de entrevista (hoy)
+    window.addEventListener('DOMContentLoaded', () => {
+        const inputFecha = document.getElementById('postFechaEntrevista');
+        if (inputFecha) {
+            const hoy = new Date().toISOString().split('T')[0];
+            inputFecha.min = hoy;
+        }
+    });
+
     // 1. CARGA INICIAL: Recuperación de puestos de la empresa y armado de Catálogo
     async function cargarDetallesVacante() {
         if (!empresaLimpia) {
@@ -579,7 +617,6 @@
                 if (snapshot.exists()) {
                     const dataRaw = snapshot.val();
                     
-                    // Normalización automática en caso de que sea objeto plano o nodo indexado
                     if (dataRaw.vacanteNombre || dataRaw.salario) {
                         todasLasVacantesEmpresa = {};
                         const llaveUnica = dataRaw.vacanteNombre.replace(/\s+/g, '_').toLowerCase() || "puesto_unico";
@@ -594,13 +631,11 @@
                         return;
                     }
 
-                    // Sincronizar datos globales de cabecera usando el primer elemento
                     const primerVacante = todasLasVacantesEmpresa[keys[0]];
                     document.getElementById('mainEmpresaNombre').innerText = primerVacante.empresaNombre || empresaLimpia.toUpperCase();
                     document.getElementById('mainEmpresaLugar').innerText = primerVacante.lugarOrigen || 'México';
                     document.getElementById('empresaHeaderBox').style.display = 'block';
 
-                    // Construcción Dinámica de Tarjetas (Vista Catálogo)
                     const listaContenedor = document.getElementById('listaVacantesDinamica');
                     listaContenedor.innerHTML = ''; 
                     
@@ -646,14 +681,12 @@
         const data = todasLasVacantesEmpresa[key];
         datosVacanteGlobal = data;
         
-        // Control de visitas único por sesión de usuario
         const pathVisita = `vacantes_detalles/${empresaLimpia}/${vacanteKeyDetectada}/visitas`;
         if (!sessionStorage.getItem(`visita_${empresaLimpia}_${vacanteKeyDetectada}`)) {
             db.ref(pathVisita).transaction((currentValue) => (currentValue || 0) + 1);
             sessionStorage.setItem(`visita_${empresaLimpia}_${vacanteKeyDetectada}`, 'true');
         }
 
-        // Inyección de Datos en Ficha Técnica
         document.getElementById('vacanteTitulo').innerText = data.vacanteNombre || 'Puesto';
         document.getElementById('vacanteEmpresa').innerText = empresaLimpia.toUpperCase();
         document.getElementById('vacanteVisitas').innerText = data.visitas ? (data.visitas + 1) : 1;
@@ -670,7 +703,6 @@
         document.getElementById('vacanteBeneficios').innerText = data.beneficios || 'No especificados.';
         document.getElementById('vacanteNotas').innerText = data.informacionGeneral || 'Sin notas adicionales.';
 
-        // Lógica de Banner de Vacante
         let imagenFinalBanner = data.bannerUrl && data.bannerUrl.trim() !== "" ? data.bannerUrl.trim() : `https://valdomtec-arch.github.io/bolsa-trabajo-principal/imagen-${empresaLimpia}.jpg`;
         const imgElement = document.getElementById('vacanteBanner');
         imgElement.src = imagenFinalBanner;
@@ -704,7 +736,6 @@
                         if (puntos && Array.isArray(puntos)) {
                             puntosLimpiosGlobal = puntos.filter(p => p && p.nombre);
 
-                            // Función interna para el renderizado interactivo de las paradas
                             function pintarPantallaRutas(listaFiltrada) {
                                 pantallaRutas.innerHTML = '';
                                 if(listaFiltrada.length === 0){
@@ -736,7 +767,6 @@
                                 });
                             }
 
-                            // Evento de búsqueda inteligente por ubicación en tiempo real
                             buscadorInput.oninput = function(e) {
                                 const busqueda = e.target.value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
                                 const filtrados = puntosLimpiosGlobal.filter(p => 
@@ -744,7 +774,6 @@
                                 );
                                 pintarPantallaRutas(filtrados);
                                 
-                                // Auto-selección inteligente si queda un único resultado exacto
                                 if(filtrados.length === 1) {
                                     inputOcultoPunto.value = `${filtrados[0].nombre} (${filtrados[0].horario || ''})`;
                                     setTimeout(() => {
@@ -764,21 +793,19 @@
             });
         }
 
-        // Transición visual limpia entre pantallas
         document.getElementById('vacanteBannerBox').style.display = 'block';
         document.getElementById('menuVacantesBox').style.display = 'none';
         document.getElementById('content').style.display = 'block';
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    // Regresar al Catálogo Principal
     window.regresarAlMenu = function() {
         document.getElementById('content').style.display = 'none';
         document.getElementById('menuVacantesBox').style.display = 'block';
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    // 4. CATÁLOGO DE ASESORES: Conexión actualizada con usuarios_reclutadores
+    // 4. CATÁLOGO DE ASESORES
     async function cargarCatalogoReclutadores() {
         const selectElement = document.getElementById("selReclutador");
         try {
@@ -795,8 +822,6 @@
 
                 Object.keys(listado).forEach(key => {
                     const rec = listado[key];
-                    
-                    // Filtrar que el estatus sea "Activo" (o sin definir por defecto)
                     const estaActivo = !rec.estatus || rec.estatus === "Activo";
                     
                     if (estaActivo && rec.telefono) {
@@ -824,7 +849,6 @@
         }
     }
 
-    // Extracción analítica de edad y sexo desde la CURP
     function extraerDatosCurp(curp) {
         if (!curp || curp.length < 11) return { edad: "Indistinto", sexo: "Indistinto" };
         const letraSexo = curp.charAt(10).toUpperCase();
@@ -835,13 +859,15 @@
         return { edad: isNaN(edadCalculada) ? "Indistinto" : String(edadCalculada), sexo: sexo };
     }
 
-    // 5. POSTULACIÓN Y RUTEO FINAL INTERNO Y EXTERNO
+    // 5. POSTULACIÓN CON AGENDADO Y RUTEO FINAL INTERNO Y EXTERNO
     window.enviarPostulacion = async function(e) {
         e.preventDefault();
         
         const nombre = document.getElementById('postNombre').value.trim();
         const telefono = document.getElementById('postTelefono').value.trim();
         const curp = document.getElementById('postCurp').value.trim().toUpperCase();
+        const fechaEntrevista = document.getElementById('postFechaEntrevista').value;
+        const horaEntrevista = document.getElementById('postHoraEntrevista').value;
         const inputOcultoPunto = document.getElementById('selPuntoRecoleccion');
         const selectReclutador = document.getElementById("selReclutador");
         const btnSubmit = document.getElementById('btnSubmitForm');
@@ -849,13 +875,13 @@
         const bloqueTransVisible = document.getElementById('bloqueTransporte').style.display !== 'none';
         const puntoElegido = inputOcultoPunto.value ? inputOcultoPunto.value : "No aplica / No seleccionado";
 
-        // Validaciones estrictas de seguridad de datos
         if (bloqueTransVisible && !inputOcultoPunto.value) { 
             alert("⚠️ Por favor ubica y selecciona una de las paradas de transporte en la lista."); 
             return; 
         }
         if (curp.length !== 18) { alert("❌ La CURP debe tener exactamente 18 caracteres."); return; }
         if (telefono.length !== 10) { alert("❌ El teléfono debe constar de 10 dígitos."); return; }
+        if (!fechaEntrevista || !horaEntrevista) { alert("❌ Por favor selecciona fecha y hora para tu entrevista."); return; }
         if (!selectReclutador.value) { alert("❌ Por favor, selecciona al Asesor."); return; }
 
         btnSubmit.disabled = true;
@@ -870,10 +896,8 @@
             const timestampId = "WF-" + Math.floor(100000 + Math.random() * 900000);
             const fechaYHoraActual = new Date().toLocaleString();
             
-            // Redirección unificada apuntando a acuse.html en GitHub Pages
             const urlAcuseDigital = `https://valdomtec-arch.github.io/bolsa-trabajo-principal/acuse.html?folio=${timestampId}`;
 
-            // Objeto unificado optimizado para el servidor Firebase y la consulta del Módulo 7
             const payloadPostulante = {
                 id: timestampId,
                 nombre: nombre,
@@ -887,26 +911,29 @@
                 empresaDestino: empresaLimpia.toUpperCase(),
                 vacante: datosVacanteGlobal ? (datosVacanteGlobal.vacanteNombre || "Desconocida") : "Desconocida",
                 puesto: datosVacanteGlobal ? (datosVacanteGlobal.vacanteNombre || "Desconocida") : "Desconocida",
-                estatus: "Postulado",                       // Mantiene alineado el flujo de estados
-                asesor: nombreReclutadorCorto,              // Referencia rápida para paneles de reclutamiento
-                atendidoPor: nombreReclutadorCorto,         // Mantiene compatibilidad histórica
+                fechaEntrevista: fechaEntrevista,           // CONEXIÓN CON MÓDULO 3
+                horaEntrevista: horaEntrevista,             // CONEXIÓN CON MÓDULO 3
+                estatus: "Postulado",
+                asesor: nombreReclutadorCorto,
+                atendidoPor: nombreReclutadorCorto,
                 rutaTransporteSeleccionada: puntoElegido,
-                urlAcusePdf: urlAcuseDigital,              // PERSISTENCIA EN SERVIDOR PARA MÓDULO 7
+                urlAcusePdf: urlAcuseDigital,              // PERSISTENCIA PARA MÓDULO 7
                 fechaRegistro: fechaYHoraActual,
                 timestamp: firebase.database.ServerValue.TIMESTAMP
             };
 
-            // Transacciones concurrentes seguras
             await db.ref(`postulantes/${timestampId}`).set(payloadPostulante);
             await db.ref('postulantes_count').update({ total: firebase.database.ServerValue.increment(1) });
 
-            // Formateo del mensaje comercial estructurado para WhatsApp
-            const mensajeWhatsApp = `¡Hola! Me acabo de postular a una vacante.\n\n` +
+            const mensajeWhatsApp = `¡Hola! Me acabo de postular a una vacante y agendé mi cita.\n\n` +
                                     `*📌 Detalles de mi Postulación:*\n` +
                                     `• *Folio:* ${timestampId}\n` +
                                     `• *Puesto:* ${payloadPostulante.vacante}\n` +
                                     `• *Empresa:* ${payloadPostulante.empresa}\n` +
                                     `• *Ruta Conveniente:* ${puntoElegido}\n\n` +
+                                    `*📅 Cita de Entrevista Agendada:*\n` +
+                                    `• *Fecha:* ${fechaEntrevista}\n` +
+                                    `• *Horario:* ${horaEntrevista}\n\n` +
                                     `*👤 Mis Datos de Contacto:*\n` +
                                     `• *Nombre:* ${payloadPostulante.nombre}\n` +
                                     `• *Teléfono:* ${payloadPostulante.telefono}\n` +
@@ -917,7 +944,7 @@
 
             document.getElementById('formPostulacion').reset();
             btnSubmit.disabled = false;
-            btnSubmit.innerHTML = `<i class="fab fa-whatsapp"></i> Enviar Postulación Formal`;
+            btnSubmit.innerHTML = `<i class="fab fa-whatsapp"></i> Confirmar Cita y Enviar a WhatsApp`;
             
             setTimeout(() => {
                 window.location.href = `https://wa.me/${telefonoDestino}?text=${encodeURIComponent(mensajeWhatsApp)}`;
@@ -926,7 +953,7 @@
         } catch (err) {
             alert(`❌ Error al guardar datos: ${err.message}`);
             btnSubmit.disabled = false;
-            btnSubmit.innerHTML = `<i class="fab fa-whatsapp"></i> Enviar Postulación Formal`;
+            btnSubmit.innerHTML = `<i class="fab fa-whatsapp"></i> Confirmar Cita y Enviar a WhatsApp`;
         }
     };
 
