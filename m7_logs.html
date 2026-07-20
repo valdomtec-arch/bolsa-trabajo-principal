@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Módulo 7: Caja Negra - Log de Auditoría Global</title>
+    <!-- Tailwind CSS para Diseño -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans p-6 min-h-screen antialiased">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- ENCABEZADO TÁCTICO -->
+        <div class="border-b border-slate-800 pb-6 mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+                <span class="bg-amber-500/10 text-amber-400 text-xs px-2.5 py-1 rounded-full font-mono font-bold tracking-wider uppercase">Seguridad Operativa e Inalterabilidad</span>
+                <h1 class="text-3xl font-extrabold text-white mt-1 tracking-tight">Caja Negra del Sistema</h1>
+                <p class="text-slate-400 text-sm mt-1">Historial cronológico completo de transacciones, seguridad y modificaciones del ERP.</p>
+            </div>
+            <div class="bg-slate-900 border border-slate-800 px-4 py-2 rounded-xl text-right shrink-0">
+                <span class="text-[10px] font-mono text-slate-500 uppercase block">Conexión Firebase</span>
+                <span id="contadorLogs" class="text-xs font-bold text-emerald-400 font-mono">Cargando registros...</span>
+            </div>
+        </div>
+
+        <!-- BARRA TÁCTICA DE FILTROS (CORREGIDA SEGUNDO PLANO MAESTRO V3.0) -->
+        <div class="bg-slate-900 border border-slate-800/60 rounded-xl p-4 mb-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+                <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Filtrar por Módulo</label>
+                <select id="filtroModulo" onchange="filtrarLogs()" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500">
+                    <option value="TODOS">-- Todos los Módulos --</option>
+                    <option value="m1_empresas.html">M1 - Registrar Empresas</option>
+                    <option value="m2_vacantes.html">M2 - Control de Vacantes</option>
+                    <option value="m3_agenda.html">M3 - Agenda y Postulantes</option>
+                    <option value="m4_metricas.html">M4 - Estadísticas Demográficas</option>
+                    <option value="m5_staff.html">M5 - Control de Reclutadores</option>
+                    <option value="m6_transporte.html">M6 - Logística de Transporte</option>
+                    <option value="m7_logs.html">M7 - Log del Sistema</option>
+                    <option value="m8_creador_modulos.html">M8 - Creador de Módulos</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Filtrar por Operación</label>
+                <select id="filtroOperacion" onchange="filtrarLogs()" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500">
+                    <option value="TODOS">-- Todas las Operaciones --</option>
+                    <option value="CREAR">CREAR (Altas)</option>
+                    <option value="MODIFICAR">MODIFICAR (Cambios)</option>
+                    <option value="INHABILITAR">INHABILITAR (Suspensiones)</option>
+                    <option value="REACTIVAR">REACTIVAR (Accesos permitidos)</option>
+                    <option value="ELIMINAR">ELIMINAR (Bajas físicas)</option>
+                    <option value="ACCESO">ACCESO (Lecturas/Ingresos)</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Buscar por Usuario ID</label>
+                <input type="text" id="buscarUsuario" onkeyup="filtrarLogs()" placeholder="Ej. Gerente General..." class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500">
+            </div>
+        </div>
+
+        <!-- TABLA CENTRAL DE AUDITORÍA -->
+        <div class="bg-slate-900 border border-slate-800/60 rounded-xl p-6 shadow-xl">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs border-collapse">
+                    <thead>
+                        <tr class="bg-slate-950 border-b border-slate-800 text-slate-400 uppercase font-mono font-bold">
+                            <th class="p-3 w-1/5">Fecha / Hora (Timestamp)</th>
+                            <th class="p-3 w-1/6">Usuario Operador</th>
+                            <th class="p-3 w-1/6">Módulo de Origen</th>
+                            <th class="p-3 w-1/12 text-center">Operación</th>
+                            <th class="p-3 w-2/5">Detalles del Evento Informativo</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaLogs" class="divide-y divide-slate-800/60 font-mono text-slate-300">
+                        <!-- Inyección dinámica en tiempo real -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- CONFIGURACIÓN DE FIREBASE NATIVO -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script>
+        const firebaseConfig = { databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com" };
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        let totalLogs = [];
+
+        document.addEventListener("DOMContentLoaded", () => {
+            // Escucha activa en tiempo real al nodo global de auditoría
+            db.ref("logs_sistema").orderByChild("timestamp").on("value", (snap) => {
+                const datos = snap.val();
+                totalLogs = [];
+                
+                if (datos) {
+                    // Convertir objeto de Firebase a array y ordenarlo del más reciente al más viejo
+                    Object.values(datos).forEach(log => {
+                        totalLogs.push(log);
+                    });
+                    totalLogs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                }
+                
+                document.getElementById("contadorLogs").textContent = `📡 ${totalLogs.length} Registros Activos`;
+                renderizarLogs(totalLogs);
+            });
+        });
+
+        function renderizarLogs(listaAFiltrar) {
+            const tbody = document.getElementById("tablaLogs");
+            tbody.innerHTML = "";
+
+            if (listaAFiltrar.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="p-8 text-center text-slate-500 italic">No se encontraron registros de auditoría con los filtros seleccionados.</td>
+                    </tr>`;
+                return;
+            }
+
+            listaAFiltrar.forEach(log => {
+                // Formatear Fecha local amigable
+                const fechaLocal = log.timestamp ? new Date(log.timestamp).toLocaleString('es-MX', { timeZone: 'America/Monterrey' }) : 'Fecha no disponible';
+
+                // Colores para las etiquetas de operación
+                let badgeOperacion = "";
+                switch (log.operacion) {
+                    case "CREAR":
+                        badgeOperacion = `<span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded font-bold text-[10px]">CREAR</span>`;
+                        break;
+                    case "MODIFICAR":
+                        badgeOperacion = `<span class="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded font-bold text-[10px]">MODIFICAR</span>`;
+                        break;
+                    case "INHABILITAR":
+                        badgeOperacion = `<span class="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded font-bold text-[10px]">INHABILITAR</span>`;
+                        break;
+                    case "REACTIVAR":
+                        badgeOperacion = `<span class="bg-purple-500/10 text-purple-400 border border-purple-500/20 px-2 py-0.5 rounded font-bold text-[10px]">REACTIVAR</span>`;
+                        break;
+                    case "ELIMINAR":
+                        badgeOperacion = `<span class="bg-rose-500/10 text-rose-400 border border-rose-500/20 px-2 py-0.5 rounded font-bold text-[10px]">ELIMINAR</span>`;
+                        break;
+                    default:
+                        badgeOperacion = `<span class="bg-slate-800 text-slate-400 px-2 py-0.5 rounded text-[10px]">${log.operacion || 'ACCESO'}</span>`;
+                }
+
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-900/40 transition-all border-b border-slate-800/30">
+                        <td class="p-3 text-slate-400 text-[11px]">${fechaLocal}</td>
+                        <td class="p-3 font-bold text-slate-200">${log.usuario_id || 'Anónimo'}</td>
+                        <td class="p-3 text-slate-400 text-[11px]">${log.modulo || 'Sistema'}</td>
+                        <td class="p-3 text-center">${badgeOperacion}</td>
+                        <td class="p-3 text-slate-300 font-sans text-xs">${log.detalles || 'Sin detalles'}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        function filtrarLogs() {
+            const mod = document.getElementById("filtroModulo").value;
+            const op = document.getElementById("filtroOperacion").value;
+            const user = document.getElementById("buscarUsuario").value.toLowerCase().trim();
+
+            let logsFiltrados = totalLogs.filter(log => {
+                const cumpleModulo = (mod === "TODOS" || log.modulo === mod);
+                const cumpleOperacion = (op === "TODOS" || log.operacion === op);
+                const cumpleUsuario = (user === "" || (log.usuario_id && log.usuario_id.toLowerCase().includes(user)));
+                
+                return cumpleModulo && cumpleOperacion && cumpleUsuario;
+            });
+
+            renderizarLogs(logsFiltrados);
+        }
+    </script>
+</body>
+</html>
