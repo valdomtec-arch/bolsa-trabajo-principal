@@ -275,15 +275,18 @@
                 const totalPostulados = Object.keys(todosLosPostulantes).length;
                 
                 let totalVacantes = 0;
-                if (data.vacantes_detalles) {
-                    Object.values(data.vacantes_detalles).forEach(empresaVac => {
-                        totalVacantes += Object.keys(empresaVac).length;
-                    });
-                }
+if (data.vacantes_detalles) {
+    Object.values(data.vacantes_detalles).forEach(empresaVac => {
+        if (empresaVac) {
+            // Sumamos la cantidad exacta de nodos (puestos) que tiene cada empresa
+            totalVacantes += Object.keys(empresaVac).length; 
+        }
+    });
+}
 
-                document.getElementById("txtTotalEmpresas").innerText = totalEmpresas;
-                document.getElementById("txtTotalPostulados").innerText = totalPostulados;
-                document.getElementById("txtTotalVacantes").innerText = totalVacantes;
+document.getElementById("txtTotalEmpresas").innerText = totalEmpresas;
+document.getElementById("txtTotalPostulados").innerText = totalPostulados;
+document.getElementById("txtTotalVacantes").innerText = totalVacantes;
 
                 actualizarFiltrosEstructurales(data);
                 cargarPostulantes();
@@ -311,31 +314,51 @@
         filtroEmpresa.value = "TODAS";
     }
 
-    // 2. Poblar catálogo de Vacantes dependiendo de la empresa seleccionada o global
+   // 2. Poblar catálogo de Vacantes
     filtroVacante.innerHTML = '<option value="TODAS">-- Todas las Vacantes --</option>';
+    const vacantesSet = new Set();
     
     if (filtroEmpresa.value === "TODAS") {
-        // Si no hay empresa seleccionada, extrae TODAS las vacantes del catálogo global sin duplicados
-        const todasLasVacantesSet = new Set();
         if (data.vacantes_detalles) {
             Object.values(data.vacantes_detalles).forEach(empresaVac => {
-                Object.keys(empresaVac).forEach(vac => todasLasVacantesSet.add(vac));
+                if (empresaVac) {
+                    Object.values(empresaVac).forEach(detalles => {
+                        // Aquí leemos el nombre real estructurado en tu base de datos
+                        if (detalles && detalles.vacanteNombre) {
+                            vacantesSet.add(detalles.vacanteNombre.trim());
+                        }
+                    });
+                }
             });
         }
-        todasLasVacantesSet.forEach(vac => {
-            filtroVacante.innerHTML += `<option value="${vac}">${vac}</option>`;
-        });
     } else {
-        // Si hay una empresa seleccionada, muestra solo las vacantes de esa empresa
+        // Si hay una empresa seleccionada, buscar sus vacantes específicas
         const vacantesDeEmpresa = data.vacantes_detalles ? data.vacantes_detalles[filtroEmpresa.value] : null;
         if (vacantesDeEmpresa) {
-            Object.keys(vacantesDeEmpresa).forEach(vac => {
-                filtroVacante.innerHTML += `<option value="${vac}">${vac}</option>`;
+            Object.values(vacantesDeEmpresa).forEach(detalles => {
+                if (detalles && detalles.vacanteNombre) {
+                    vacantesSet.add(detalles.vacanteNombre.trim());
+                }
             });
         }
     }
 
-    // Preservar la vacante seleccionada si sigue disponible en el nuevo set
+    // Respaldo estructural: Por si hay postulantes amarrados a una vacante que ya se bajó del catálogo
+    if (data.postulantes) {
+        Object.values(data.postulantes).forEach(p => {
+            const coincideEmpresa = filtroEmpresa.value === "TODAS" || p.empresa === filtroEmpresa.value;
+            if (coincideEmpresa && p.vacante) {
+                vacantesSet.add(p.vacante.trim());
+            }
+        });
+    }
+
+    // Inyectar las vacantes únicas ordenadas alfabéticamente
+    Array.from(vacantesSet).sort().forEach(vac => {
+        filtroVacante.innerHTML += `<option value="${vac}">${vac}</option>`;
+    });
+
+    // Preservar la vacante seleccionada
     filtroVacante.value = vacanteSeleccionada;
     if (!filtroVacante.value) {
         filtroVacante.value = "TODAS";
