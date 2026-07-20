@@ -313,22 +313,38 @@
                 document.getElementById('userSessionDisplay').innerText = `Sesión Directa • SuperAdmin`;
             }
 
-            // Lectura directa en tiempo real sin modificar Firebase
             inicializarRendersTiempoReal();
         });
 
+        // REDIRECCIÓN CORRECTA A INDEX.HTML
         function cerrarSesionAdmin() {
             sessionStorage.removeItem('usuarioLogueado');
-            window.location.href = BASE_URL + "indice.html";
+            window.location.href = BASE_URL + "index.html";
         }
 
-        // Renderizado dinámico en tiempo real y armado de URLs absolutas sin fallos
+        // Estructura de respaldo si Firebase está vacío
+        function verificarYRestaurarBase() {
+            const refModulos = db.ref("modulos_config");
+            const estructuraMaestra = {
+                "m1_empresas": { id: "m1_empresas", titulo: "Registrar Empresas", descripcion: "Alta de clientes corporativos, marcas y logos.", icono: "fa-building", url: `${BASE_URL}m1_empresas.html`, activo: true, orden: 1, tipo: "standard", roles_permitidos: ["SuperAdmin", "Admin", "Reclutador"] },
+                "m2_vacantes": { id: "m2_vacantes", titulo: "Control Vacantes (IA)", descripcion: "Motor IA Gemini para extracción de perfiles.", icono: "fa-briefcase", url: `${BASE_URL}m2_vacantes.html`, activo: true, orden: 2, tipo: "standard", roles_permitidos: ["SuperAdmin", "Admin", "Reclutador"] },
+                "m3_agenda": { id: "m3_agenda", titulo: "Agenda y Postulantes", descripcion: "Seguimiento de candidatos y generación de acuse.html.", icono: "fa-calendar-days", url: `${BASE_URL}m3_agenda.html`, activo: true, orden: 3, tipo: "standard", roles_permitidos: ["SuperAdmin", "Admin", "Reclutador"] },
+                "m4_metricas": { id: "m4_metricas", titulo: "Estadísticas Demog.", descripcion: "Dashboard analítico de KPIs y métricas demográficas.", icono: "fa-chart-pie", url: `${BASE_URL}m4_metricas.html`, activo: true, orden: 4, tipo: "standard", roles_permitidos: ["SuperAdmin", "Admin", "Reclutador"] },
+                "m5_staff": { id: "m5_staff", titulo: "Control Reclutadores", descripcion: "Administración de usuarios, roles y permisos.", icono: "fa-users-gears", url: `${BASE_URL}m5_staff.html`, activo: true, orden: 5, tipo: "standard", roles_permitidos: ["SuperAdmin", "Admin"] },
+                "m6_transporte": { id: "m6_transporte", titulo: "Logística Transporte (IA)", descripcion: "Motor IA Gemini para optimización de rutas.", icono: "fa-bus", url: `${BASE_URL}m6_transporte.html`, activo: true, orden: 6, tipo: "standard", roles_permitidos: ["SuperAdmin", "Admin", "Logistico"] },
+                "m7_logs": { id: "m7_logs", titulo: "Caja Negra / Auditoría", descripcion: "Caja negra inalterable de auditoría e historial global.", icono: "fa-shield-halved", url: `${BASE_URL}m7_logs.html`, activo: true, orden: 7, tipo: "critical", roles_permitidos: ["SuperAdmin", "Admin"] },
+                "m8_creador_modulos": { id: "m8_creador_modulos", titulo: "Creador de Módulos", descripcion: "Inyección dinámica y expansión de nuevas vistas.", icono: "fa-screwdriver-wrench", url: `${BASE_URL}m8_creador_modulos.html`, activo: true, orden: 8, tipo: "core", roles_permitidos: ["SuperAdmin", "Admin"] }
+            };
+            refModulos.update(estructuraMaestra);
+        }
+
+        // Renderizado dinámico con validación de roles flexible
         function inicializarRendersTiempoReal() {
             const contenedorDinamico = document.getElementById("hub-modulos-dinamico");
             
             db.ref("modulos_config").orderByChild("orden").on("value", (snapshot) => {
                 if (!snapshot.exists()) {
-                    contenedorDinamico.innerHTML = `<p class="text-center text-muted">No hay módulos disponibles en la base de datos.</p>`;
+                    verificarYRestaurarBase();
                     return;
                 }
 
@@ -338,8 +354,11 @@
                     const modulo = childSnapshot.val();
                     
                     const esActivo = modulo.activo !== false;
-                    const rolesPermitidos = modulo.roles_permitidos || ["SuperAdmin"];
-                    const tienePermiso = rolUsuarioActivo === "SuperAdmin" || rolesPermitidos.includes(rolUsuarioActivo);
+                    const rolesPermitidos = modulo.roles_permitidos || ["SuperAdmin", "Admin", "Administrador"];
+                    
+                    // Permisivo para cualquier nivel de Admin
+                    const esAdminGlobal = ["SuperAdmin", "Admin", "Administrador", "admin"].includes(rolUsuarioActivo);
+                    const tienePermiso = esAdminGlobal || rolesPermitidos.includes(rolUsuarioActivo);
 
                     if (esActivo && tienePermiso) {
                         modulosActivos.push({ id: id, ...modulo });
@@ -349,7 +368,7 @@
                 contenedorDinamico.innerHTML = "";
 
                 if (modulosActivos.length === 0) {
-                    contenedorDinamico.innerHTML = `<div class="text-center text-slate-400 py-5">No tienes módulos asignados para tu rol.</div>`;
+                    verificarYRestaurarBase();
                     return;
                 }
 
@@ -369,15 +388,12 @@
                         ? `<i class="fa-solid ${iconoRaw}"></i>` 
                         : `<span>${iconoRaw}</span>`;
 
-                    // CONSTRUCCIÓN SEGURA DE ENLACE: Si la URL guardada no es válida, la arma usando BASE_URL + id + .html
                     let rutaEnlace = "";
                     if (modulo.url && modulo.url.startsWith("http")) {
                         rutaEnlace = modulo.url;
                     } else if (modulo.url && modulo.url.endsWith(".html")) {
-                        // Si guardaste solo "m1_empresas.html"
                         rutaEnlace = BASE_URL + modulo.url.replace(/^\//, '');
                     } else {
-                        // Por defecto
                         rutaEnlace = `${BASE_URL}${modulo.id}.html`;
                     }
 
