@@ -3,44 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Módulo 7: Caja Negra - Log de Auditoría Global</title>
-    <!-- Tailwind CSS para Diseño -->
+    <title>Módulo 7: Caja Negra & Registro de Acuses</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-950 text-slate-100 font-sans p-6 min-h-screen antialiased">
     <div class="max-w-7xl mx-auto">
         
-        <!-- ENCABEZADO TÁCTICO CON EXPORTACIÓN Y PURGA -->
+        <!-- ENCABEZADO TÁCTICO -->
         <div class="border-b border-slate-800 pb-6 mb-6 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
             <div>
-                <span class="bg-amber-500/10 text-amber-400 text-xs px-2.5 py-1 rounded-full font-mono font-bold tracking-wider uppercase border border-amber-500/20">Seguridad Operativa e Inalterabilidad</span>
-                <h1 class="text-3xl font-extrabold text-white mt-1 tracking-tight">Caja Negra del Sistema</h1>
-                <p class="text-slate-400 text-sm mt-1">Historial cronológico completo de transacciones, seguridad y modificaciones del ERP.</p>
+                <span class="bg-amber-500/10 text-amber-400 text-xs px-2.5 py-1 rounded-full font-mono font-bold tracking-wider uppercase border border-amber-500/20">Seguridad Operativa & Control</span>
+                <h1 class="text-3xl font-extrabold text-white mt-1 tracking-tight">Centro de Auditoría y Acuses</h1>
+                <p class="text-slate-400 text-sm mt-1">Gestión independiente de la Caja Negra del ERP y Registro de Acuses Digitales.</p>
             </div>
             
             <div class="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-                <!-- Botones de Exportación -->
                 <div class="flex gap-2">
-                    <button onclick="exportarCSV()" title="Exportar logs a CSV" class="bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 font-mono text-xs px-3 py-2 rounded-xl flex items-center gap-2 transition-all">
+                    <button onclick="exportarCSV()" title="Exportar a CSV" class="bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 font-mono text-xs px-3 py-2 rounded-xl flex items-center gap-2 transition-all">
                         <span>📊</span> CSV
                     </button>
-                    <button onclick="exportarJSON()" title="Exportar logs a JSON" class="bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 font-mono text-xs px-3 py-2 rounded-xl flex items-center gap-2 transition-all">
+                    <button onclick="exportarJSON()" title="Exportar a JSON" class="bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 font-mono text-xs px-3 py-2 rounded-xl flex items-center gap-2 transition-all">
                         <span>📦</span> JSON
                     </button>
-                    <button onclick="confirmarArchivadoYPurga()" title="Respaldar y depurar base de datos" class="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 font-mono text-xs px-3 py-2 rounded-xl flex items-center gap-2 transition-all">
-                        <span>🧹</span> Archivado / Purga
+                    <button onclick="confirmarArchivadoYPurga()" title="Respaldar y depurar" class="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 font-mono text-xs px-3 py-2 rounded-xl flex items-center gap-2 transition-all">
+                        <span>🧹</span> Purga
                     </button>
                 </div>
 
                 <div class="bg-slate-900 border border-slate-800 px-4 py-2 rounded-xl text-right shrink-0 flex-1 lg:flex-initial">
-                    <span class="text-[10px] font-mono text-slate-500 uppercase block">Conexión Firebase</span>
-                    <span id="contadorLogs" class="text-xs font-bold text-emerald-400 font-mono">Cargando registros...</span>
+                    <span class="text-[10px] font-mono text-slate-500 uppercase block">Estado Conexión</span>
+                    <span id="contadorLogs" class="text-xs font-bold text-emerald-400 font-mono">Cargando datos...</span>
                 </div>
             </div>
         </div>
 
-        <!-- BARRA TÁCTICA DE FILTROS -->
-        <div class="bg-slate-900 border border-slate-800/60 rounded-xl p-4 mb-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <!-- SELECTOR DE VISTA (SEPARACIÓN DE AMBOS MUNDOS) -->
+        <div class="flex gap-4 mb-6 border-b border-slate-800 pb-4">
+            <button id="btnTabLogs" onclick="cambiarVista('LOGS')" class="bg-amber-500 text-slate-950 font-bold text-xs px-4 py-2 rounded-xl font-mono flex items-center gap-2 transition-all shadow-lg">
+                <span>🛡️</span> Logs del Sistema (Caja Negra)
+            </button>
+            <button id="btnTabAcuses" onclick="cambiarVista('ACUSES')" class="bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 font-bold text-xs px-4 py-2 rounded-xl font-mono flex items-center gap-2 transition-all">
+                <span>📄</span> Registro de Acuses por Candidato
+            </button>
+        </div>
+
+        <!-- BARRA DE FILTROS PARA LOGS DEL SISTEMA -->
+        <div id="panelFiltrosLogs" class="bg-slate-900 border border-slate-800/60 rounded-xl p-4 mb-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
                 <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Filtrar por Módulo</label>
                 <select id="filtroModulo" onchange="filtrarLogs()" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500">
@@ -52,7 +61,6 @@
                     <option value="Modulo 5">M5 - Control de Reclutadores</option>
                     <option value="Modulo 6">M6 - Logística de Transporte</option>
                     <option value="Modulo 7">M7 - Log del Sistema</option>
-                    <option value="Modulo 8">M8 - Creador de Módulos</option>
                 </select>
             </div>
 
@@ -64,18 +72,25 @@
                     <option value="MODIFICAR">MODIFICAR / EDICION</option>
                     <option value="ELIMINAR">ELIMINAR / BAJA</option>
                     <option value="IA">PROCESOS IA</option>
-                    <option value="ACCESO">ACCESO / CONSULTA</option>
                 </select>
             </div>
 
             <div>
                 <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Buscar en Detalles / Usuario</label>
-                <input type="text" id="buscarUsuario" onkeyup="filtrarLogs()" placeholder="Ej. Transporte, Vacante, Administrador..." class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500">
+                <input type="text" id="buscarUsuario" onkeyup="filtrarLogs()" placeholder="Ej. Transporte, Administrador..." class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500">
             </div>
         </div>
 
-        <!-- TABLA CENTRAL DE AUDITORÍA -->
-        <div class="bg-slate-900 border border-slate-800/60 rounded-xl p-6 shadow-xl">
+        <!-- BARRA DE FILTROS PARA ACUSES (SEPARADO) -->
+        <div id="panelFiltrosAcuses" class="bg-slate-900 border border-slate-800/60 rounded-xl p-4 mb-6 hidden">
+            <div>
+                <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Buscar Candidato, Folio o Puesto</label>
+                <input type="text" id="buscarAcuse" onkeyup="filtrarAcuses()" placeholder="Ej. WF-108592, Juan Pérez, Montacarguista..." class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500">
+            </div>
+        </div>
+
+        <!-- TABLA PRINCIPAL DE AUDITORÍA (LOGS) -->
+        <div id="contenedorTablaLogs" class="bg-slate-900 border border-slate-800/60 rounded-xl p-6 shadow-xl">
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-xs border-collapse">
                     <thead>
@@ -88,7 +103,28 @@
                         </tr>
                     </thead>
                     <tbody id="tablaLogs" class="divide-y divide-slate-800/60 font-mono text-slate-300">
-                        <!-- Inyección dinámica -->
+                        <!-- Inyección dinámica de Logs -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- TABLA INDEPENDIENTE DE ACUSES -->
+        <div id="contenedorTablaAcuses" class="bg-slate-900 border border-slate-800/60 rounded-xl p-6 shadow-xl hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs border-collapse">
+                    <thead>
+                        <tr class="bg-slate-950 border-b border-slate-800 text-slate-400 uppercase font-mono font-bold">
+                            <th class="p-3">Folio</th>
+                            <th class="p-3">Candidato</th>
+                            <th class="p-3">Puesto / Vacante</th>
+                            <th class="p-3">Empresa</th>
+                            <th class="p-3">Asesor Asignado</th>
+                            <th class="p-3 text-center">Acción / Enlace</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaAcuses" class="divide-y divide-slate-800/60 font-mono text-slate-300">
+                        <!-- Inyección dinámica de Acuses -->
                     </tbody>
                 </table>
             </div>
@@ -96,7 +132,7 @@
 
     </div>
 
-    <!-- CONFIGURACIÓN DE FIREBASE -->
+    <!-- CONFIGURACIÓN FIREBASE -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script>
@@ -105,218 +141,137 @@
         const db = firebase.database();
 
         let totalLogs = [];
-        let logsFiltradosActuales = [];
+        let totalAcuses = [];
+        let vistaActual = "LOGS"; // 'LOGS' o 'ACUSES'
 
         document.addEventListener("DOMContentLoaded", () => {
-            const refSistemaLogs = db.ref("sistema_logs");
-            const refM7Logs = db.ref("modulo_7_logs");
-            const refLogsSistema = db.ref("logs_sistema");
-
-            function cargarTodosLosLogs() {
-                Promise.all([
-                    refSistemaLogs.once("value"),
-                    refM7Logs.once("value"),
-                    refLogsSistema.once("value")
-                ]).then(([snapSistema, snapM7, snapLegacy]) => {
-                    const logsMap = new Map();
-
-                    const procesarNodo = (snap) => {
-                        const datos = snap.val();
-                        if (!datos) return;
-
-                        Object.entries(datos).forEach(([id, log]) => {
-                            if (typeof log === 'object' && log !== null) {
-                                const timestamp = log.timestamp || log.fecha || log.created_at || 0;
-                                const usuario = log.usuario_id || log.usuario || log.user || "Sistema Admin";
-                                const modulo = log.modulo || log.module || "General";
-                                const operacion = log.operacion || log.accion || log.type || "GENERAL";
-                                const detalles = log.detalles || log.detalle || log.mensaje || "Sin detalle registrado";
-
-                                logsMap.set(id, {
-                                    id: id,
-                                    timestamp: Number(timestamp),
-                                    usuario_id: usuario,
-                                    modulo: modulo,
-                                    operacion: operacion,
-                                    detalles: detalles
-                                });
-                            }
-                        });
-                    };
-
-                    procesarNodo(snapSistema);
-                    procesarNodo(snapM7);
-                    procesarNodo(snapLegacy);
-
-                    totalLogs = Array.from(logsMap.values());
-                    totalLogs.sort((a, b) => b.timestamp - a.timestamp);
-
-                    document.getElementById("contadorLogs").textContent = `📡 ${totalLogs.length} Registros Activos`;
-                    filtrarLogs();
-                }).catch(error => {
-                    console.error("Error al cargar logs de Firebase:", error);
-                    document.getElementById("contadorLogs").textContent = "❌ Error de sincronización";
-                });
-            }
-
-            // Escuchadores en tiempo real para todos los nodos
-            refSistemaLogs.on("value", () => cargarTodosLosLogs());
-            refM7Logs.on("value", () => cargarTodosLosLogs());
-            refLogsSistema.on("value", () => cargarTodosLosLogs());
+            inicializarEscuchadores();
         });
 
-        function renderizarLogs(listaAFiltrar) {
-            logsFiltradosActuales = listaAFiltrar;
+        function inicializarEscuchadores() {
+            // Escuchar Logs Generales
+            db.ref("sistema_logs").on("value", snapshot => {
+                const datos = snapshot.val() || {};
+                totalLogs = Object.entries(datos).map(([id, item]) => ({ id, ...item }));
+                totalLogs.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+                if (vistaActual === "LOGS") renderizarLogs(totalLogs);
+            });
+
+            // Escuchar Nodo Dedicado de Acuses por Candidato
+            db.ref("postulantes").on("value", snapshot => {
+                const datos = snapshot.val() || {};
+                totalAcuses = Object.entries(datos).map(([id, item]) => ({
+                    folio: item.id || id,
+                    nombre: item.nombreCompleto || item.nombre || "—",
+                    puesto: item.puesto || item.vacante || "—",
+                    empresa: item.empresa || item.empresaDestino || "—",
+                    asesor: item.atendidoPor || item.asesor || "Pendiente de Asignación",
+                    urlAcuse: `https://valdomtec-arch.github.io/bolsa-trabajo-principal/acuse.html?folio=${item.id || id}`
+                }));
+                if (vistaActual === "ACUSES") renderizarAcuses(totalAcuses);
+            });
+        }
+
+        // CAMBIO DE VISTAS (TAB)
+        function cambiarVista(vista) {
+            vistaActual = vista;
+            const btnLogs = document.getElementById("btnTabLogs");
+            const btnAcuses = document.getElementById("btnTabAcuses");
+            const tablaLogs = document.getElementById("contenedorTablaLogs");
+            const tablaAcuses = document.getElementById("contenedorTablaAcuses");
+            const filtrosLogs = document.getElementById("panelFiltrosLogs");
+            const filtrosAcuses = document.getElementById("panelFiltrosAcuses");
+
+            if (vista === "LOGS") {
+                btnLogs.className = "bg-amber-500 text-slate-950 font-bold text-xs px-4 py-2 rounded-xl font-mono flex items-center gap-2 shadow-lg";
+                btnAcuses.className = "bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 font-bold text-xs px-4 py-2 rounded-xl font-mono flex items-center gap-2";
+                tablaLogs.classList.remove("hidden");
+                tablaAcuses.classList.add("hidden");
+                filtrosLogs.classList.remove("hidden");
+                filtrosAcuses.classList.add("hidden");
+                document.getElementById("contadorLogs").textContent = `📡 ${totalLogs.length} Logs Activos`;
+                renderizarLogs(totalLogs);
+            } else {
+                btnAcuses.className = "bg-amber-500 text-slate-950 font-bold text-xs px-4 py-2 rounded-xl font-mono flex items-center gap-2 shadow-lg";
+                btnLogs.className = "bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 font-bold text-xs px-4 py-2 rounded-xl font-mono flex items-center gap-2";
+                tablaAcuses.classList.remove("hidden");
+                tablaLogs.classList.add("hidden");
+                filtrosAcuses.classList.remove("hidden");
+                filtrosLogs.classList.add("hidden");
+                document.getElementById("contadorLogs").textContent = `📄 ${totalAcuses.length} Acuses Registrados`;
+                renderizarAcuses(totalAcuses);
+            }
+        }
+
+        // RENDERIZAR TABLA LOGS
+        function renderizarLogs(lista) {
             const tbody = document.getElementById("tablaLogs");
             tbody.innerHTML = "";
-
-            if (listaAFiltrar.length === 0) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="5" class="p-8 text-center text-slate-500 italic">No se encontraron registros de auditoría con los filtros seleccionados.</td>
-                    </tr>`;
+            if (lista.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-500 italic">Sin logs registrados.</td></tr>`;
                 return;
             }
 
-            listaAFiltrar.forEach(log => {
-                const fechaObj = log.timestamp ? new Date(log.timestamp) : new Date();
-                const fechaLocal = fechaObj.toLocaleString('es-MX', { timeZone: 'America/Monterrey' });
-
-                let badgeOperacion = "";
-                const opUpper = (log.operacion || "").toUpperCase();
-
-                if (opUpper.includes("CREAR") || opUpper.includes("ALTA")) {
-                    badgeOperacion = `<span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded font-bold text-[10px]">CREAR</span>`;
-                } else if (opUpper.includes("MODIFICAR") || opUpper.includes("EDICION")) {
-                    badgeOperacion = `<span class="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded font-bold text-[10px]">MODIFICAR</span>`;
-                } else if (opUpper.includes("ELIMINAR") || opUpper.includes("BAJA")) {
-                    badgeOperacion = `<span class="bg-rose-500/10 text-rose-400 border border-rose-500/20 px-2 py-0.5 rounded font-bold text-[10px]">ELIMINAR</span>`;
-                } else if (opUpper.includes("IA") || opUpper.includes("ANALISIS")) {
-                    badgeOperacion = `<span class="bg-purple-500/10 text-purple-400 border border-purple-500/20 px-2 py-0.5 rounded font-bold text-[10px]">IA / AUTO</span>`;
-                } else {
-                    badgeOperacion = `<span class="bg-slate-800 text-slate-400 px-2 py-0.5 rounded text-[10px]">${opUpper || 'INFO'}</span>`;
-                }
-
+            lista.forEach(log => {
+                const fecha = log.timestamp ? new Date(log.timestamp).toLocaleString('es-MX') : '—';
                 tbody.innerHTML += `
                     <tr class="hover:bg-slate-900/40 transition-all border-b border-slate-800/30">
-                        <td class="p-3 text-slate-400 text-[11px]">${fechaLocal}</td>
-                        <td class="p-3 font-bold text-slate-200">${log.usuario_id}</td>
-                        <td class="p-3 text-amber-400/90 text-[11px]">${log.modulo}</td>
-                        <td class="p-3 text-center">${badgeOperacion}</td>
-                        <td class="p-3 text-slate-300 font-sans text-xs">${log.detalles}</td>
-                    </tr>
-                `;
+                        <td class="p-3 text-slate-400 text-[11px]">${fecha}</td>
+                        <td class="p-3 font-bold text-slate-200">${log.usuario_id || 'Sistema'}</td>
+                        <td class="p-3 text-amber-400/90 text-[11px]">${log.modulo || 'General'}</td>
+                        <td class="p-3 text-center"><span class="bg-slate-800 text-slate-300 px-2 py-0.5 rounded text-[10px]">${log.operacion || 'INFO'}</span></td>
+                        <td class="p-3 text-slate-300 font-sans text-xs">${log.detalles || 'Sin detalle'}</td>
+                    </tr>`;
+            });
+        }
+
+        // RENDERIZAR TABLA ACUSES (INDEPENDIENTE)
+        function renderizarAcuses(lista) {
+            const tbody = document.getElementById("tablaAcuses");
+            tbody.innerHTML = "";
+            if (lista.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-500 italic">No hay acuses de candidatos registrados.</td></tr>`;
+                return;
+            }
+
+            lista.forEach(ac => {
+                const colorAsesor = ac.asesor === "Pendiente de Asignación" ? "text-amber-400" : "text-emerald-400";
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-900/40 transition-all border-b border-slate-800/30">
+                        <td class="p-3 font-bold text-amber-400 font-mono">${ac.folio}</td>
+                        <td class="p-3 font-bold text-slate-100">${ac.nombre}</td>
+                        <td class="p-3 text-slate-300">${ac.puesto}</td>
+                        <td class="p-3 text-slate-400">${ac.empresa}</td>
+                        <td class="p-3 text-xs font-semibold ${colorAsesor}">${ac.asesor}</td>
+                        <td class="p-3 text-center">
+                            <a href="${ac.urlAcuse}" target="_blank" class="inline-flex items-center gap-1 bg-blue-600/20 text-blue-400 border border-blue-500/30 hover:bg-blue-600/40 px-2.5 py-1 rounded text-xs transition-all">
+                                📄 Abrir Acuse ↗
+                            </a>
+                        </td>
+                    </tr>`;
             });
         }
 
         function filtrarLogs() {
             const mod = document.getElementById("filtroModulo").value.toLowerCase();
-            const op = document.getElementById("filtroOperacion").value.toLowerCase();
-            const busqueda = document.getElementById("buscarUsuario").value.toLowerCase().trim();
+            const busqueda = document.getElementById("buscarUsuario").value.toLowerCase();
 
-            let logsFiltrados = totalLogs.filter(log => {
-                const logMod = (log.modulo || "").toLowerCase();
-                const logOp = (log.operacion || "").toLowerCase();
-                const logDet = (log.detalles || "").toLowerCase();
-                const logUser = (log.usuario_id || "").toLowerCase();
-
-                const cumpleModulo = (mod === "todos" || logMod.includes(mod));
-                
-                let cumpleOperacion = (op === "todos");
-                if (!cumpleOperacion) {
-                    if (op === "crear" && (logOp.includes("crear") || logOp.includes("alta"))) cumpleOperacion = true;
-                    if (op === "modificar" && (logOp.includes("modificar") || logOp.includes("edicion"))) cumpleOperacion = true;
-                    if (op === "eliminar" && (logOp.includes("eliminar") || logOp.includes("baja"))) cumpleOperacion = true;
-                    if (op === "ia" && (logOp.includes("ia") || logOp.includes("analisis"))) cumpleOperacion = true;
-                    if (op === "acceso" && (logOp.includes("acceso") || logOp.includes("lectura"))) cumpleOperacion = true;
-                }
-
-                const cumpleBusqueda = (busqueda === "" || logDet.includes(busqueda) || logUser.includes(busqueda));
-
-                return cumpleModulo && cumpleOperacion && cumpleBusqueda;
+            const filtrados = totalLogs.filter(log => {
+                const cModulo = (mod === "todos" || (log.modulo || "").toLowerCase().includes(mod));
+                const cBusqueda = (busqueda === "" || (log.detalles || "").toLowerCase().includes(busqueda) || (log.usuario_id || "").toLowerCase().includes(busqueda));
+                return cModulo && cBusqueda;
             });
-
-            renderizarLogs(logsFiltrados);
+            renderizarLogs(filtrados);
         }
 
-        // ===============================================
-        // FUNCIONES DE EXPORTACIÓN (CSV / JSON)
-        // ===============================================
-
-        function descargarArchivo(contenido, nombreArchivo, mimeType) {
-            const blob = new Blob([contenido], { type: mimeType });
-            const link = document.createElement("a");
-            link.href = URL.createObjectURL(blob);
-            link.download = nombreArchivo;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
-
-        function exportarCSV() {
-            if (logsFiltradosActuales.length === 0) return alert("No hay registros para exportar.");
-
-            let csvContent = "Fecha,Usuario,Modulo,Operacion,Detalles\n";
-            logsFiltradosActuales.forEach(log => {
-                const fecha = log.timestamp ? new Date(log.timestamp).toISOString() : "";
-                const usuario = `"${(log.usuario_id || '').replace(/"/g, '""')}"`;
-                const modulo = `"${(log.modulo || '').replace(/"/g, '""')}"`;
-                const operacion = `"${(log.operacion || '').replace(/"/g, '""')}"`;
-                const detalles = `"${(log.detalles || '').replace(/"/g, '""')}"`;
-
-                csvContent += `${fecha},${usuario},${modulo},${operacion},${detalles}\n`;
-            });
-
-            const fechaStr = new Date().toISOString().slice(0, 10);
-            descargarArchivo(csvContent, `auditoria_logs_${fechaStr}.csv`, "text/csv;charset=utf-8;");
-        }
-
-        function exportarJSON() {
-            if (logsFiltradosActuales.length === 0) return alert("No hay registros para exportar.");
-
-            const jsonStr = JSON.stringify(logsFiltradosActuales, null, 2);
-            const fechaStr = new Date().toISOString().slice(0, 10);
-            descargarArchivo(jsonStr, `auditoria_logs_${fechaStr}.json`, "application/json");
-        }
-
-        // ===============================================
-        // ARCHIVADO Y PURGA DE REGISTROS
-        // ===============================================
-
-        function confirmarArchivadoYPurga() {
-            if (totalLogs.length === 0) return alert("No hay registros almacenados para purgar.");
-
-            const confirmacion = confirm(
-                "⚠️ ADVERTENCIA DE PURGA:\n\n" +
-                "Se descargará un respaldo completo JSON de todos los logs registrados (estructuras antiguas y nuevas) y se limpiará la base de datos para optimizar almacenamiento.\n\n" +
-                "¿Desea continuar?"
+        function filtrarAcuses() {
+            const bus = document.getElementById("buscarAcuse").value.toLowerCase();
+            const filtrados = totalAcuses.filter(a => 
+                a.folio.toLowerCase().includes(bus) ||
+                a.nombre.toLowerCase().includes(bus) ||
+                a.puesto.toLowerCase().includes(bus)
             );
-
-            if (!confirmacion) return;
-
-            // 1. Respaldo JSON completo
-            const jsonStr = JSON.stringify(totalLogs, null, 2);
-            const fechaStr = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "_");
-            descargarArchivo(jsonStr, `BACKUP_COMPLETO_LOGS_${fechaStr}.json`, "application/json");
-
-            // 2. Limpieza de todos los nodos
-            Promise.all([
-                db.ref("sistema_logs").remove(),
-                db.ref("modulo_7_logs").remove(),
-                db.ref("logs_sistema").remove()
-            ]).then(() => {
-                // 3. Registrar evento de inicio tras reseteo
-                db.ref("sistema_logs").push({
-                    modulo: "Modulo 7 - Auditoria",
-                    operacion: "PURGA_SISTEMA",
-                    detalles: `Purga ejecutada con éxito. Respaldo histórico creado con ${totalLogs.length} registros.`,
-                    timestamp: firebase.database.ServerValue.TIMESTAMP
-                });
-
-                alert("✅ Purga ejecutada correctamente. Respaldo descargado.");
-            }).catch(err => {
-                alert("Error al intentar purgar Firebase: " + err.message);
-            });
+            renderizarAcuses(filtrados);
         }
     </script>
 </body>
