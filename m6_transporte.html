@@ -267,6 +267,20 @@
         let datosEstructuralesServidor = {};
         let listaEmpresasCatalogo = [];
 
+        // FUNCIÓN AUXILIAR PARA REGISTRO DE AUDITORÍA (MÓDULO 7)
+        function registrarLog(accion, detalle) {
+            try {
+                db.ref("modulo_7_logs").push({
+                    modulo: "Modulo 6 - Transporte y Logistica",
+                    accion: accion,
+                    detalle: detalle,
+                    fecha: firebase.database.ServerValue.TIMESTAMP
+                });
+            } catch (e) {
+                console.error("Error registrando auditoria en modulo_7_logs:", e);
+            }
+        }
+
         // AL CARGAR LA PÁGINA
         document.addEventListener("DOMContentLoaded", () => {
             sincronizarConFirebase();
@@ -274,6 +288,7 @@
 
         // CONEXIÓN Y ESCUCHA EN TIEMPO REAL
         function sincronizarConFirebase() {
+            // Escuchar nodo principal de rutas
             db.ref().on("value", (snap) => {
                 const data = snap.val() || {};
                 datosEstructuralesServidor = data;
@@ -289,8 +304,9 @@
                 actualizarMetricasGlobales();
 
                 // Actualizar badge visual
+                const totalLogs = data.modulo_7_logs ? Object.keys(data.modulo_7_logs).length : 0;
                 document.getElementById("badgeEstadoServer").className = "bg-emerald-500/10 text-emerald-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-emerald-500/20 flex items-center gap-1.5";
-                document.getElementById("badgeEstadoServer").innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Firebase Conectado';
+                document.getElementById("badgeEstadoServer").innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Firebase Conectado | Logs: ${totalLogs}`;
             }, (err) => {
                 document.getElementById("badgeEstadoServer").className = "bg-red-500/10 text-red-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-red-500/20 flex items-center gap-1.5";
                 document.getElementById("badgeEstadoServer").innerHTML = '<span class="w-2 h-2 rounded-full bg-red-400"></span> Error de Conexión';
@@ -396,6 +412,8 @@
                 document.getElementById("badgeJsonStatus").innerText = "Estructurado OK";
                 document.getElementById("badgeJsonStatus").className = "text-[10px] font-mono bg-cyber-emerald/10 text-cyber-emerald px-2 py-0.5 rounded border border-cyber-emerald/20";
 
+                registrarLog("ANALISIS_IA", `Procesamiento exitoso de documento de rutas: ${archivoCargadoRaw.name}`);
+
             } catch (err) {
                 alert("Error en el procesamiento cognitivo: " + err.message);
             } finally {
@@ -428,6 +446,7 @@
 
             db.ref(`rutas/${empresaKey}`).push(ruta, (err) => {
                 if(!err) {
+                    registrarLog("ALTA_RUTA_IA", `Ruta añadida individualmente vía IA: ${ruta.nombreRuta || 'Sin Nombre'} (${ruta.empresaDestino || 'General'})`);
                     document.getElementById("jsonOutput").value = arreglo.length > 0 ? JSON.stringify(arreglo, null, 2) : "";
                     if(arreglo.length === 0) {
                         document.getElementById("badgeJsonStatus").innerText = "Completado";
@@ -447,6 +466,7 @@
                 db.ref(`rutas/${empresaKey}`).push(ruta);
             });
 
+            registrarLog("ALTA_MASIVA_RUTAS", `Carga masiva procesada con un total de ${arreglo.length} rutas.`);
             document.getElementById("jsonOutput").value = "";
             document.getElementById("badgeJsonStatus").innerText = "Cargado al Servidor";
             alert("Todas las rutas han sido enviadas e integradas al servidor organizadas por empresa.");
@@ -535,12 +555,19 @@
                 // Si cambió de empresa, eliminar del nodo anterior y guardar en el nuevo
                 if (empresaAnterior && empresaAnterior !== empresaKey) {
                     db.ref(`rutas/${empresaAnterior}/${idRuta}`).remove();
-                    db.ref(`rutas/${empresaKey}`).push(rutaData).then(() => cancelarEdicion());
+                    db.ref(`rutas/${empresaKey}`).push(rutaData).then(() => {
+                        registrarLog("EDICION_RUTA", `Ruta reactivada/reubicada en ${empresaSelec}: ${rutaData.nombreRuta}`);
+                        cancelarEdicion();
+                    });
                 } else {
-                    db.ref(`rutas/${empresaKey}/${idRuta}`).update(rutaData).then(() => cancelarEdicion());
+                    db.ref(`rutas/${empresaKey}/${idRuta}`).update(rutaData).then(() => {
+                        registrarLog("EDICION_RUTA", `Modificación de transporte: ${rutaData.nombreRuta} (${empresaSelec})`);
+                        cancelarEdicion();
+                    });
                 }
             } else {
                 db.ref(`rutas/${empresaKey}`).push(rutaData).then(() => {
+                    registrarLog("ALTA_RUTA", `Nuevo transporte agregado: ${rutaData.nombreRuta} para ${empresaSelec}`);
                     document.getElementById("formRuta").reset();
                 });
             }
@@ -574,8 +601,13 @@
         }
 
         function eliminarRuta(empresaKey, idRuta) {
+            const rutaTarget = datosEstructuralesServidor.rutas?.[empresaKey]?.[idRuta];
+            const nombre = rutaTarget ? rutaTarget.nombreRuta : idRuta;
+
             if (confirm("¿Remover este transporte/ruta del servidor de forma permanente?")) {
-                db.ref(`rutas/${empresaKey}/${idRuta}`).remove();
+                db.ref(`rutas/${empresaKey}/${idRuta}`).remove().then(() => {
+                    registrarLog("BAJA_RUTA", `Se eliminó el transporte: ${nombre} (${empresaKey.toUpperCase()})`);
+                });
             }
         }
 

@@ -274,6 +274,21 @@ if (!firebase.apps.length) {
 }
 const database = firebase.database();
 
+// ==========================================
+// FUNCIÓN EMISORA HACIA MÓDULO 7 (AUDITORÍA)
+// ==========================================
+function registrarLog(usuarioId, moduloOrigen, operacion, detalles) {
+    if (typeof database === 'undefined' || !database) return;
+    
+    database.ref("logs_sistema").push({
+        timestamp: new Date().toISOString(),
+        usuario_id: usuarioId || "Sistema / Anónimo",
+        modulo: moduloOrigen,
+        operacion: operacion, // "CREAR" | "MODIFICAR" | "INHABILITAR" | "REACTIVAR" | "ELIMINAR" | "ACCESO"
+        detalles: detalles
+    }).catch(err => console.error("Error guardando log en auditoría:", err));
+}
+
 // 🟢 MONITOREO DE CONEXIÓN CORREGIDO
 const connectedRef = database.ref(".info/connected");
 connectedRef.on("value", (snap) => {
@@ -361,9 +376,21 @@ document.getElementById('btnDeleteVacante').addEventListener('click', () => {
   const emp = document.getElementById('selectEmpresa').value;
   const key = document.getElementById('selectVacante').value;
   if (!emp || !key) return alert("Selecciona empresa y vacante");
-  if (confirm(`¿Eliminar: ${key}?`)) {
+  if (confirm(`¿Eliminar vacante: ${key}?`)) {
     database.ref(`vacantes_detalles/${emp}/${key}`).remove()
-    .then(() => { alert("Eliminada ✅"); document.getElementById('selectEmpresa').dispatchEvent(new Event('change')); resetFormFields(); })
+    .then(() => { 
+      // REGISTRO DE AUDITORÍA (MÓDULO 7)
+      registrarLog(
+        "Administrador",
+        "Módulo 2: Vacantes",
+        "ELIMINAR",
+        `Se eliminó la vacante '${key}' perteneciente a la empresa '${emp.toUpperCase()}'.`
+      );
+
+      alert("Eliminada ✅"); 
+      document.getElementById('selectEmpresa').dispatchEvent(new Event('change')); 
+      resetFormFields(); 
+    })
     .catch(err => alert("Error: " + err.message));
   }
 });
@@ -435,18 +462,49 @@ function guardar() {
   const pid = document.getElementById('puestoId').value; 
   if (!emp) { emp = prompt("Nombre de la empresa:"); if (!emp) return; emp = emp.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]/g,"").trim(); }
   if (!pid) return alert("Falta el ID de la vacante");
+
+  // Verificar si la vacante ya existe localmente para tipificar el Log (CREAR vs MODIFICAR)
+  const esEdicion = !!cacheVacantesEmpresa[pid];
+  const operacionLog = esEdicion ? "MODIFICAR" : "CREAR";
+
   const datos = { 
-    puestoId:pid, nombreVacante:document.getElementById('nombreVacante').value, vacanteNombre:document.getElementById('vacanteNombre').value, 
-    estatus:document.getElementById('estatus').value, bannerUrl:document.getElementById('bannerUrl').value, edad:document.getElementById('edad').value, 
-    sexo:document.getElementById('sexo').value, escolaridad:document.getElementById('escolaridad').value, experiencia:document.getElementById('experiencia').value, 
-    salario:document.getElementById('salario').value, lugarOrigen:document.getElementById('lugarOrigen').value, turnos:document.getElementById('turnos').value, 
-    rutasTransporte:document.getElementById('rutasTransporte').value, infoGeneral:document.getElementById('infoGeneral').value, actividades:document.getElementById('actividades').value, 
-    beneficios:document.getElementById('beneficios').value, visitas:1 
+    puestoId:pid, 
+    nombreVacante:document.getElementById('nombreVacante').value, 
+    vacanteNombre:document.getElementById('vacanteNombre').value, 
+    estatus:document.getElementById('estatus').value, 
+    bannerUrl:document.getElementById('bannerUrl').value, 
+    edad:document.getElementById('edad').value, 
+    sexo:document.getElementById('sexo').value, 
+    escolaridad:document.getElementById('escolaridad').value, 
+    experiencia:document.getElementById('experiencia').value, 
+    salario:document.getElementById('salario').value, 
+    lugarOrigen:document.getElementById('lugarOrigen').value, 
+    turnos:document.getElementById('turnos').value, 
+    rutasTransporte:document.getElementById('rutasTransporte').value, 
+    infoGeneral:document.getElementById('infoGeneral').value, 
+    actividades:document.getElementById('actividades').value, 
+    beneficios:document.getElementById('beneficios').value, 
+    visitas: (cacheVacantesEmpresa[pid] && cacheVacantesEmpresa[pid].visitas) ? cacheVacantesEmpresa[pid].visitas : 1 
   };
+
   updateJsonOutput(datos);
   database.ref(`vacantes_detalles/${emp}/${pid}`).set(datos, err => { 
-    if (err) alert("Error: " + err.message); 
-    else { alert(`Guardado en ${emp} ✅`); loadEmpresasDinamicas(); document.getElementById('selectEmpresa').value = emp; document.getElementById('selectEmpresa').dispatchEvent(new Event('change')); }
+    if (err) {
+      alert("Error: " + err.message); 
+    } else { 
+      // REGISTRO DE AUDITORÍA (MÓDULO 7)
+      registrarLog(
+        "Administrador",
+        "Módulo 2: Vacantes",
+        operacionLog,
+        `Vacante '${datos.nombreVacante || pid}' (ID: ${pid}) fue ${esEdicion ? 'actualizada' : 'creada'} para la empresa '${emp.toUpperCase()}'.`
+      );
+
+      alert(`Guardado en ${emp} ✅`); 
+      loadEmpresasDinamicas(); 
+      document.getElementById('selectEmpresa').value = emp; 
+      document.getElementById('selectEmpresa').dispatchEvent(new Event('change')); 
+    }
   }); 
 }
 </script> 

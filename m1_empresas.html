@@ -64,7 +64,7 @@
         /* CONTENEDOR CENTRAL ESTRICTO MULTI-DISPOSITIVO */
         .main-container {
             width: 100%;
-            max-width: 1400px; /* Ampliado para mejor despliegue horizontal */
+            max-width: 1400px;
             margin: 0 auto;
             padding: 40px 20px 0 20px;
         }
@@ -171,14 +171,14 @@
             color: rgba(148, 163, 184, 0.35);
         }
 
-        /* GRID INDUSTRIAL OPTIMIZADO HORIZONTAL (PC / TABLET / MÓVIL) */
+        /* GRID INDUSTRIAL OPTIMIZADO HORIZONTAL */
         .inputs-horizontal-row {
             display: grid;
-            grid-template-columns: repeat(5, 1fr); /* 5 Columnas exactas de extremo a extremo en PC */
+            grid-template-columns: repeat(5, 1fr);
             gap: 16px;
         }
 
-        /* CONTENEDOR DE ENLACE AUTO-GENERADO (VERDE PUNTEADO) */
+        /* CONTENEDOR DE ENLACE AUTO-GENERADO */
         .generated-link-box {
             border: 1px dashed #22c55e;
             background: rgba(34, 197, 94, 0.03);
@@ -229,7 +229,7 @@
         .btn-open { background: #0084ff; color: #fff; }
         .btn-open:hover { background: #006cdb; }
 
-        /* TRIPLE BOTONERA DE ACCIÓN FORMULARIO */
+        /* TRIPLE BOTONERA DE ACCIÓN */
         .action-button-row {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -258,7 +258,7 @@
         .btn-delete { background: var(--primary-red); color: #fff; }
         .btn-delete:hover { background: #bd2130; }
 
-        /* CONSOLA DE BÚSQUEDA Y TABLA INFERIOR */
+        /* CONSOLA DE BÚSQUEDA Y TABLA */
         .search-wrapper {
             position: relative;
             margin-bottom: 20px;
@@ -288,7 +288,6 @@
             font-weight: 600;
         }
 
-        /* TABLA DE REGISTROS */
         .table-responsive-tech {
             background: rgba(11, 19, 41, 0.3);
             border: 1px solid rgba(255, 255, 255, 0.04);
@@ -334,7 +333,6 @@
             border: 1px solid rgba(255,255,255,0.1);
         }
 
-        /* BOTONES DE LA COLUMNA DE ACCIONES CORRECTA */
         .actions-cell-wrapper {
             display: flex;
             gap: 8px;
@@ -360,33 +358,20 @@
         .btn-table-delete { background: var(--primary-red); color: #fff; }
         .btn-table-delete:hover { background: #bd2130; transform: translateY(-1px); }
 
-        /* MEDIAS QUERIES QUIRÚRGICAS PARA OPTIMIZACIÓN MULTI-DISPOSITIVO */
         @media (max-width: 1200px) {
-            /* Tablets de alta resolución / Pantallas Medianas */
-            .inputs-horizontal-row {
-                grid-template-columns: repeat(3, 1fr); /* Se reacomoda en 3 y 2 columnas simétricas */
-            }
+            .inputs-horizontal-row { grid-template-columns: repeat(3, 1fr); }
         }
 
         @media (max-width: 768px) {
-            /* Tablets estándar / Celulares Grandes */
-            .inputs-horizontal-row {
-                grid-template-columns: repeat(2, 1fr); /* Distribución 2x2 */
-            }
+            .inputs-horizontal-row { grid-template-columns: repeat(2, 1fr); }
             .action-button-row { grid-template-columns: 1fr; gap: 10px; }
             .generated-link-box { flex-direction: column; align-items: stretch; }
             .btn-link-action { justify-content: center; }
         }
 
         @media (max-width: 576px) {
-            /* Celulares */
-            .inputs-horizontal-row {
-                grid-template-columns: 1fr; /* Columna única perfecta, sin espacio muerto */
-            }
-            .actions-cell-wrapper {
-                flex-direction: column; /* Apila editar y borrar en móvil para que no rompa la tabla */
-                gap: 4px;
-            }
+            .inputs-horizontal-row { grid-template-columns: 1fr; }
+            .actions-cell-wrapper { flex-direction: column; gap: 4px; }
         }
     </style>
 </head>
@@ -417,14 +402,13 @@
             </div>
         </section>
 
-        <!-- FORMULARIO DE ALTA, BAJA Y EDICIÓN (REDISEÑADO HORIZONTAL) -->
+        <!-- FORMULARIO DE ALTA, BAJA Y EDICIÓN -->
         <section class="panel-box">
             <div class="panel-box-title">
                 <i class="fa-solid fa-building"></i> Gestión de Empresas · Alta / Edición / Baja
             </div>
             
             <form id="empresaForm" onsubmit="event.preventDefault();">
-                <!-- Grid Horizontal de 5 columnas optimizado -->
                 <div class="inputs-horizontal-row">
                     <div>
                         <label class="form-label-tech"><i class="fa-solid fa-fingerprint"></i> ID Único *</label>
@@ -460,7 +444,7 @@
                     </div>
                 </div>
 
-                <!-- TRIPLE BOTONERA ALINEADA SIMÉTRICA -->
+                <!-- TRIPLE BOTONERA ALINEADA -->
                 <div class="action-button-row">
                     <button type="button" onclick="guardarEmpresa()" class="btn-form-master btn-save">
                         <i class="fa-solid fa-cloud-arrow-up"></i> Guardar Empresa
@@ -520,6 +504,22 @@
         const db = firebase.database();
 
         let catalogoEmpresasCompleto = {};
+
+        // ==========================================
+        // FUNCIÓN EMISORA HACIA MÓDULO 7 (CAJA NEGRA)
+        // ==========================================
+        function registrarLog(usuarioId, moduloOrigen, operacion, detalles) {
+            if (typeof db === 'undefined' || !db) return;
+            
+            const nuevoLogRef = db.ref("logs_sistema").push();
+            nuevoLogRef.set({
+                timestamp: new Date().toISOString(),
+                usuario_id: usuarioId || "Sistema / Anónimo",
+                modulo: moduloOrigen,
+                operacion: operacion, // "CREAR" | "MODIFICAR" | "INHABILITAR" | "REACTIVAR" | "ELIMINAR" | "ACCESO"
+                detalles: detalles
+            }).catch(err => console.error("Error guardando log en auditoría:", err));
+        }
 
         document.addEventListener("DOMContentLoaded", () => {
             const inputID = document.getElementById("inputID");
@@ -604,6 +604,9 @@
                 return;
             }
 
+            const esEdicion = document.getElementById("inputID").disabled;
+            const operacionLog = esEdicion ? "MODIFICAR" : "CREAR";
+
             const payload = {
                 id: id,
                 nombre: nombre,
@@ -616,6 +619,14 @@
 
             db.ref("empresas/" + id).set(payload)
                 .then(() => {
+                    // REGISTRO DE AUDITORÍA (MÓDULO 7)
+                    registrarLog(
+                        "Administrador",
+                        "Módulo 1: Empresas",
+                        operacionLog,
+                        `Empresa '${nombre}' (ID: ${id.toUpperCase()}) fue ${esEdicion ? 'actualizada' : 'registrada'} en el sistema.`
+                    );
+
                     alert(`Empresa [${id.toUpperCase()}] procesada de forma exitosa.`);
                     limpiarFormulario();
                 })
@@ -636,7 +647,7 @@
             const urlBase = "https://valdomtec-arch.github.io/bolsa-trabajo-principal/vacante.html?empresa=";
             document.getElementById("linkAutogenerado").value = emp.link || (urlBase + key);
             document.getElementById("btnAbrirEnlace").href = emp.link || (urlBase + key);
-            window.scrollTo({ top: 0, behavior: 'smooth' }); // Sube el formulario suavemente
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
         // ELIMINAR DESDE LA TABLA DIRECTAMENTE
@@ -644,6 +655,14 @@
             if (confirm(`¿Está completamente seguro de eliminar de forma irreversible la empresa [${key.toUpperCase()}] de la base de datos?`)) {
                 db.ref("empresas/" + key).remove()
                     .then(() => {
+                        // REGISTRO DE AUDITORÍA (MÓDULO 7)
+                        registrarLog(
+                            "Administrador",
+                            "Módulo 1: Empresas",
+                            "ELIMINAR",
+                            `Se eliminó permanentemente la empresa con ID '${key.toUpperCase()}'.`
+                        );
+
                         alert("Registro eliminado permanentemente de Firebase.");
                         limpiarFormulario();
                     })
