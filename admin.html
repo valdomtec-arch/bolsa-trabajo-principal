@@ -91,7 +91,7 @@
             margin: 0 auto 20px auto;
         }
 
-        /* CONTENEDOR MAESTRO DE BLOQUES INAMOVIBLES (4 ARRIBA, 4 ABAJO) */
+        /* CONTENEDOR MAESTRO DE BLOQUES DINÁMICOS */
         .catalog-container {
             width: 100%;
             max-width: 1240px;
@@ -99,10 +99,10 @@
             padding: 0 20px;
         }
 
-        /* FILA PERFECTAMENTE CONTROLADA EN ESCRITORIO */
+        /* FILAS CUADRICULADAS DINÁMICAS (4 BLOQUES POR FILA) */
         .row-blocks {
             display: grid;
-            grid-template-columns: repeat(4, 1fr); /* Obliga a que sean 4 bloques exactos */
+            grid-template-columns: repeat(4, 1fr);
             gap: 20px;
             margin-bottom: 20px;
         }
@@ -117,7 +117,7 @@
             flex-direction: column;
             align-items: center;    /* Eje central */
             text-align: center;     /* Justificación central */
-            min-height: 240px;      /* Altura uniforme para todos */
+            min-height: 240px;      /* Altura uniforme */
             position: relative;
             transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
@@ -140,7 +140,7 @@
             opacity: 0.8;
         }
 
-        /* TÍTULO PRINCIPAL CON JERARQUÍA IMPONENTE */
+        /* TÍTULO PRINCIPAL */
         .module-title {
             color: var(--text-main);
             font-size: 1.15rem;
@@ -149,7 +149,7 @@
             letter-spacing: -0.2px;
         }
 
-        /* DESCRIPCIÓN ATENUADA PARA SOPORTE VISUAL */
+        /* DESCRIPCIÓN ATENUADA */
         .module-desc {
             color: var(--text-muted);
             font-size: 0.8rem;
@@ -160,17 +160,17 @@
 
         /* ICONO COMPACTO COMO GUÍA INTEGRADA */
         .icon-indicator {
-            font-size: 1rem;
+            font-size: 1.25rem;
             color: var(--text-muted);
             margin-bottom: 20px;
-            opacity: 0.6;
+            opacity: 0.7;
             transition: all 0.3s ease;
         }
 
         .module-node:hover .icon-indicator {
             color: var(--primary-orange);
             opacity: 1;
-            transform: scale(1.1);
+            transform: scale(1.15);
         }
 
         /* EL BOTÓN ERGONÓMICO MAESTRO */
@@ -209,6 +209,7 @@
         }
         .critical-node .node-flag { background: #ef4444; }
         .core-node .node-flag { background: #3b82f6; }
+        .custom-node .node-flag { background: #a855f7; }
 
         /* SKELETON PRECARGA */
         .skeleton-row {
@@ -232,7 +233,7 @@
 
         @media (max-width: 576px) {
             .row-blocks, .skeleton-row {
-                grid-template-columns: 1fr; /* Columna única perfecta centrada en celulares */
+                grid-template-columns: 1fr; /* Columna única centrada en celulares */
             }
         }
     </style>
@@ -260,10 +261,10 @@
         </button>
     </header>
 
-    <!-- CONTENEDOR CENTRAL DEL CATÁLOGO (FILAS DIRECTAS) -->
+    <!-- CONTENEDOR CENTRAL DEL CATÁLOGO (FILAS DINÁMICAS) -->
     <main class="catalog-container">
         
-        <!-- Contenedor dinámico que será administrado por Firebase -->
+        <!-- Contenedor dinámico administrado por Firebase -->
         <div id="hub-modulos-dinamico">
             <!-- Bloques de carga simétricos iniciales -->
             <div class="skeleton-row mb-3">
@@ -297,7 +298,9 @@
         }
         const db = firebase.database();
 
-        // Control de Sesión y Autenticación Obligatoria
+        let rolUsuarioActivo = "SuperAdmin";
+
+        // Control de Sesión y Autenticación
         document.addEventListener("DOMContentLoaded", () => {
             const usuarioSesion = sessionStorage.getItem('usuarioLogueado');
             
@@ -307,6 +310,7 @@
             }
 
             const usuario = JSON.parse(usuarioSesion);
+            rolUsuarioActivo = usuario.rol || "SuperAdmin";
             document.getElementById('userSessionDisplay').innerText = `${usuario.nombre} • ${usuario.rol}`;
 
             verificarYFijarCatalogo(() => {
@@ -319,21 +323,21 @@
             window.location.href = "https://valdomtec-arch.github.io/bolsa-trabajo-principal/";
         }
 
-        // Semilla base para inyectar ordenadamente los 8 módulos con su orden estricto
+        // Semilla base para inyectar los 8 módulos iniciales si la base de datos está vacía
         function verificarYFijarCatalogo(callback) {
             const refModulos = db.ref("modulos_config");
 
             refModulos.once("value", (snapshot) => {
                 if (!snapshot.exists()) {
                     const estructuraMaestra = {
-                        "m1_empresas": { id: "m1_empresas", titulo: "Registrar Empresas", descripcion: "Control maestro de clientes corporativos y logotipos.", icono: "fa-building", archivo_url: "m1_empresas.html", activo: true, orden: 1, tipo: "standard" },
-                        "m2_vacantes": { id: "m2_vacantes", titulo: "Extracción de Vacantes", descripcion: "Procesamiento y lectura inteligente de perfiles laborales.", icono: "fa-briefcase", archivo_url: "m2_vacantes.html", activo: true, orden: 2, tipo: "standard" },
-                        "m3_agenda": { id: "m3_agenda", titulo: "Agenda de Postulantes", descripcion: "Seguimiento cronológico de candidatos y citas activas.", icono: "fa-calendar-days", archivo_url: "m3_agenda.html", activo: true, orden: 3, tipo: "standard" },
-                        "m6_transporte": { id: "m6_transporte", titulo: "Logística de Transporte", descripcion: "Administración inteligente de rutas operativas aisladas.", icono: "fa-bus", archivo_url: "m6_transporte.html", activo: true, orden: 4, tipo: "standard" },
-                        "m4_metricas": { id: "m4_metricas", titulo: "Estadística Demográfica", descripcion: "Analítica transversal de cobertura y rendimiento general.", icono: "fa-chart-pie", archivo_url: "m4_metricas.html", activo: true, orden: 5, tipo: "standard" },
-                        "m5_staff": { id: "m5_staff", titulo: "Control de Reclutadores", descripcion: "Gestión de personal de staff, cuentas y accesos.", icono: "fa-users-gears", archivo_url: "m5_staff.html", activo: true, orden: 6, tipo: "standard" },
-                        "m7_logs": { id: "m7_logs", titulo: "Logs del Sistema", descripcion: "Auditoría e historial inalterable de transacciones.", icono: "fa-shield-halved", archivo_url: "m7_logs.html", activo: true, orden: 7, tipo: "critical" },
-                        "m8_creador_modulos": { id: "m8_creador_modulos", titulo: "Creador de Módulos", descripcion: "Inyección y desarrollo dinámico de nuevos accesos.", icono: "fa-screwdriver-wrench", archivo_url: "m8_creador_modulos.html", activo: true, orden: 8, tipo: "core" }
+                        "m1_empresas": { id: "m1_empresas", titulo: "Registrar Empresas", descripcion: "Control maestro de clientes corporativos y logotipos.", icono: "fa-building", url: "m1_empresas.html", activo: true, orden: 1, tipo: "standard", roles_permitidos: ["SuperAdmin", "Reclutador"] },
+                        "m2_vacantes": { id: "m2_vacantes", titulo: "Extracción de Vacantes", descripcion: "Procesamiento y lectura inteligente de perfiles laborales.", icono: "fa-briefcase", url: "m2_vacantes.html", activo: true, orden: 2, tipo: "standard", roles_permitidos: ["SuperAdmin", "Reclutador"] },
+                        "m3_agenda": { id: "m3_agenda", titulo: "Agenda de Postulantes", descripcion: "Seguimiento cronológico de candidatos y citas activas.", icono: "fa-calendar-days", url: "m3_agenda.html", activo: true, orden: 3, tipo: "standard", roles_permitidos: ["SuperAdmin", "Reclutador"] },
+                        "m6_transporte": { id: "m6_transporte", titulo: "Logística de Transporte", descripcion: "Administración inteligente de rutas operativas aisladas.", icono: "fa-bus", url: "m6_transporte.html", activo: true, orden: 4, tipo: "standard", roles_permitidos: ["SuperAdmin", "Logistico"] },
+                        "m4_metricas": { id: "m4_metricas", titulo: "Estadística Demográfica", descripcion: "Analítica transversal de cobertura y rendimiento general.", icono: "fa-chart-pie", url: "m4_metricas.html", activo: true, orden: 5, tipo: "standard", roles_permitidos: ["SuperAdmin", "Reclutador"] },
+                        "m5_staff": { id: "m5_staff", titulo: "Control de Reclutadores", descripcion: "Gestión de personal de staff, cuentas y accesos.", icono: "fa-users-gears", url: "m5_staff.html", activo: true, orden: 6, tipo: "standard", roles_permitidos: ["SuperAdmin"] },
+                        "m7_logs": { id: "m7_logs", titulo: "Logs del Sistema", descripcion: "Auditoría e historial inalterable de transacciones.", icono: "fa-shield-halved", url: "m7_logs.html", activo: true, orden: 7, tipo: "critical", roles_permitidos: ["SuperAdmin"] },
+                        "m8_creador_modulos": { id: "m8_creador_modulos", titulo: "Creador de Módulos", descripcion: "Inyección y desarrollo dinámico de nuevos accesos.", icono: "fa-screwdriver-wrench", url: "m8_creador_modulos.html", activo: true, orden: 8, tipo: "core", roles_permitidos: ["SuperAdmin"] }
                     };
                     refModulos.set(estructuraMaestra).then(() => callback());
                 } else {
@@ -342,60 +346,82 @@
             });
         }
 
-        // Renderizador Orquestador: Divide los módulos exactamente en 4 arriba y 4 abajo
+        // Renderizador Escalable: Dibuja dinámicamente filas completas de 4 columnas para M1 a M8 + Módulos Dinámicos
         function inicializarRendersTiempoReal() {
             const contenedorDinamico = document.getElementById("hub-modulos-dinamico");
             
             db.ref("modulos_config").orderByChild("orden").on("value", (snapshot) => {
-                if (!snapshot.exists()) return;
+                if (!snapshot.exists()) {
+                    contenedorDinamico.innerHTML = `<p class="text-center text-muted">No hay módulos disponibles.</p>`;
+                    return;
+                }
 
                 let modulosActivos = [];
                 snapshot.forEach((childSnapshot) => {
+                    const id = childSnapshot.key;
                     const modulo = childSnapshot.val();
-                    if (modulo.activo) {
-                        modulosActivos.push(modulo);
+                    
+                    // Filtrar solo activos y validar que el rol del usuario esté dentro de roles_permitidos
+                    const esActivo = modulo.activo !== false;
+                    const rolesPermitidos = modulo.roles_permitidos || ["SuperAdmin"];
+                    const tienePermiso = rolUsuarioActivo === "SuperAdmin" || rolesPermitidos.includes(rolUsuarioActivo);
+
+                    if (esActivo && tienePermiso) {
+                        modulosActivos.push({ id: id, ...modulo });
                     }
                 });
 
-                // Limpiamos contenedor
                 contenedorDinamico.innerHTML = "";
 
-                // Creamos los bloques de manera estructural (Fila 1 y Fila 2)
-                let filaFisica1 = document.createElement("div");
-                filaFisica1.className = "row-blocks";
-                
-                let filaFisica2 = document.createElement("div");
-                filaFisica2.className = "row-blocks";
+                if (modulosActivos.length === 0) {
+                    contenedorDinamico.innerHTML = `<div class="text-center text-slate-400 py-5">No tienes módulos asignados para tu rol.</div>`;
+                    return;
+                }
+
+                // Generar filas dinámicas de 4 columnas por contenedor
+                let filaActual = document.createElement("div");
+                filaActual.className = "row-blocks";
 
                 modulosActivos.forEach((modulo, index) => {
                     let claseIdentificador = "";
                     if (modulo.tipo === "critical") claseIdentificador = "critical-node";
-                    if (modulo.tipo === "core") claseIdentificador = "core-node";
+                    else if (modulo.tipo === "core") claseIdentificador = "core-node";
+                    else if (!["m1_empresas", "m2_vacantes", "m3_agenda", "m4_metricas", "m5_staff", "m6_transporte", "m7_logs", "m8_creador_modulos"].includes(modulo.id)) {
+                        claseIdentificador = "custom-node"; // Distintivo purpura para módulos inyectados desde M8
+                    }
+
+                    // Determinar icono (soporta FontAwesome 'fa-...' o Emoji plano)
+                    const iconoRaw = modulo.icono || 'fa-box';
+                    const iconoHTML = iconoRaw.startsWith('fa-') || iconoRaw.startsWith('fa') 
+                        ? `<i class="fa-solid ${iconoRaw}"></i>` 
+                        : `<span>${iconoRaw}</span>`;
+
+                    const rutaEnlace = modulo.url || modulo.archivo_url || "#";
 
                     const tarjetaHTML = `
                         <div class="module-node ${claseIdentificador}">
                             <div class="node-flag"></div>
                             <span class="node-id">${modulo.id}</span>
                             <h2 class="module-title">${modulo.titulo}</h2>
-                            <p class="module-desc">${modulo.descripcion}</p>
+                            <p class="module-desc">${modulo.descripcion || 'Sin descripción.'}</p>
                             <div class="icon-indicator">
-                                <i class="fa-solid ${modulo.icono || 'fa-box'}"></i>
+                                ${iconoHTML}
                             </div>
-                            <a href="${modulo.archivo_url}" class="btn-ergonomic">Abrir</a>
+                            <a href="${rutaEnlace}" class="btn-ergonomic">Abrir</a>
                         </div>
                     `;
 
-                    // Distribución exacta: primeros 4 arriba, siguientes 4 abajo
-                    if (index < 4) {
-                        filaFisica1.innerHTML += tarjetaHTML;
-                    } else {
-                        filaFisica2.innerHTML += tarjetaHTML;
+                    filaActual.innerHTML += tarjetaHTML;
+
+                    // Cada 4 tarjetas o al llegar al final, inyectar la fila y crear una nueva
+                    if ((index + 1) % 4 === 0 || index === modulosActivos.length - 1) {
+                        contenedorDinamico.appendChild(filaActual);
+                        if (index < modulosActivos.length - 1) {
+                            filaActual = document.createElement("div");
+                            filaActual.className = "row-blocks";
+                        }
                     }
                 });
-
-                // Inyección limpia al documento principal
-                contenedorDinamico.appendChild(filaFisica1);
-                contenedorDinamico.appendChild(filaFisica2);
             });
         }
     </script>
