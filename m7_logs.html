@@ -108,39 +108,61 @@
         let logsFiltradosActuales = [];
 
         document.addEventListener("DOMContentLoaded", () => {
-            // Escucha activa al nodo modulo_7_logs
-            db.ref("modulo_7_logs").on("value", (snap) => {
-                const datosM7 = snap.val() || {};
-                
-                // Escuchar también logs_sistema para compatibilidad
-                db.ref("logs_sistema").once("value", (snapLegacy) => {
-                    const datosLegacy = snapLegacy.val() || {};
-                    
-                    totalLogs = [];
-                    
-                    const procesarNodo = (nodo) => {
-                        Object.entries(nodo).forEach(([id, log]) => {
-                            totalLogs.push({
-                                id: id,
-                                timestamp: log.fecha || log.timestamp || 0,
-                                usuario_id: log.usuario_id || log.usuario || "Sistema Admin",
-                                modulo: log.modulo || "General",
-                                operacion: log.accion || log.operacion || "GENERAL",
-                                detalles: log.detalle || log.detalles || "Sin detalle registrado"
-                            });
+            const refSistemaLogs = db.ref("sistema_logs");
+            const refM7Logs = db.ref("modulo_7_logs");
+            const refLogsSistema = db.ref("logs_sistema");
+
+            function cargarTodosLosLogs() {
+                Promise.all([
+                    refSistemaLogs.once("value"),
+                    refM7Logs.once("value"),
+                    refLogsSistema.once("value")
+                ]).then(([snapSistema, snapM7, snapLegacy]) => {
+                    const logsMap = new Map();
+
+                    const procesarNodo = (snap) => {
+                        const datos = snap.val();
+                        if (!datos) return;
+
+                        Object.entries(datos).forEach(([id, log]) => {
+                            if (typeof log === 'object' && log !== null) {
+                                const timestamp = log.timestamp || log.fecha || log.created_at || 0;
+                                const usuario = log.usuario_id || log.usuario || log.user || "Sistema Admin";
+                                const modulo = log.modulo || log.module || "General";
+                                const operacion = log.operacion || log.accion || log.type || "GENERAL";
+                                const detalles = log.detalles || log.detalle || log.mensaje || "Sin detalle registrado";
+
+                                logsMap.set(id, {
+                                    id: id,
+                                    timestamp: Number(timestamp),
+                                    usuario_id: usuario,
+                                    modulo: modulo,
+                                    operacion: operacion,
+                                    detalles: detalles
+                                });
+                            }
                         });
                     };
 
-                    procesarNodo(datosM7);
-                    procesarNodo(datosLegacy);
+                    procesarNodo(snapSistema);
+                    procesarNodo(snapM7);
+                    procesarNodo(snapLegacy);
 
-                    // Ordenar descendente por fecha
+                    totalLogs = Array.from(logsMap.values());
                     totalLogs.sort((a, b) => b.timestamp - a.timestamp);
-                    
+
                     document.getElementById("contadorLogs").textContent = `📡 ${totalLogs.length} Registros Activos`;
                     filtrarLogs();
+                }).catch(error => {
+                    console.error("Error al cargar logs de Firebase:", error);
+                    document.getElementById("contadorLogs").textContent = "❌ Error de sincronización";
                 });
-            });
+            }
+
+            // Escuchadores en tiempo real para todos los nodos
+            refSistemaLogs.on("value", () => cargarTodosLosLogs());
+            refM7Logs.on("value", () => cargarTodosLosLogs());
+            refLogsSistema.on("value", () => cargarTodosLosLogs());
         });
 
         function renderizarLogs(listaAFiltrar) {
@@ -266,31 +288,32 @@
 
             const confirmacion = confirm(
                 "⚠️ ADVERTENCIA DE PURGA:\n\n" +
-                "Se descargará un respaldo completo JSON de todos los logs y se limpiará el nodo de auditoría en Firebase para optimizar almacenamiento.\n\n" +
-                "¿Desea continuar con el respaldo y depuración?"
+                "Se descargará un respaldo completo JSON de todos los logs registrados (estructuras antiguas y nuevas) y se limpiará la base de datos para optimizar almacenamiento.\n\n" +
+                "¿Desea continuar?"
             );
 
             if (!confirmacion) return;
 
-            // 1. Respaldar todo antes de eliminar
+            // 1. Respaldo JSON completo
             const jsonStr = JSON.stringify(totalLogs, null, 2);
             const fechaStr = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "_");
             descargarArchivo(jsonStr, `BACKUP_COMPLETO_LOGS_${fechaStr}.json`, "application/json");
 
-            // 2. Limpiar en Firebase los nodos de logs
+            // 2. Limpieza de todos los nodos
             Promise.all([
+                db.ref("sistema_logs").remove(),
                 db.ref("modulo_7_logs").remove(),
                 db.ref("logs_sistema").remove()
             ]).then(() => {
-                // 3. Registrar evento inicial de reseteo
-                db.ref("modulo_7_logs").push({
+                // 3. Registrar evento de inicio tras reseteo
+                db.ref("sistema_logs").push({
                     modulo: "Modulo 7 - Auditoria",
-                    accion: "PURGA_SISTEMA",
-                    detalle: `Purga ejecutada. Respaldo generado con ${totalLogs.length} registros previas.`,
-                    fecha: firebase.database.ServerValue.TIMESTAMP
+                    operacion: "PURGA_SISTEMA",
+                    detalles: `Purga ejecutada con éxito. Respaldo histórico creado con ${totalLogs.length} registros.`,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
                 });
 
-                alert("✅ Depuración completada con éxito. Respaldo descargado.");
+                alert("✅ Purga ejecutada correctamente. Respaldo descargado.");
             }).catch(err => {
                 alert("Error al intentar purgar Firebase: " + err.message);
             });
