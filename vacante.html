@@ -594,6 +594,8 @@
     let datosVacanteGlobal = null;
     let vacanteKeyDetectada = "";
     let puntosLimpiosGlobal = []; 
+    let nombreEmpresaMaestro = ""; // Variable dedicada para el nombre real guardado en /empresas/{id}
+    let ubicacionEmpresaMaestro = ""; 
     const fallbackTelefonoReclutador = "526461974763";
 
     // Establecer fecha mínima para el selector de entrevista (hoy)
@@ -613,13 +615,21 @@
         }
 
         try {
+            // OPCIÓN A: LECTURA EN PARALELO A /empresas/{empresaLimpia}
+            const snapEmpresaMaestra = await db.ref(`empresas/${empresaLimpia}`).once('value');
+            if (snapEmpresaMaestra.exists()) {
+                const infoMaestra = snapEmpresaMaestra.val();
+                nombreEmpresaMaestro = infoMaestra.nombre || "";
+                ubicacionEmpresaMaestro = infoMaestra.ubicacion || "";
+            }
+
             db.ref(`vacantes_detalles/${empresaLimpia}`).once('value', async function(snapshot) {
                 if (snapshot.exists()) {
                     const dataRaw = snapshot.val();
                     
                     if (dataRaw.vacanteNombre || dataRaw.salario) {
                         todasLasVacantesEmpresa = {};
-                        const llaveUnica = dataRaw.vacanteNombre.replace(/\s+/g, '_').toLowerCase() || "puesto_unico";
+                        const llaveUnica = dataRaw.vacanteNombre ? dataRaw.vacanteNombre.replace(/\s+/g, '_').toLowerCase() : "puesto_unico";
                         todasLasVacantesEmpresa[llaveUnica] = dataRaw;
                     } else {
                         todasLasVacantesEmpresa = dataRaw;
@@ -632,10 +642,16 @@
                     }
 
                     const primerVacante = todasLasVacantesEmpresa[keys[0]];
-                    const nombreHeader = primerVacante.nombreComercial || primerVacante.empresaNombre || empresaLimpia.toUpperCase();
+
+                    // FALLBACK INTELIGENTE: Prioridad 1: Nombre en /empresas/{id}, Prioridad 2: vacantes_detalles, Prioridad 3: ID URL
+                    const nombreHeader = nombreEmpresaMaestro || primerVacante.nombreComercial || primerVacante.empresaNombre || empresaLimpia.toUpperCase();
+                    const lugarHeader = ubicacionEmpresaMaestro || primerVacante.lugarOrigen || 'México';
                     
+                    // Aseguramos la variable global
+                    nombreEmpresaMaestro = nombreHeader;
+
                     document.getElementById('mainEmpresaNombre').innerText = nombreHeader;
-                    document.getElementById('mainEmpresaLugar').innerText = primerVacante.lugarOrigen || 'México';
+                    document.getElementById('mainEmpresaLugar').innerText = lugarHeader;
                     document.getElementById('empresaHeaderBox').style.display = 'block';
 
                     const listaContenedor = document.getElementById('listaVacantesDinamica');
@@ -673,6 +689,7 @@
                 document.getElementById('loading').innerHTML = "❌ Error de conexión al servidor de base de datos.";
             });
         } catch (error) {
+            console.error("Error crítico:", error);
             document.getElementById('loading').innerText = "❌ Error crítico al inicializar la consulta.";
         }
     }
@@ -689,15 +706,15 @@
             sessionStorage.setItem(`visita_${empresaLimpia}_${vacanteKeyDetectada}`, 'true');
         }
 
-        // Obtener Nombre Comercial o Nombre Oficial en vez de ID técnica
-        const nombreMostrarEmpresa = data.nombreComercial || data.empresaNombre || empresaLimpia.toUpperCase();
+        // Obtener Nombre Comercial Real obtenido de la consulta paralela a /empresas/{id}
+        const nombreMostrarEmpresa = nombreEmpresaMaestro || data.nombreComercial || data.empresaNombre || empresaLimpia.toUpperCase();
 
         document.getElementById('vacanteTitulo').innerText = data.vacanteNombre || 'Puesto';
         document.getElementById('vacanteEmpresa').innerText = nombreMostrarEmpresa;
         document.getElementById('vacanteVisitas').innerText = data.visitas ? (data.visitas + 1) : 1;
         
         document.getElementById('detSalario').innerText = data.salario || 'No especificado';
-        document.getElementById('detLugar').innerText = data.lugarOrigen || 'No especificado';
+        document.getElementById('detLugar').innerText = data.lugarOrigen || ubicacionEmpresaMaestro || 'No especificado';
         document.getElementById('detTurnos').innerText = data.turnos || 'No especificado';
         document.getElementById('detEdad').innerText = data.edad || 'Indistinto';
         document.getElementById('detSexo').innerText = data.sexo || 'Indistinto';
@@ -903,8 +920,8 @@
             
             const urlAcuseDigital = `https://valdomtec-arch.github.io/bolsa-trabajo-principal/acuse.html?folio=${timestampId}`;
 
-            // Determinar Nombre Comercial o Nombre Oficial para el payload
-            const empresaNombreFinal = datosVacanteGlobal ? (datosVacanteGlobal.nombreComercial || datosVacanteGlobal.empresaNombre || empresaLimpia.toUpperCase()) : empresaLimpia.toUpperCase();
+            // Determinar Nombre Comercial Oficial para el payload guardado
+            const empresaNombreFinal = nombreEmpresaMaestro || (datosVacanteGlobal ? (datosVacanteGlobal.nombreComercial || datosVacanteGlobal.empresaNombre) : empresaLimpia.toUpperCase());
 
             const payloadPostulante = {
                 id: timestampId,
