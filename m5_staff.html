@@ -48,7 +48,7 @@
     }
 
     .main-container {
-      max-width: 1100px;
+      max-width: 1150px;
       margin: 0 auto;
       background: var(--container-bg);
       padding: 40px;
@@ -132,8 +132,8 @@
       color: var(--white);
     }
 
-    /* CONTENEDOR MULTISELECCIÓN DE EMPRESAS */
-    .empresas-container {
+    /* CONTENEDORES MULTISELECCIÓN */
+    .multiselect-container {
       background-color: var(--input-bg);
       border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 10px;
@@ -142,7 +142,7 @@
       overflow-y: auto;
     }
 
-    .empresas-container.disabled-box {
+    .multiselect-container.disabled-box {
       opacity: 0.5;
       pointer-events: none;
     }
@@ -157,7 +157,7 @@
       border-color: var(--primary-orange);
     }
 
-    /* FIX DEFINITIVO DE LA TABLA (ELIMINA EL FONDO BLANCO DE BOOTSTRAP) */
+    /* TABLA DARK */
     .table-responsive {
       border-radius: 0 0 var(--radius-md) var(--radius-md);
       background-color: #081126 !important;
@@ -254,6 +254,14 @@
       border-color: var(--primary-orange);
     }
 
+    .badge-scope {
+      font-size: 0.65rem;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 6px;
+    }
+
     @media (max-width: 768px) {
       body { padding: 15px 10px; }
       .main-container { padding: 20px 15px; }
@@ -270,7 +278,7 @@
         <div class="d-flex align-items-center gap-3">
           <div id="statusDot" class="status-dot status-disconnected"></div>
           <div>
-            <h6 class="fw-bold mb-0 text-white"><i class="fas fa-server me-2 text-warning"></i>Centro de Conectividad & Gobernanza</h6>
+            <h6 class="fw-bold mb-0 text-white"><i class="fas fa-server me-2 text-warning"></i>Centro de Conectividad & Gobernanza de Usuarios</h6>
             <small id="connectionText" class="text-muted">Conectando a bolsa-de-trabajo-a52e4...</small>
           </div>
         </div>
@@ -282,42 +290,93 @@
       </div>
     </div>
 
-    <!-- FORMULARIO DE REGISTRO DE STAFF -->
+    <!-- FORMULARIO DE REGISTRO DE STAFF (CON SEGURIDAD SHA-256 + SALT) -->
     <div class="premium-card">
-      <div class="premium-card-header">
-        <h5><i class="fas fa-user-shield me-2 text-warning"></i>Gestión e Identificación de Personal</h5>
+      <div class="premium-card-header d-flex justify-content-between align-items-center">
+        <h5><i class="fas fa-user-shield me-2 text-warning"></i>Alta y Control de Accesos de Personal</h5>
+        <span id="roleBadgeDisplay" class="badge bg-dark border border-secondary text-light">Nivel y Scope por Seleccionar</span>
       </div>
       <div class="card-body p-4">
         <form id="formStaff" class="row g-3">
           <input type="hidden" id="staffId">
           
-          <div class="col-md-4">
+          <div class="col-md-3">
             <label for="staffNombre" class="form-label fw-semibold text-light">Nombre Completo</label>
-            <input type="text" class="form-control" id="staffNombre" placeholder="Ej. Juan Pérez" required autocomplete="off">
+            <input type="text" class="form-control" id="staffNombre" placeholder="Ej. Ana López" required autocomplete="off">
           </div>
           
-          <div class="col-md-4">
-            <label for="staffTelefono" class="form-label fw-semibold text-light">Teléfono (WhatsApp)</label>
+          <div class="col-md-3">
+            <label for="staffTelefono" class="form-label fw-semibold text-light">Teléfono (WhatsApp / Login)</label>
             <div class="input-group">
               <span class="input-group-text text-muted">+52</span>
               <input type="tel" class="form-control" id="staffTelefono" placeholder="10 dígitos" required maxlength="10" pattern="[0-9]{10}">
             </div>
           </div>
 
-          <div class="col-md-4">
+          <!-- CAMPO CLAVE DE ACCESO (PIN) -->
+          <div class="col-md-3">
+            <label for="staffPin" class="form-label fw-semibold text-warning">
+              <i class="fas fa-key me-1"></i> Clave de Acceso (PIN)
+            </label>
+            <input type="password" class="form-control border-warning" id="staffPin" placeholder="PIN / Contraseña" autocomplete="new-password">
+            <small id="pinHelpText" class="text-muted d-block" style="font-size:0.75rem;">Se encriptará vía SHA-256 + Salt.</small>
+          </div>
+
+          <div class="col-md-3">
             <label for="staffRol" class="form-label fw-semibold text-light">Rol Jerárquico</label>
             <select class="form-select" id="staffRol" required>
               <option value="" selected disabled>Selecciona un rol...</option>
-              <option value="Gerente General">Gerente General</option>
-              <option value="Administrador">Administrador</option>
-              <option value="Coordinador/a">Coordinador/a</option>
-              <option value="Reclutador/a">Reclutador/a</option>
-              <option value="RH Empresarial">RH Empresarial</option>
+              <option value="Administrador">Administrador (Nivel 5 - Global)</option>
+              <option value="Gerente General">Gerente General (Nivel 4 - Global)</option>
+              <option value="Coordinador">Coordinador (Nivel 3 - Regional)</option>
+              <option value="Reclutador">Reclutador (Nivel 2 - Regional/Empresas)</option>
+              <option value="Implant">Implant (Nivel 2 - En Planta)</option>
+              <option value="Facturación y Cobranza">Facturación y Cobranza (Nivel 2 - Financiero)</option>
+              <option value="Empresa / Cliente">Empresa / Cliente (Nivel 1 - Cliente)</option>
             </select>
           </div>
 
-          <!-- ASIGNACIÓN DE EMPRESAS (CONTROL MULTISELECCIÓN) -->
-          <div class="col-md-8">
+          <!-- PLANTA ASIGNADA (PARA IMPLANT) -->
+          <div class="col-md-6 d-none" id="groupPlant">
+            <label for="staffPlant" class="form-label fw-semibold text-warning">
+              <i class="fas fa-industry me-1"></i> Planta Específica Asignada
+            </label>
+            <input type="text" class="form-control border-warning" id="staffPlant" placeholder="Ej. Planta Katcon Apodaca">
+            <small class="text-muted">El Implant solo visualizará los candidatos dentro de esta planta.</small>
+          </div>
+
+          <!-- REGIONES ASIGNADAS (PARA COORDINADOR / RECLUTADOR) -->
+          <div class="col-md-6 d-none" id="groupRegions">
+            <label class="form-label fw-semibold text-warning mb-2">
+              <i class="fas fa-map-location-dot me-1"></i> Regiones de Cobertura
+            </label>
+            <div class="multiselect-container" id="regionesContainer">
+              <div class="form-check mb-1">
+                <input class="form-check-input region-checkbox" type="checkbox" value="Apodaca" id="reg_apodaca">
+                <label class="form-check-label text-light small" for="reg_apodaca">Apodaca, N.L.</label>
+              </div>
+              <div class="form-check mb-1">
+                <input class="form-check-input region-checkbox" type="checkbox" value="Ciénega de Flores" id="reg_cienega">
+                <label class="form-check-label text-light small" for="reg_cienega">Ciénega de Flores, N.L.</label>
+              </div>
+              <div class="form-check mb-1">
+                <input class="form-check-input region-checkbox" type="checkbox" value="Pesquería" id="reg_pesqueria">
+                <label class="form-check-label text-light small" for="reg_pesqueria">Pesquería, N.L.</label>
+              </div>
+              <div class="form-check mb-1">
+                <input class="form-check-input region-checkbox" type="checkbox" value="Tlaquepaque" id="reg_tlaquepaque">
+                <label class="form-check-label text-light small" for="reg_tlaquepaque">Tlaquepaque, Jal.</label>
+              </div>
+              <div class="form-check mb-1">
+                <input class="form-check-input region-checkbox" type="checkbox" value="El Salto" id="reg_elsalto">
+                <label class="form-check-label text-light small" for="reg_elsalto">El Salto, Jal.</label>
+              </div>
+            </div>
+            <small class="text-muted">Filtra la visibilidad del pipeline por zonas geográficas.</small>
+          </div>
+
+          <!-- ASIGNACIÓN DE EMPRESAS (MULTISELECCIÓN) -->
+          <div class="col-md-8" id="groupCompanies">
             <div class="d-flex justify-content-between align-items-center mb-2">
               <label class="form-label fw-semibold text-light mb-0">Empresas / Cuentas Asignadas</label>
               <div class="form-check form-switch">
@@ -328,10 +387,10 @@
               </div>
             </div>
             
-            <div id="empresasContainer" class="empresas-container">
+            <div id="empresasContainer" class="multiselect-container">
               <span class="text-muted small">Cargando empresas desde Firebase...</span>
             </div>
-            <small class="text-muted">Selecciona las empresas que atenderá este colaborador.</small>
+            <small class="text-muted">Selecciona las empresas específicas que gestionará este colaborador.</small>
           </div>
 
           <div class="col-md-4">
@@ -345,17 +404,17 @@
           <div class="col-12 text-end mt-4">
             <button type="button" id="btnCancelar" class="btn btn-outline-secondary me-2 d-none">Cancelar</button>
             <button type="submit" id="btnGuardar" class="btn btn-orange px-4 py-2">
-              <i class="bi bi-save me-1"></i> Guardar Colaborador
+              <i class="bi bi-shield-lock-fill me-1"></i> Guardar Colaborador y Permisos
             </button>
           </div>
         </form>
       </div>
     </div>
 
-    <!-- TABLA DE CONTROL DE PERSONAL -->
+    <!-- TABLA DE CONTROL DE PERSONAL Y PERMISOS -->
     <div class="premium-card">
       <div class="premium-card-header d-flex justify-content-between align-items-center">
-        <h5><i class="fas fa-users me-2 text-warning"></i>Directorio Activo de Personal</h5>
+        <h5><i class="fas fa-users me-2 text-warning"></i>Directorio Activo de Personal y Roles</h5>
         <span id="totalStaffBadge" class="badge bg-warning text-dark rounded-pill fw-bold px-3 py-2">0 Registros</span>
       </div>
       <div class="card-body p-0">
@@ -364,16 +423,17 @@
             <thead>
               <tr>
                 <th scope="col" class="ps-4">Colaborador</th>
-                <th scope="col">Rol</th>
+                <th scope="col">Rol / Nivel</th>
+                <th scope="col">Alcance (`scope`)</th>
                 <th scope="col">Contacto (WhatsApp)</th>
-                <th scope="col">Empresas Asignadas</th>
+                <th scope="col">Cobertura (Empresas / Regiones / Planta)</th>
                 <th scope="col">Estatus</th>
                 <th scope="col" class="text-end pe-4">Acciones</th>
               </tr>
             </thead>
             <tbody id="tablaStaffBody">
               <tr>
-                <td colspan="6" class="text-center py-4 text-muted">Sincronizando datos en tiempo real...</td>
+                <td colspan="7" class="text-center py-4 text-muted">Sincronizando datos en tiempo real...</td>
               </tr>
             </tbody>
           </table>
@@ -407,16 +467,35 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
+    // MATRIZ ESTÁTICA DE ROLES Y PERMISOS PROGRAMÁTICOS
+    const ROLES_CONFIG = {
+      "Administrador": { level: 5, scope: "global", badgeClass: "bg-danger" },
+      "Gerente General": { level: 4, scope: "global", badgeClass: "bg-warning text-dark fw-bold" },
+      "Coordinador": { level: 3, scope: "regional", badgeClass: "bg-info text-dark" },
+      "Reclutador": { level: 2, scope: "regional", badgeClass: "bg-primary" },
+      "Implant": { level: 2, scope: "plant", badgeClass: "bg-success" },
+      "Facturación y Cobranza": { level: 2, scope: "global_financial", badgeClass: "bg-purple text-light" },
+      "Empresa / Cliente": { level: 1, scope: "client_entity", badgeClass: "bg-secondary" }
+    };
+
     const staffRef = ref(db, 'usuarios_reclutadores');
     const logsRef = ref(db, 'modulo_7_logs');
     const empresasRef = ref(db, 'empresas');
 
+    // DOM Elements
     const formStaff = document.getElementById('formStaff');
     const staffIdInput = document.getElementById('staffId');
     const nombreInput = document.getElementById('staffNombre');
     const telefonoInput = document.getElementById('staffTelefono');
+    const pinInput = document.getElementById('staffPin');
+    const pinHelpText = document.getElementById('pinHelpText');
     const rolSelect = document.getElementById('staffRol');
     
+    const groupPlant = document.getElementById('groupPlant');
+    const staffPlantInput = document.getElementById('staffPlant');
+    const groupRegions = document.getElementById('groupRegions');
+    const roleBadgeDisplay = document.getElementById('roleBadgeDisplay');
+
     const chkTodasEmpresas = document.getElementById('chkTodasEmpresas');
     const empresasContainer = document.getElementById('empresasContainer');
     
@@ -428,20 +507,49 @@
     const statusDot = document.getElementById('statusDot');
     const connectionText = document.getElementById('connectionText');
 
-    let listaEmpresasGlobal = [];
+    let currentEditingUserData = null; // Guarda hash/salt actual en edición
 
-    // LECTURA DE SISTEMA DE LOGS
-    onValue(logsRef, (snapshot) => {
-      let totalLogs = 0;
-      if (snapshot.exists()) {
-        totalLogs = Object.keys(snapshot.val()).length;
-      }
-      if (statusDot.classList.contains('status-connected')) {
-        connectionText.textContent = `Conectado en tiempo real a bolsa-de-trabajo-a52e4 | Logs registrados: ${totalLogs}`;
+    // --- FUNCIONES DE SEGURIDAD SHA-256 + SALT (WEB CRYPTO API) ---
+    function generarSalt() {
+      const array = new Uint8Array(16);
+      window.crypto.getRandomValues(array);
+      return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+    }
+
+    async function generarPasswordHash(password, salt) {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(password + salt);
+      const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    // CAMBIO DINÁMICO DE ROL
+    rolSelect.addEventListener('change', (e) => {
+      const selectedRole = e.target.value;
+      const config = ROLES_CONFIG[selectedRole];
+
+      if (config) {
+        roleBadgeDisplay.className = `badge ${config.badgeClass} px-3 py-2`;
+        roleBadgeDisplay.textContent = `Nivel ${config.level} | Scope: ${config.scope.toUpperCase()}`;
+
+        if (config.scope === 'plant') {
+          groupPlant.classList.remove('d-none');
+        } else {
+          groupPlant.classList.add('d-none');
+          staffPlantInput.value = '';
+        }
+
+        if (config.scope === 'regional') {
+          groupRegions.classList.remove('d-none');
+        } else {
+          groupRegions.classList.add('d-none');
+          document.querySelectorAll('.region-checkbox').forEach(cb => cb.checked = false);
+        }
       }
     });
 
-    // Switch de TODAS LAS EMPRESAS
+    // SWITCH TODAS LAS EMPRESAS
     chkTodasEmpresas.addEventListener('change', (e) => {
       if (e.target.checked) {
         empresasContainer.classList.add('disabled-box');
@@ -451,17 +559,14 @@
       }
     });
 
-    // Carga dinámica de empresas desde Firebase
+    // CARGA DE EMPRESAS
     onValue(empresasRef, (snapshot) => {
       empresasContainer.innerHTML = '';
-      listaEmpresasGlobal = [];
-
       if (snapshot.exists()) {
         const empresasData = snapshot.val();
         Object.keys(empresasData).forEach(key => {
           const emp = empresasData[key];
           const nombreEmpresa = typeof emp === 'string' ? emp : (emp.nombre || key);
-          listaEmpresasGlobal.push(nombreEmpresa);
 
           const div = document.createElement('div');
           div.className = 'form-check mb-1';
@@ -478,7 +583,7 @@
       }
     });
 
-    // Sincronización en Tiempo Real del Directorio
+    // SINCRONIZACIÓN EN TIEMPO REAL DEL DIRECTORIO
     onValue(staffRef, (snapshot) => {
       statusDot.className = "status-dot status-connected";
       connectionText.textContent = "Conectado en tiempo real a bolsa-de-trabajo-a52e4";
@@ -493,28 +598,44 @@
           const user = data[key];
           contador++;
           
-          let htmlEmpresas = '';
+          const rolConfig = ROLES_CONFIG[user.rol] || { level: user.level || 2, scope: user.scope || 'regional', badgeClass: 'bg-secondary' };
+
+          // Render Cobertura
+          let htmlCobertura = '';
           if (user.todasLasEmpresas) {
-            htmlEmpresas = '<span class="badge bg-warning text-dark"><i class="fas fa-globe me-1"></i>TODAS</span>';
+            htmlCobertura += '<span class="badge bg-warning text-dark me-1"><i class="fas fa-globe me-1"></i>TODAS LAS EMPRESAS</span>';
           } else if (Array.isArray(user.empresas) && user.empresas.length > 0) {
-            htmlEmpresas = user.empresas.map(e => `<span class="badge bg-secondary me-1 mb-1">${e}</span>`).join('');
-          } else if (typeof user.empresas === 'string' && user.empresas.trim() !== '') {
-            htmlEmpresas = `<small class="text-light">${user.empresas}</small>`;
-          } else {
-            htmlEmpresas = '<small class="text-muted">Sin asignación</small>';
+            htmlCobertura += user.empresas.map(e => `<span class="badge bg-secondary me-1 mb-1">${e}</span>`).join('');
           }
+
+          if (Array.isArray(user.allowedRegions) && user.allowedRegions.length > 0) {
+            htmlCobertura += '<br>' + user.allowedRegions.map(r => `<span class="badge bg-info text-dark me-1 mb-1"><i class="fas fa-location-dot me-1"></i>${r}</span>`).join('');
+          }
+
+          if (user.allowedPlants && user.allowedPlants.length > 0) {
+            const plantaStr = Array.isArray(user.allowedPlants) ? user.allowedPlants.join(', ') : user.allowedPlants;
+            htmlCobertura += `<br><span class="badge bg-success text-white me-1 mb-1"><i class="fas fa-industry me-1"></i>${plantaStr}</span>`;
+          }
+
+          if (!htmlCobertura) htmlCobertura = '<small class="text-muted">Sin asignación específica</small>';
 
           const tr = document.createElement('tr');
           tr.innerHTML = `
             <td class="ps-4 colaborador-nombre">${user.nombre}</td>
-            <td><span class="badge ${getRolBadgeClass(user.rol)}">${user.rol}</span></td>
+            <td>
+              <span class="badge ${rolConfig.badgeClass}">${user.rol}</span>
+              <div class="small text-muted mt-1">Nivel: <strong>${user.level || rolConfig.level}</strong></div>
+            </td>
+            <td>
+              <span class="badge bg-dark border border-secondary badge-scope">${user.scope || rolConfig.scope}</span>
+            </td>
             <td>
               <a href="https://wa.me/52${user.telefono}?text=Hola%20${encodeURIComponent(user.nombre)}" 
                  target="_blank" class="btn btn-wa btn-sm rounded-pill fw-semibold px-3">
                  <i class="fab fa-whatsapp me-1"></i> ${user.telefono}
               </a>
             </td>
-            <td>${htmlEmpresas}</td>
+            <td>${htmlCobertura}</td>
             <td>
               <span class="badge ${user.estatus === 'Activo' ? 'bg-success' : 'bg-danger'}">
                 ${user.estatus}
@@ -537,38 +658,76 @@
       } else {
         tablaBody.innerHTML = `
           <tr>
-            <td colspan="6" class="text-center py-4 text-muted">
+            <td colspan="7" class="text-center py-4 text-muted">
               No hay miembros registrados en el nodo usuarios_reclutadores.
             </td>
           </tr>`;
         totalBadge.textContent = `0 Registros`;
       }
-    }, (error) => {
-      console.error("Error al conectar con Firebase:", error);
-      statusDot.className = "status-dot status-disconnected";
-      connectionText.textContent = "Error de enlace con el servidor";
     });
 
-    // Guardar / Editar Registro
+    // GUARDAR / EDITAR CON PROCESAMIENTO DE SEGURIDAD
     formStaff.addEventListener('submit', async (e) => {
       e.preventDefault();
       
       const id = staffIdInput.value;
+      const selectedRole = rolSelect.value;
+      const rolMeta = ROLES_CONFIG[selectedRole] || { level: 2, scope: 'regional' };
+      const rawPin = pinInput.value.trim();
+
+      // Validación de PIN obligatorio para nuevos usuarios
+      if (!id && !rawPin) {
+        alert("Debes ingresar una clave de acceso (PIN) para el nuevo usuario.");
+        pinInput.focus();
+        return;
+      }
+
+      // Procesamiento del Hash y Salt
+      let saltFinal = '';
+      let hashFinal = '';
+
+      if (rawPin !== '') {
+        // Se ingresó una nueva clave o se crea usuario nuevo
+        saltFinal = generarSalt();
+        hashFinal = await generarPasswordHash(rawPin, saltFinal);
+      } else if (id && currentEditingUserData) {
+        // Edición sin modificar PIN: conserva Hash y Salt anteriores
+        saltFinal = currentEditingUserData.salt || '';
+        hashFinal = currentEditingUserData.passwordHash || '';
+      }
+
       const esTodas = chkTodasEmpresas.checked;
       let empresasSeleccionadas = [];
-
       if (!esTodas) {
         document.querySelectorAll('.empresa-checkbox:checked').forEach(cb => {
           empresasSeleccionadas.push(cb.value);
         });
       }
 
+      let regionesSeleccionadas = [];
+      if (rolMeta.scope === 'regional') {
+        document.querySelectorAll('.region-checkbox:checked').forEach(cb => {
+          regionesSeleccionadas.push(cb.value);
+        });
+      }
+
+      let plantasSeleccionadas = [];
+      if (rolMeta.scope === 'plant' && staffPlantInput.value.trim() !== '') {
+        plantasSeleccionadas.push(staffPlantInput.value.trim());
+      }
+
       const payload = {
         nombre: nombreInput.value.trim(),
         telefono: telefonoInput.value.trim(),
-        rol: rolSelect.value,
+        passwordHash: hashFinal,
+        salt: saltFinal,
+        rol: selectedRole,
+        level: rolMeta.level,
+        scope: rolMeta.scope,
         todasLasEmpresas: esTodas,
         empresas: esTodas ? ["TODAS"] : empresasSeleccionadas,
+        allowedRegions: regionesSeleccionadas,
+        allowedPlants: plantasSeleccionadas,
         estatus: estatusSelect.value,
         ultimaActualizacion: serverTimestamp()
       };
@@ -576,19 +735,19 @@
       try {
         if (id) {
           await update(ref(db, `usuarios_reclutadores/${id}`), payload);
-          await registrarLog('EDICION_STAFF', `Modificación de usuario: ${payload.nombre}`);
+          await registrarLog('EDICION_STAFF', `Actualización de accesos y perfil para: ${payload.nombre} (${payload.rol})`);
         } else {
           const newRef = push(staffRef);
           await set(newRef, {
             ...payload,
             fechaCreacion: serverTimestamp()
           });
-          await registrarLog('ALTA_STAFF', `Nuevo registro: ${payload.nombre} (${payload.rol})`);
+          await registrarLog('ALTA_STAFF', `Alta de usuario seguro: ${payload.nombre} - Rol: ${payload.rol} (Level ${payload.level})`);
         }
 
         limpiarFormulario();
       } catch (err) {
-        alert("Ocurrió un error al procesar el registro en Firebase.");
+        alert("Error al procesar el registro en Firebase.");
         console.error(err);
       }
     });
@@ -622,13 +781,33 @@
       onValue(ref(db, `usuarios_reclutadores/${id}`), (snapshot) => {
         if (snapshot.exists()) {
           const data = snapshot.val();
+          currentEditingUserData = data;
+
           staffIdInput.value = id;
           nombreInput.value = data.nombre;
           telefonoInput.value = data.telefono;
+          
+          // Ajustes del campo PIN para edición
+          pinInput.value = '';
+          pinInput.required = false;
+          pinHelpText.textContent = "Dejar en blanco para conservar la clave de acceso actual.";
+          pinHelpText.className = "text-warning d-block";
+
           rolSelect.value = data.rol;
+          rolSelect.dispatchEvent(new Event('change'));
+          
           estatusSelect.value = data.estatus;
           
-          // Cargar Empresas Asignadas
+          if (data.allowedPlants && data.allowedPlants.length > 0) {
+            staffPlantInput.value = Array.isArray(data.allowedPlants) ? data.allowedPlants[0] : data.allowedPlants;
+          }
+
+          if (Array.isArray(data.allowedRegions)) {
+            document.querySelectorAll('.region-checkbox').forEach(cb => {
+              cb.checked = data.allowedRegions.includes(cb.value);
+            });
+          }
+
           if (data.todasLasEmpresas) {
             chkTodasEmpresas.checked = true;
             empresasContainer.classList.add('disabled-box');
@@ -655,30 +834,33 @@
     function limpiarFormulario() {
       formStaff.reset();
       staffIdInput.value = '';
+      currentEditingUserData = null;
+
+      pinInput.required = true;
+      pinHelpText.textContent = "Se encriptará vía SHA-256 + Salt.";
+      pinHelpText.className = "text-muted d-block";
+
+      roleBadgeDisplay.className = 'badge bg-dark border border-secondary text-light';
+      roleBadgeDisplay.textContent = 'Nivel y Scope por Seleccionar';
+      
+      groupPlant.classList.add('d-none');
+      groupRegions.classList.add('d-none');
+      
       chkTodasEmpresas.checked = false;
       empresasContainer.classList.remove('disabled-box');
       document.querySelectorAll('.empresa-checkbox').forEach(cb => cb.checked = false);
+      document.querySelectorAll('.region-checkbox').forEach(cb => cb.checked = false);
+      
       btnCancelar.classList.add('d-none');
     }
 
     btnCancelar.addEventListener('click', limpiarFormulario);
 
-    function getRolBadgeClass(rol) {
-      switch (rol) {
-        case 'Gerente General': return 'bg-warning text-dark fw-bold';
-        case 'Administrador': return 'bg-danger';
-        case 'Coordinador/a': return 'bg-info text-dark';
-        case 'Reclutador/a': return 'bg-secondary';
-        case 'RH Empresarial': return 'bg-dark text-white border border-secondary';
-        default: return 'bg-light text-dark';
-      }
-    }
-
     async function registrarLog(accion, detalle) {
       try {
         const newLogRef = push(logsRef);
         await set(newLogRef, {
-          modulo: "Modulo 5 - Control de Staff",
+          modulo: "Modulo 5 - Control de Staff y Gobernanza",
           accion: accion,
           detalle: detalle,
           fecha: serverTimestamp()
