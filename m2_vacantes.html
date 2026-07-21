@@ -68,13 +68,13 @@ box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.2);
 <option value="">-- Selecciona vacante --</option> 
 </select>
 <div class="grid grid-cols-3 gap-2 mt-1"> 
-<button type="button" id="btnLoadVacante" class="py-2 px-3 bg-[#f59e0b] hover:bg-[#d97706] text-slate-900 font-bold rounded-lg text-xs flex items-center justify-center gap-1"> 
+<button type="button" id="btnLoadVacante" class="py-2 px-3 bg-[#f59e0b] hover:bg-[#d97706] text-slate-900 font-bold rounded-lg text-xs flex items-center justify-center gap-1 cursor-pointer"> 
 <i data-lucide="edit-3" class="w-3.5 h-3.5"></i> Cargar 
 </button> 
-<button type="button" id="btnDeleteVacante" class="py-2 px-3 bg-[#ef4444] hover:bg-[#dc2626] text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1"> 
+<button type="button" id="btnDeleteVacante" class="py-2 px-3 bg-[#ef4444] hover:bg-[#dc2626] text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1 cursor-pointer"> 
 <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Borrar 
 </button> 
-<button type="button" id="btnClearForm" class="py-2 px-3 bg-[#475569] hover:bg-[#334155] text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1"> 
+<button type="button" id="btnClearForm" class="py-2 px-3 bg-[#475569] hover:bg-[#334155] text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1 cursor-pointer"> 
 <i data-lucide="eraser" class="w-3.5 h-3.5"></i> Limpiar 
 </button> 
 </div> 
@@ -108,7 +108,7 @@ box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.2);
 </div> 
 </div> 
 <button id="btnExtract" type="button" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg shadow-md transition flex items-center justify-center gap-2 text-sm uppercase tracking-wide cursor-pointer"> 
-<i data-lucide="cpu" class="w-4 h-4"></i> Autorellenar Formulario
+<i data-lucide="cpu" class="w-4 h-4"></i> Procesar Documento con IA
 </button> 
 </div> 
 </div> 
@@ -260,6 +260,40 @@ box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.2);
 </div> 
 </div> 
 
+<!-- MODAL REVISIÓN MULTIVACANTES -->
+<div id="modalMultivacantes" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+  <div class="bg-[#162231] border border-[#2d4156] rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+    <!-- Header Modal -->
+    <div class="p-5 border-b border-[#2d4156] flex items-center justify-between bg-[#111e2e]">
+      <div class="flex items-center gap-3">
+        <i data-lucide="layers" class="w-6 h-6 text-indigo-400"></i>
+        <h3 class="text-lg font-bold text-slate-100">Vacantes Detectadas por IA (<span id="modalCount">0</span>)</h3>
+      </div>
+      <button id="btnCloseModal" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-[#1b2a3a] transition cursor-pointer">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+    
+    <!-- Contenido Modal -->
+    <div id="modalVacantesList" class="p-6 overflow-y-auto flex flex-col gap-4 max-h-[60vh] bg-[#111e2e]/50">
+      <!-- Se puebla dinámicamente -->
+    </div>
+    
+    <!-- Footer Modal -->
+    <div class="p-5 border-t border-[#2d4156] flex items-center justify-between bg-[#111e2e]">
+      <span class="text-xs text-slate-400" id="modalEmpresaTarget">Empresa asignada: </span>
+      <div class="flex items-center gap-3">
+        <button id="btnCancelModal" class="px-4 py-2 bg-[#2d4156] hover:bg-[#3d5672] text-slate-200 font-semibold rounded-lg text-xs transition cursor-pointer">
+          Cancelar
+        </button>
+        <button id="btnSaveAllModal" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs transition flex items-center gap-2 cursor-pointer shadow-lg">
+          <i data-lucide="upload-cloud" class="w-4 h-4"></i> Subir Todo el Bloque a Firebase
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script> 
 lucide.createIcons(); 
 
@@ -268,7 +302,6 @@ const firebaseConfig = {
   databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com/"
 };
 
-// Evita inicializar dos veces
 if (!firebase.apps.length) {
   firebase.initializeApp(firebaseConfig);
 }
@@ -284,7 +317,7 @@ function registrarLog(usuarioId, moduloOrigen, operacion, detalles) {
         timestamp: new Date().toISOString(),
         usuario_id: usuarioId || "Sistema / Anónimo",
         modulo: moduloOrigen,
-        operacion: operacion, // "CREAR" | "MODIFICAR" | "INHABILITAR" | "REACTIVAR" | "ELIMINAR" | "ACCESO"
+        operacion: operacion,
         detalles: detalles
     }).catch(err => console.error("Error guardando log en auditoría:", err));
 }
@@ -304,6 +337,7 @@ connectedRef.on("value", (snap) => {
 });
 
 let extractedFileText = "", attachedFileBase64 = "", attachedFileType = "", cacheVacantesEmpresa = {}; 
+let tempVacantesExtraidas = [];
 
 // 📋 Cargar empresas
 function loadEmpresasDinamicas() { 
@@ -351,7 +385,12 @@ document.getElementById('btnLoadVacante').addEventListener('click', () => {
   const key = document.getElementById('selectVacante').value; 
   if (!key || !cacheVacantesEmpresa[key]) return alert("Selecciona una vacante válida"); 
   const d = cacheVacantesEmpresa[key]; 
-  document.getElementById('puestoId').value = d.puestoId || key; 
+  cargarObjetoEnFormulario(d);
+  alert("Datos cargados ✅");
+});
+
+function cargarObjetoEnFormulario(d) {
+  document.getElementById('puestoId').value = d.puestoId || ""; 
   document.getElementById('nombreVacante').value = d.nombreVacante || ""; 
   document.getElementById('vacanteNombre').value = d.vacanteNombre || ""; 
   document.getElementById('estatus').value = d.estatus || "disponible"; 
@@ -368,8 +407,7 @@ document.getElementById('btnLoadVacante').addEventListener('click', () => {
   document.getElementById('actividades').value = d.actividades || "";
   document.getElementById('beneficios').value = d.beneficios || "";
   updateJsonOutput(d);
-  alert("Datos cargados ✅");
-});
+}
 
 // 🗑️ Borrar vacante
 document.getElementById('btnDeleteVacante').addEventListener('click', () => {
@@ -379,7 +417,6 @@ document.getElementById('btnDeleteVacante').addEventListener('click', () => {
   if (confirm(`¿Eliminar vacante: ${key}?`)) {
     database.ref(`vacantes_detalles/${emp}/${key}`).remove()
     .then(() => { 
-      // REGISTRO DE AUDITORÍA (MÓDULO 7)
       registrarLog(
         "Administrador",
         "Módulo 2: Vacantes",
@@ -426,64 +463,258 @@ document.getElementById('fileInput').addEventListener('change', async e => {
   }
 }); 
 
-// Generar ID
+// Generar ID Manual
 document.getElementById('nombreVacante').addEventListener('input', e => { 
   document.getElementById('puestoId').value = e.target.value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]/g,"").trim(); 
 }); 
 
-// 🤖 Gemini
+// 🤖 GEMINI MULTIVACANTES CON VALIDACIÓN
 document.getElementById('btnExtract').addEventListener('click', async () => { 
+  const emp = document.getElementById('selectEmpresa').value.trim();
+  if (!emp) return alert("⚠️ REQUISITO OBLIGATORIO: Primero debes seleccionar una Empresa Destino en el selector superior.");
+
   const key = document.getElementById('apiKeyInput').value.trim(); 
-  if (!key) return alert("Ingresa API Key"); 
+  if (!key) return alert("Ingresa tu API Key de Gemini"); 
+  
   const txt = document.getElementById('rawText').value.trim(); 
-  if (!txt && !extractedFileText && !attachedFileBase64) return alert("Agrega información"); 
-  const btn = document.getElementById('btnExtract'); btn.disabled = true; btn.innerHTML = "Procesando...";
+  if (!txt && !extractedFileText && !attachedFileBase64) return alert("Agrega información mediante texto o subiendo un archivo."); 
+
+  const btn = document.getElementById('btnExtract'); btn.disabled = true; btn.innerHTML = "Analizando Multivacantes...";
+  
+  const systemPrompt = `Eres un extractor de datos de vacantes de empleo. Analiza el documento y detecta TODAS las vacantes presentes.
+  Si hay más de una vacante declarada, sepáralas. Replica la información general o compartida (como beneficios, rutas de transporte, ubicación) en cada vacante, pero mantén independientes el nombre del puesto, salario, edad, escolaridad y actividades de cada una.
+  
+  Responde ÚNICAMENTE con un ARREGLO JSON DE OBJETOS con esta estructura exacta para cada vacante:
+  [
+    {
+      "nombreVacante": "Nombre corto (Ej: Operador General)",
+      "vacanteNombre": "Título oficial (Ej: OPERADOR GENERAL DE PRODUCCIÓN)",
+      "edad": "",
+      "sexo": "",
+      "escolaridad": "",
+      "experiencia": "",
+      "salario": "",
+      "lugarOrigen": "",
+      "turnos": "",
+      "actividades": "",
+      "beneficios": "",
+      "rutasTransporte": "",
+      "infoGeneral": ""
+    }
+  ]`;
+
   try { 
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`, { 
       method: 'POST', headers: {'Content-Type':'application/json'}, 
-      body: JSON.stringify({ contents: [{ parts: [ {text:`Extrae estos datos y devuelve SOLO JSON: {nombreVacante:"",vacanteNombre:"",edad:"",sexo:"",escolaridad:"",experiencia:"",salario:"",lugarOrigen:"",turnos:"",actividades:"",beneficios:"",rutasTransporte:"",infoGeneral:""} DATOS: ${txt}\n${extractedFileText}`} , ...(attachedFileBase64 ? [{inlineData:{mimeType:attachedFileType,data:attachedFileBase64}}] : []) ] }], generationConfig:{responseMimeType:"application/json"} }) 
+      body: JSON.stringify({ 
+        contents: [{ 
+          parts: [ 
+            { text: `${systemPrompt}\n\nDATOS A PROCESAR:\n${txt}\n${extractedFileText}` }, 
+            ...(attachedFileBase64 ? [{ inlineData: { mimeType: attachedFileType, data: attachedFileBase64 } }] : []) 
+          ] 
+        }], 
+        generationConfig: { responseMimeType: "application/json" } 
+      }) 
     });
+    
     const data = await res.json(); 
-    if (!data.candidates) throw new Error("Sin respuesta");
-    const obj = JSON.parse(data.candidates[0].content.parts[0].text.replace(/```json|```/g,"").trim());
-    Object.keys(obj).forEach(k => document.getElementById(k) && (document.getElementById(k).value = obj[k] || ""));
-    document.getElementById('puestoId').value = document.getElementById('nombreVacante').value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]/g,"").trim(); 
-    updateJsonOutput(obj); alert("Autocompletado ✅");
-  } catch (err) { console.error(err); alert("Error con Gemini: revisa tu API Key"); } 
-  finally { btn.disabled = false; btn.innerHTML = `<i data-lucide="cpu" class="w-4 h-4"></i> Autorellenar Formulario`; lucide.createIcons(); }
+    if (!data.candidates) throw new Error("Sin respuesta de Gemini");
+    
+    let rawTextResponse = data.candidates[0].content.parts[0].text.replace(/```json|```/g,"").trim();
+    let parsedArray = JSON.parse(rawTextResponse);
+    
+    if (!Array.isArray(parsedArray)) {
+      parsedArray = [parsedArray]; // Forzar a Array si devolvió un solo objeto
+    }
+
+    tempVacantesExtraidas = parsedArray;
+    abrirModalMultivacantes(emp, tempVacantesExtraidas);
+
+  } catch (err) { 
+    console.error(err); 
+    alert("Error al procesar con Gemini: Revisa tu API Key o la estructura del documento."); 
+  } finally { 
+    btn.disabled = false; 
+    btn.innerHTML = `<i data-lucide="cpu" class="w-4 h-4"></i> Procesar Documento con IA`; 
+    lucide.createIcons(); 
+  }
 }); 
 
-// 💾 Guardar en Firebase
+// 🪟 GESTIÓN DE MODAL Y LISTADO
+function abrirModalMultivacantes(empresaKey, vacantes) {
+  const modal = document.getElementById('modalMultivacantes');
+  const container = document.getElementById('modalVacantesList');
+  document.getElementById('modalCount').innerText = vacantes.length;
+  document.getElementById('modalEmpresaTarget').innerText = `Empresa de Destino: ${empresaKey.toUpperCase()}`;
+  
+  container.innerHTML = "";
+
+  vacantes.forEach((v, idx) => {
+    const card = document.createElement('div');
+    card.className = "bg-[#1b2a3a] border border-[#2d4156] p-4 rounded-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4";
+    card.innerHTML = `
+      <div class="flex-1">
+        <div class="flex items-center gap-2 mb-1">
+          <span class="text-xs font-mono bg-indigo-900/60 text-indigo-300 px-2 py-0.5 rounded border border-indigo-700">Vacante #${idx+1}</span>
+          <h4 class="font-bold text-slate-100 text-sm">${v.nombreVacante || 'Sin Nombre'}</h4>
+        </div>
+        <p class="text-xs text-slate-400"><strong>Salario:</strong> ${v.salario || 'N/A'} | <strong>Edad:</strong> ${v.edad || 'N/A'} | <strong>Escolaridad:</strong> ${v.escolaridad || 'N/A'}</p>
+        <p class="text-xs text-slate-500 line-clamp-1 mt-1"><strong>Actividades:</strong> ${v.actividades || 'Sin definir'}</p>
+      </div>
+      <div class="flex items-center gap-2 w-full md:w-auto">
+        <button onclick="cargarUnaSolaVacante(${idx})" class="w-full md:w-auto px-3 py-2 bg-amber-600 hover:bg-amber-500 text-white font-semibold rounded-lg text-xs transition flex items-center justify-center gap-1 cursor-pointer">
+          <i data-lucide="arrow-right-circle" class="w-3.5 h-3.5"></i> Cargar al Formulario
+        </button>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+
+  lucide.createIcons();
+  modal.classList.remove('hidden');
+}
+
+function cerrarModal() {
+  document.getElementById('modalMultivacantes').classList.add('hidden');
+}
+document.getElementById('btnCloseModal').addEventListener('click', cerrarModal);
+document.getElementById('btnCancelModal').addEventListener('click', cerrarModal);
+
+// Cargar individualmente desde el modal al formulario
+window.cargarUnaSolaVacante = function(index) {
+  const item = tempVacantesExtraidas[index];
+  if (!item) return;
+  
+  // Asignar ID único dinámico local
+  const baseSlug = (item.nombreVacante || "vacante").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]/g,"").trim();
+  item.puestoId = calcularIdUnicoConSufijo(baseSlug);
+
+  cargarObjetoEnFormulario(item);
+  cerrarModal();
+  alert(`Vacante "${item.nombreVacante}" cargada al formulario. Revisa los datos y presiona Guardar o Publicar.`);
+};
+
+// 🆔 CÁLCULO DE ID ÚNICO SIN SOBREESCRIBIR (CON SUFIJO)
+function calcularIdUnicoConSufijo(baseSlug) {
+  if (!cacheVacantesEmpresa[baseSlug]) {
+    return baseSlug; // No existe, se usa tal cual
+  }
+  
+  // Si ya existe, buscar sufijo libre: baseSlug-2, baseSlug-3...
+  let contador = 2;
+  while (cacheVacantesEmpresa[`${baseSlug}-${contador}`]) {
+    contador++;
+  }
+  return `${baseSlug}-${contador}`;
+}
+
+// 💾 SUBIDA MASIVA EN BLOQUE A FIREBASE
+document.getElementById('btnSaveAllModal').addEventListener('click', async () => {
+  const emp = document.getElementById('selectEmpresa').value.trim();
+  if (!emp) return alert("Selecciona una empresa activa primero.");
+  if (!tempVacantesExtraidas || tempVacantesExtraidas.length === 0) return;
+
+  const btn = document.getElementById('btnSaveAllModal');
+  btn.disabled = true;
+  btn.innerHTML = "Guardando Lote...";
+
+  let guardadas = 0;
+
+  for (let item of tempVacantesExtraidas) {
+    const baseSlug = (item.nombreVacante || "vacante").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]/g,"").trim();
+    const pid = calcularIdUnicoConSufijo(baseSlug);
+
+    const datosFinales = {
+      puestoId: pid,
+      nombreVacante: item.nombreVacante || "",
+      vacanteNombre: item.vacanteNombre || item.nombreVacante || "",
+      estatus: "disponible",
+      bannerUrl: "",
+      edad: item.edad || "",
+      sexo: item.sexo || "",
+      escolaridad: item.escolaridad || "",
+      experiencia: item.experiencia || "",
+      salario: item.salario || "",
+      lugarOrigen: item.lugarOrigen || "",
+      turnos: item.turnos || "",
+      rutasTransporte: item.rutasTransporte || "",
+      infoGeneral: item.infoGeneral || "",
+      actividades: item.actividades || "",
+      beneficios: item.beneficios || "",
+      visitas: 1
+    };
+
+    try {
+      await database.ref(`vacantes_detalles/${emp}/${pid}`).set(datosFinales);
+      
+      // Actualizar caché local para iteraciones inmediatas
+      cacheVacantesEmpresa[pid] = datosFinales;
+
+      // Registrar Auditoría en Módulo 7
+      registrarLog(
+        "Administrador",
+        "Módulo 2: Vacantes",
+        "CREAR",
+        `Creación masiva de vacante '${datosFinales.nombreVacante}' (ID: ${pid}) para '${emp.toUpperCase()}'.`
+      );
+
+      guardadas++;
+    } catch (e) {
+      console.error(`Error guardando vacante ${pid}:`, e);
+    }
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = `<i data-lucide="upload-cloud" class="w-4 h-4"></i> Subir Todo el Bloque a Firebase`;
+  lucide.createIcons();
+  
+  cerrarModal();
+  alert(`¡Proceso en bloque finalizado! Se guardaron ${guardadas} vacantes exitosamente en ${emp.toUpperCase()} ✅`);
+  
+  // Recargar listado de vacantes de la empresa
+  document.getElementById('selectEmpresa').dispatchEvent(new Event('change'));
+});
+
+// 💾 Guardar en Firebase Individual
 document.getElementById('vacanteForm').addEventListener('submit', e => { e.preventDefault(); guardar(); }); 
 document.getElementById('btnSaveChange').addEventListener('click', guardar); 
 
 function guardar() { 
   let emp = document.getElementById('selectEmpresa').value.trim(); 
-  const pid = document.getElementById('puestoId').value; 
-  if (!emp) { emp = prompt("Nombre de la empresa:"); if (!emp) return; emp = emp.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]/g,"").trim(); }
-  if (!pid) return alert("Falta el ID de la vacante");
+  let pid = document.getElementById('puestoId').value.trim(); 
 
-  // Verificar si la vacante ya existe localmente para tipificar el Log (CREAR vs MODIFICAR)
+  if (!emp) { emp = prompt("Nombre de la empresa:"); if (!emp) return; emp = emp.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]/g,"").trim(); }
+  
+  const nombreVac = document.getElementById('nombreVacante').value.trim();
+  if (!nombreVac) return alert("Asigna un nombre a la vacante.");
+
+  // Si no hay ID o estamos creando una nueva, verificar que no exista y calcular sufijo si aplica
+  const baseSlug = nombreVac.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]/g,"").trim();
+  if (!pid) {
+    pid = calcularIdUnicoConSufijo(baseSlug);
+    document.getElementById('puestoId').value = pid;
+  }
+
   const esEdicion = !!cacheVacantesEmpresa[pid];
   const operacionLog = esEdicion ? "MODIFICAR" : "CREAR";
 
   const datos = { 
-    puestoId:pid, 
-    nombreVacante:document.getElementById('nombreVacante').value, 
-    vacanteNombre:document.getElementById('vacanteNombre').value, 
-    estatus:document.getElementById('estatus').value, 
-    bannerUrl:document.getElementById('bannerUrl').value, 
-    edad:document.getElementById('edad').value, 
-    sexo:document.getElementById('sexo').value, 
-    escolaridad:document.getElementById('escolaridad').value, 
-    experiencia:document.getElementById('experiencia').value, 
-    salario:document.getElementById('salario').value, 
-    lugarOrigen:document.getElementById('lugarOrigen').value, 
-    turnos:document.getElementById('turnos').value, 
-    rutasTransporte:document.getElementById('rutasTransporte').value, 
-    infoGeneral:document.getElementById('infoGeneral').value, 
-    actividades:document.getElementById('actividades').value, 
-    beneficios:document.getElementById('beneficios').value, 
+    puestoId: pid, 
+    nombreVacante: nombreVac, 
+    vacanteNombre: document.getElementById('vacanteNombre').value, 
+    estatus: document.getElementById('estatus').value, 
+    bannerUrl: document.getElementById('bannerUrl').value, 
+    edad: document.getElementById('edad').value, 
+    sexo: document.getElementById('sexo').value, 
+    escolaridad: document.getElementById('escolaridad').value, 
+    experiencia: document.getElementById('experiencia').value, 
+    salario: document.getElementById('salario').value, 
+    lugarOrigen: document.getElementById('lugarOrigen').value, 
+    turnos: document.getElementById('turnos').value, 
+    rutasTransporte: document.getElementById('rutasTransporte').value, 
+    infoGeneral: document.getElementById('infoGeneral').value, 
+    actividades: document.getElementById('actividades').value, 
+    beneficios: document.getElementById('beneficios').value, 
     visitas: (cacheVacantesEmpresa[pid] && cacheVacantesEmpresa[pid].visitas) ? cacheVacantesEmpresa[pid].visitas : 1 
   };
 
@@ -492,7 +723,6 @@ function guardar() {
     if (err) {
       alert("Error: " + err.message); 
     } else { 
-      // REGISTRO DE AUDITORÍA (MÓDULO 7)
       registrarLog(
         "Administrador",
         "Módulo 2: Vacantes",
@@ -500,7 +730,7 @@ function guardar() {
         `Vacante '${datos.nombreVacante || pid}' (ID: ${pid}) fue ${esEdicion ? 'actualizada' : 'creada'} para la empresa '${emp.toUpperCase()}'.`
       );
 
-      alert(`Guardado en ${emp} ✅`); 
+      alert(`Guardado en ${emp.toUpperCase()} con ID: ${pid} ✅`); 
       loadEmpresasDinamicas(); 
       document.getElementById('selectEmpresa').value = emp; 
       document.getElementById('selectEmpresa').dispatchEvent(new Event('change')); 
