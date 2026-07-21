@@ -100,17 +100,27 @@
                         <h2 class="text-base font-bold text-white flex items-center gap-2">📁 Lector Cognitivo Multiformato IA</h2>
                         <span class="text-[10px] font-mono bg-cyber-accent/10 text-cyber-accent px-2 py-0.5 rounded border border-cyber-accent/20">Cualquier Estado de México</span>
                     </div>
-                    <p class="text-slate-400 text-xs mb-4">Sube reportes, listas de paradas o imágenes de mapas (<span class="text-cyber-cyan font-semibold">PDF, TXT, PNG, JPG</span>). La IA identificará la entidad/municipio, extraerá paradas e inferirá coordenadas.</p>
+                    <p class="text-slate-400 text-xs mb-3">Sube reportes, listas de paradas o imágenes de mapas (<span class="text-cyber-cyan font-semibold">PDF, TXT, PNG, JPG</span>).</p>
                     
-                    <div id="dropZone" class="border-2 border-dashed border-slate-700 hover:border-cyber-accent/60 bg-cyber-bg/60 rounded-xl p-6 text-center cursor-pointer transition-all flex flex-col items-center justify-center group">
-                        <span class="text-3xl group-hover:scale-110 transition-transform mb-2">🗺️</span>
+                    <!-- PASO DE PRE-VALIDACIÓN: EMPRESA DESTINO -->
+                    <div class="mb-3 bg-cyber-bg p-2.5 rounded-lg border border-cyber-border">
+                        <label class="block text-[10px] font-mono text-cyber-accent uppercase font-bold mb-1">
+                            ⚠️ Paso 1: Selecciona la Empresa Destino (Validación Previa)
+                        </label>
+                        <select id="empresaValidacionIA" class="w-full bg-cyber-card border border-cyber-accent/40 rounded p-2 text-xs text-white focus:outline-none focus:border-cyber-accent font-semibold">
+                            <option value="">-- Cargando Empresas... --</option>
+                        </select>
+                    </div>
+
+                    <div id="dropZone" class="border-2 border-dashed border-slate-700 hover:border-cyber-accent/60 bg-cyber-bg/60 rounded-xl p-4 text-center cursor-pointer transition-all flex flex-col items-center justify-center group">
+                        <span class="text-3xl group-hover:scale-110 transition-transform mb-1">🗺️</span>
                         <p class="text-xs font-semibold text-slate-300">Arrastra o selecciona el documento de rutas</p>
-                        <p class="text-[10px] text-slate-500 mt-1">Soporta rutas de NL, Jalisco, Veracruz, Chiapas, etc.</p>
+                        <p class="text-[10px] text-slate-500 mt-0.5">Soporta rutas de NL, Jalisco, Veracruz, Chiapas, etc.</p>
                         <input type="file" id="fileInput" class="hidden" accept=".txt,.pdf,.png,.jpg,.jpeg">
                     </div>
-                    <div id="fileFeedback" class="mt-3 text-xs text-cyber-cyan font-mono hidden"></div>
+                    <div id="fileFeedback" class="mt-2 text-xs text-cyber-cyan font-mono hidden"></div>
                 </div>
-                <div class="mt-5">
+                <div class="mt-4">
                     <button onclick="procesarDocumentoConIA()" id="btnProcesar" class="w-full bg-gradient-to-r from-cyber-accent to-cyber-accentHover hover:from-cyber-accentHover hover:to-orange-700 text-white font-bold py-2.5 px-4 rounded-lg shadow-lg text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2">
                         <span>🧠</span> Analizar con Gemini 2.5 Flash
                     </button>
@@ -124,7 +134,7 @@
                         <h2 class="text-base font-bold text-cyber-emerald flex items-center gap-2">Previsualización ESTRUCTURADA JSON</h2>
                         <span id="badgeJsonStatus" class="text-[10px] font-mono bg-slate-800 text-slate-400 px-2 py-0.5 rounded border border-slate-700">En Espera</span>
                     </div>
-                    <textarea id="jsonOutput" class="w-full h-40 bg-cyber-bg border border-cyber-emerald/30 text-cyber-emerald p-3 rounded-xl font-mono text-xs focus:outline-none focus:border-cyber-emerald resize-none" placeholder="// El JSON estructurado extraído por la IA aparecerá aquí..."></textarea>
+                    <textarea id="jsonOutput" class="w-full h-52 bg-cyber-bg border border-cyber-emerald/30 text-cyber-emerald p-3 rounded-xl font-mono text-xs focus:outline-none focus:border-cyber-emerald resize-none" placeholder="// El JSON estructurado extraído por la IA aparecerá aquí..."></textarea>
                 </div>
                 <div class="grid grid-cols-2 gap-3 mt-4">
                     <button onclick="guardarRutaPorRuta()" class="bg-cyber-bg hover:bg-slate-900 text-cyber-emerald border border-cyber-emerald/40 font-bold py-2.5 px-3 rounded-lg text-xs uppercase transition-all">
@@ -288,7 +298,6 @@
 
         // CONEXIÓN Y ESCUCHA EN TIEMPO REAL
         function sincronizarConFirebase() {
-            // Escuchar nodo principal de rutas
             db.ref().on("value", (snap) => {
                 const data = snap.val() || {};
                 datosEstructuralesServidor = data;
@@ -313,23 +322,28 @@
             });
         }
 
-        // POBLAR SELECT DE EMPRESAS DESDE EL SERVIDOR
+        // POBLAR SELECTS DE EMPRESAS DESDE EL SERVIDOR
         function poblarSelectEmpresas(empresas) {
             const selectForm = document.getElementById("empresaDestino");
+            const selectValidacion = document.getElementById("empresaValidacionIA");
             const selectFiltro = document.getElementById("filtroEmpresaTabla");
             
             const valorFormActual = selectForm.value;
+            const valorValActual = selectValidacion.value;
             const valorFiltroActual = selectFiltro.value;
 
             selectForm.innerHTML = '<option value="">-- Selecciona Empresa --</option>';
+            selectValidacion.innerHTML = '<option value="">-- Asignar Empresa Obligatoria --</option>';
             selectFiltro.innerHTML = '<option value="TODAS">-- Todas las Empresas --</option>';
 
             empresas.sort().forEach(emp => {
                 selectForm.innerHTML += `<option value="${emp}">${emp}</option>`;
+                selectValidacion.innerHTML += `<option value="${emp}">${emp}</option>`;
                 selectFiltro.innerHTML += `<option value="${emp}">${emp}</option>`;
             });
 
             if (valorFormActual) selectForm.value = valorFormActual;
+            if (valorValActual) selectValidacion.value = valorValActual;
             if (valorFiltroActual) selectFiltro.value = valorFiltroActual;
         }
 
@@ -351,8 +365,11 @@
         // PROCESADOR COGNITIVO CON GEMINI 2.5 FLASH (MULTIRREGIONAL)
         async function procesarDocumentoConIA() {
             const apiKey = document.getElementById("apiKeyGemini").value.trim();
-            if (!apiKey) return alert("Por favor ingresa la API Key de Gemini en la parte superior.");
-            if (!archivoCargadoRaw) return alert("Por favor selecciona o arrastra un archivo (.txt, .pdf o imagen).");
+            const empresaSeleccionada = document.getElementById("empresaValidacionIA").value.trim();
+
+            if (!apiKey) return alert("⚠️ Por favor ingresa la API Key de Gemini en la parte superior.");
+            if (!empresaSeleccionada) return alert("⚠️ VALIDACIÓN REQUERIDA: Debes seleccionar la Empresa Destino antes de analizar el archivo.");
+            if (!archivoCargadoRaw) return alert("⚠️ Por favor selecciona o arrastra un archivo (.txt, .pdf o imagen).");
 
             const btn = document.getElementById("btnProcesar");
             btn.innerHTML = '<span>⏳</span> Procesando Geografía e Itinerarios...';
@@ -361,24 +378,25 @@
             try {
                 const base64Data = await transformarArchivoABase64(archivoCargadoRaw);
                 const bytesLimpios = base64Data.split(",")[1];
-                
-                const empresasContexto = listaEmpresasCatalogo.length > 0 ? listaEmpresasCatalogo.join(", ") : "Fimex, Juyoung, Katcon, etc.";
 
                 const promptInstrucciones = `
                     Analiza el archivo adjunto sobre rutas de transporte para empresas en México.
                     Extrae el itinerario de transporte y mapea los puntos.
                     
-                    Empresas registradas sugeridas: [${empresasContexto}].
+                    EMPRESA DESTINO OBLIGATORIA: "${empresaSeleccionada}".
+                    Todas las rutas generadas DEBEN llevar exactamente empresaDestino: "${empresaSeleccionada}".
                     
-                    Genera OBLIGATORIAMENTE un arreglo JSON válido (sin texto explicativo fuera del JSON) con esta estructura:
-                    [{
+                    Genera OBLIGATORIAMENTE un arreglo JSON válido (SIN markdown, SIN texto alrededor, SOLO JSON PURO) con esta estructura exacta:
+                    [
+                      {
                         "nombreRuta": "Nombre comercial de la ruta o número de camión",
-                        "empresaDestino": "Nombre exacto de la empresa de la lista si coincide, o el del texto",
-                        "estadoMunicipio": "Municipio y Estado de México donde opera (ej: Guadalajara, Jalisco / Ciénega de Flores, NL)",
-                        "horarioPaso": "Horarios e itinerario de paso (ej: 06:00 AM / 02:00 PM)",
+                        "empresaDestino": "${empresaSeleccionada}",
+                        "estadoMunicipio": "Municipio y Estado de México donde opera (ej: Juárez, Nuevo León)",
+                        "horarioPaso": "Horarios e itinerario de paso (ej: 05:10 AM / 08:20 PM)",
                         "puntosAbordaje": "Lista de calles, colonias o paradas principales",
-                        "coordenadasAbordaje": "latitud, longitud aproximada en México (ej: 25.9555, -100.1664)"
-                    }]
+                        "coordenadasAbordaje": "latitud, longitud aproximada en México (ej: 25.685, -100.135)"
+                      }
+                    ]
                 `;
 
                 const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
@@ -395,24 +413,19 @@
                 const jsonRes = await res.json();
                 
                 if (!jsonRes.candidates || !jsonRes.candidates[0]) {
-                    throw new Error("La IA no devolvió una respuesta válida. Revisa la API Key.");
+                    throw new Error("La IA no devolvió una respuesta válida. Revisa la API Key o el formato de archivo.");
                 }
 
                 let textoIA = jsonRes.candidates[0].content.parts[0].text;
                 
-                // EXTRACCIÓN ROBUSTA DE JSON VÍA EXPRESIÓN REGULAR
-                const matchRegex = textoIA.match(/\[\s*\{[\s\S]*\}\s*\]/);
-                if (matchRegex) {
-                    textoIA = matchRegex[0];
-                } else {
-                    textoIA = textoIA.replace(/```json/g, "").replace(/```/g, "").trim();
-                }
+                // LIMPIEZA / SANITIZACIÓN ROBUSTA DE JSON
+                textoIA = sanitizarJSON(textoIA);
 
                 document.getElementById("jsonOutput").value = textoIA;
-                document.getElementById("badgeJsonStatus").innerText = "Estructurado OK";
+                document.getElementById("badgeJsonStatus").innerText = `Estructurado OK (${empresaSeleccionada})`;
                 document.getElementById("badgeJsonStatus").className = "text-[10px] font-mono bg-cyber-emerald/10 text-cyber-emerald px-2 py-0.5 rounded border border-cyber-emerald/20";
 
-                registrarLog("ANALISIS_IA", `Procesamiento exitoso de documento de rutas: ${archivoCargadoRaw.name}`);
+                registrarLog("ANALISIS_IA", `Procesamiento exitoso de rutas para ${empresaSeleccionada}: ${archivoCargadoRaw.name}`);
 
             } catch (err) {
                 alert("Error en el procesamiento cognitivo: " + err.message);
@@ -422,14 +435,47 @@
             }
         }
 
+        // SANITIZADOR DE JSON
+        function sanitizarJSON(rawText) {
+            let limpio = rawText.trim();
+            // Eliminar bloques ```json ... ```
+            limpio = limpio.replace(/```json/gi, "").replace(/```/g, "").trim();
+            
+            // Buscar el primer '[' y el último ']'
+            const primerCorchete = limpio.indexOf("[");
+            const ultimoCorchete = limpio.lastIndexOf("]");
+
+            if (primerCorchete !== -1 && ultimoCorchete !== -1 && ultimoCorchete > primerCorchete) {
+                limpio = limpio.substring(primerCorchete, ultimoCorchete + 1);
+            }
+
+            // Validar parseo y formatear bonito
+            try {
+                const parsed = JSON.parse(limpio);
+                return JSON.stringify(parsed, null, 2);
+            } catch (e) {
+                // Si falla por una coma final sobrante, intentar corregir rápido
+                limpio = limpio.replace(/,\s*([\]\}])/g, "$1");
+                return limpio;
+            }
+        }
+
         // VALIDACIÓN Y EXTRACTION
         function obtenerJSONValido() {
             try { 
-                const raw = document.getElementById("jsonOutput").value.trim();
-                if(!raw) return null;
+                let raw = document.getElementById("jsonOutput").value.trim();
+                if(!raw) {
+                    alert("La caja JSON está vacía.");
+                    return null;
+                }
+                
+                // Re-sanitizar antes de parsear por si el usuario editó manualmente el textarea
+                raw = sanitizarJSON(raw);
+                document.getElementById("jsonOutput").value = raw;
+
                 return JSON.parse(raw); 
             } catch(e) { 
-                alert("El contenido de la caja JSON no tiene un formato válido."); 
+                alert("⚠️ El contenido de la caja JSON aún contiene errores sintácticos de formato.\n\nDetalle: " + e.message); 
                 return null; 
             }
         }
@@ -442,11 +488,12 @@
             if(arreglo.length === 0) return;
 
             const ruta = arreglo.shift();
-            const empresaKey = (ruta.empresaDestino || "General").toLowerCase().trim();
+            const empresaDest = ruta.empresaDestino || document.getElementById("empresaValidacionIA").value || "General";
+            const empresaKey = empresaDest.toLowerCase().trim();
 
             db.ref(`rutas/${empresaKey}`).push(ruta, (err) => {
                 if(!err) {
-                    registrarLog("ALTA_RUTA_IA", `Ruta añadida individualmente vía IA: ${ruta.nombreRuta || 'Sin Nombre'} (${ruta.empresaDestino || 'General'})`);
+                    registrarLog("ALTA_RUTA_IA", `Ruta añadida individualmente vía IA: ${ruta.nombreRuta || 'Sin Nombre'} (${empresaDest})`);
                     document.getElementById("jsonOutput").value = arreglo.length > 0 ? JSON.stringify(arreglo, null, 2) : "";
                     if(arreglo.length === 0) {
                         document.getElementById("badgeJsonStatus").innerText = "Completado";
@@ -455,21 +502,34 @@
             });
         }
 
-        // CARGAR TODO DE GOLPE ORGANIZADO POR EMPRESA
+        // CARGAR TODO AL SERVER CON MODAL DE CONFIRMACIÓN PREVIA
         function cargarTodoAlServer() {
             const data = obtenerJSONValido(); 
             if (!data) return;
             const arreglo = Array.isArray(data) ? data : [data];
+            if (arreglo.length === 0) return alert("No hay rutas registradas en el JSON.");
+
+            // Identificar empresas involucradas
+            const empresasMapeadas = [...new Set(arreglo.map(r => r.empresaDestino || "General"))];
             
+            const confirmacion = confirm(
+                `📋 CONFIRMACIÓN DE VALIDACIÓN\n\n` +
+                `Se van a subir ${arreglo.length} ruta(s) asignadas a la(s) empresa(s):\n• ${empresasMapeadas.join("\n• ")}\n\n` +
+                `¿Confirmas que la estructura es correcta y deseas sincronizar con Firebase?`
+            );
+
+            if (!confirmacion) return;
+
             arreglo.forEach(ruta => {
-                const empresaKey = (ruta.empresaDestino || "General").toLowerCase().trim();
+                const empresaDest = ruta.empresaDestino || "General";
+                const empresaKey = empresaDest.toLowerCase().trim();
                 db.ref(`rutas/${empresaKey}`).push(ruta);
             });
 
-            registrarLog("ALTA_MASIVA_RUTAS", `Carga masiva procesada con un total de ${arreglo.length} rutas.`);
+            registrarLog("ALTA_MASIVA_RUTAS", `Carga masiva procesada: ${arreglo.length} rutas para [${empresasMapeadas.join(", ")}]`);
             document.getElementById("jsonOutput").value = "";
             document.getElementById("badgeJsonStatus").innerText = "Cargado al Servidor";
-            alert("Todas las rutas han sido enviadas e integradas al servidor organizadas por empresa.");
+            alert("✅ ¡Éxito! Todas las rutas han sido integradas al servidor y agrupadas por empresa.");
         }
 
         // RENDERIZAR TABLA DE RUTAS Y TRANSPORTES
@@ -552,7 +612,6 @@
             };
 
             if (idRuta) {
-                // Si cambió de empresa, eliminar del nodo anterior y guardar en el nuevo
                 if (empresaAnterior && empresaAnterior !== empresaKey) {
                     db.ref(`rutas/${empresaAnterior}/${idRuta}`).remove();
                     db.ref(`rutas/${empresaKey}`).push(rutaData).then(() => {
@@ -627,7 +686,6 @@
 
             const empresasConRutaCount = Object.keys(conteoPorEmpresa).length;
             
-            // Buscar empresa líder
             let lider = "--";
             let maxRutas = 0;
             Object.entries(conteoPorEmpresa).forEach(([emp, cant]) => {
@@ -644,7 +702,7 @@
 
         // CÁLCULO DE DISTANCIA HAVERSINE (PROXIMIDAD GEOMÉTRICA)
         function calcularDistanciaKm(lat1, lon1, lat2, lon2) {
-            const R = 6371; // Radio de la tierra en KM
+            const R = 6371;
             const dLat = (lat2 - lat1) * Math.PI / 180;
             const dLon = (lon2 - lon1) * Math.PI / 180;
             const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
