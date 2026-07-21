@@ -998,29 +998,32 @@
     </footer>
 </div>
 
+<!-- MODAL ACCESO ADMINISTRATIVO REESTRUCTURADO M5_STAFF -->
 <div id="adminLoginWrapper" class="admin-login-wrapper">
     <div class="admin-login-card">
         <button type="button" class="btn-close-admin-modal" onclick="cerrarAccesoAdministrativo()" title="Cerrar">&times;</button>
         <h3>Acceso al Sistema</h3>
-        <p>Ingresa tus credenciales para administrar el portal</p>
+        <p>Ingresa tus credenciales de colaborador para administrar el portal</p>
         <form id="adminLoginForm">
             <div class="admin-input-group">
-                <label for="adminCargo"><i class="fas fa-briefcase"></i> Cargo / Puesto</label>
+                <label for="adminCargo"><i class="fas fa-briefcase"></i> Rol Jerárquico</label>
                 <select id="adminCargo" required>
-                    <option value="" disabled selected hidden>Selecciona tu rol</option>
-                    <option value="Administrador">Administrador</option>
-                    <option value="Coordinador">Coordinador</option>
-                    <option value="Reclutador">Reclutador</option>
-                    <option value="RH Externo">RH Externo</option>
-                    <option value="Gerente general">Gerente general</option>
+                    <option value="" disabled selected hidden>Selecciona tu rol registrado</option>
+                    <option value="Administrador">Administrador (Nivel 5)</option>
+                    <option value="Gerente General">Gerente General (Nivel 4)</option>
+                    <option value="Coordinador">Coordinador (Nivel 3)</option>
+                    <option value="Reclutador">Reclutador (Nivel 2)</option>
+                    <option value="Implant">Implant (Nivel 2)</option>
+                    <option value="Facturación y Cobranza">Facturación y Cobranza (Nivel 2)</option>
+                    <option value="Empresa / Cliente">Empresa / Cliente (Nivel 1)</option>
                 </select>
             </div>
             <div class="admin-input-group">
-                <label for="adminUsername"><i class="fas fa-user"></i> Usuario</label>
-                <input type="text" id="adminUsername" required placeholder="Ingresa tu usuario">
+                <label for="adminPhone"><i class="fas fa-phone"></i> Teléfono (WhatsApp de Registro)</label>
+                <input type="tel" id="adminPhone" maxlength="10" pattern="[0-9]{10}" required placeholder="10 dígitos (Ej. 6461974763)">
             </div>
             <div class="admin-input-group">
-                <label for="adminPassword"><i class="fas fa-key"></i> Contraseña</label>
+                <label for="adminPassword"><i class="fas fa-key"></i> Clave de Acceso (PIN)</label>
                 <input type="password" id="adminPassword" required placeholder="••••••••">
             </div>
             <button type="submit" class="btn-submit-admin">Entrar al Portal</button>
@@ -1340,7 +1343,7 @@
         window.open(urlWhatsApp, '_blank');
     };
 
-    // ACCESO ADMINISTRATIVO EN MODAL
+    // --- ACCESO ADMINISTRATIVO CON INTEGRACIÓN M5_STAFF Y SHA-256 ---
     window.accesoAdministrativo = function() {
         const wrapper = document.getElementById('adminLoginWrapper');
         wrapper.classList.add('open');
@@ -1351,52 +1354,85 @@
         wrapper.classList.remove('open');
     };
 
-    document.getElementById('adminLoginForm').addEventListener('submit', function(event) {
+    // Función auxiliar para encriptar PIN + Salt usando SHA-256 Web Crypto
+    async function generarHashSHA256(password, salt) {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(password + salt);
+        const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    document.getElementById('adminLoginForm').addEventListener('submit', async function(event) {
         event.preventDefault();
 
         const cargo = document.getElementById('adminCargo').value;
-        const username = document.getElementById('adminUsername').value.trim().toLowerCase();
-        const password = document.getElementById('adminPassword').value.trim();
+        const phone = document.getElementById('adminPhone').value.trim();
+        const passwordInput = document.getElementById('adminPassword').value.trim();
 
-        if (!cargo || !username || !password) {
+        if (!cargo || !phone || !passwordInput) {
             alert("Por favor completa todos los campos del formulario.");
             return;
         }
 
-        const usuarioRef = ref(db, `usuarios/usr_${username}`);
+        // Consulta sobre el nodo m5_staff: usuarios_reclutadores
+        const staffRef = ref(db, 'usuarios_reclutadores');
 
-        get(usuarioRef).then((snapshot) => {
+        try {
+            const snapshot = await get(staffRef);
             if (snapshot.exists()) {
-                const usuario = snapshot.val();
-                
-                if (usuario.password === password) {
-                    if (usuario.rol === cargo) {
-                        alert(`¡Bienvenido, ${usuario.nombre}! Acceso autorizado como ${usuario.rol}.`);
-                        sessionStorage.setItem('usuarioLogueado', JSON.stringify(usuario));
-                        window.location.href = "https://valdomtec-arch.github.io/bolsa-trabajo-principal/admin.html";
+                const usuarios = snapshot.val();
+                let usuarioEncontrado = null;
+                let userKey = null;
+
+                // Búsqueda por número de teléfono
+                Object.keys(usuarios).forEach(key => {
+                    if (usuarios[key].telefono === phone) {
+                        usuarioEncontrado = usuarios[key];
+                        userKey = key;
+                    }
+                });
+
+                if (usuarioEncontrado) {
+                    // Validar si el usuario está activo
+                    if (usuarioEncontrado.estatus !== 'Activo') {
+                        alert("Tu cuenta se encuentra Inactiva o Suspendida. Contacta al Administrador del sistema.");
+                        return;
+                    }
+
+                    // Validar que el rol seleccionado coincida con el registrado
+                    if (usuarioEncontrado.rol !== cargo) {
+                        alert(`El rol seleccionado (${cargo}) no coincide con el cargo registrado para este usuario (${usuarioEncontrado.rol}).`);
+                        return;
+                    }
+
+                    // Verificación de credenciales con SHA-256 + Salt
+                    if (usuarioEncontrado.salt && usuarioEncontrado.passwordHash) {
+                        const hashCalculado = await generarHashSHA256(passwordInput, usuarioEncontrado.salt);
+                        
+                        if (hashCalculado === usuarioEncontrado.passwordHash) {
+                            alert(`¡Bienvenido, ${usuarioEncontrado.nombre}! Acceso autorizado como ${usuarioEncontrado.rol}.`);
+                            sessionStorage.setItem('usuarioLogueado', JSON.stringify({
+                                uid: userKey,
+                                ...usuarioEncontrado
+                            }));
+                            window.location.href = "https://valdomtec-arch.github.io/bolsa-trabajo-principal/admin.html";
+                        } else {
+                            alert("Clave de acceso (PIN) incorrecta.");
+                        }
                     } else {
-                        alert("El rol seleccionado no coincide con tu cargo registrado.");
+                        alert("Error de integridad de seguridad. El usuario no tiene un hash/salt válido asignado.");
                     }
                 } else {
-                    alert("Contraseña incorrecta.");
+                    alert("No se encontró ningún colaborador registrado con ese número telefónico.");
                 }
             } else {
-                if (username === "admin" && password === "Admin2026*" && cargo === "Administrador") {
-                    const usuarioDefault = {
-                        nombre: "admin",
-                        rol: "Administrador",
-                        empresaId: "sistema"
-                    };
-                    sessionStorage.setItem('usuarioLogueado', JSON.stringify(usuarioDefault));
-                    window.location.href = "https://valdomtec-arch.github.io/bolsa-trabajo-principal/admin.html";
-                } else {
-                    alert("Usuario administrativo no encontrado en el sistema.");
-                }
+                alert("No existen usuarios registrados en el sistema de gobernanza.");
             }
-        }).catch((error) => {
-            console.error("Error al autenticar: ", error);
-            alert("Hubo un problema de red al conectar con el servidor.");
-        });
+        } catch (error) {
+            console.error("Error al autenticar con el nodo m5_staff: ", error);
+            alert("Hubo un problema de conexión al validar las credenciales.");
+        }
     });
 </script>
 </body>
