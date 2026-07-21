@@ -457,7 +457,7 @@
             </h3>
 
             <div class="meta-info" style="justify-content: center; margin-bottom: 15px;">
-                <span><i class="fa-solid fa-building"></i> ID Socio: <code id="vacanteEmpresa" style="color:var(--white);">—</code></span>
+                <span><i class="fa-solid fa-building"></i> Empresa: <strong id="vacanteEmpresa" style="color:var(--white);">—</strong></span>
                 <span><i class="fa-solid fa-eye"></i> Visitas: <span id="vacanteVisitas">0</span></span>
             </div>
             
@@ -632,7 +632,9 @@
                     }
 
                     const primerVacante = todasLasVacantesEmpresa[keys[0]];
-                    document.getElementById('mainEmpresaNombre').innerText = primerVacante.empresaNombre || empresaLimpia.toUpperCase();
+                    const nombreHeader = primerVacante.nombreComercial || primerVacante.empresaNombre || empresaLimpia.toUpperCase();
+                    
+                    document.getElementById('mainEmpresaNombre').innerText = nombreHeader;
                     document.getElementById('mainEmpresaLugar').innerText = primerVacante.lugarOrigen || 'México';
                     document.getElementById('empresaHeaderBox').style.display = 'block';
 
@@ -687,8 +689,11 @@
             sessionStorage.setItem(`visita_${empresaLimpia}_${vacanteKeyDetectada}`, 'true');
         }
 
+        // Obtener Nombre Comercial o Nombre Oficial en vez de ID técnica
+        const nombreMostrarEmpresa = data.nombreComercial || data.empresaNombre || empresaLimpia.toUpperCase();
+
         document.getElementById('vacanteTitulo').innerText = data.vacanteNombre || 'Puesto';
-        document.getElementById('vacanteEmpresa').innerText = empresaLimpia.toUpperCase();
+        document.getElementById('vacanteEmpresa').innerText = nombreMostrarEmpresa;
         document.getElementById('vacanteVisitas').innerText = data.visitas ? (data.visitas + 1) : 1;
         
         document.getElementById('detSalario').innerText = data.salario || 'No especificado';
@@ -898,6 +903,9 @@
             
             const urlAcuseDigital = `https://valdomtec-arch.github.io/bolsa-trabajo-principal/acuse.html?folio=${timestampId}`;
 
+            // Determinar Nombre Comercial o Nombre Oficial para el payload
+            const empresaNombreFinal = datosVacanteGlobal ? (datosVacanteGlobal.nombreComercial || datosVacanteGlobal.empresaNombre || empresaLimpia.toUpperCase()) : empresaLimpia.toUpperCase();
+
             const payloadPostulante = {
                 id: timestampId,
                 nombre: nombre,
@@ -907,17 +915,17 @@
                 edad: datosExtraidos.edad,
                 sexo: datosExtraidos.sexo,
                 genero: datosExtraidos.sexo,
-                empresa: empresaLimpia.toUpperCase(),
-                empresaDestino: empresaLimpia.toUpperCase(),
+                empresa: empresaNombreFinal,
+                empresaDestino: empresaNombreFinal,
                 vacante: datosVacanteGlobal ? (datosVacanteGlobal.vacanteNombre || "Desconocida") : "Desconocida",
                 puesto: datosVacanteGlobal ? (datosVacanteGlobal.vacanteNombre || "Desconocida") : "Desconocida",
-                fechaEntrevista: fechaEntrevista,           // CONEXIÓN CON MÓDULO 3
-                horaEntrevista: horaEntrevista,             // CONEXIÓN CON MÓDULO 3
+                fechaEntrevista: fechaEntrevista,
+                horaEntrevista: horaEntrevista,
                 estatus: "Postulado",
                 asesor: nombreReclutadorCorto,
                 atendidoPor: nombreReclutadorCorto,
                 rutaTransporteSeleccionada: puntoElegido,
-                urlAcusePdf: urlAcuseDigital,              // PERSISTENCIA PARA MÓDULO 7
+                urlAcusePdf: urlAcuseDigital,
                 fechaRegistro: fechaYHoraActual,
                 timestamp: firebase.database.ServerValue.TIMESTAMP
             };
