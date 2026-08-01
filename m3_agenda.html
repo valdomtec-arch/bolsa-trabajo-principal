@@ -347,10 +347,6 @@
             });
         }
 
-        /* 
-         * AQUÍ ESTÁ INTEGRADA LA SOLUCIÓN DINÁMICA:
-         * Lee automáticamente cualquier empresa registrada en Firebase.
-         */
         function actualizarFiltroEmpresasRobusto() {
             const filtroEmpresa = document.getElementById("filtroEmpresa");
             if (!filtroEmpresa) return;
@@ -366,7 +362,6 @@
                         const option = document.createElement('option');
                         option.value = claveEmpresa;
 
-                        // Lee el nombre comercial o genera fallback desde la clave
                         const nombreComercial = (datosEmpresa && datosEmpresa.nombre)
                             ? datosEmpresa.nombre
                             : claveEmpresa.replace(/_/g, ' ').toUpperCase();
@@ -442,7 +437,7 @@
             }
 
             Object.values(todosLosPostulantes).forEach(p => {
-                const empCandidate = p.empresaId || p.empresa;
+                const empCandidate = p.empresaId || p.empresa || p.empresa_id;
                 if ((empresaSel === "TODAS" || empCandidate === empresaSel) && p.vacante) {
                     vacantesSet.add(p.vacante.trim());
                 }
@@ -459,6 +454,10 @@
             }
         }
 
+        /* 
+         * LÓGICA CORREGIDA DE CARGA Y MATRO
+         * Evalúa todas las posibles combinaciones de IDs y Nombres Comercial de Empresas
+         */
         function cargarPostulantes() {
             const tabla = document.getElementById("tablaPostulantes");
             tabla.innerHTML = "";
@@ -472,10 +471,31 @@
             let totalContados = 0;
 
             Object.entries(todosLosPostulantes).forEach(([id, p]) => {
-                const empId = p.empresaId || p.empresa;
-                const recId = p.reclutadorId || p.agenteId;
+                // Extracción flexible de la propiedad empresa del candidato
+                const empCandidateRaw = p.empresaId || p.empresa || p.empresa_id || "";
+                const recId = p.reclutadorId || p.agenteId || "";
 
-                if (!usuarioSesion.todasLasEmpresas && !usuarioSesion.empresas.includes(empId)) return;
+                // Obtener objeto y nombre de la empresa desde el catálogo
+                const datosEmpresaCatalogo = catalogoEmpresas[empCandidateRaw] || {};
+                const nombreEmpresaCatalogo = datosEmpresaCatalogo.nombre || "";
+
+                // Validación de Filtro de Empresa Flexible
+                if (empresaFiltro !== "TODAS") {
+                    const filtroNombre = (catalogoEmpresas[empresaFiltro] && catalogoEmpresas[empresaFiltro].nombre) 
+                        ? catalogoEmpresas[empresaFiltro].nombre.toLowerCase() 
+                        : "";
+                    
+                    const matchesKey = empCandidateRaw.toLowerCase() === empresaFiltro.toLowerCase();
+                    const matchesNombre = nombreEmpresaCatalogo.toLowerCase() === filtroNombre;
+                    const matchesDirectName = empCandidateRaw.toLowerCase() === filtroNombre;
+
+                    if (!matchesKey && !matchesNombre && !matchesDirectName) {
+                        return; // Si no coincide la empresa, omite al candidato
+                    }
+                }
+
+                // Permisos por usuario
+                if (!usuarioSesion.todasLasEmpresas && !usuarioSesion.empresas.includes(empCandidateRaw)) return;
 
                 if (usuarioSesion.rol === "Coordinador" && usuarioSesion.equipoAsignadoIds.length > 0) {
                     const esDeEquipo = usuarioSesion.equipoAsignadoIds.includes(recId);
@@ -483,12 +503,12 @@
                     if (!esDeEquipo && !esMio) return;
                 }
 
-                if (empresaFiltro !== "TODAS" && empId !== empresaFiltro) return;
                 if (vacanteFiltro !== "TODAS" && p.vacante !== vacanteFiltro) return;
                 if (operadorFiltro !== "TODOS" && recId !== operadorFiltro) return;
 
                 totalContados++;
 
+                // Conteo Demográfico
                 if (p.sexo === "Masculino" || p.sexo === "Femenino") {
                     metricaSexo[p.sexo]++;
                 } else {
@@ -501,6 +521,7 @@
                 else if (edadNum >= 36 && edadNum <= 45) metricaEdad["36-45"]++;
                 else if (edadNum > 45) metricaEdad["46+"]++;
 
+                // Semáforo de Estado
                 let claseSemaforo = "status-postulado";
                 let estatusActual = p.estatus || "Postulado";
 
@@ -511,7 +532,7 @@
 
                 let citaTexto = p.diaEntrevista || 'Por agendar';
                 let reclutadorDisplay = p.reclutadorNombre || (catalogoUsuarios[recId] ? catalogoUsuarios[recId].nombre : 'Sin Asignar');
-                let empresaNombreDisplay = (catalogoEmpresas[empId] && catalogoEmpresas[empId].nombre) ? catalogoEmpresas[empId].nombre : empId;
+                let empresaNombreDisplay = nombreEmpresaCatalogo || empCandidateRaw || 'Empresa No Defina';
 
                 let mensajeWhatsApp = `Hola *${p.nombre}*, te saludamos de Reclutamiento. Con respecto a tu postulación para *${p.vacante}* en la empresa *${empresaNombreDisplay}*, te informamos que tu estatus actual es: *${estatusActual}*.`;
                 if(estatusActual === "En Entrevista" && p.diaEntrevista) {
@@ -520,6 +541,7 @@
 
                 const urlWhatsApp = `https://wa.me/52${p.telefono}?text=${encodeURIComponent(mensajeWhatsApp)}`;
 
+                // Inyección limpia a la tabla
                 tabla.innerHTML += `
                     <tr class="hover:bg-[#15264a]/30 transition-colors">
                         <td class="p-3">
@@ -528,8 +550,8 @@
                             </span>
                         </td>
                         <td class="p-3">
-                            <div class="font-bold text-white">${p.nombre}</div>
-                            <div class="text-xs text-[#94a3b8]">${p.telefono}</div>
+                            <div class="font-bold text-white">${p.nombre || 'Sin Nombre'}</div>
+                            <div class="text-xs text-[#94a3b8]">${p.telefono || 'Sin Teléfono'}</div>
                         </td>
                         <td class="p-3">
                             <div class="font-mono text-xs text-amber-300 font-bold">${p.curp || 'SIN CURP'}</div>
@@ -537,7 +559,7 @@
                         </td>
                         <td class="p-3">
                             <div class="text-xs font-semibold text-[#ff6600]">${empresaNombreDisplay}</div>
-                            <div class="text-xs font-bold text-slate-200">${p.vacante}</div>
+                            <div class="text-xs font-bold text-slate-200">${p.vacante || 'Sin Vacante'}</div>
                         </td>
                         <td class="p-3">
                             <div class="text-xs text-amber-400 font-bold"><i class="fas fa-user-check"></i> Rec: ${reclutadorDisplay}</div>
@@ -729,15 +751,27 @@
             const operadorFiltro = document.getElementById("filtroOperador").value;
 
             Object.entries(todosLosPostulantes).forEach(([id, p]) => {
-                const empId = p.empresaId || p.empresa;
-                const recId = p.reclutadorId || p.agenteId;
+                const empCandidateRaw = p.empresaId || p.empresa || p.empresa_id || "";
+                const recId = p.reclutadorId || p.agenteId || "";
 
-                if (!usuarioSesion.todasLasEmpresas && !usuarioSesion.empresas.includes(empId)) return;
-                if (empresaFiltro !== "TODAS" && empId !== empresaFiltro) return;
+                const datosEmpresaCatalogo = catalogoEmpresas[empCandidateRaw] || {};
+                const nombreEmpresaCatalogo = datosEmpresaCatalogo.nombre || "";
+
+                if (empresaFiltro !== "TODAS") {
+                    const filtroNombre = (catalogoEmpresas[empresaFiltro] && catalogoEmpresas[empresaFiltro].nombre) 
+                        ? catalogoEmpresas[empresaFiltro].nombre.toLowerCase() 
+                        : "";
+                    
+                    const matchesKey = empCandidateRaw.toLowerCase() === empresaFiltro.toLowerCase();
+                    const matchesNombre = nombreEmpresaCatalogo.toLowerCase() === filtroNombre;
+                    const matchesDirectName = empCandidateRaw.toLowerCase() === filtroNombre;
+
+                    if (!matchesKey && !matchesNombre && !matchesDirectName) return;
+                }
+
+                if (!usuarioSesion.todasLasEmpresas && !usuarioSesion.empresas.includes(empCandidateRaw)) return;
                 if (vacanteFiltro !== "TODAS" && p.vacante !== vacanteFiltro) return;
                 if (operadorFiltro !== "TODOS" && recId !== operadorFiltro) return;
-
-                const empresaNombreDisplay = (catalogoEmpresas[empId] && catalogoEmpresas[empId].nombre) ? catalogoEmpresas[empId].nombre : empId;
 
                 dataToExport.push({
                     "ID Candidato": id,
@@ -746,8 +780,8 @@
                     "CURP": p.curp,
                     "Edad": p.edad,
                     "Sexo": p.sexo,
-                    "ID Empresa": empId,
-                    "Empresa": empresaNombreDisplay,
+                    "ID / Clave Empresa": empCandidateRaw,
+                    "Empresa": nombreEmpresaCatalogo || empCandidateRaw,
                     "Vacante": p.vacante,
                     "ID Reclutador": recId || "N/A",
                     "Reclutador Responsable": p.reclutadorNombre || "N/A",
