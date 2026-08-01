@@ -6,7 +6,7 @@
     <title>ERP - Consola de Control Maestro</title>
     
     <!-- Frameworks de Estilo e Iconos -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
@@ -418,32 +418,63 @@
         }
         const db = firebase.database();
 
+        let usuarioLogueadoObj = null;
         let rolUsuarioActivo = "SuperAdmin";
+        let permisosManualesUsuario = null;
         const BASE_URL = "https://valdomtec-arch.github.io/bolsa-trabajo-principal/";
 
         document.addEventListener("DOMContentLoaded", () => {
-            const usuarioSesion = sessionStorage.getItem('usuarioLogueado');
+            const usuarioSesion = sessionStorage.getItem('usuarioLogueado') || localStorage.getItem('usuarioLogueado');
             
             if (usuarioSesion) {
                 try {
-                    const usuario = JSON.parse(usuarioSesion);
-                    rolUsuarioActivo = usuario.rol || "SuperAdmin";
-                    document.getElementById('userSessionDisplay').innerText = `${usuario.nombre || 'Administrador'} • ${rolUsuarioActivo}`;
+                    usuarioLogueadoObj = JSON.parse(usuarioSesion);
+                    const userId = usuarioLogueadoObj.id || usuarioLogueadoObj.key || usuarioLogueadoObj.telefono;
+
+                    // Consultar en tiempo real los permisos actualizados en Firebase
+                    if (userId) {
+                        db.ref(`usuarios_reclutadores/${userId}`).once('value').then((snap) => {
+                            if (snap.exists()) {
+                                const dbUserData = snap.val();
+                                rolUsuarioActivo = dbUserData.rol || usuarioLogueadoObj.rol || "Reclutador";
+                                permisosManualesUsuario = dbUserData.permisosManuales || null;
+                                
+                                document.getElementById('userSessionDisplay').innerText = `${dbUserData.nombre || 'Usuario'} • ${rolUsuarioActivo}`;
+                            } else {
+                                fallbackSesion(usuarioLogueadoObj);
+                            }
+                            inicializarRendersTiempoReal();
+                        }).catch(() => {
+                            fallbackSesion(usuarioLogueadoObj);
+                            inicializarRendersTiempoReal();
+                        });
+                    } else {
+                        fallbackSesion(usuarioLogueadoObj);
+                        inicializarRendersTiempoReal();
+                    }
+
                 } catch(e) {
                     rolUsuarioActivo = "SuperAdmin";
                     document.getElementById('userSessionDisplay').innerText = `Administrador • SuperAdmin`;
+                    inicializarRendersTiempoReal();
                 }
             } else {
                 rolUsuarioActivo = "SuperAdmin";
                 document.getElementById('userSessionDisplay').innerText = `Sesión Directa • SuperAdmin`;
+                inicializarRendersTiempoReal();
             }
-
-            inicializarRendersTiempoReal();
         });
+
+        function fallbackSesion(usuarioObj) {
+            rolUsuarioActivo = usuarioObj.rol || "SuperAdmin";
+            permisosManualesUsuario = usuarioObj.permisosManuales || null;
+            document.getElementById('userSessionDisplay').innerText = `${usuarioObj.nombre || 'Administrador'} • ${rolUsuarioActivo}`;
+        }
 
         // Redirección segura a index.html al desconectar
         function cerrarSesionAdmin() {
             sessionStorage.removeItem('usuarioLogueado');
+            localStorage.removeItem('usuarioLogueado');
             window.location.href = BASE_URL + "index.html";
         }
 
@@ -451,19 +482,19 @@
         function verificarYRestaurarBase() {
             const refModulos = db.ref("modulos_config");
             const estructuraMaestra = {
-                "m1_empresas": { id: "m1_empresas", titulo: "Registrar Empresas", descripcion: "Alta de clientes corporativos, marcas y logos.", icono: "fa-building", url: `${BASE_URL}m1_empresas.html`, activo: true, orden: 1, tipo: "standard", roles_permitidos: ["SuperAdmin", "Admin", "Reclutador"] },
-                "m2_vacantes": { id: "m2_vacantes", titulo: "Control Vacantes (IA)", descripcion: "Motor IA Gemini para extracción de perfiles.", icono: "fa-briefcase", url: `${BASE_URL}m2_vacantes.html`, activo: true, orden: 2, tipo: "standard", roles_permitidos: ["SuperAdmin", "Admin", "Reclutador"] },
-                "m3_agenda": { id: "m3_agenda", titulo: "Agenda y Postulantes", descripcion: "Seguimiento de candidatos y generación de acuse.html.", icono: "fa-calendar-days", url: `${BASE_URL}m3_agenda.html`, activo: true, orden: 3, tipo: "standard", roles_permitidos: ["SuperAdmin", "Admin", "Reclutador"] },
-                "m4_metricas": { id: "m4_metricas", titulo: "Estadísticas Demog.", descripcion: "Dashboard analítico de KPIs y métricas demográficas.", icono: "fa-chart-pie", url: `${BASE_URL}m4_metricas.html`, activo: true, orden: 4, tipo: "standard", roles_permitidos: ["SuperAdmin", "Admin", "Reclutador"] },
-                "m5_staff": { id: "m5_staff", titulo: "Control Reclutadores", descripcion: "Administración de usuarios, roles y permisos.", icono: "fa-users-gears", url: `${BASE_URL}m5_staff.html`, activo: true, orden: 5, tipo: "standard", roles_permitidos: ["SuperAdmin", "Admin"] },
-                "m6_transporte": { id: "m6_transporte", titulo: "Logística Transporte (IA)", descripcion: "Motor IA Gemini para optimización de rutas.", icono: "fa-bus", url: `${BASE_URL}m6_transporte.html`, activo: true, orden: 6, tipo: "standard", roles_permitidos: ["SuperAdmin", "Admin", "Logistico"] },
-                "m7_logs": { id: "m7_logs", titulo: "Caja Negra / Auditoría", descripcion: "Caja negra inalterable de auditoría e historial global.", icono: "fa-shield-halved", url: `${BASE_URL}m7_logs.html`, activo: true, orden: 7, tipo: "critical", roles_permitidos: ["SuperAdmin", "Admin"] },
-                "m8_creador_modulos": { id: "m8_creador_modulos", titulo: "Creador de Módulos", descripcion: "Inyección dinámica y expansión de nuevas vistas.", icono: "fa-screwdriver-wrench", url: `${BASE_URL}m8_creador_modulos.html`, activo: true, orden: 8, tipo: "core", roles_permitidos: ["SuperAdmin", "Admin"] }
+                "m1_empresas": { id: "m1_empresas", titulo: "Registrar Empresas", descripcion: "Alta de clientes corporativos, marcas y logos.", icono: "fa-building", url: `${BASE_URL}m1_empresas.html`, activo: true, orden: 1, tipo: "standard", roles_permitidos: ["SuperAdmin", "Admin", "Administrador", "Gerente General"] },
+                "m2_vacantes": { id: "m2_vacantes", titulo: "Control Vacantes (IA)", descripcion: "Motor IA Gemini para extracción de perfiles.", icono: "fa-briefcase", url: `${BASE_URL}m2_vacantes.html`, activo: true, orden: 2, tipo: "standard", roles_permitidos: ["SuperAdmin", "Admin", "Administrador", "Gerente General"] },
+                "m3_agenda": { id: "m3_agenda", titulo: "Agenda y Postulantes", descripcion: "Seguimiento de candidatos y generación de acuse.html.", icono: "fa-calendar-days", url: `${BASE_URL}m3_agenda.html`, activo: true, orden: 3, tipo: "standard", roles_permitidos: ["SuperAdmin", "Admin", "Administrador", "Gerente General"] },
+                "m4_metricas": { id: "m4_metricas", titulo: "Estadísticas Demog.", descripcion: "Dashboard analítico de KPIs y métricas demográficas.", icono: "fa-chart-pie", url: `${BASE_URL}m4_metricas.html`, activo: true, orden: 4, tipo: "standard", roles_permitidos: ["SuperAdmin", "Admin", "Administrador", "Gerente General"] },
+                "m5_staff": { id: "m5_staff", titulo: "Control Reclutadores", descripcion: "Administración de usuarios, roles y permisos.", icono: "fa-users-gears", url: `${BASE_URL}m5_staff.html`, activo: true, orden: 5, tipo: "standard", roles_permitidos: ["SuperAdmin", "Admin", "Administrador"] },
+                "m6_transporte": { id: "m6_transporte", titulo: "Logística Transporte (IA)", descripcion: "Motor IA Gemini para optimización de rutas.", icono: "fa-bus", url: `${BASE_URL}m6_transporte.html`, activo: true, orden: 6, tipo: "standard", roles_permitidos: ["SuperAdmin", "Admin", "Administrador"] },
+                "m7_logs": { id: "m7_logs", titulo: "Caja Negra / Auditoría", descripcion: "Caja negra inalterable de auditoría e historial global.", icono: "fa-shield-halved", url: `${BASE_URL}m7_logs.html`, activo: true, orden: 7, tipo: "critical", roles_permitidos: ["SuperAdmin", "Admin", "Administrador"] },
+                "m8_creador_modulos": { id: "m8_creador_modulos", titulo: "Creador de Módulos", descripcion: "Inyección dinámica y expansión de nuevas vistas.", icono: "fa-screwdriver-wrench", url: `${BASE_URL}m8_creador_modulos.html`, activo: true, orden: 8, tipo: "core", roles_permitidos: ["SuperAdmin", "Admin", "Administrador"] }
             };
             refModulos.update(estructuraMaestra);
         }
 
-        // Renderizado dinámico en tiempo real
+        // Renderizado dinámico respetando los permisos manuales del Módulo 5
         function inicializarRendersTiempoReal() {
             const contenedorDinamico = document.getElementById("hub-modulos-dinamico");
             
@@ -479,10 +510,25 @@
                     const modulo = childSnapshot.val();
                     
                     const esActivo = modulo.activo !== false;
-                    const rolesPermitidos = modulo.roles_permitidos || ["SuperAdmin", "Admin", "Administrador"];
+                    const esAdminGlobal = ["SuperAdmin", "Admin", "Administrador", "Gerente General"].includes(rolUsuarioActivo);
                     
-                    const esAdminGlobal = ["SuperAdmin", "Admin", "Administrador", "admin"].includes(rolUsuarioActivo);
-                    const tienePermiso = esAdminGlobal || rolesPermitidos.includes(rolUsuarioActivo);
+                    let tienePermiso = false;
+
+                    if (esAdminGlobal) {
+                        // El Admin y Gerente ven todo por defecto
+                        tienePermiso = true;
+                    } else if (permisosManualesUsuario && typeof permisosManualesUsuario === 'object') {
+                        // EVALUACIÓN DE PERMISOS MANUALES ASIGNADOS EN EL MÓDULO 5
+                        // Mapeo entre id de módulo en config (ej. m8_creador_modulos) vs M5 (ej. m8_creador)
+                        let keyEnM5 = id;
+                        if (id === "m8_creador_modulos") keyEnM5 = "m8_creador";
+
+                        tienePermiso = permisosManualesUsuario[keyEnM5] === true;
+                    } else {
+                        // Fallback si no hay matriz asignada aún
+                        const rolesPermitidos = modulo.roles_permitidos || ["SuperAdmin", "Admin", "Administrador"];
+                        tienePermiso = rolesPermitidos.includes(rolUsuarioActivo);
+                    }
 
                     if (esActivo && tienePermiso) {
                         modulosActivos.push({ id: id, ...modulo });
@@ -492,7 +538,13 @@
                 contenedorDinamico.innerHTML = "";
 
                 if (modulosActivos.length === 0) {
-                    verificarYRestaurarBase();
+                    contenedorDinamico.innerHTML = `
+                        <div class="text-center py-5">
+                            <i class="fa-solid fa-lock text-warning mb-3" style="font-size: 3rem;"></i>
+                            <h4 class="text-white">Acceso Limitado</h4>
+                            <p class="text-muted">No tienes módulos habilitados actualmente. Contacta al Administrador para solicitar accesos.</p>
+                        </div>
+                    `;
                     return;
                 }
 
@@ -529,7 +581,7 @@
                     }
 
                     const tarjetaHTML = `
-                        <div class="module-node ${claseIdentificador}">
+                        <div class="module-node ${claseIdentificador}" id="card_${modulo.id}">
                             <span class="badge-type">${textoBadge}</span>
                             <span class="node-id">${modulo.id}</span>
                             <h2 class="module-title">${modulo.titulo || modulo.id}</h2>
