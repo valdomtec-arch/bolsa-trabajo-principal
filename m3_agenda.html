@@ -347,21 +347,32 @@
             });
         }
 
-        // SOLUCIÓN PUNTO 3: INTEGRACIÓN ROBUSTA Y TOLERANTE DEL SELECTOR DE EMPRESAS
+        /* 
+         * AQUÍ ESTÁ INTEGRADA LA SOLUCIÓN DINÁMICA:
+         * Lee automáticamente cualquier empresa registrada en Firebase.
+         */
         function actualizarFiltroEmpresasRobusto() {
             const filtroEmpresa = document.getElementById("filtroEmpresa");
+            if (!filtroEmpresa) return;
+
             const selActual = filtroEmpresa.value;
             filtroEmpresa.innerHTML = '<option value="TODAS">-- Todas las Empresas --</option>';
 
             let empresasProcesadas = 0;
 
-            if (catalogoEmpresas) {
-                Object.entries(catalogoEmpresas).forEach(([key, val]) => {
-                    const empId = key;
-                    const empNombre = (typeof val === 'object' && val.nombre) ? val.nombre : key;
+            if (catalogoEmpresas && typeof catalogoEmpresas === 'object') {
+                Object.entries(catalogoEmpresas).forEach(([claveEmpresa, datosEmpresa]) => {
+                    if (usuarioSesion.todasLasEmpresas || usuarioSesion.empresas.includes(claveEmpresa)) {
+                        const option = document.createElement('option');
+                        option.value = claveEmpresa;
 
-                    if (usuarioSesion.todasLasEmpresas || usuarioSesion.empresas.includes(empId)) {
-                        filtroEmpresa.innerHTML += `<option value="${empId}">${empNombre}</option>`;
+                        // Lee el nombre comercial o genera fallback desde la clave
+                        const nombreComercial = (datosEmpresa && datosEmpresa.nombre)
+                            ? datosEmpresa.nombre
+                            : claveEmpresa.replace(/_/g, ' ').toUpperCase();
+
+                        option.textContent = nombreComercial;
+                        filtroEmpresa.appendChild(option);
                         empresasProcesadas++;
                     }
                 });
@@ -376,7 +387,6 @@
             }
         }
 
-        // SOLUCIÓN PUNTO 1 Y 2: DESPLIEGUE TRANSPARENTE DEL EQUIPO / OPERADORES
         function actualizarFiltroOperadores() {
             const filtroOperador = document.getElementById("filtroOperador");
             const editReclutador = document.getElementById("editReclutador");
@@ -392,7 +402,6 @@
                 const uRol = uVal.rol || "Reclutador";
                 const labelText = `${uNombre} (${uRol})`;
 
-                // Si es Coordinador, resalta su equipo en el filtro
                 if (usuarioSesion.rol === "Coordinador") {
                     if (usuarioSesion.equipoAsignadoIds.includes(uUid) || uUid === usuarioSesion.uid) {
                         filtroOperador.innerHTML += `<option value="${uUid}">👥 ${labelText}</option>`;
@@ -432,7 +441,6 @@
                 });
             }
 
-            // Respaldo por candidatos registrados
             Object.values(todosLosPostulantes).forEach(p => {
                 const empCandidate = p.empresaId || p.empresa;
                 if ((empresaSel === "TODAS" || empCandidate === empresaSel) && p.vacante) {
@@ -467,17 +475,14 @@
                 const empId = p.empresaId || p.empresa;
                 const recId = p.reclutadorId || p.agenteId;
 
-                // Gobernanza por Empresa
                 if (!usuarioSesion.todasLasEmpresas && !usuarioSesion.empresas.includes(empId)) return;
 
-                // Gobernanza por Coordinador (Equipos)
                 if (usuarioSesion.rol === "Coordinador" && usuarioSesion.equipoAsignadoIds.length > 0) {
                     const esDeEquipo = usuarioSesion.equipoAsignadoIds.includes(recId);
                     const esMio = recId === usuarioSesion.uid;
                     if (!esDeEquipo && !esMio) return;
                 }
 
-                // Filtros de UI
                 if (empresaFiltro !== "TODAS" && empId !== empresaFiltro) return;
                 if (vacanteFiltro !== "TODAS" && p.vacante !== vacanteFiltro) return;
                 if (operadorFiltro !== "TODOS" && recId !== operadorFiltro) return;
@@ -638,7 +643,6 @@
             document.getElementById("modalEditar").classList.add("hidden");
         }
 
-        // SOLUCIÓN PUNTO 4: GUARDADO CON REGLA DE VALIDACIÓN POR CURP Y REASIGNACIÓN
         function guardarCambiosAdmin() {
             const id = document.getElementById("editId").value;
             const curpIngresada = document.getElementById("editCurp").value.trim().toUpperCase();
@@ -650,7 +654,6 @@
                 return;
             }
 
-            // CANDADO: Validar que la CURP no exista duplicada con otro operador
             let duplicadoEncontrado = null;
             Object.entries(todosLosPostulantes).forEach(([candId, cand]) => {
                 if (candId !== id && cand.curp && cand.curp.trim().toUpperCase() === curpIngresada) {
@@ -686,7 +689,6 @@
                 .then(() => {
                     cerrarModal();
                     
-                    // Registro de Auditoría
                     if (originalRecId !== nuevoRecId) {
                         registrarAuditoriaLog("REASIGNACION_OPERADOR_POSTULANTE", id, {
                             operadorAnterior: originalRecId,
