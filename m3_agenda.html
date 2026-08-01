@@ -286,28 +286,43 @@
             inicializarPerfilUsuario();
         });
 
-        function inicializarPerfilUsuario() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const activeUid = urlParams.get('uid') || usuarioSesion.uid;
+       function inicializarPerfilUsuario() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const activeUid = urlParams.get('uid') || usuarioSesion.uid;
 
-            db.ref(`usuarios_reclutadores/${activeUid}`).once('value', (snap) => {
-                const val = snap.val();
-                if (val) {
-                    usuarioSesion = {
-                        uid: activeUid,
-                        nombre: val.nombre || val.usuario || "Operador_Sistema",
-                        rol: val.rol || "Reclutador",
-                        todasLasEmpresas: val.todasLasEmpresas ?? true,
-                        empresas: Array.isArray(val.empresas) ? val.empresas : [],
-                        equipoAsignadoIds: Array.isArray(val.equipoAsignadoIds) ? val.equipoAsignadoIds : []
-                    };
-                }
-                document.getElementById("userInfo").innerHTML = `<i class="fas fa-user-shield"></i> Operador: <b>${usuarioSesion.nombre}</b> (${usuarioSesion.rol})`;
-                inicializarEscuchaFirebase();
-            }, () => {
-                inicializarEscuchaFirebase();
-            });
+    db.ref(`usuarios_reclutadores/${activeUid}`).once('value', (snap) => {
+        const val = snap.val();
+        if (val) {
+            usuarioSesion = {
+                uid: activeUid,
+                nombre: val.nombre || val.usuario || "Operador_Sistema",
+                rol: val.rol || "Reclutador",
+                todasLasEmpresas: val.todasLasEmpresas ?? false,
+                empresas: Array.isArray(val.empresas) ? val.empresas : [],
+                equipoAsignadoIds: Array.isArray(val.equipoAsignadoIds) ? val.equipoAsignadoIds : []
+            };
         }
+
+        // Si es Coordinador o Administrador, mostramos un acceso rápido a la supervisión de equipo
+        let botonSupervisionHtml = "";
+        if (usuarioSesion.rol === "Coordinador" || usuarioSesion.rol === "Administrador") {
+            botonSupervisionHtml = `
+                <a href="m3_supervision.html?uid=${usuarioSesion.uid}" class="bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-semibold py-2 px-4 rounded-xl shadow flex items-center gap-2 text-xs transition-all transform hover:-translate-y-0.5">
+                    <i class="fas fa-users-cog"></i> Supervisión de Equipo
+                </a>`;
+        }
+
+        document.getElementById("userInfo").innerHTML = `
+            <div class="flex items-center justify-between gap-4">
+                <span><i class="fas fa-user-shield"></i> Operador: <b>${usuarioSesion.nombre}</b> (${usuarioSesion.rol})</span>
+                ${botonSupervisionHtml}
+            </div>`;
+
+        inicializarEscuchaFirebase();
+    }, () => {
+        inicializarEscuchaFirebase();
+    });
+}
 
         function inicializarEscuchaFirebase() {
             const btnStatus = document.getElementById("btnFirebaseStatus");
@@ -458,30 +473,44 @@
          * LÓGICA CORREGIDA DE CARGA Y MATRO
          * Evalúa todas las posibles combinaciones de IDs y Nombres Comercial de Empresas
          */
-        function cargarPostulantes() {
+       function cargarPostulantes() {
             const tabla = document.getElementById("tablaPostulantes");
+            if (!tabla) return;
             tabla.innerHTML = "";
 
-            const empresaFiltro = document.getElementById("filtroEmpresa").value;
-            const vacanteFiltro = document.getElementById("filtroVacante").value;
-            const operadorFiltro = document.getElementById("filtroOperador").value;
+            const empresaFiltro = document.getElementById("filtroEmpresa") ? document.getElementById("filtroEmpresa").value : "TODAS";
+            const vacanteFiltro = document.getElementById("filtroVacante") ? document.getElementById("filtroVacante").value : "TODAS";
+            const operadorFiltro = document.getElementById("filtroOperador") ? document.getElementById("filtroOperador").value : "TODOS";
 
             let metricaSexo = { Masculino: 0, Femenino: 0, Otro: 0 };
             let metricaEdad = { "18-25": 0, "26-35": 0, "36-45": 0, "46+": 0 };
             let totalContados = 0;
+
+            if (!window.todosLosPostulantes) return;
 
             Object.entries(todosLosPostulantes).forEach(([id, p]) => {
                 // Extracción flexible de la propiedad empresa del candidato
                 const empCandidateRaw = p.empresaId || p.empresa || p.empresa_id || "";
                 const recId = p.reclutadorId || p.agenteId || "";
 
+                // ----------------------------------------------------
+                // FILTRADO ESTRICTO POR ROL Y ACCESO (Seguridad)
+                // ----------------------------------------------------
+                if (usuarioSesion.rol === "Reclutador" || usuarioSesion.rol === "Implant") {
+                    if (recId !== usuarioSesion.uid) return;
+                } else if (usuarioSesion.rol === "Coordinador") {
+                    const esMio = recId === usuarioSesion.uid;
+                    const esDeMiEquipo = Array.isArray(usuarioSesion.equipoAsignadoIds) && usuarioSesion.equipoAsignadoIds.includes(recId);
+                    if (!esMio && !esDeMiEquipo) return;
+                }
+
                 // Obtener objeto y nombre de la empresa desde el catálogo
-                const datosEmpresaCatalogo = catalogoEmpresas[empCandidateRaw] || {};
+                const datosEmpresaCatalogo = (window.catalogoEmpresas && catalogoEmpresas[empCandidateRaw]) || {};
                 const nombreEmpresaCatalogo = datosEmpresaCatalogo.nombre || "";
 
                 // Validación de Filtro de Empresa Flexible
                 if (empresaFiltro !== "TODAS") {
-                    const filtroNombre = (catalogoEmpresas[empresaFiltro] && catalogoEmpresas[empresaFiltro].nombre) 
+                    const filtroNombre = (window.catalogoEmpresas && catalogoEmpresas[empresaFiltro] && catalogoEmpresas[empresaFiltro].nombre) 
                         ? catalogoEmpresas[empresaFiltro].nombre.toLowerCase() 
                         : "";
                     
@@ -494,13 +523,9 @@
                     }
                 }
 
-                // Permisos por usuario
-                if (!usuarioSesion.todasLasEmpresas && !usuarioSesion.empresas.includes(empCandidateRaw)) return;
-
-                if (usuarioSesion.rol === "Coordinador" && usuarioSesion.equipoAsignadoIds.length > 0) {
-                    const esDeEquipo = usuarioSesion.equipoAsignadoIds.includes(recId);
-                    const esMio = recId === usuarioSesion.uid;
-                    if (!esDeEquipo && !esMio) return;
+                // Permisos por usuario (Empresas permitidas)
+                if (!usuarioSesion.todasLasEmpresas && Array.isArray(usuarioSesion.empresas) && !usuarioSesion.empresas.includes(empCandidateRaw)) {
+                    return;
                 }
 
                 if (vacanteFiltro !== "TODAS" && p.vacante !== vacanteFiltro) return;
@@ -515,6 +540,80 @@
                     metricaSexo["Otro"]++;
                 }
 
+                const edadNum = parseInt(p.edad) || 0;
+                if (edadNum >= 18 && edadNum <= 25) metricaEdad["18-25"]++;
+                else if (edadNum >= 26 && edadNum <= 35) metricaEdad["26-35"]++;
+                else if (edadNum >= 36 && edadNum <= 45) metricaEdad["36-45"]++;
+                else if (edadNum > 45) metricaEdad["46+"]++;
+
+                // Semáforo de Estado
+                let claseSemaforo = "status-postulado";
+                let estatusActual = p.estatus || "Postulado";
+
+                if (estatusActual === "En Entrevista") claseSemaforo = "status-entrevista";
+                else if (estatusActual === "Inducción") claseSemaforo = "status-induccion";
+                else if (estatusActual === "Contratado") claseSemaforo = "status-contratado";
+                else if (estatusActual === "Declinante") claseSemaforo = "status-declinante";
+
+                let citaTexto = p.diaEntrevista || 'Por agendar';
+                let reclutadorDisplay = p.reclutadorNombre || (window.catalogoUsuarios && catalogoUsuarios[recId] ? catalogoUsuarios[recId].nombre : 'Sin Asignar');
+                let empresaNombreDisplay = nombreEmpresaCatalogo || empCandidateRaw || 'Empresa No Definida';
+
+                let mensajeWhatsApp = `Hola *${p.nombre}*, te saludamos de Reclutamiento. Con respecto a tu postulación para *${p.vacante}* en la empresa *${empresaNombreDisplay}*, te informamos que tu estatus actual es: *${estatusActual}*.`;
+                if(estatusActual === "En Entrevista" && p.diaEntrevista) {
+                    mensajeWhatsApp += ` Recuerda que tu cita está agendada para el día y hora: *${p.diaEntrevista}*.`;
+                }
+
+                const urlWhatsApp = `https://wa.me/52${p.telefono}?text=${encodeURIComponent(mensajeWhatsApp)}`;
+
+                // Inyección limpia a la tabla
+                tabla.innerHTML += `
+                    <tr class="hover:bg-[#15264a]/30 transition-colors">
+                        <td class="p-3">
+                            <span class="px-2.5 py-1 text-xs font-bold rounded shadow-sm ${claseSemaforo}">
+                                ${estatusActual}
+                            </span>
+                        </td>
+                        <td class="p-3">
+                            <div class="font-bold text-white">${p.nombre || 'Sin Nombre'}</div>
+                            <div class="text-xs text-[#94a3b8]">${p.telefono || 'Sin Teléfono'}</div>
+                        </td>
+                        <td class="p-3">
+                            <div class="font-mono text-xs text-amber-300 font-bold">${p.curp || 'SIN CURP'}</div>
+                            <div class="text-xs text-[#94a3b8]">${p.sexo || 'No definido'} • ${p.edad || 0} años</div>
+                        </td>
+                        <td class="p-3">
+                            <div class="text-xs font-semibold text-[#ff6600]">${empresaNombreDisplay}</div>
+                            <div class="text-xs font-bold text-slate-200">${p.vacante || 'Sin Vacante'}</div>
+                        </td>
+                        <td class="p-3">
+                            <div class="text-xs text-amber-400 font-bold"><i class="fas fa-user-check"></i> Rec: ${reclutadorDisplay}</div>
+                            <div class="text-xs text-slate-300">🗓️ Cita: <span class="font-semibold text-amber-300">${citaTexto}</span></div>
+                        </td>
+                        <td class="p-3 text-center">
+                            <div class="flex justify-center items-center gap-2">
+                                <a href="${urlWhatsApp}" target="_blank" title="Enviar WhatsApp Inteligente" class="bg-green-600 hover:bg-green-500 text-white p-2 rounded-xl shadow transition-all">
+                                    <i class="fab fa-whatsapp"></i>
+                                </a>
+                                <button onclick="abrirModalEditar('${id}')" title="Gestión y Reasignación" class="bg-blue-600 hover:bg-blue-500 text-white p-2 rounded-xl shadow transition-all">
+                                    <i class="fas fa-user-edit"></i>
+                                </button>
+                                <button onclick="eliminarPostulante('${id}')" title="Borrar Registro" class="bg-red-600 hover:bg-red-500 text-white p-2 rounded-xl shadow transition-all">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            const txtTotal = document.getElementById("txtTotalPostulados");
+            if (txtTotal) txtTotal.innerText = totalContados;
+            
+            if (typeof actualizarGraficosDemograficos === 'function') {
+                actualizarGraficosDemograficos(metricaSexo, metricaEdad);
+            }
+        }
                 const edadNum = parseInt(p.edad) || 0;
                 if (edadNum >= 18 && edadNum <= 25) metricaEdad["18-25"]++;
                 else if (edadNum >= 26 && edadNum <= 35) metricaEdad["26-35"]++;
