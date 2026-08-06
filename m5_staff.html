@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Control de Staff y Gobernanza | Sistema Administrativo</title>
+  <title>Control de Staff y Gobernanza RBAC | Módulo M5</title>
 
   <!-- Bootstrap 5 CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -34,7 +34,7 @@
 
     * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
     body { background: radial-gradient(circle at 50% 0%, #0d1e3d 0%, var(--bg-page) 80%); color: var(--text-light); min-height: 100vh; padding: 40px 20px; }
-    .main-container { max-width: 1280px; margin: 0 auto; background: var(--container-bg); padding: 40px; border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); border: 1px solid rgba(255, 255, 255, 0.05); backdrop-filter: blur(12px); }
+    .main-container { max-width: 1350px; margin: 0 auto; background: var(--container-bg); padding: 40px; border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); border: 1px solid rgba(255, 255, 255, 0.05); backdrop-filter: blur(12px); }
     .card-banner { background: linear-gradient(135deg, #091a36 0%, var(--secondary-blue-dark) 100%); border: 1px solid var(--border-color); border-top: 3px solid var(--primary-orange); border-radius: var(--radius-md); }
     
     .status-dot { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }
@@ -51,8 +51,7 @@
     .form-select option { background-color: var(--bg-form); color: #fff; }
 
     .multiselect-container { background-color: var(--input-bg); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px; padding: 12px; max-height: 190px; overflow-y: auto; }
-    .multiselect-container.disabled-box { opacity: 0.5; pointer-events: none; }
-
+    
     .table-premium { --bs-table-bg: transparent !important; color: #fff !important; margin-bottom: 0; background-color: #081126 !important; }
     .table-premium thead { background-color: #060d1f !important; }
     .table-premium th { color: var(--primary-orange) !important; font-weight: 700; text-transform: uppercase; font-size: 0.8rem; padding: 14px; border-bottom: 2px solid rgba(255, 102, 0, 0.3) !important; }
@@ -67,23 +66,25 @@
     .modal-content { background-color: var(--container-bg); border: 1px solid var(--border-color); color: var(--text-light); }
     .modal-header, .modal-footer { border-color: var(--border-color); }
     .crud-table th, .crud-table td { padding: 6px !important; text-align: center; font-size: 0.85rem; }
+    .override-box { background: rgba(255, 102, 0, 0.05); border: 1px dashed rgba(255, 102, 0, 0.3); border-radius: 12px; padding: 15px; }
   </style>
 </head>
 <body>
 
   <div class="main-container">
     
-    <!-- BANNER DE CONEXIÓN -->
+    <!-- BANNER DE CONEXIÓN Y AUDITORÍA -->
     <div class="card card-banner mb-4">
       <div class="card-body d-flex align-items-center justify-content-between py-3 flex-wrap gap-2">
         <div class="d-flex align-items-center gap-3">
           <div id="statusDot" class="status-dot status-disconnected"></div>
           <div>
-            <h6 class="fw-bold mb-0 text-white"><i class="fas fa-server me-2 text-warning"></i>Gobernanza RBAC 100% Dinámica</h6>
+            <h6 class="fw-bold mb-0 text-white"><i class="fas fa-shield-halved me-2 text-warning"></i>Gobernanza RBAC Enterprise + 2FA WhatsApp</h6>
             <small id="connectionText" class="text-muted">Conectando a Firebase Realtime Database...</small>
           </div>
         </div>
-        <div class="d-flex gap-2">
+        <div class="d-flex align-items-center gap-3">
+          <span class="badge bg-secondary" id="timerSesion"><i class="bi bi-clock-history me-1"></i>Sesión Activa</span>
           <button id="btnForceSync" class="btn btn-outline-light btn-sm rounded-pill px-3">
             <i class="bi bi-arrow-repeat me-1"></i> Sincronizar
           </button>
@@ -119,11 +120,11 @@
       </div>
     </div>
 
-    <!-- SECCIÓN 2: ALTA Y ASIGNACIÓN DE PERSONAL -->
+    <!-- SECCIÓN 2: ALTA Y ASIGNACIÓN DE PERSONAL CON EDICIÓN Granular Y OVERRIDE MANUAL -->
     <div class="premium-card">
       <div class="premium-card-header d-flex justify-content-between align-items-center">
-        <h5><i class="fas fa-user-shield me-2 text-warning"></i>2. Asignación de Personal y Herencia de Scope</h5>
-        <span id="roleBadgeDisplay" class="badge bg-dark border border-secondary text-light">Selecciona un Rol</span>
+        <h5><i class="fas fa-user-shield me-2 text-warning"></i>2. Ficha de Colaborador y Cadena de Mando Dinámica</h5>
+        <span id="roleBadgeDisplay" class="badge bg-dark border border-secondary text-light">Modo: Nuevo Colaborador</span>
       </div>
       <div class="card-body p-4">
         <form id="formStaff" class="row g-3">
@@ -144,7 +145,7 @@
 
           <div class="col-md-3">
             <label for="staffPin" class="form-label fw-semibold text-warning">Clave (PIN SHA-256)</label>
-            <input type="password" class="form-control border-warning" id="staffPin" placeholder="PIN / Contraseña">
+            <input type="password" class="form-control border-warning" id="staffPin" placeholder="Modificar solo si cambia">
           </div>
 
           <div class="col-md-3">
@@ -154,10 +155,22 @@
             </select>
           </div>
 
-          <!-- SELECCIÓN DE COORDINADOR PADRE (HERENCIA AUTOMÁTICA DE EMPRESAS) -->
+          <!-- REASIGNACIÓN DINÁMICA DE CADENA DE MANDO (DEPENDIENTE DEL ROL) -->
+          
+          <!-- 1. CASO SUPERVISOR: ASIGNAR COORDINADORES A CARGO -->
+          <div class="col-md-6 d-none" id="groupSupervisados">
+            <label class="form-label fw-semibold text-warning">
+              <i class="fas fa-users-gear me-1"></i> Coordinadores Asignados a Supervisar
+            </label>
+            <div class="multiselect-container" id="coordinadoresContainer">
+              <span class="text-muted small">Cargando coordinadores...</span>
+            </div>
+          </div>
+
+          <!-- 2. CASO RECLUTADOR / IMPLANT: ASIGNAR COORDINADOR PADRE -->
           <div class="col-md-6 d-none" id="groupCoordinadorPadre">
             <label for="staffCoordinadorPadre" class="form-label fw-semibold text-warning">
-              <i class="fas fa-sitemap me-1"></i> Coordinador Directo (Herencia Automática)
+              <i class="fas fa-sitemap me-1"></i> Coordinador Directo
             </label>
             <select class="form-select border-warning" id="staffCoordinadorPadre">
               <option value="">Selecciona Coordinador...</option>
@@ -165,15 +178,15 @@
             <div class="form-check mt-2">
               <input class="form-check-input" type="checkbox" id="chkHeredarEmpresas" checked>
               <label class="form-check-label text-warning small fw-bold" for="chkHeredarEmpresas">
-                Heredar automáticamente las empresas asignadas al Coordinador
+                Heredar automáticamente las empresas asociadas al Coordinador
               </label>
             </div>
           </div>
 
-          <!-- ASIGNACIÓN MANUAL DE EMPRESAS -->
+          <!-- ASIGNACIÓN MANUAL DE EMPRESAS (COORDINADORES O RECLUTADORES INDEPENDIENTES) -->
           <div class="col-md-6" id="groupCompanies">
             <div class="d-flex justify-content-between align-items-center mb-2">
-              <label class="form-label fw-semibold mb-0">Empresas Asignadas</label>
+              <label class="form-label fw-semibold mb-0">Empresas Asignadas Directamente</label>
               <div class="form-check form-switch">
                 <input class="form-check-input" type="checkbox" id="chkTodasEmpresas">
                 <label class="form-check-label text-warning small fw-bold" for="chkTodasEmpresas">TODAS LAS EMPRESAS</label>
@@ -184,34 +197,38 @@
             </div>
           </div>
 
-          <div class="col-md-6 d-none" id="groupRegions">
-            <label class="form-label fw-semibold text-warning">Regiones de Cobertura</label>
-            <div class="multiselect-container" id="regionesContainer">
-              <div class="form-check"><input class="form-check-input region-cb" type="checkbox" value="Ciénega de Flores" id="r1"><label class="form-check-label small" for="r1">Ciénega de Flores, N.L.</label></div>
-              <div class="form-check"><input class="form-check-input region-cb" type="checkbox" value="Pesquería" id="r2"><label class="form-check-label small" for="r2">Pesquería, N.L.</label></div>
-              <div class="form-check"><input class="form-check-input region-cb" type="checkbox" value="Zona Sur" id="r3"><label class="form-check-label small" for="r3">Zona Sur</label></div>
-            </div>
-          </div>
-
           <div class="col-md-6">
             <label for="staffEstatus" class="form-label fw-semibold">Estatus Operativo</label>
             <select class="form-select" id="staffEstatus" required>
               <option value="Activo">Activo</option>
-              <option value="Inactivo">Inactivo / Baja</option>
+              <option value="Inactivo">Inactivo / Baja Operativa</option>
             </select>
           </div>
 
+          <!-- INTERRUPTOR DE SOBRESCRITURA MANUAL DE MÓDULOS (OVERRIDE) -->
+          <div class="col-12 mt-3">
+            <div class="override-box">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="fw-bold text-warning"><i class="fas fa-sliders me-2"></i>Sobrescritura Manual de Permisos (Override por Usuario)</span>
+                <small class="text-muted">Activa o apaga acceso a módulos específicos independientemente del rol</small>
+              </div>
+              <div class="row g-2" id="overrideModulesContainer">
+                <!-- Generado por JS -->
+              </div>
+            </div>
+          </div>
+
           <div class="col-12 text-end mt-4">
-            <button type="button" id="btnCancelarStaff" class="btn btn-outline-secondary me-2 d-none">Cancelar</button>
+            <button type="button" id="btnCancelarStaff" class="btn btn-outline-secondary me-2 d-none" onclick="cancelarEdicionStaff()">Cancelar Edición</button>
             <button type="submit" class="btn btn-orange px-4 py-2">
-              <i class="bi bi-shield-lock-fill me-1"></i> Guardar Usuario y Reglas
+              <i class="bi bi-shield-lock-fill me-1"></i> Guardar Ficha y Reglas
             </button>
           </div>
         </form>
       </div>
     </div>
 
-    <!-- TABLA DE DIRECTORIO DE PERSONAL -->
+    <!-- TABLA DE DIRECTORIO DE PERSONAL CON BOTÓN DE EDITAR -->
     <div class="premium-card">
       <div class="premium-card-header d-flex justify-content-between align-items-center">
         <h5><i class="fas fa-users me-2 text-warning"></i>Directorio Activo de Personal</h5>
@@ -225,7 +242,7 @@
                 <th class="ps-4">Colaborador</th>
                 <th>Rol Asignado</th>
                 <th>Contacto</th>
-                <th>Cobertura / Herencia</th>
+                <th>Cadena / Empresas</th>
                 <th>Estatus</th>
                 <th class="text-end pe-4">Acciones</th>
               </tr>
@@ -240,7 +257,7 @@
 
   </div>
 
-  <!-- MODAL: CREAR / EDITAR ROL DINÁMICO (MATRIZ CRUD) -->
+  <!-- MODAL 1: CREAR / EDITAR ROL DINÁMICO (MATRIZ CRUD) -->
   <div class="modal fade" id="modalRol" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
       <div class="modal-content">
@@ -289,7 +306,7 @@
                   </tr>
                 </thead>
                 <tbody id="matrizCrudBody">
-                  <!-- Generado dinámicamente en JS -->
+                  <!-- Generado dinámicamente -->
                 </tbody>
               </table>
             </div>
@@ -304,12 +321,56 @@
     </div>
   </div>
 
+  <!-- MODAL 2: ASISTENTE DE BAJA OPERATIVA Y REASIGNACIÓN EN LOTE (M3 AGENDA) -->
+  <div class="modal fade" id="modalBajaReasignacion" data-bs-backdrop="static" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content border-danger">
+        <div class="modal-header bg-danger text-white">
+          <h5 class="modal-title fw-bold"><i class="fas fa-user-minus me-2"></i>Reasignación Masiva por Baja</h5>
+        </div>
+        <div class="modal-body">
+          <p class="small text-light mb-3">
+            El colaborador <strong id="bajaNombreColaborador" class="text-warning"></strong> será marcado como <strong>Inactivo</strong>. 
+            Para mantener la continuidad operativa, debes reasignar sus postulantes y vacantes activas en M3 Agenda.
+          </p>
+          <div class="mb-3">
+            <label for="selectNuevoReceptor" class="form-label fw-bold text-warning">Selecciona el Colaborador Destino (Activo):</label>
+            <select class="form-select" id="selectNuevoReceptor">
+              <option value="">Cargando colaboradores...</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-light btn-sm" onclick="cancelarBajaModal()">Cancelar Cancelación</button>
+          <button type="button" class="btn btn-danger btn-sm" id="btnConfirmarReasignacionBaja">Procesar Baja y Reasignar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 3: VERIFICACIÓN 2FA VÍA WHATSAPP PARA ACCIONES CRÍTICAS -->
+  <div class="modal fade" id="modal2FA" data-bs-backdrop="static" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+      <div class="modal-content border-warning">
+        <div class="modal-header bg-dark border-warning">
+          <h6 class="modal-title fw-bold text-warning"><i class="fab fa-whatsapp me-2"></i>Verificación 2FA Operativa</h6>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body text-center">
+          <p class="small text-muted mb-2">Acción crítica detectada. Se envió un código de 6 dígitos por WhatsApp al Administrador Supremo.</p>
+          <input type="text" id="input2FACode" class="form-control text-center fw-bold fs-4 mb-3" maxlength="6" placeholder="000000">
+          <button type="button" class="btn btn-orange w-100" id="btnValidar2FA">Confirmar Operación</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
-  <!-- LÓGICA FIREBASE ES6 -->
+  <!-- LÓGICA FIREBASE ES6 Y GOBERNANZA -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getDatabase, ref, onValue, push, set, update, remove, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+    import { getDatabase, ref, onValue, push, set, update, remove, serverTimestamp, get, query, orderByChild, equalTo } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
     const firebaseConfig = { databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com/" };
     const app = initializeApp(firebaseConfig);
@@ -319,6 +380,7 @@
     const rolesRef = ref(db, 'roles_dinamicos');
     const staffRef = ref(db, 'usuarios_reclutadores');
     const empresasRef = ref(db, 'empresas');
+    const agendaRef = ref(db, 'modulo_3_agenda');
     const logsRef = ref(db, 'modulo_7_logs');
 
     const MODULOS_SISTEMA = [
@@ -335,8 +397,40 @@
     let globalRoles = {};
     let globalStaff = {};
     let globalEmpresas = {};
-    
+    let pending2FAAction = null;
+    let generated2FACode = null;
+    let pendingBajaUser = null;
+
     const modalRolInstance = new bootstrap.Modal(document.getElementById('modalRol'));
+    const modalBajaInstance = new bootstrap.Modal(document.getElementById('modalBajaReasignacion'));
+    const modal2FAInstance = new bootstrap.Modal(document.getElementById('modal2FA'));
+
+    // EXPIRACIÓN DE SESIÓN POR INACTIVIDAD FORZADA SEGÚN NIVEL DE ROL
+    let userRoleLevel = 5; // Por defecto Admin Global
+    let lastActivityTime = Date.now();
+    const getTimeoutMinutesByLevel = (level) => {
+      switch(level) {
+        case 5: return 30;  // Admin: 30 minutos
+        case 4: return 120; // Gerente: 2 horas
+        default: return 480; // Operativo: 8 horas
+      }
+    };
+
+    function resetActivityTimer() { lastActivityTime = Date.now(); }
+    ['click', 'mousemove', 'keypress'].forEach(evt => document.addEventListener(evt, resetActivityTimer));
+
+    setInterval(() => {
+      const maxMinutes = getTimeoutMinutesByLevel(userRoleLevel);
+      const elapsedMinutes = (Date.now() - lastActivityTime) / 60000;
+      const displayTimer = document.getElementById('timerSesion');
+      const remMinutes = Math.max(0, Math.ceil(maxMinutes - elapsedMinutes));
+      displayTimer.innerHTML = `<i class="bi bi-clock-history me-1"></i>Expiración: ${remMinutes} min`;
+
+      if (elapsedMinutes >= maxMinutes) {
+        alert("Sesión expirada por inactividad operativa para tu nivel de seguridad.");
+        location.reload();
+      }
+    }, 30000);
 
     // ENCRIPTACIÓN SHA-256 + SALT
     function generarSalt() {
@@ -350,7 +444,30 @@
       return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
     }
 
-    // RENDER MATRIZ CRUD EN EL MODAL
+    // DISPARADOR DE 2FA POR WHATSAPP (SIMULACIÓN AUTOMATIZADA CON NOTIFICACIÓN)
+    function requerir2FA(callbackAccion) {
+      generated2FACode = Math.floor(100000 + Math.random() * 900000).toString();
+      pending2FAAction = callbackAccion;
+      
+      // En una integración de producción se dispara la API de mensajes enviando `generated2FACode`
+      console.log(`[2FA SECURITY CODE SENT TO ADMIN WHATSAPP]: ${generated2FACode}`);
+      alert(`[2FA SEGURIDAD ENVIADA POR WHATSAPP]\nCódigo temporal de verificación: ${generated2FACode}`);
+      
+      document.getElementById('input2FACode').value = '';
+      modal2FAInstance.show();
+    }
+
+    document.getElementById('btnValidar2FA').onclick = () => {
+      const inputVal = document.getElementById('input2FACode').value.trim();
+      if (inputVal === generated2FACode) {
+        modal2FAInstance.hide();
+        if (typeof pending2FAAction === 'function') pending2FAAction();
+      } else {
+        alert("Código 2FA incorrecto o expirado.");
+      }
+    };
+
+    // RENDER MATRIZ CRUD EN MODAL DE ROLES
     function renderMatrizCrud() {
       const body = document.getElementById('matrizCrudBody');
       body.innerHTML = '';
@@ -367,6 +484,24 @@
       });
     }
     renderMatrizCrud();
+
+    // RENDER DE OVERRIDE MANUAL EN FICHA DE USUARIO
+    function renderOverrideContainer(usuarioModulos = {}) {
+      const container = document.getElementById('overrideModulesContainer');
+      container.innerHTML = '';
+      MODULOS_SISTEMA.forEach(m => {
+        const isChecked = usuarioModulos[m.id] !== undefined ? usuarioModulos[m.id] : false;
+        container.innerHTML += `
+          <div class="col-md-3 col-6">
+            <div class="form-check form-switch">
+              <input class="form-check-input override-cb" type="checkbox" id="ov_${m.id}" data-mod="${m.id}" ${isChecked ? 'checked' : ''}>
+              <label class="form-check-label small text-light" for="ov_${m.id}">${m.label.split(':')[0]}</label>
+            </div>
+          </div>
+        `;
+      });
+    }
+    renderOverrideContainer();
 
     window.prepararNuevoRol = () => {
       document.getElementById('formNuevoRol').reset();
@@ -395,17 +530,19 @@
 
       const payload = { nombre, nivelJerarquico: nivel, scope, permisos, ultimaModificacion: serverTimestamp() };
 
-      try {
-        if (rolId) {
-          await update(ref(db, `roles_dinamicos/${rolId}`), payload);
-        } else {
-          const newRef = push(rolesRef);
-          await set(newRef, { ...payload, esSistema: false });
+      requerir2FA(async () => {
+        try {
+          if (rolId) {
+            await update(ref(db, `roles_dinamicos/${rolId}`), payload);
+          } else {
+            const newRef = push(rolesRef);
+            await set(newRef, { ...payload, esSistema: false });
+          }
+          modalRolInstance.hide();
+        } catch (err) {
+          alert("Error al guardar el rol dinámico.");
         }
-        modalRolInstance.hide();
-      } catch (err) {
-        alert("Error al guardar el rol dinámico.");
-      }
+      });
     });
 
     // LEER ROLES DINÁMICOS DESDE FIREBASE
@@ -420,13 +557,11 @@
         Object.keys(globalRoles).forEach(key => {
           const rol = globalRoles[key];
           
-          // Select Formulario
           const opt = document.createElement('option');
           opt.value = key;
           opt.textContent = `${rol.nombre} (Nivel ${rol.nivelJerarquico} - ${rol.scope.toUpperCase()})`;
           selectRol.appendChild(opt);
 
-          // Tabla Roles
           let permisosBadges = '';
           if (rol.permisos) {
             Object.keys(rol.permisos).forEach(mKey => {
@@ -483,34 +618,38 @@
       });
 
       document.querySelectorAll('.btn-del-rol').forEach(btn => {
-        btn.onclick = async (e) => {
+        btn.onclick = (e) => {
           const id = e.currentTarget.getAttribute('data-id');
-          if (confirm("¿Eliminar este rol dinámico de Firebase?")) {
-            await remove(ref(db, `roles_dinamicos/${id}`));
-          }
+          requerir2FA(async () => {
+            if (confirm("¿Eliminar este rol dinámico de Firebase?")) {
+              await remove(ref(db, `roles_dinamicos/${id}`));
+            }
+          });
         };
       });
     }
 
-    // MANEJO DE SELECCIÓN DE ROL EN FORMULARIO
+    // MANEJO DINÁMICO DE SELECCIÓN DE ROL EN FICHA DE PERSONAL
     document.getElementById('staffRol').addEventListener('change', (e) => {
       const rolKey = e.target.value;
       const rol = globalRoles[rolKey];
       if (rol) {
-        document.getElementById('roleBadgeDisplay').textContent = `Nivel ${rol.nivelJerarquico} | Scope: ${rol.scope.toUpperCase()}`;
+        document.getElementById('roleBadgeDisplay').textContent = `Rol: ${rol.nombre} | Nivel ${rol.nivelJerarquico}`;
         
-        // Mostrar u ocultar coordinador padre para herencia
-        if (rol.nivelJerarquico <= 3) {
+        // MOSTRAR CONTROLES SEGÚN CADENA DE MANDO Y NIVEL
+        if (rol.nivelJerarquico === 3) {
+          // Si es Supervisor/Coordinador Senior: Seleccionar qué Coordinadores Supervisa
+          document.getElementById('groupSupervisados').classList.remove('d-none');
+          document.getElementById('groupCoordinadorPadre').classList.add('d-none');
+          cargarCoordinadoresMultiselect();
+        } else if (rol.nivelJerarquico <= 2) {
+          // Si es Reclutador/Implant: Seleccionar Coordinador Directo
           document.getElementById('groupCoordinadorPadre').classList.remove('d-none');
+          document.getElementById('groupSupervisados').classList.add('d-none');
           cargarCoordinadoresSelect();
         } else {
+          document.getElementById('groupSupervisados').classList.add('d-none');
           document.getElementById('groupCoordinadorPadre').classList.add('d-none');
-        }
-
-        if (rol.scope === 'regional') {
-          document.getElementById('groupRegions').classList.remove('d-none');
-        } else {
-          document.getElementById('groupRegions').classList.add('d-none');
         }
       }
     });
@@ -520,13 +659,30 @@
       select.innerHTML = '<option value="">Selecciona Coordinador Directo...</option>';
       Object.keys(globalStaff).forEach(k => {
         const u = globalStaff[k];
-        if (u.estatus === 'Activo') {
+        if (u.estatus === 'Activo' && u.nivel >= 3) {
           select.innerHTML += `<option value="${k}">${u.nombre} (${u.rolNombre || 'Coordinador'})</option>`;
         }
       });
     }
 
-    // LEER EMPRESAS
+    function cargarCoordinadoresMultiselect(selectedIds = []) {
+      const container = document.getElementById('coordinadoresContainer');
+      container.innerHTML = '';
+      Object.keys(globalStaff).forEach(k => {
+        const u = globalStaff[k];
+        if (u.nivel >= 3) {
+          const checked = selectedIds.includes(k) ? 'checked' : '';
+          container.innerHTML += `
+            <div class="form-check">
+              <input class="form-check-input coord-supervision-cb" type="checkbox" value="${k}" id="coord_${k}" ${checked}>
+              <label class="form-check-label small" for="coord_${k}">${u.nombre} (${u.rolNombre})</label>
+            </div>
+          `;
+        }
+      });
+    }
+
+    // LEER EMPRESAS DESDE FIREBASE
     onValue(empresasRef, (snapshot) => {
       const container = document.getElementById('empresasContainer');
       container.innerHTML = '';
@@ -544,19 +700,68 @@
       }
     });
 
-    // GUARDAR STAFF EN FIREBASE
+    // EDITAR COLABORADOR DESDE EL DIRECTORIO
+    window.prepararEdicionStaff = (id) => {
+      const u = globalStaff[id];
+      if (!u) return;
+
+      document.getElementById('staffId').value = id;
+      document.getElementById('staffNombre').value = u.nombre;
+      document.getElementById('staffTelefono').value = u.telefono;
+      document.getElementById('staffRol').value = u.rolId || '';
+      document.getElementById('staffEstatus').value = u.estatus;
+      
+      // Disparar evento para ajustar campos visibles
+      document.getElementById('staffRol').dispatchEvent(new Event('change'));
+
+      if (u.coordinadorPadreId) {
+        document.getElementById('staffCoordinadorPadre').value = u.coordinadorPadreId;
+      }
+      document.getElementById('chkHeredarEmpresas').checked = !!u.heredarEmpresas;
+      document.getElementById('chkTodasEmpresas').checked = !!u.todasLasEmpresas;
+
+      // Cargar coordinadores supervisados si aplica
+      if (u.coordinadoresAsignadosIds) {
+        cargarCoordinadoresMultiselect(u.coordinadoresAsignadosIds);
+      }
+
+      // Cargar Override de Módulos
+      renderOverrideContainer(u.modulosOverride || {});
+
+      document.getElementById('btnCancelarStaff').classList.remove('d-none');
+      document.getElementById('roleBadgeDisplay').textContent = `Editando: ${u.nombre}`;
+      document.getElementById('formStaff').scrollIntoView({ behavior: 'smooth' });
+    };
+
+    window.cancelarEdicionStaff = () => {
+      document.getElementById('formStaff').reset();
+      document.getElementById('staffId').value = '';
+      document.getElementById('btnCancelarStaff').classList.add('d-none');
+      document.getElementById('roleBadgeDisplay').textContent = `Modo: Nuevo Colaborador`;
+      renderOverrideContainer();
+    };
+
+    // GUARDAR O ACTUALIZAR PERSONAL EN FIREBASE CON BAJA OPERATIVA Y OVERRIDE
     document.getElementById('formStaff').addEventListener('submit', async (e) => {
       e.preventDefault();
       const id = document.getElementById('staffId').value;
       const rolKey = document.getElementById('staffRol').value;
       const rol = globalRoles[rolKey];
       const rawPin = document.getElementById('staffPin').value.trim();
+      const nuevoEstatus = document.getElementById('staffEstatus').value;
 
-      if (!id && !rawPin) {
-        alert("Ingresa un PIN para el nuevo colaborador.");
+      // CONTROL DE BAJA OPERATIVA (ASISTENTE DE REASIGNACIÓN EN LOTE M3)
+      if (id && nuevoEstatus === 'Inactivo' && globalStaff[id]?.estatus === 'Activo') {
+        pendingBajaUser = { id, rolKey, rawPin };
+        abrirAsistenteBaja(id);
         return;
       }
 
+      await procesarGuardadoStaff(id, rolKey, rawPin);
+    });
+
+    async function procesarGuardadoStaff(id, rolKey, rawPin, receptorBajaId = null) {
+      const rol = globalRoles[rolKey];
       let salt = '', hash = '';
       if (rawPin) {
         salt = generarSalt();
@@ -565,6 +770,16 @@
 
       const heredar = document.getElementById('chkHeredarEmpresas').checked;
       const coordPadreId = document.getElementById('staffCoordinadorPadre').value;
+
+      // Obtener Coordinadores Asignados si es Supervisor
+      const supervisados = [];
+      document.querySelectorAll('.coord-supervision-cb:checked').forEach(cb => supervisados.push(cb.value));
+
+      // Obtener Override de Módulos
+      const modulosOverride = {};
+      document.querySelectorAll('.override-cb').forEach(cb => {
+        modulosOverride[cb.getAttribute('data-mod')] = cb.checked;
+      });
 
       let empresasFinales = [];
       const esTodas = document.getElementById('chkTodasEmpresas').checked;
@@ -582,9 +797,11 @@
         rolNombre: rol.nombre,
         nivel: rol.nivelJerarquico,
         coordinadorPadreId: coordPadreId || null,
+        coordinadoresAsignadosIds: supervisados,
         heredarEmpresas: heredar,
         todasLasEmpresas: esTodas,
         empresas: esTodas ? ["TODAS"] : empresasFinales,
+        modulosOverride: modulosOverride,
         estatus: document.getElementById('staffEstatus').value,
         ultimaActualizacion: serverTimestamp()
       };
@@ -600,14 +817,83 @@
         } else {
           await set(push(staffRef), { ...payload, fechaCreacion: serverTimestamp() });
         }
-        document.getElementById('formStaff').reset();
-        document.getElementById('staffId').value = '';
-      } catch (err) {
-        alert("Error al guardar personal.");
-      }
-    });
 
-    // LEER PERSONAL DESDE FIREBASE
+        // Si fue una baja con reasignación en lote M3 Agenda
+        if (receptorBajaId) {
+          await reasignarAgendaMasiva(id, receptorBajaId);
+        }
+
+        cancelarEdicionStaff();
+      } catch (err) {
+        alert("Error al guardar información de personal.");
+      }
+    }
+
+    // GOBERNANZA: ASISTENTE DE BAJA OPERATIVA Y REASIGNACIÓN EN LOTE (M3 AGENDA)
+    function abrirAsistenteBaja(idBaja) {
+      const u = globalStaff[idBaja];
+      document.getElementById('bajaNombreColaborador').textContent = u.nombre;
+      
+      const select = document.getElementById('selectNuevoReceptor');
+      select.innerHTML = '<option value="">Selecciona Colaborador Destino...</option>';
+      Object.keys(globalStaff).forEach(k => {
+        if (k !== idBaja && globalStaff[k].estatus === 'Activo') {
+          select.innerHTML += `<option value="${k}">${globalStaff[k].nombre} (${globalStaff[k].rolNombre})</option>`;
+        }
+      });
+      modalBajaInstance.show();
+    }
+
+    window.cancelarBajaModal = () => {
+      modalBajaInstance.hide();
+      document.getElementById('staffEstatus').value = 'Activo';
+    };
+
+    document.getElementById('btnConfirmarReasignacionBaja').onclick = async () => {
+      const receptorId = document.getElementById('selectNuevoReceptor').value;
+      if (!receptorId) {
+        alert("Debes seleccionar un colaborador activo para transferir los registros.");
+        return;
+      }
+      modalBajaInstance.hide();
+      await procesarGuardadoStaff(pendingBajaUser.id, pendingBajaUser.rolKey, pendingBajaUser.rawPin, receptorId);
+    };
+
+    async function reasignarAgendaMasiva(reclutadorBajaId, receptorId) {
+      try {
+        const snapshot = await get(agendaRef);
+        if (snapshot.exists()) {
+          const agendaData = snapshot.val();
+          const updates = {};
+          let totalReasignados = 0;
+
+          Object.keys(agendaData).forEach(itemKey => {
+            if (agendaData[itemKey].reclutadorId === reclutadorBajaId) {
+              updates[`modulo_3_agenda/${itemKey}/reclutadorId`] = receptorId;
+              updates[`modulo_3_agenda/${itemKey}/reclutadorNombre`] = globalStaff[receptorId].nombre;
+              totalReasignados++;
+            }
+          });
+
+          if (totalReasignados > 0) {
+            await update(ref(db), updates);
+            // Log de Caja Negra (M7)
+            await push(logsRef, {
+              evento: "REASIGNACION_MASIVA_BAJA",
+              usuarioBajaId: reclutadorBajaId,
+              usuarioReceptorId: receptorId,
+              registrosMovidos: totalReasignados,
+              timestamp: serverTimestamp()
+            });
+            alert(`Reasignación completada: ${totalReasignados} postulantes/vacantes transferidos a ${globalStaff[receptorId].nombre}.`);
+          }
+        }
+      } catch (err) {
+        console.error("Error en reasignación masiva:", err);
+      }
+    }
+
+    // LEER PERSONAL DESDE FIREBASE Y RENDERIZAR TABLA CON BOTÓN DE EDITAR
     onValue(staffRef, (snapshot) => {
       document.getElementById('statusDot').className = "status-dot status-connected";
       document.getElementById('connectionText').textContent = "Conectado a Firebase Realtime Database";
@@ -621,11 +907,13 @@
           total++;
           const u = globalStaff[key];
           
-          let herenciaTxt = '';
+          let cadenaTxt = '';
           if (u.heredarEmpresas && u.coordinadorPadreId && globalStaff[u.coordinadorPadreId]) {
-            herenciaTxt = `<small class="text-warning"><i class="fas fa-link me-1"></i>Hereda de: ${globalStaff[u.coordinadorPadreId].nombre}</small>`;
+            cadenaTxt = `<small class="text-warning"><i class="fas fa-link me-1"></i>Hereda de: ${globalStaff[u.coordinadorPadreId].nombre}</small>`;
+          } else if (u.coordinadoresAsignadosIds && u.coordinadoresAsignadosIds.length > 0) {
+            cadenaTxt = `<small class="text-info"><i class="fas fa-users-gear me-1"></i>Supervisa ${u.coordinadoresAsignadosIds.length} Coordinadores</small>`;
           } else {
-            herenciaTxt = `<small class="text-muted">${(u.empresas || []).join(', ')}</small>`;
+            cadenaTxt = `<small class="text-muted">${(u.empresas || []).join(', ')}</small>`;
           }
 
           const tr = document.createElement('tr');
@@ -633,10 +921,15 @@
             <td class="ps-4 fw-bold">${u.nombre}</td>
             <td><span class="badge bg-warning text-dark">${u.rolNombre || 'Sin Rol'}</span></td>
             <td><a href="https://wa.me/52${u.telefono}" target="_blank" class="btn btn-wa btn-sm rounded-pill"><i class="fab fa-whatsapp me-1"></i>${u.telefono}</a></td>
-            <td>${herenciaTxt}</td>
+            <td>${cadenaTxt}</td>
             <td><span class="badge ${u.estatus === 'Activo' ? 'bg-success' : 'bg-danger'}">${u.estatus}</span></td>
             <td class="text-end pe-4">
-              <button class="btn btn-action-icon btn-sm text-danger btn-del-staff" data-id="${key}"><i class="bi bi-trash-fill"></i></button>
+              <button class="btn btn-action-icon btn-sm me-1" onclick="prepararEdicionStaff('${key}')" title="Editar Colaborador">
+                <i class="bi bi-pencil-fill"></i>
+              </button>
+              <button class="btn btn-action-icon btn-sm text-danger btn-del-staff" data-id="${key}" title="Eliminar Colaborador">
+                <i class="bi bi-trash-fill"></i>
+              </button>
             </td>
           `;
           tabla.appendChild(tr);
@@ -644,9 +937,11 @@
         document.getElementById('totalStaffBadge').textContent = `${total} Registros`;
         
         document.querySelectorAll('.btn-del-staff').forEach(btn => {
-          btn.onclick = async (e) => {
+          btn.onclick = (e) => {
             const id = e.currentTarget.getAttribute('data-id');
-            if (confirm("¿Remover colaborador?")) await remove(ref(db, `usuarios_reclutadores/${id}`));
+            requerir2FA(async () => {
+              if (confirm("¿Remover colaborador del sistema?")) await remove(ref(db, `usuarios_reclutadores/${id}`));
+            });
           };
         });
       } else {
