@@ -998,7 +998,7 @@
     </footer>
 </div>
 
-<!-- MODAL ACCESO ADMINISTRATIVO REESTRUCTURADO M5_STAFF -->
+<!-- MODAL ACCESO ADMINISTRATIVO REESTRUCTURADO M5_STAFF DINÁMICO CON ROLES DE MODULO 5 -->
 <div id="adminLoginWrapper" class="admin-login-wrapper">
     <div class="admin-login-card">
         <button type="button" class="btn-close-admin-modal" onclick="cerrarAccesoAdministrativo()" title="Cerrar">&times;</button>
@@ -1007,15 +1007,9 @@
         <form id="adminLoginForm">
             <div class="admin-input-group">
                 <label for="adminCargo"><i class="fas fa-briefcase"></i> Rol Jerárquico</label>
+                <!-- Opciones cargadas dinámicamente desde el Módulo M5 (nodo roles) -->
                 <select id="adminCargo" required>
-                    <option value="" disabled selected hidden>Selecciona tu rol registrado</option>
-                    <option value="Administrador">Administrador (Nivel 5)</option>
-                    <option value="Gerente General">Gerente General (Nivel 4)</option>
-                    <option value="Coordinador">Coordinador (Nivel 3)</option>
-                    <option value="Reclutador">Reclutador (Nivel 2)</option>
-                    <option value="Implant">Implant (Nivel 2)</option>
-                    <option value="Facturación y Cobranza">Facturación y Cobranza (Nivel 2)</option>
-                    <option value="Empresa / Cliente">Empresa / Cliente (Nivel 1)</option>
+                    <option value="" disabled selected hidden>Cargando roles disponibles...</option>
                 </select>
             </div>
             <div class="admin-input-group">
@@ -1180,16 +1174,35 @@
         window.updateGallery();
     };
 
+    // ESCUCHADOR PRINCIPAL DE BASE DE DATOS PARA VACANTES, EMPRESAS Y ROLES DE MÓDULO 5
     onValue(rootRef, (snapshot) => {
         const data = snapshot.val() || {};
         todasLasEmpresas = data.empresas || {}; 
         todasLasVacantes = data.vacantes_detalles || {};
+        const rolesM5 = data.roles || {};
         
+        // 1. Llenar combo de Empresas
         const selectEmpresa = document.getElementById('empresa');
         selectEmpresa.innerHTML = '<option value="" disabled selected hidden></option>';
         Object.keys(todasLasEmpresas).forEach((id) => {
             selectEmpresa.innerHTML += `<option value="${id}">${todasLasEmpresas[id].nombre}</option>`;
         });
+
+        // 2. Llenar combo de Roles en Modal Administrativo solo con los creados/existentes en Móduo 5
+        const selectAdminCargo = document.getElementById('adminCargo');
+        selectAdminCargo.innerHTML = '<option value="" disabled selected hidden>Selecciona tu rol registrado</option>';
+        
+        const rolesKeys = Object.keys(rolesM5);
+        if (rolesKeys.length > 0) {
+            rolesKeys.forEach((id) => {
+                const rolObj = rolesM5[id];
+                const nombreRol = rolObj.nombre || id;
+                const nivelRol = rolObj.nivel ? ` (Nivel ${rolObj.nivel})` : '';
+                selectAdminCargo.innerHTML += `<option value="${nombreRol}">${nombreRol}${nivelRol}</option>`;
+            });
+        } else {
+            selectAdminCargo.innerHTML = '<option value="" disabled selected hidden>No hay roles registrados en M5</option>';
+        }
 
         window.ejecutarBusqueda(document.getElementById('mainSearch').value);
         window.updateItemsPerPage();
