@@ -1007,7 +1007,7 @@
         <form id="adminLoginForm">
             <div class="admin-input-group">
                 <label for="adminCargo"><i class="fas fa-briefcase"></i> Rol Jerárquico</label>
-                <!-- Opciones cargadas dinámicamente desde el Módulo M5 (nodo roles) -->
+                <!-- Opciones cargadas dinámicamente desde el Módulo M5 (nodo roles_dinamicos) -->
                 <select id="adminCargo" required>
                     <option value="" disabled selected hidden>Cargando roles disponibles...</option>
                 </select>
@@ -1179,7 +1179,9 @@
         const data = snapshot.val() || {};
         todasLasEmpresas = data.empresas || {}; 
         todasLasVacantes = data.vacantes_detalles || {};
-        const rolesM5 = data.roles || {};
+        
+        // CORRECCIÓN 1: Apuntar explícitamente a roles_dinamicos en lugar de roles
+        const rolesM5 = data.roles_dinamicos || {};
         
         // 1. Llenar combo de Empresas
         const selectEmpresa = document.getElementById('empresa');
@@ -1188,7 +1190,7 @@
             selectEmpresa.innerHTML += `<option value="${id}">${todasLasEmpresas[id].nombre}</option>`;
         });
 
-        // 2. Llenar combo de Roles en Modal Administrativo solo con los creados/existentes en Móduo 5
+        // 2. Llenar combo de Roles en Modal Administrativo desde roles_dinamicos
         const selectAdminCargo = document.getElementById('adminCargo');
         selectAdminCargo.innerHTML = '<option value="" disabled selected hidden>Selecciona tu rol registrado</option>';
         
@@ -1196,7 +1198,8 @@
         if (rolesKeys.length > 0) {
             rolesKeys.forEach((id) => {
                 const rolObj = rolesM5[id];
-                const nombreRol = rolObj.nombre || id;
+                // Soporte para rolNombre o nombre según la estructura en roles_dinamicos
+                const nombreRol = rolObj.rolNombre || rolObj.nombre || id;
                 const nivelRol = rolObj.nivel ? ` (Nivel ${rolObj.nivel})` : '';
                 selectAdminCargo.innerHTML += `<option value="${nombreRol}">${nombreRol}${nivelRol}</option>`;
             });
@@ -1367,7 +1370,7 @@
         wrapper.classList.remove('open');
     };
 
-    // Función auxiliar para encriptar PIN + Salt usando SHA-256 Web Crypto
+    // CORRECCIÓN 3: Garantizar que la función procese password + salt con codificación UTF-8 exacta
     async function generarHashSHA256(password, salt) {
         const encoder = new TextEncoder();
         const data = encoder.encode(password + salt);
@@ -1413,9 +1416,10 @@
                         return;
                     }
 
-                    // Validar que el rol seleccionado coincida con el registrado
-                    if (usuarioEncontrado.rol !== cargo) {
-                        alert(`El rol seleccionado (${cargo}) no coincide con el cargo registrado para este usuario (${usuarioEncontrado.rol}).`);
+                    // CORRECCIÓN 2: Validación flexible para comprobar rolNombre o rol
+                    const rolUsuario = usuarioEncontrado.rolNombre || usuarioEncontrado.rol;
+                    if (rolUsuario !== cargo) {
+                        alert(`El rol seleccionado (${cargo}) no coincide con el cargo registrado para este usuario (${rolUsuario}).`);
                         return;
                     }
 
@@ -1424,7 +1428,7 @@
                         const hashCalculado = await generarHashSHA256(passwordInput, usuarioEncontrado.salt);
                         
                         if (hashCalculado === usuarioEncontrado.passwordHash) {
-                            alert(`¡Bienvenido, ${usuarioEncontrado.nombre}! Acceso autorizado como ${usuarioEncontrado.rol}.`);
+                            alert(`¡Bienvenido, ${usuarioEncontrado.nombre}! Acceso autorizado como ${rolUsuario}.`);
                             sessionStorage.setItem('usuarioLogueado', JSON.stringify({
                                 uid: userKey,
                                 ...usuarioEncontrado
