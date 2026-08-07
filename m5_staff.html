@@ -60,8 +60,31 @@
     .btn-orange { background: linear-gradient(135deg, var(--primary-orange) 0%, #e05500 100%); color: #fff; border: none; font-weight: 700; border-radius: 10px; }
     .btn-orange:hover { transform: translateY(-2px); color: #fff; }
     .btn-wa { background-color: rgba(34, 197, 94, 0.15); color: var(--green-whatsapp) !important; border: 1px solid rgba(34, 197, 94, 0.4); }
-    .btn-action-icon { background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); color: #f1f5f9 !important; }
-    .btn-action-icon:hover { background: var(--primary-orange); color: #fff !important; }
+
+    /* ESTILOS DE BOTONES DE ACCIÓN PERSONALIZADOS (AMARILLO EDITAR / ROJO ELIMINAR) */
+    .btn-action-edit { 
+      background: rgba(255, 193, 7, 0.15); 
+      border: 1px solid rgba(255, 193, 7, 0.4); 
+      color: #ffc107 !important; 
+      transition: all 0.2s ease;
+    }
+    .btn-action-edit:hover { 
+      background: #ffc107; 
+      color: #000 !important; 
+      box-shadow: 0 0 10px rgba(255, 193, 7, 0.5);
+    }
+
+    .btn-action-delete { 
+      background: rgba(220, 53, 69, 0.15); 
+      border: 1px solid rgba(220, 53, 69, 0.4); 
+      color: #dc3545 !important; 
+      transition: all 0.2s ease;
+    }
+    .btn-action-delete:hover { 
+      background: #dc3545; 
+      color: #fff !important; 
+      box-shadow: 0 0 10px rgba(220, 53, 69, 0.5);
+    }
 
     .modal-content { background-color: var(--container-bg); border: 1px solid var(--border-color); color: var(--text-light); }
     .modal-header, .modal-footer { border-color: var(--border-color); }
@@ -370,7 +393,7 @@
   <!-- LÓGICA FIREBASE ES6 Y GOBERNANZA -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getDatabase, ref, onValue, push, set, update, remove, serverTimestamp, get, query, orderByChild, equalTo } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+    import { getDatabase, ref, onValue, push, set, update, remove, serverTimestamp, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
     const firebaseConfig = { databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com/" };
     const app = initializeApp(firebaseConfig);
@@ -449,7 +472,6 @@
       generated2FACode = Math.floor(100000 + Math.random() * 900000).toString();
       pending2FAAction = callbackAccion;
       
-      // En una integración de producción se dispara la API de mensajes enviando `generated2FACode`
       console.log(`[2FA SECURITY CODE SENT TO ADMIN WHATSAPP]: ${generated2FACode}`);
       alert(`[2FA SEGURIDAD ENVIADA POR WHATSAPP]\nCódigo temporal de verificación: ${generated2FACode}`);
       
@@ -579,8 +601,10 @@
             <td><span class="badge bg-outline-light">${rol.scope}</span></td>
             <td>${permisosBadges || '<small class="text-muted">Sin accesos</small>'}</td>
             <td class="text-end pe-4">
-              <button class="btn btn-action-icon btn-sm me-1 btn-edit-rol" data-id="${key}"><i class="bi bi-pencil-fill"></i></button>
-              ${!rol.esSistema ? `<button class="btn btn-action-icon btn-sm text-danger btn-del-rol" data-id="${key}"><i class="bi bi-trash-fill"></i></button>` : ''}
+              <button class="btn btn-action-edit btn-sm me-1 btn-edit-rol" data-id="${key}" title="Editar Rol">
+                <i class="bi bi-pencil-fill"></i>
+              </button>
+              ${!rol.esSistema ? `<button class="btn btn-action-delete btn-sm btn-del-rol" data-id="${key}" title="Eliminar Rol"><i class="bi bi-trash-fill"></i></button>` : ''}
             </td>
           `;
           tabla.appendChild(tr);
@@ -636,14 +660,11 @@
       if (rol) {
         document.getElementById('roleBadgeDisplay').textContent = `Rol: ${rol.nombre} | Nivel ${rol.nivelJerarquico}`;
         
-        // MOSTRAR CONTROLES SEGÚN CADENA DE MANDO Y NIVEL
         if (rol.nivelJerarquico === 3) {
-          // Si es Supervisor/Coordinador Senior: Seleccionar qué Coordinadores Supervisa
           document.getElementById('groupSupervisados').classList.remove('d-none');
           document.getElementById('groupCoordinadorPadre').classList.add('d-none');
           cargarCoordinadoresMultiselect();
         } else if (rol.nivelJerarquico <= 2) {
-          // Si es Reclutador/Implant: Seleccionar Coordinador Directo
           document.getElementById('groupCoordinadorPadre').classList.remove('d-none');
           document.getElementById('groupSupervisados').classList.add('d-none');
           cargarCoordinadoresSelect();
@@ -711,7 +732,6 @@
       document.getElementById('staffRol').value = u.rolId || '';
       document.getElementById('staffEstatus').value = u.estatus;
       
-      // Disparar evento para ajustar campos visibles
       document.getElementById('staffRol').dispatchEvent(new Event('change'));
 
       if (u.coordinadorPadreId) {
@@ -720,12 +740,10 @@
       document.getElementById('chkHeredarEmpresas').checked = !!u.heredarEmpresas;
       document.getElementById('chkTodasEmpresas').checked = !!u.todasLasEmpresas;
 
-      // Cargar coordinadores supervisados si aplica
       if (u.coordinadoresAsignadosIds) {
         cargarCoordinadoresMultiselect(u.coordinadoresAsignadosIds);
       }
 
-      // Cargar Override de Módulos
       renderOverrideContainer(u.modulosOverride || {});
 
       document.getElementById('btnCancelarStaff').classList.remove('d-none');
@@ -746,11 +764,9 @@
       e.preventDefault();
       const id = document.getElementById('staffId').value;
       const rolKey = document.getElementById('staffRol').value;
-      const rol = globalRoles[rolKey];
       const rawPin = document.getElementById('staffPin').value.trim();
       const nuevoEstatus = document.getElementById('staffEstatus').value;
 
-      // CONTROL DE BAJA OPERATIVA (ASISTENTE DE REASIGNACIÓN EN LOTE M3)
       if (id && nuevoEstatus === 'Inactivo' && globalStaff[id]?.estatus === 'Activo') {
         pendingBajaUser = { id, rolKey, rawPin };
         abrirAsistenteBaja(id);
@@ -771,11 +787,9 @@
       const heredar = document.getElementById('chkHeredarEmpresas').checked;
       const coordPadreId = document.getElementById('staffCoordinadorPadre').value;
 
-      // Obtener Coordinadores Asignados si es Supervisor
       const supervisados = [];
       document.querySelectorAll('.coord-supervision-cb:checked').forEach(cb => supervisados.push(cb.value));
 
-      // Obtener Override de Módulos
       const modulosOverride = {};
       document.querySelectorAll('.override-cb').forEach(cb => {
         modulosOverride[cb.getAttribute('data-mod')] = cb.checked;
@@ -818,7 +832,6 @@
           await set(push(staffRef), { ...payload, fechaCreacion: serverTimestamp() });
         }
 
-        // Si fue una baja con reasignación en lote M3 Agenda
         if (receptorBajaId) {
           await reasignarAgendaMasiva(id, receptorBajaId);
         }
@@ -877,7 +890,6 @@
 
           if (totalReasignados > 0) {
             await update(ref(db), updates);
-            // Log de Caja Negra (M7)
             await push(logsRef, {
               evento: "REASIGNACION_MASIVA_BAJA",
               usuarioBajaId: reclutadorBajaId,
@@ -893,7 +905,7 @@
       }
     }
 
-    // LEER PERSONAL DESDE FIREBASE Y RENDERIZAR TABLA CON BOTÓN DE EDITAR
+    // LEER PERSONAL DESDE FIREBASE Y RENDERIZAR TABLA CON MANEJO COMPLETO DE CADENA Y EMPRESAS
     onValue(staffRef, (snapshot) => {
       document.getElementById('statusDot').className = "status-dot status-connected";
       document.getElementById('connectionText').textContent = "Conectado a Firebase Realtime Database";
@@ -907,13 +919,19 @@
           total++;
           const u = globalStaff[key];
           
+          // RESOLUCIÓN ROBUSTA DE COLUMNA CADENA / EMPRESAS
           let cadenaTxt = '';
-          if (u.heredarEmpresas && u.coordinadorPadreId && globalStaff[u.coordinadorPadreId]) {
+
+          if (u.todasLasEmpresas || (Array.isArray(u.empresas) && u.empresas.includes("TODAS"))) {
+            cadenaTxt = `<span class="badge bg-warning text-dark"><i class="fas fa-globe me-1"></i>TODAS LAS EMPRESAS</span>`;
+          } else if (u.heredarEmpresas && u.coordinadorPadreId && globalStaff[u.coordinadorPadreId]) {
             cadenaTxt = `<small class="text-warning"><i class="fas fa-link me-1"></i>Hereda de: ${globalStaff[u.coordinadorPadreId].nombre}</small>`;
           } else if (u.coordinadoresAsignadosIds && u.coordinadoresAsignadosIds.length > 0) {
-            cadenaTxt = `<small class="text-info"><i class="fas fa-users-gear me-1"></i>Supervisa ${u.coordinadoresAsignadosIds.length} Coordinadores</small>`;
+            cadenaTxt = `<small class="text-info"><i class="fas fa-users-gear me-1"></i>Supervisa ${u.coordinadoresAsignadosIds.length} Coordinador(es)</small>`;
+          } else if (Array.isArray(u.empresas) && u.empresas.length > 0) {
+            cadenaTxt = `<small class="text-light"><i class="fas fa-building me-1"></i>${u.empresas.join(', ')}</small>`;
           } else {
-            cadenaTxt = `<small class="text-muted">${(u.empresas || []).join(', ')}</small>`;
+            cadenaTxt = `<small class="text-muted"><i class="fas fa-minus me-1"></i>Sin asignación</small>`;
           }
 
           const tr = document.createElement('tr');
@@ -924,10 +942,10 @@
             <td>${cadenaTxt}</td>
             <td><span class="badge ${u.estatus === 'Activo' ? 'bg-success' : 'bg-danger'}">${u.estatus}</span></td>
             <td class="text-end pe-4">
-              <button class="btn btn-action-icon btn-sm me-1" onclick="prepararEdicionStaff('${key}')" title="Editar Colaborador">
+              <button class="btn btn-action-edit btn-sm me-1" onclick="prepararEdicionStaff('${key}')" title="Editar Colaborador">
                 <i class="bi bi-pencil-fill"></i>
               </button>
-              <button class="btn btn-action-icon btn-sm text-danger btn-del-staff" data-id="${key}" title="Eliminar Colaborador">
+              <button class="btn btn-action-delete btn-sm btn-del-staff" data-id="${key}" title="Eliminar Colaborador">
                 <i class="bi bi-trash-fill"></i>
               </button>
             </td>
