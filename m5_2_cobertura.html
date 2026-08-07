@@ -191,19 +191,27 @@
     const db = getDatabase(app);
 
     const empresasRef = ref(db, 'empresas');
+    const rutasRef = ref(db, 'rutas');
     const staffRef = ref(db, 'usuarios_reclutadores');
 
     let globalEmpresas = {};
+    let globalRutas = {};
     let globalStaff = {};
 
-    // Cargar datos sincronizados
+    // Cargar datos sincronizados (empresas, rutas y usuarios_reclutadores)
     onValue(empresasRef, (snapE) => {
-      if (snapE.exists()) globalEmpresas = snapE.val();
-      onValue(staffRef, (snapS) => {
-        document.getElementById('statusDot').className = "status-dot status-connected";
-        document.getElementById('connectionText').textContent = "Conectado a Firebase Database";
-        if (snapS.exists()) globalStaff = snapS.val();
-        cargarMatrizCobertura();
+      globalEmpresas = snapE.exists() ? snapE.val() : {};
+      
+      onValue(rutasRef, (snapR) => {
+        globalRutas = snapR.exists() ? snapR.val() : {};
+        
+        onValue(staffRef, (snapS) => {
+          document.getElementById('statusDot').className = "status-dot status-connected";
+          document.getElementById('connectionText').textContent = "Conectado a Firebase Database";
+          globalStaff = snapS.exists() ? snapS.val() : {};
+          
+          cargarMatrizCobertura();
+        });
       });
     });
 
@@ -211,16 +219,39 @@
       const zonasMap = {};
       let totalEmpresasCount = 0;
 
-      // 1. Mapear Empresas por Zona
-      Object.keys(globalEmpresas).forEach(k => {
-        const emp = globalEmpresas[k];
-        const nombre = typeof emp === 'string' ? emp : (emp.nombreComercial || k);
-        const zona = emp.zonaOperacion || emp.zona || 'Sin Zona Definida';
+      // 1. Mapear Empresas por Zona utilizando lectura en cascada
+      Object.keys(globalEmpresas).forEach(empKey => {
+        const emp = globalEmpresas[empKey];
+        const nombreEmpresa = typeof emp === 'string' ? emp : (emp.nombre || emp.nombreComercial || empKey);
+
+        // Prioridad 1: Campo 'ubicacion' o 'zonaOperacion' en empresas
+        let zona = (typeof emp === 'object' && (emp.ubicacion || emp.zonaOperacion || emp.zona)) 
+          ? (emp.ubicacion || emp.zonaOperacion || emp.zona).trim() 
+          : "";
+
+        // Prioridad 2: Campo 'estadoMunicipio' en rutas de la misma empresa
+        if (!zona && globalRutas && globalRutas[empKey]) {
+          const rutasEmpresa = globalRutas[empKey];
+          const primeraRutaKey = Object.keys(rutasEmpresa)[0];
+          
+          if (primeraRutaKey && rutasEmpresa[primeraRutaKey].estadoMunicipio) {
+            zona = rutasEmpresa[primeraRutaKey].estadoMunicipio.trim();
+          }
+        }
+
+        // Prioridad 3: Valor por defecto
+        if (!zona) {
+          zona = 'Sin Zona Definida';
+        }
 
         if (!zonasMap[zona]) {
           zonasMap[zona] = { empresas: [], coordinadores: new Set(), reclutadores: new Set() };
         }
-        zonasMap[zona].empresas.push(nombre);
+
+        if (!zonasMap[zona].empresas.includes(nombreEmpresa)) {
+          zonasMap[zona].empresas.push(nombreEmpresa);
+        }
+        
         totalEmpresasCount++;
       });
 
@@ -232,15 +263,26 @@
 
         if (u.nivel >= 3) totalCoordinadoresCount++;
 
-        const zonasUser = u.zonasOperacion || [];
+        let zonasUser = [];
+        if (Array.isArray(u.zonasOperacion)) {
+          zonasUser = u.zonasOperacion;
+        } else if (Array.isArray(u.zonasAsignadas)) {
+          zonasUser = u.zonasAsignadas;
+        } else if (u.zona) {
+          zonasUser = [u.zona];
+        } else if (u.estadoMunicipio) {
+          zonasUser = [u.estadoMunicipio];
+        }
+
         zonasUser.forEach(z => {
-          if (!zonasMap[z]) {
-            zonasMap[z] = { empresas: [], coordinadores: new Set(), reclutadores: new Set() };
+          const zonaClean = z.trim();
+          if (!zonasMap[zonaClean]) {
+            zonasMap[zonaClean] = { empresas: [], coordinadores: new Set(), reclutadores: new Set() };
           }
           if (u.nivel >= 3) {
-            zonasMap[z].coordinadores.add(u.nombre);
+            zonasMap[zonaClean].coordinadores.add(u.nombre);
           } else {
-            zonasMap[z].reclutadores.add(u.nombre);
+            zonasMap[zonaClean].reclutadores.add(u.nombre);
           }
         });
       });
