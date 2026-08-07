@@ -296,8 +296,9 @@
             sincronizarConFirebase();
         });
 
-        // CONEXIÓN Y ESCUCHA EN TIEMPO REAL
+        // CONEXIÓN Y ESCUCHA EN TIEMPO REAL OPTIMIZADA
         function sincronizarConFirebase() {
+            // Escuchar cambios generales para sincronizar catálogo de empresas y auditoría
             db.ref().on("value", (snap) => {
                 const data = snap.val() || {};
                 datosEstructuralesServidor = data;
@@ -319,6 +320,30 @@
             }, (err) => {
                 document.getElementById("badgeEstadoServer").className = "bg-red-500/10 text-red-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-red-500/20 flex items-center gap-1.5";
                 document.getElementById("badgeEstadoServer").innerHTML = '<span class="w-2 h-2 rounded-full bg-red-400"></span> Error de Conexión';
+            });
+
+            // Escuchadores de grano fino sobre el nodo rutas para optimización
+            const refRutas = db.ref("rutas");
+            refRutas.on("child_added", (snapshot) => {
+                if (!datosEstructuralesServidor.rutas) datosEstructuralesServidor.rutas = {};
+                datosEstructuralesServidor.rutas[snapshot.key] = snapshot.val();
+                renderizarTablaRutas();
+                actualizarMetricasGlobales();
+            });
+
+            refRutas.on("child_changed", (snapshot) => {
+                if (!datosEstructuralesServidor.rutas) datosEstructuralesServidor.rutas = {};
+                datosEstructuralesServidor.rutas[snapshot.key] = snapshot.val();
+                renderizarTablaRutas();
+                actualizarMetricasGlobales();
+            });
+
+            refRutas.on("child_removed", (snapshot) => {
+                if (datosEstructuralesServidor.rutas) {
+                    delete datosEstructuralesServidor.rutas[snapshot.key];
+                    renderizarTablaRutas();
+                    actualizarMetricasGlobales();
+                }
             });
         }
 
@@ -460,7 +485,7 @@
             }
         }
 
-        // VALIDACIÓN Y EXTRACTION
+        // VALIDACIÓN Y EXTRACCIÓN
         function obtenerJSONValido() {
             try { 
                 let raw = document.getElementById("jsonOutput").value.trim();
