@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cobertura Territorial y Matriz de Zonas | Módulo M5.2</title>
+
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Font Awesome & Bootstrap Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+
+  <style>
+    :root {
+      --primary-orange: #ff6600;
+      --primary-orange-hover: #e05500;
+      --primary-orange-glow: rgba(255, 102, 0, 0.35);
+      --secondary-blue: #0f2a4a;
+      --secondary-blue-dark: #06101e;
+      --bg-page: #030712;          
+      --container-bg: #0b1329;     
+      --card-bg: rgba(20, 35, 65, 0.6);          
+      --bg-form: #0d1b3e;          
+      --input-bg: #15264a;         
+      --text-light: #f1f5f9;       
+      --text-muted: #94a3b8;       
+      --green-whatsapp: #22c55e;
+      --border-color: rgba(30, 58, 138, 0.4);     
+      --radius-lg: 24px;
+      --radius-md: 16px;
+      --shadow-lg: 0 30px 60px -15px rgba(0, 0, 0, 0.8);
+    }
+
+    * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
+    body { background: radial-gradient(circle at 50% 0%, #0d1e3d 0%, var(--bg-page) 80%); color: var(--text-light); min-height: 100vh; padding: 40px 20px; }
+    .main-container { max-width: 1350px; margin: 0 auto; background: var(--container-bg); padding: 40px; border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); border: 1px solid rgba(255, 255, 255, 0.05); backdrop-filter: blur(12px); }
+    .card-banner { background: linear-gradient(135deg, #091a36 0%, var(--secondary-blue-dark) 100%); border: 1px solid var(--border-color); border-top: 3px solid var(--primary-orange); border-radius: var(--radius-md); }
+    
+    .status-dot { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }
+    .status-connected { background-color: var(--green-whatsapp); box-shadow: 0 0 12px rgba(34, 197, 94, 0.8); animation: pulse-green 2s infinite; }
+    .status-disconnected { background-color: #ef4444; box-shadow: 0 0 12px rgba(239, 68, 68, 0.8); }
+    @keyframes pulse-green { 0% { transform: scale(0.95); } 70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); } 100% { transform: scale(0.95); } }
+
+    .premium-card { background: var(--bg-form); border-radius: var(--radius-md); border: 1px solid var(--border-color); border-top: 4px solid var(--primary-orange); margin-bottom: 35px; overflow: hidden; }
+    .premium-card-header { background: rgba(15, 26, 48, 0.8); padding: 18px 25px; border-bottom: 1px solid var(--border-color); }
+    .premium-card-header h5 { color: #fff; font-weight: 700; margin: 0; }
+
+    .metric-card { background: rgba(15, 26, 48, 0.6); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; text-align: center; }
+    .metric-value { font-size: 2rem; font-weight: 800; color: var(--primary-orange); }
+    .metric-label { font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+
+    .table-premium { --bs-table-bg: transparent !important; color: #fff !important; margin-bottom: 0; background-color: #081126 !important; }
+    .table-premium thead { background-color: #060d1f !important; }
+    .table-premium th { color: var(--primary-orange) !important; font-weight: 700; text-transform: uppercase; font-size: 0.8rem; padding: 14px; border-bottom: 2px solid rgba(255, 102, 0, 0.3) !important; }
+    .table-premium td { padding: 14px; vertical-align: middle; color: #fff !important; }
+
+    .btn-submodulo {
+      background: rgba(255, 102, 0, 0.15);
+      border: 1px solid rgba(255, 102, 0, 0.4);
+      color: var(--primary-orange) !important;
+      font-weight: 600;
+      border-radius: 10px;
+      transition: all 0.2s ease;
+    }
+    .btn-submodulo:hover {
+      background: var(--primary-orange);
+      color: #fff !important;
+      box-shadow: 0 0 15px var(--primary-orange-glow);
+    }
+
+    .badge-status-ok { background-color: rgba(34, 197, 94, 0.2); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.4); }
+    .badge-status-warning { background-color: rgba(234, 179, 8, 0.2); color: #eab308; border: 1px solid rgba(234, 179, 8, 0.4); }
+    .badge-status-danger { background-color: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.4); }
+  </style>
+</head>
+<body>
+
+  <div class="main-container">
+    
+    <!-- ENCABEZADO Y NAVEGACIÓN A M5.1 -->
+    <div class="card card-banner mb-4">
+      <div class="card-body d-flex align-items-center justify-content-between py-3 flex-wrap gap-2">
+        <div class="d-flex align-items-center gap-3">
+          <div id="statusDot" class="status-dot status-disconnected"></div>
+          <div>
+            <h6 class="fw-bold mb-0 text-white"><i class="fas fa-map-location-dot me-2 text-warning"></i>Submódulo 5.2 | Cobertura Territorial y Carga de Trabajo</h6>
+            <small id="connectionText" class="text-muted">Conectando a Firebase...</small>
+          </div>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <a href="m5_staff_2.html" class="btn btn-submodulo btn-sm px-3 py-2">
+            <i class="fas fa-users-gear me-1"></i> Volver a M5.1 (Staff & RBAC)
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- TARJETAS DE MÉTRICAS GLOBALES DE COBERTURA -->
+    <div class="row g-3 mb-4">
+      <div class="col-md-3">
+        <div class="metric-card">
+          <div class="metric-value" id="valTotalZonas">0</div>
+          <div class="metric-label">Zonas de Operación</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="metric-card">
+          <div class="metric-value text-info" id="valTotalEmpresas">0</div>
+          <div class="metric-label">Empresas Asignadas</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="metric-card">
+          <div class="metric-value text-success" id="valTotalCoordinadores">0</div>
+          <div class="metric-label">Coordinadores Activos</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="metric-card">
+          <div class="metric-value text-danger" id="valZonasDesatendidas">0</div>
+          <div class="metric-label">Zonas Sin Cobertura</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECCIÓN 1: MATRIZ DE COBERTURA TERRITORIAL POR ZONA -->
+    <div class="premium-card">
+      <div class="premium-card-header d-flex justify-content-between align-items-center">
+        <h5><i class="fas fa-table-cells-large me-2 text-warning"></i>1. Matriz de Cobertura por Zona Geográfica</h5>
+        <button class="btn btn-outline-light btn-sm" onclick="cargarMatrizCobertura()">
+          <i class="bi bi-arrow-repeat me-1"></i> Actualizar Matriz
+        </button>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-premium align-middle mb-0">
+            <thead>
+              <tr>
+                <th class="ps-4">Zona / Región</th>
+                <th>Empresas Vinculadas (M1)</th>
+                <th>Coordinadores Asignados</th>
+                <th>Reclutadores en Zona</th>
+                <th>Estatus de Cobertura</th>
+              </tr>
+            </thead>
+            <tbody id="tablaCoberturaBody">
+              <tr><td colspan="5" class="text-center py-4 text-muted">Cargando matriz territorial...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECCIÓN 2: DISTRIBUCIÓN DE CARGA POR COORDINADOR -->
+    <div class="premium-card">
+      <div class="premium-card-header">
+        <h5><i class="fas fa-chart-pie me-2 text-warning"></i>2. Distribución y Balanceo de Carga por Coordinador</h5>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-premium align-middle mb-0">
+            <thead>
+              <tr>
+                <th class="ps-4">Coordinador Directo</th>
+                <th>Contacto</th>
+                <th>Empresas a Cargo</th>
+                <th>Reclutadores a Cargo</th>
+                <th>Nivel de Carga</th>
+              </tr>
+            </thead>
+            <tbody id="tablaCargaCoordinadorBody">
+              <tr><td colspan="5" class="text-center py-4 text-muted">Cargando balanceo de carga...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- LÓGICA DE COBERTURA Y BALANCEO EN TIEMPO REAL CON FIREBASE -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+    const firebaseConfig = { databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com/" };
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const empresasRef = ref(db, 'empresas');
+    const staffRef = ref(db, 'usuarios_reclutadores');
+
+    let globalEmpresas = {};
+    let globalStaff = {};
+
+    // Cargar datos sincronizados
+    onValue(empresasRef, (snapE) => {
+      if (snapE.exists()) globalEmpresas = snapE.val();
+      onValue(staffRef, (snapS) => {
+        document.getElementById('statusDot').className = "status-dot status-connected";
+        document.getElementById('connectionText').textContent = "Conectado a Firebase Database";
+        if (snapS.exists()) globalStaff = snapS.val();
+        cargarMatrizCobertura();
+      });
+    });
+
+    window.cargarMatrizCobertura = function() {
+      const zonasMap = {};
+      let totalEmpresasCount = 0;
+
+      // 1. Mapear Empresas por Zona
+      Object.keys(globalEmpresas).forEach(k => {
+        const emp = globalEmpresas[k];
+        const nombre = typeof emp === 'string' ? emp : (emp.nombreComercial || k);
+        const zona = emp.zonaOperacion || emp.zona || 'Sin Zona Definida';
+
+        if (!zonasMap[zona]) {
+          zonasMap[zona] = { empresas: [], coordinadores: new Set(), reclutadores: new Set() };
+        }
+        zonasMap[zona].empresas.push(nombre);
+        totalEmpresasCount++;
+      });
+
+      // 2. Mapear Staff por Zona y Cadena de Mando
+      let totalCoordinadoresCount = 0;
+      Object.keys(globalStaff).forEach(k => {
+        const u = globalStaff[k];
+        if (u.estatus !== 'Activo') return;
+
+        if (u.nivel >= 3) totalCoordinadoresCount++;
+
+        const zonasUser = u.zonasOperacion || [];
+        zonasUser.forEach(z => {
+          if (!zonasMap[z]) {
+            zonasMap[z] = { empresas: [], coordinadores: new Set(), reclutadores: new Set() };
+          }
+          if (u.nivel >= 3) {
+            zonasMap[z].coordinadores.add(u.nombre);
+          } else {
+            zonasMap[z].reclutadores.add(u.nombre);
+          }
+        });
+      });
+
+      // 3. Renderizar Métricas
+      const zonasKeys = Object.keys(zonasMap);
+      document.getElementById('valTotalZonas').textContent = zonasKeys.length;
+      document.getElementById('valTotalEmpresas').textContent = totalEmpresasCount;
+      document.getElementById('valTotalCoordinadores').textContent = totalCoordinadoresCount;
+
+      let zonasDesatendidas = 0;
+
+      // 4. Renderizar Tabla de Cobertura
+      const tablaBody = document.getElementById('tablaCoberturaBody');
+      tablaBody.innerHTML = '';
+
+      if (zonasKeys.length === 0) {
+        tablaBody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-muted">No hay zonas o empresas registradas.</td></tr>`;
+      } else {
+        zonasKeys.forEach(z => {
+          const item = zonasMap[z];
+          const coordsArr = Array.from(item.coordinadores);
+          const reclusArr = Array.from(item.reclutadores);
+
+          let estatusBadge = '';
+          if (coordsArr.length === 0 && reclusArr.length === 0) {
+            estatusBadge = `<span class="badge badge-status-danger"><i class="fas fa-triangle-exclamation me-1"></i>Sin Cobertura</span>`;
+            zonasDesatendidas++;
+          } else if (coordsArr.length === 0) {
+            estatusBadge = `<span class="badge badge-status-warning"><i class="fas fa-user-clock me-1"></i>Sin Coordinación Directa</span>`;
+          } else {
+            estatusBadge = `<span class="badge badge-status-ok"><i class="fas fa-check-circle me-1"></i>Cobertura Óptima</span>`;
+          }
+
+          tablaBody.innerHTML += `
+            <tr>
+              <td class="ps-4 fw-bold text-warning">${z}</td>
+              <td><small class="text-light">${item.empresas.join(', ') || '<span class="text-muted">Ninguna</span>'}</small></td>
+              <td><small class="text-info">${coordsArr.join(', ') || '<span class="text-muted">Ninguno</span>'}</small></td>
+              <td><small class="text-light">${reclusArr.join(', ') || '<span class="text-muted">Ninguno</span>'}</small></td>
+              <td>${estatusBadge}</td>
+            </tr>`;
+        });
+      }
+
+      document.getElementById('valZonasDesatendidas').textContent = zonasDesatendidas;
+
+      // 5. Renderizar Carga por Coordinador
+      cargarDistribucionCarga();
+    };
+
+    function cargarDistribucionCarga() {
+      const tablaCarga = document.getElementById('tablaCargaCoordinadorBody');
+      tablaCarga.innerHTML = '';
+
+      const coordinadores = [];
+      Object.keys(globalStaff).forEach(k => {
+        const u = globalStaff[k];
+        if (u.estatus === 'Activo' && u.nivel >= 3) {
+          // Reclutadores a su cargo
+          const reclutadoresAcargo = Object.values(globalStaff).filter(r => r.coordinadorPadreId === k && r.estatus === 'Activo');
+          const empresasCount = (u.empresas || []).length;
+          
+          coordinadores.push({
+            nombre: u.nombre,
+            telefono: u.telefono,
+            empresasCount: u.todasLasEmpresas ? 'TODAS' : empresasCount,
+            reclutadoresCount: reclutadoresAcargo.length
+          });
+        }
+      });
+
+      if (coordinadores.length === 0) {
+        tablaCarga.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-muted">No hay coordinadores activos registrados.</td></tr>`;
+      } else {
+        coordinadores.forEach(c => {
+          let nivelCargaBadge = '';
+          const recCount = c.reclutadoresCount;
+
+          if (recCount > 8) {
+            nivelCargaBadge = `<span class="badge badge-status-danger"><i class="fas fa-fire me-1"></i>Sobrecargado (>8 Reclutadores)</span>`;
+          } else if (recCount >= 3) {
+            nivelCargaBadge = `<span class="badge badge-status-ok"><i class="fas fa-scale-balanced me-1"></i>Carga Balanceada</span>`;
+          } else {
+            nivelCargaBadge = `<span class="badge badge-status-warning"><i class="fas fa-battery-quarter me-1"></i>Capacidad Disponible</span>`;
+          }
+
+          tablaCarga.innerHTML += `
+            <tr>
+              <td class="ps-4 fw-bold text-white">${c.nombre}</td>
+              <td><a href="https://wa.me/52${c.telefono}" target="_blank" class="text-success text-decoration-none"><i class="fab fa-whatsapp me-1"></i>${c.telefono}</a></td>
+              <td><span class="badge bg-secondary">${c.empresasCount}</span></td>
+              <td><span class="badge bg-info text-dark">${c.reclutadoresCount} Reclutador(es)</span></td>
+              <td>${nivelCargaBadge}</td>
+            </tr>`;
+        });
+      }
+    }
+  </script>
+</body>
+</html>
