@@ -24,10 +24,10 @@
             <h3 class="fw-bold mb-0 text-dark"><i class="fa-solid fa-map-location-dot me-2 text-primary"></i>M5.2 Cobertura Territorial y Capacidad</h3>
             <small class="text-muted">Balance dinámico de personal, cuota de vacantes (M2) y estatus de atención por zona geográfica</small>
         </div>
-        <button class="btn btn-outline-primary" onclick="cargarMatrizCobertura()"><i class="fa-solid fa-rotate me-1"></i> Actualizar Matriz</button>
+        <button class="btn btn-outline-primary" onclick="window.cargarMatrizCobertura()"><i class="fa-solid fa-rotate me-1"></i> Actualizar Matriz</button>
     </div>
 
-    <!-- MEJORA 3: TARJETAS DE MÉTRICAS GLOBALES (KPIs) -->
+    <!-- TARJETAS DE MÉTRICAS GLOBALES (KPIs) -->
     <div class="row g-3 mb-4">
         <div class="col-md-3">
             <div class="card kpi-card border-primary shadow-sm p-3">
@@ -67,15 +67,15 @@
         </div>
     </div>
 
-    <!-- MEJORA 2: FILTROS INTERACTIVOS POR SEMÁFORO -->
+    <!-- FILTROS INTERACTIVOS POR SEMÁFORO -->
     <div class="card shadow-sm mb-4">
         <div class="card-body d-flex align-items-center justify-content-between py-2">
             <div class="fw-bold text-secondary"><i class="fa-solid fa-filter me-2"></i>Filtrar Zonas:</div>
             <div class="btn-group" role="group">
-                <button type="button" class="btn btn-sm btn-outline-secondary active" onclick="filtrarTabla('TODOS', this)">Todas</button>
-                <button type="button" class="btn btn-sm btn-outline-danger" onclick="filtrarTabla('CRITICO', this)">🔴 Críticas / Sin Atención (0-35%)</button>
-                <button type="button" class="btn btn-sm btn-outline-warning text-dark" onclick="filtrarTabla('SOBRECARGA', this)">🟠 En Sobrecarga (36-70%)</button>
-                <button type="button" class="btn btn-sm btn-outline-success" onclick="filtrarTabla('OPTIMO', this)">🟢 Óptimas (71-100%)</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary active" onclick="window.filtrarTabla('TODOS', this)">Todas</button>
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="window.filtrarTabla('CRITICO', this)">🔴 Críticas / Sin Atención (0-35%)</button>
+                <button type="button" class="btn btn-sm btn-outline-warning text-dark" onclick="window.filtrarTabla('SOBRECARGA', this)">🟠 En Sobrecarga (36-70%)</button>
+                <button type="button" class="btn btn-sm btn-outline-success" onclick="window.filtrarTabla('OPTIMO', this)">🟢 Óptimas (71-100%)</button>
             </div>
         </div>
     </div>
@@ -97,7 +97,7 @@
                         </tr>
                     </thead>
                     <tbody id="tbodyMatrizCobertura">
-                        <!-- Renderizado Dinámico JavaScript -->
+                        <tr><td colspan="7" class="text-center py-4 text-muted"><i class="fa-solid fa-spinner fa-spin me-2"></i>Cargando información de Firebase...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -105,7 +105,7 @@
     </div>
 </div>
 
-<!-- MEJORA 4: MODAL PARA ASIGNACIÓN RÁPIDA DE RECLUTADORES -->
+<!-- MODAL PARA ASIGNACIÓN RÁPIDA DE RECLUTADORES -->
 <div class="modal fade" id="modalAsignarPersonal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -127,75 +127,79 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" onclick="guardarAsignacionRapida()"><i class="fa-solid fa-save me-1"></i> Guardar Asignación</button>
+                <button type="button" class="btn btn-primary" onclick="window.guardarAsignacionRapida()"><i class="fa-solid fa-save me-1"></i> Guardar Asignación</button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Bootstrap 5 JS Bundle & Firebase Scripts -->
+<!-- Bootstrap 5 JS Bundle & Firebase JS SDK -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/bootstrap.bundle.min.js"></script>
 
 <script type="module">
-    // Importaciones Firebase Realtime Database
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-    import { getDatabase, ref, get, update } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, get, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-    // Configuración Firebase del proyecto
+    // Configuración de Firebase
     const firebaseConfig = {
-        databaseURL: "https://TU_PROYECTO.firebaseio.com" // Reemplazar por tu URL activa
+        apiKey: "TU_API_KEY",
+        authDomain: "TU_PROYECTO.firebaseapp.com",
+        databaseURL: "https://TU_PROYECTO.firebaseio.com",
+        projectId: "TU_PROYECTO_ID",
+        storageBucket: "TU_PROYECTO.appspot.com",
+        messagingSenderId: "TU_SENDER_ID",
+        appId: "TU_APP_ID"
     };
+
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    // MEJORA 1: Capacidad Estándar (1 Reclutador = Capacidad para 15 vacantes activas simultáneas)
     const CAPACIDAD_VACANTES_POR_RECLUTADOR = 15;
-
     let datosGlobalesZonas = [];
     let todosLosUsuarios = [];
     let modalAsignacionBS = null;
 
     window.addEventListener('DOMContentLoaded', () => {
-        modalAsignacionBS = new bootstrap.Modal(document.getElementById('modalAsignarPersonal'));
-        cargarMatrizCobertura();
+        const elemModal = document.getElementById('modalAsignarPersonal');
+        if (elemModal) modalAsignacionBS = new bootstrap.Modal(elemModal);
+        window.cargarMatrizCobertura();
     });
 
-    // LÓGICA DE CARGA Y CÁLCULO
     window.cargarMatrizCobertura = async function() {
+        const tbody = document.getElementById('tbodyMatrizCobertura');
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted"><i class="fa-solid fa-spinner fa-spin me-2"></i>Conectando con Firebase...</td></tr>`;
+
         try {
-            // Lectura en paralelo de Firebase (Empresas, Vacantes, Usuarios)
             const [snapEmpresas, snapVacantes, snapUsuarios] = await Promise.all([
                 get(ref(db, 'empresas')),
                 get(ref(db, 'vacantes')),
                 get(ref(db, 'usuarios'))
             ]);
 
-            const empresas = snapEmpresas.exists() ? Object.values(snapEmpresas.val()) : [];
-            const vacantes = snapVacantes.exists() ? Object.values(snapVacantes.val()) : [];
-            todosLosUsuarios = snapUsuarios.exists() ? Object.values(snapUsuarios.val()) : [];
+            const empresas = snapEmpresas.exists() ? snapEmpresas.val() : {};
+            const vacantes = snapVacantes.exists() ? snapVacantes.val() : {};
+            const usuarios = snapUsuarios.exists() ? snapUsuarios.val() : {};
 
-            // Agrupar empresas y vacantes por Zona
+            const arrayEmpresas = Object.keys(empresas).map(k => ({ id: k, ...empresas[k] }));
+            const arrayVacantes = Object.keys(vacantes).map(k => ({ id: k, ...vacantes[k] }));
+            todosLosUsuarios = Object.keys(usuarios).map(k => ({ id: k, ...usuarios[k] }));
+
             const mapeoZonas = {};
 
-            empresas.forEach(emp => {
+            arrayEmpresas.forEach(emp => {
                 const zona = emp.zona || emp.municipio || 'General';
-                if (!mapeoZonas[zona]) {
-                    mapeoZonas[zona] = { empresas: [], totalVacantes: 0 };
-                }
-                mapeoZonas[zona].empresas.push(emp.nombreComercial || emp.nombre);
+                if (!mapeoZonas[zona]) mapeoZonas[zona] = { empresas: [], totalVacantes: 0 };
+                mapeoZonas[zona].empresas.push(emp.nombreComercial || emp.nombre || 'Empresa sin nombre');
             });
 
-            // MEJORA 1: Sumar las vacantes abiertas (M2) reales a cada zona
-            vacantes.forEach(v => {
-                if (v.estatus === 'Abierta' || v.estatus === 'Activa') {
+            arrayVacantes.forEach(v => {
+                if (v.estatus === 'Abierta' || v.estatus === 'Activa' || !v.estatus) {
                     const zona = v.zona || v.municipio || 'General';
-                    if (mapeoZonas[zona]) {
-                        mapeoZonas[zona].totalVacantes += (parseInt(v.plazas) || 1);
-                    }
+                    if (!mapeoZonas[zona]) mapeoZonas[zona] = { empresas: [], totalVacantes: 0 };
+                    mapeoZonas[zona].totalVacantes += (parseInt(v.plazas) || 1);
                 }
             });
 
-            // Procesar los cálculos por cada Zona Geográfica
             datosGlobalesZonas = [];
             let sumaPorcentajes = 0;
             let maxVacantesSaturadas = -1;
@@ -206,7 +210,6 @@
             Object.keys(mapeoZonas).forEach(nombreZona => {
                 const infoZona = mapeoZonas[nombreZona];
 
-                // HERENCIA MULTI-ZONA (Nancy y Lucía aplican si son globales o específicas)
                 const coordinadores = todosLosUsuarios.filter(u => 
                     u.rol === 'Coordinador' && (u.zona === nombreZona || u.zona === 'General' || u.esGlobal || (u.zonas && u.zonas.includes(nombreZona)))
                 );
@@ -218,18 +221,16 @@
                 const numReclutadores = reclutadores.length;
                 const demandaVacantes = infoZona.totalVacantes;
 
-                // CÁLCULO PORCENTUAL DE CAPACIDAD OPERATIVA
                 let porcentaje = 0;
                 let ofertaCapacidad = numReclutadores * CAPACIDAD_VACANTES_POR_RECLUTADOR;
 
                 if (demandaVacantes === 0) {
-                    porcentaje = 100; // Si no hay vacantes requeridas, la zona está completamente atendida
+                    porcentaje = 100;
                 } else if (numReclutadores > 0) {
                     porcentaje = Math.round((ofertaCapacidad / demandaVacantes) * 100);
                     if (porcentaje > 100) porcentaje = 100;
                 }
 
-                // CALCULO DE DÉFICIT Y RIESGO
                 if (porcentaje < 70) {
                     const vacantesDesatendidas = Math.max(0, demandaVacantes - ofertaCapacidad);
                     vacantesEnRiesgoTotales += vacantesDesatendidas;
@@ -257,49 +258,33 @@
                 });
             });
 
-            // MEJORA 3: RENDERIZAR KPIs GLOBALES
             const totalZonas = datosGlobalesZonas.length || 1;
             document.getElementById('kpiPromedio').innerText = `${Math.round(sumaPorcentajes / totalZonas)}%`;
             document.getElementById('kpiSaturada').innerText = zonaMasSaturadaNombre;
             document.getElementById('kpiVacantesRiesgo').innerText = vacantesEnRiesgoTotales;
             document.getElementById('kpiPersonalSugerido').innerText = `+${reclutadoresFaltantesTotales} Recl.`;
 
-            // RENDERIZAR TABLA CON DATOS
             renderizarTabla(datosGlobalesZonas);
 
         } catch (error) {
-            console.error("Error al cargar la matriz M5.2:", error);
+            console.error("Error Firebase:", error);
+            tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger"><strong>Error de conexión:</strong> ${error.message}</td></tr>`;
         }
     };
 
-    // RENDERIZADO VISUAL DE LA MATRIZ DE COBERTURA
     function renderizarTabla(listaZonas) {
         const tbody = document.getElementById('tbodyMatrizCobertura');
         tbody.innerHTML = '';
 
         if (listaZonas.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted">No hay registros de zonas geográficas.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted">No hay datos en empresas o vacantes.</td></tr>`;
             return;
         }
 
         listaZonas.forEach(item => {
-            let badgeClass = '';
-            let emoji = '';
-            let labelEstatus = '';
-
-            if (item.categoriaSemáforo === 'CRITICO') {
-                badgeClass = 'bg-danger text-white';
-                emoji = '🔴';
-                labelEstatus = 'SIN ATENCIÓN / CRÍTICA';
-            } else if (item.categoriaSemáforo === 'SOBRECARGA') {
-                badgeClass = 'bg-warning text-dark';
-                emoji = '🟠';
-                labelEstatus = 'COBERTURA BAJA / SATURADA';
-            } else {
-                badgeClass = 'bg-success text-white';
-                emoji = '🟢';
-                labelEstatus = 'COBERTURA ÓPTIMA';
-            }
+            let badgeClass = item.categoriaSemáforo === 'CRITICO' ? 'bg-danger text-white' : (item.categoriaSemáforo === 'SOBRECARGA' ? 'bg-warning text-dark' : 'bg-success text-white');
+            let emoji = item.categoriaSemáforo === 'CRITICO' ? '🔴' : (item.categoriaSemáforo === 'SOBRECARGA' ? '🟠' : '🟢');
+            let labelEstatus = item.categoriaSemáforo === 'CRITICO' ? 'SIN ATENCIÓN / CRÍTICA' : (item.categoriaSemáforo === 'SOBRECARGA' ? 'COBERTURA BAJA' : 'COBERTURA ÓPTIMA');
 
             const tr = document.createElement('tr');
             tr.innerHTML = `
@@ -309,7 +294,6 @@
                 <td><small>${item.coordinadores}</small></td>
                 <td><small>${item.reclutadores}</small></td>
                 <td>
-                    <!-- SEMÁFORO CON NÚMERO PORCENTUAL A LA VISTA -->
                     <div class="d-flex align-items-center justify-content-between mb-1">
                         <span class="badge ${badgeClass} badge-semaforo">${emoji} ${item.porcentaje}% - ${labelEstatus}</span>
                     </div>
@@ -319,8 +303,7 @@
                     </div>
                 </td>
                 <td class="text-center">
-                    <!-- MEJORA 4: BOTÓN ASIGNACIÓN RÁPIDA -->
-                    <button class="btn btn-sm btn-outline-primary" title="Asignar personal directo" onclick="abrirModalAsignacion('${item.zona}')">
+                    <button class="btn btn-sm btn-outline-primary" title="Asignar personal directo" onclick="window.abrirModalAsignacion('${item.zona}')">
                         <i class="fa-solid fa-user-plus"></i>
                     </button>
                 </td>
@@ -329,7 +312,6 @@
         });
     }
 
-    // MEJORA 2: FILTRADO DINÁMICO POR SEMÁFORO
     window.filtrarTabla = function(categoria, btn) {
         document.querySelectorAll('.btn-group .btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
@@ -342,7 +324,6 @@
         }
     };
 
-    // MEJORA 4: ASIGNACIÓN RÁPIDA DIRECTA A FIREBASE
     window.abrirModalAsignacion = function(nombreZona) {
         document.getElementById('modalNombreZona').innerText = nombreZona;
         document.getElementById('modalZonaId').value = nombreZona;
@@ -351,10 +332,10 @@
         select.innerHTML = '<option value="">-- Seleccionar Colaborador --</option>';
 
         todosLosUsuarios.forEach(u => {
-            select.innerHTML += `<option value="${u.id || u.uid}">${u.nombre || u.alias} (${u.rol || 'Sin Rol'}) - Actual: ${u.zona || 'Sin Zona'}</option>`;
+            select.innerHTML += `<option value="${u.id}">${u.nombre || u.alias || 'Usuario'} (${u.rol || 'Sin Rol'}) - Actual: ${u.zona || 'Sin Zona'}</option>`;
         });
 
-        modalAsignacionBS.show();
+        if (modalAsignacionBS) modalAsignacionBS.show();
     };
 
     window.guardarAsignacionRapida = async function() {
@@ -367,15 +348,11 @@
         }
 
         try {
-            // Actualización directa de la zona en Firebase
-            await update(ref(db, `usuarios/${usuarioId}`), {
-                zona: zonaDestino
-            });
-
-            modalAsignacionBS.hide();
-            cargarMatrizCobertura(); // Recarga la matriz al instante con los porcentajes actualizados
+            await update(ref(db, `usuarios/${usuarioId}`), { zona: zonaDestino });
+            if (modalAsignacionBS) modalAsignacionBS.hide();
+            window.cargarMatrizCobertura();
         } catch (e) {
-            alert("Error al actualizar la asignación: " + e.message);
+            alert("Error al actualizar asignación: " + e.message);
         }
     };
 </script>
