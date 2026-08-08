@@ -165,6 +165,37 @@
         window.cargarMatrizCobertura();
     });
 
+    // Función auxiliar para extraer arrays de zonas asociadas al usuario
+    function obtenerZonasUsuario(usuario) {
+        let zonas = [];
+        if (usuario.zona) zonas.push(usuario.zona);
+        if (Array.isArray(usuario.zonas)) zonas.push(...usuario.zonas);
+        if (Array.isArray(usuario.zonasOperacion)) zonas.push(...usuario.zonasOperacion);
+        return Array.from(new Set(zonas));
+    }
+
+    // Normaliza una cadena de texto para comparaciones flexibles (quita espacios, acentos y mayúsculas)
+    function normalizarTexto(txt) {
+        if (!txt) return '';
+        return txt.toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    }
+
+    // Función para mapear una entidad a su zona limpia según su ubicación o nombre
+    function determinarZonaLimpia(entidad) {
+        const ubicacion = entidad.ubicacion || entidad.zona || entidad.municipio || '';
+        const txtNorm = normalizarTexto(ubicacion);
+
+        if (txtNorm.includes('apodaca')) return 'Apodaca';
+        if (txtNorm.includes('santa catarina')) return 'Santa Catarina';
+        if (txtNorm.includes('cienaga de flores') || txtNorm.includes('cienega de flores')) return 'Ciénaga de Flores';
+        if (txtNorm.includes('pesqueria') || txtNorm.includes('parque kia')) return 'Pesquería';
+        if (txtNorm.includes('salinas victoria')) return 'Salinas Victoria';
+        if (txtNorm.includes('guadalajara') || txtNorm.includes('tlajomulco') || txtNorm.includes('tlaquepaque')) return 'Guadalajara / Jal.';
+        if (txtNorm.includes('monterrey')) return 'Monterrey';
+
+        return ubicacion.trim() || 'General';
+    }
+
     window.cargarMatrizCobertura = async function() {
         const tbody = document.getElementById('tbodyMatrizCobertura');
         tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted"><i class="fa-solid fa-spinner fa-spin me-2"></i>Conectando con Firebase...</td></tr>`;
@@ -182,21 +213,46 @@
 
             const arrayEmpresas = Object.keys(empresas).map(k => ({ id: k, ...empresas[k] }));
             const arrayVacantes = Object.keys(vacantes).map(k => ({ id: k, ...vacantes[k] }));
-            todosLosUsuarios = Object.keys(usuarios).map(k => ({ id: k, ...usuarios[k] }));
+            
+            // Mapeo unificado de usuarios adaptado a estructuras simples y complejas
+            todosLosUsuarios = Object.keys(usuarios).map(k => {
+                const u = usuarios[k];
+                const rolCalculado = u.rol || u.rolNombre || 'Sin Rol';
+                const zonasLista = obtenerZonasUsuario(u);
+                return {
+                    id: k,
+                    ...u,
+                    nombreCompleto: u.nombre || u.alias || u.nombreCompleto || 'Usuario Desconocido',
+                    rolCalculado: rolCalculado,
+                    zonasLista: zonasLista
+                };
+            });
 
             const mapeoZonas = {};
 
+            // Mapeo dinámico de empresas por zona unificada
             arrayEmpresas.forEach(emp => {
-                const zona = emp.zona || emp.municipio || 'General';
-                if (!mapeoZonas[zona]) mapeoZonas[zona] = { empresas: [], totalVacantes: 0 };
-                mapeoZonas[zona].empresas.push(emp.nombreComercial || emp.nombre || 'Empresa sin nombre');
+                const zonaLimpia = determinarZonaLimpia(emp);
+                if (!mapeoZonas[zonaLimpia]) mapeoZonas[zonaLimpia] = { empresas: [], totalVacantes: 0 };
+                const nombreEmpresa = emp.nombre || emp.nombreComercial || 'Empresa sin nombre';
+                if (!mapeoZonas[zonaLimpia].empresas.includes(nombreEmpresa)) {
+                    mapeoZonas[zonaLimpia].empresas.push(nombreEmpresa);
+                }
             });
 
+            // Mapeo dinámico de vacantes por zona unificada
             arrayVacantes.forEach(v => {
-                if (v.estatus === 'Abierta' || v.estatus === 'Activa' || !v.estatus) {
-                    const zona = v.zona || v.municipio || 'General';
-                    if (!mapeoZonas[zona]) mapeoZonas[zona] = { empresas: [], totalVacantes: 0 };
-                    mapeoZonas[zona].totalVacantes += (parseInt(v.plazas) || 1);
+                const estatus = (v.estatus || 'Activa').toLowerCase();
+                if (estatus === 'abierta' || estatus === 'activa') {
+                    let zonaLimpia = determinarZonaLimpia(v);
+                    
+                    // Si la vacante no tiene zona explicita, hereda la de su empresa vinculada
+                    if (zonaLimpia === 'General' && v.empresaId && empresas[v.empresaId]) {
+                        zonaLimpia = determinarZonaLimpia(empresas[v.empresaId]);
+                    }
+
+                    if (!mapeoZonas[zonaLimpia]) mapeoZonas[zonaLimpia] = { empresas: [], totalVacantes: 0 };
+                    mapeoZonas[zonaLimpia].totalVacantes += (parseInt(v.plazas) || parseInt(v.cupo) || 1);
                 }
             });
 
@@ -207,16 +263,28 @@
             let vacantesEnRiesgoTotales = 0;
             let reclutadoresFaltantesTotales = 0;
 
-            Object.keys(mapeoZonas).forEach(nombreZona => {
+            const listaNombresZonas = Object.keys(mapeoZonas);
+
+            listaNombresZonas.forEach(nombreZona => {
                 const infoZona = mapeoZonas[nombreZona];
 
-                const coordinadores = todosLosUsuarios.filter(u => 
-                    u.rol === 'Coordinador' && (u.zona === nombreZona || u.zona === 'General' || u.esGlobal || (u.zonas && u.zonas.includes(nombreZona)))
-                );
+                // Búsqueda de coordinadores de la zona
+                const coordinadores = todosLosUsuarios.filter(u => {
+                    const rolNorm = normalizarTexto(u.rolCalculado);
+                    const esCoord = rolNorm.includes('coordinador') || rolNorm.includes('supervisor');
+                    if (!esCoord) return false;
+                    if (u.esGlobal || u.todasLasEmpresas) return true;
+                    return u.zonasLista.some(z => normalizarTexto(z) === normalizarTexto(nombreZona) || normalizarTexto(z) === 'general');
+                });
 
-                const reclutadores = todosLosUsuarios.filter(u => 
-                    u.rol === 'Reclutador' && (u.zona === nombreZona || u.zona === 'General' || u.esGlobal || (u.zonas && u.zonas.includes(nombreZona)))
-                );
+                // Búsqueda de reclutadores de la zona
+                const reclutadores = todosLosUsuarios.filter(u => {
+                    const rolNorm = normalizarTexto(u.rolCalculado);
+                    const esReclutador = rolNorm.includes('reclutador');
+                    if (!esReclutador) return false;
+                    if (u.esGlobal || u.todasLasEmpresas) return true;
+                    return u.zonasLista.some(z => normalizarTexto(z) === normalizarTexto(nombreZona) || normalizarTexto(z) === 'general');
+                });
 
                 const numReclutadores = reclutadores.length;
                 const demandaVacantes = infoZona.totalVacantes;
@@ -250,8 +318,8 @@
                     zona: nombreZona,
                     empresas: infoZona.empresas,
                     totalVacantes: demandaVacantes,
-                    coordinadores: coordinadores.map(c => c.nombre || c.alias).join(', ') || '<em>Sin Coordinador</em>',
-                    reclutadores: reclutadores.map(r => r.nombre || r.alias).join(', ') || '<em>Sin Reclutador</em>',
+                    coordinadores: coordinadores.map(c => c.nombreCompleto).join(', ') || '<em>Sin Coordinador</em>',
+                    reclutadores: reclutadores.map(r => r.nombreCompleto).join(', ') || '<em>Sin Reclutador</em>',
                     numReclutadores,
                     porcentaje,
                     categoriaSemáforo: porcentaje <= 35 ? 'CRITICO' : (porcentaje <= 70 ? 'SOBRECARGA' : 'OPTIMO')
@@ -332,7 +400,8 @@
         select.innerHTML = '<option value="">-- Seleccionar Colaborador --</option>';
 
         todosLosUsuarios.forEach(u => {
-            select.innerHTML += `<option value="${u.id}">${u.nombre || u.alias || 'Usuario'} (${u.rol || 'Sin Rol'}) - Actual: ${u.zona || 'Sin Zona'}</option>`;
+            const zonasTxt = u.zonasLista.length > 0 ? u.zonasLista.join(', ') : 'Sin Zona';
+            select.innerHTML += `<option value="${u.id}">${u.nombreCompleto} (${u.rolCalculado}) - Actual: ${zonasTxt}</option>`;
         });
 
         if (modalAsignacionBS) modalAsignacionBS.show();
@@ -348,7 +417,18 @@
         }
 
         try {
-            await update(ref(db, `usuarios/${usuarioId}`), { zona: zonaDestino });
+            const usrTarget = todosLosUsuarios.find(u => u.id === usuarioId);
+            let payloadActualizacion = { zona: zonaDestino };
+
+            if (usrTarget && Array.isArray(usrTarget.zonasOperacion)) {
+                const nuevasZonas = Array.from(new Set([...usrTarget.zonasOperacion, zonaDestino]));
+                payloadActualizacion.zonasOperacion = nuevasZonas;
+            } else if (usrTarget && Array.isArray(usrTarget.zonas)) {
+                const nuevasZonas = Array.from(new Set([...usrTarget.zonas, zonaDestino]));
+                payloadActualizacion.zonas = nuevasZonas;
+            }
+
+            await update(ref(db, `usuarios/${usuarioId}`), payloadActualizacion);
             if (modalAsignacionBS) modalAsignacionBS.hide();
             window.cargarMatrizCobertura();
         } catch (e) {
