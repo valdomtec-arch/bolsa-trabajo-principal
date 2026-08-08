@@ -78,7 +78,7 @@
 
   <div class="main-container">
     
-    <!-- ENCABEZADO Y NAVEGACIÓN A M5.1 -->
+    <!-- ENCABEZADO Y NAVEGACIÓN -->
     <div class="card card-banner mb-4">
       <div class="card-body d-flex align-items-center justify-content-between py-3 flex-wrap gap-2">
         <div class="d-flex align-items-center gap-3">
@@ -96,7 +96,7 @@
       </div>
     </div>
 
-    <!-- TARJETAS DE MÉTRICAS GLOBALES DE COBERTURA -->
+    <!-- TARJETAS DE MÉTRICAS GLOBALES -->
     <div class="row g-3 mb-4">
       <div class="col-md-3">
         <div class="metric-card">
@@ -124,7 +124,7 @@
       </div>
     </div>
 
-    <!-- SECCIÓN 1: MATRIZ DE COBERTURA TERRITORIAL POR ZONA -->
+    <!-- SECCIÓN 1: MATRIZ DE COBERTURA -->
     <div class="premium-card">
       <div class="premium-card-header d-flex justify-content-between align-items-center">
         <h5><i class="fas fa-table-cells-large me-2 text-warning"></i>1. Matriz de Cobertura por Zona Geográfica</h5>
@@ -152,7 +152,7 @@
       </div>
     </div>
 
-    <!-- SECCIÓN 2: DISTRIBUCIÓN DE CARGA POR COORDINADOR -->
+    <!-- SECCIÓN 2: CARGA POR COORDINADOR -->
     <div class="premium-card">
       <div class="premium-card-header">
         <h5><i class="fas fa-chart-pie me-2 text-warning"></i>2. Distribución y Balanceo de Carga por Coordinador</h5>
@@ -181,7 +181,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
-  <!-- LÓGICA DE COBERTURA Y BALANCEO EN TIEMPO REAL CON FIREBASE -->
+  <!-- LÓGICA ULTRA-RESILIENTE DE COBERTURA Y BALANCEO EN TIEMPO REAL -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
@@ -198,7 +198,57 @@
     let globalRutas = {};
     let globalStaff = {};
 
-    // Cargar datos sincronizados (empresas, rutas y usuarios_reclutadores)
+    // Normalizar cadenas eliminando acentos y espacios extra
+    const normalizar = (txt) => {
+      if (!txt) return '';
+      return txt.toString()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim()
+        .toUpperCase();
+    };
+
+    // Extraer array de zonas sin importar si viene como array, string separado por comas u objeto
+    const extraerZonasArr = (obj) => {
+      let zonas = [];
+      if (!obj) return zonas;
+
+      const candidatas = [
+        obj.zonasOperacion, obj.zonasAsignadas, obj.zonaOperacion, 
+        obj.zona, obj.estadoMunicipio, obj.ubicacion, obj.municipio
+      ];
+
+      candidatas.forEach(c => {
+        if (!c) return;
+        if (Array.isArray(c)) {
+          zonas.push(...c);
+        } else if (typeof c === 'string') {
+          zonas.push(...c.split(','));
+        } else if (typeof c === 'object') {
+          zonas.push(...Object.values(c));
+        }
+      });
+
+      return zonas.map(z => z.toString().trim()).filter(z => z.length > 0);
+    };
+
+    // Determinar si un usuario es Coordinador
+    const esCoordinador = (u) => {
+      const nivel = Number(u.nivel) || 0;
+      if (nivel >= 3) return true;
+      
+      const rol = normalizar(u.rol || u.puesto || u.tipoUsuario);
+      return rol.includes('COORD') || rol.includes('LEADER') || rol.includes('GERENTE') || rol.includes('ADMIN');
+    };
+
+    // Determinar si un usuario está Activo
+    const esActivo = (u) => {
+      if (!u.estatus && !u.status && u.activo === undefined) return true; // Si no tiene el campo, se asume activo
+      const est = normalizar(u.estatus || u.status || (u.activo ? 'ACTIVO' : 'INACTIVO'));
+      return est === 'ACTIVO' || est === 'ENABLE' || est === 'TRUE';
+    };
+
+    // Cargar datos sincronizados
     onValue(empresasRef, (snapE) => {
       globalEmpresas = snapE.exists() ? snapE.val() : {};
       
@@ -209,7 +259,12 @@
           document.getElementById('statusDot').className = "status-dot status-connected";
           document.getElementById('connectionText').textContent = "Conectado a Firebase Database";
           globalStaff = snapS.exists() ? snapS.val() : {};
-          
+
+          // LOGS DE DIAGNÓSTICO EN CONSOLA (F12 para revisar datos)
+          console.log("=== DIAGNÓSTICO M5.2 ===");
+          console.log("Empresas leídas:", Object.keys(globalEmpresas).length);
+          console.log("Staff leído:", Object.keys(globalStaff).length);
+
           cargarMatrizCobertura();
         });
       });
@@ -219,75 +274,75 @@
       const zonasMap = {};
       let totalEmpresasCount = 0;
 
-      // 1. Mapear Empresas por Zona utilizando lectura en cascada
+      // 1. EXTRAER Y MAPEAR EMPRESAS POR ZONA
       Object.keys(globalEmpresas).forEach(empKey => {
         const emp = globalEmpresas[empKey];
-        const nombreEmpresa = typeof emp === 'string' ? emp : (emp.nombre || emp.nombreComercial || empKey);
+        const nombreEmpresa = typeof emp === 'string' ? emp : (emp.nombre || emp.nombreComercial || emp.razonSocial || empKey);
 
-        // Prioridad 1: Campo 'ubicacion' o 'zonaOperacion' en empresas
-        let zona = (typeof emp === 'object' && (emp.ubicacion || emp.zonaOperacion || emp.zona)) 
-          ? (emp.ubicacion || emp.zonaOperacion || emp.zona).trim() 
-          : "";
+        let zonasEmpresa = extraerZonasArr(emp);
 
-        // Prioridad 2: Campo 'estadoMunicipio' en rutas de la misma empresa
-        if (!zona && globalRutas && globalRutas[empKey]) {
-          const rutasEmpresa = globalRutas[empKey];
-          const primeraRutaKey = Object.keys(rutasEmpresa)[0];
+        // Si no tiene zona en empresa, buscar en sus rutas asociadas
+        if (zonasEmpresa.length === 0 && globalRutas && globalRutas[empKey]) {
+          const rutasEmp = globalRutas[empKey];
+          Object.values(rutasEmp).forEach(r => {
+            if (r.estadoMunicipio) zonasEmpresa.push(r.estadoMunicipio);
+            if (r.zona) zonasEmpresa.push(r.zona);
+          });
+        }
+
+        if (zonasEmpresa.length === 0) {
+          zonasEmpresa = ['Sin Zona Definida'];
+        }
+
+        zonasEmpresa.forEach(zRaw => {
+          const zNorm = normalizar(zRaw);
           
-          if (primeraRutaKey && rutasEmpresa[primeraRutaKey].estadoMunicipio) {
-            zona = rutasEmpresa[primeraRutaKey].estadoMunicipio.trim();
+          // Buscar si ya existe una clave similar para unificar
+          let keyExistente = Object.keys(zonasMap).find(k => normalizar(k) === zNorm);
+          if (!keyExistente) {
+            keyExistente = zRaw;
+            zonasMap[keyExistente] = { empresas: [], coordinadores: new Set(), reclutadores: new Set() };
           }
-        }
 
-        // Prioridad 3: Valor por defecto
-        if (!zona) {
-          zona = 'Sin Zona Definida';
-        }
+          if (!zonasMap[keyExistente].empresas.includes(nombreEmpresa)) {
+            zonasMap[keyExistente].empresas.push(nombreEmpresa);
+          }
+        });
 
-        if (!zonasMap[zona]) {
-          zonasMap[zona] = { empresas: [], coordinadores: new Set(), reclutadores: new Set() };
-        }
-
-        if (!zonasMap[zona].empresas.includes(nombreEmpresa)) {
-          zonasMap[zona].empresas.push(nombreEmpresa);
-        }
-        
         totalEmpresasCount++;
       });
 
-      // 2. Mapear Staff por Zona y Cadena de Mando
+      // 2. MAPEAR STAFF (COORDINADORES Y RECLUTADORES) POR ZONA
       let totalCoordinadoresCount = 0;
+
       Object.keys(globalStaff).forEach(k => {
         const u = globalStaff[k];
-        if (u.estatus !== 'Activo') return;
+        if (!esActivo(u)) return;
 
-        if (u.nivel >= 3) totalCoordinadoresCount++;
+        const esCoord = esCoordinador(u);
+        if (esCoord) totalCoordinadoresCount++;
 
-        let zonasUser = [];
-        if (Array.isArray(u.zonasOperacion)) {
-          zonasUser = u.zonasOperacion;
-        } else if (Array.isArray(u.zonasAsignadas)) {
-          zonasUser = u.zonasAsignadas;
-        } else if (u.zona) {
-          zonasUser = [u.zona];
-        } else if (u.estadoMunicipio) {
-          zonasUser = [u.estadoMunicipio];
-        }
+        const nombreUsuario = u.nombre || u.displayName || u.nombreCompleto || u.usuario || k;
+        const zonasUser = extraerZonasArr(u);
 
-        zonasUser.forEach(z => {
-          const zonaClean = z.trim();
-          if (!zonasMap[zonaClean]) {
-            zonasMap[zonaClean] = { empresas: [], coordinadores: new Set(), reclutadores: new Set() };
+        zonasUser.forEach(zRaw => {
+          const zNorm = normalizar(zRaw);
+
+          let keyExistente = Object.keys(zonasMap).find(k => normalizar(k) === zNorm);
+          if (!keyExistente) {
+            keyExistente = zRaw;
+            zonasMap[keyExistente] = { empresas: [], coordinadores: new Set(), reclutadores: new Set() };
           }
-          if (u.nivel >= 3) {
-            zonasMap[zonaClean].coordinadores.add(u.nombre);
+
+          if (esCoord) {
+            zonasMap[keyExistente].coordinadores.add(nombreUsuario);
           } else {
-            zonasMap[zonaClean].reclutadores.add(u.nombre);
+            zonasMap[keyExistente].reclutadores.add(nombreUsuario);
           }
         });
       });
 
-      // 3. Renderizar Métricas
+      // 3. RENDERIZAR MÉTRICAS GLOBALES
       const zonasKeys = Object.keys(zonasMap);
       document.getElementById('valTotalZonas').textContent = zonasKeys.length;
       document.getElementById('valTotalEmpresas').textContent = totalEmpresasCount;
@@ -295,12 +350,12 @@
 
       let zonasDesatendidas = 0;
 
-      // 4. Renderizar Tabla de Cobertura
+      // 4. RENDERIZAR TABLA DE MATRIZ DE COBERTURA
       const tablaBody = document.getElementById('tablaCoberturaBody');
       tablaBody.innerHTML = '';
 
       if (zonasKeys.length === 0) {
-        tablaBody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-muted">No hay zonas o empresas registradas.</td></tr>`;
+        tablaBody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-muted">No se detectaron zonas o empresas registradas.</td></tr>`;
       } else {
         zonasKeys.forEach(z => {
           const item = zonasMap[z];
@@ -330,7 +385,7 @@
 
       document.getElementById('valZonasDesatendidas').textContent = zonasDesatendidas;
 
-      // 5. Renderizar Carga por Coordinador
+      // 5. RENDERIZAR BALANCEO DE CARGA POR COORDINADOR
       cargarDistribucionCarga();
     };
 
@@ -339,24 +394,41 @@
       tablaCarga.innerHTML = '';
 
       const coordinadores = [];
+
       Object.keys(globalStaff).forEach(k => {
         const u = globalStaff[k];
-        if (u.estatus === 'Activo' && u.nivel >= 3) {
-          // Reclutadores a su cargo
-          const reclutadoresAcargo = Object.values(globalStaff).filter(r => r.coordinadorPadreId === k && r.estatus === 'Activo');
-          const empresasCount = (u.empresas || []).length;
+        if (esActivo(u) && esCoordinador(u)) {
+          const nombreCoord = u.nombre || u.displayName || u.nombreCompleto || k;
           
+          // Reclutadores a su cargo (por asignación padre-hijo o zona compartida)
+          const reclutadoresAcargo = Object.values(globalStaff).filter(r => 
+            esActivo(r) && !esCoordinador(r) && (
+              r.coordinadorPadreId === k || 
+              r.coordinadorId === k || 
+              r.coordinador === nombreCoord
+            )
+          );
+
+          let empresasCount = 0;
+          if (u.todasLasEmpresas) {
+            empresasCount = 'TODAS';
+          } else if (Array.isArray(u.empresas)) {
+            empresasCount = u.empresas.length;
+          } else if (typeof u.empresas === 'object') {
+            empresasCount = Object.keys(u.empresas).length;
+          }
+
           coordinadores.push({
-            nombre: u.nombre,
-            telefono: u.telefono,
-            empresasCount: u.todasLasEmpresas ? 'TODAS' : empresasCount,
+            nombre: nombreCoord,
+            telefono: u.telefono || u.celular || '',
+            empresasCount: empresasCount,
             reclutadoresCount: reclutadoresAcargo.length
           });
         }
       });
 
       if (coordinadores.length === 0) {
-        tablaCarga.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-muted">No hay coordinadores activos registrados.</td></tr>`;
+        tablaCarga.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-muted">No hay coordinadores activos registrados en el sistema.</td></tr>`;
       } else {
         coordinadores.forEach(c => {
           let nivelCargaBadge = '';
@@ -370,10 +442,12 @@
             nivelCargaBadge = `<span class="badge badge-status-warning"><i class="fas fa-battery-quarter me-1"></i>Capacidad Disponible</span>`;
           }
 
+          const linkWa = c.telefono ? `<a href="https://wa.me/52${c.telefono}" target="_blank" class="text-success text-decoration-none"><i class="fab fa-whatsapp me-1"></i>${c.telefono}</a>` : '<span class="text-muted">Sin teléfono</span>';
+
           tablaCarga.innerHTML += `
             <tr>
               <td class="ps-4 fw-bold text-white">${c.nombre}</td>
-              <td><a href="https://wa.me/52${c.telefono}" target="_blank" class="text-success text-decoration-none"><i class="fab fa-whatsapp me-1"></i>${c.telefono}</a></td>
+              <td>${linkWa}</td>
               <td><span class="badge bg-secondary">${c.empresasCount}</span></td>
               <td><span class="badge bg-info text-dark">${c.reclutadoresCount} Reclutador(es)</span></td>
               <td>${nivelCargaBadge}</td>
