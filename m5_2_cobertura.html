@@ -3,7 +3,7 @@
 <head> 
     <meta charset="UTF-8"> 
     <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
-    <title>M5.2 - Cobertura Territorial y Capacidad Operativa</title>
+    <title>M5.2 - Cobertura Territorial + Motor Inteligente Dola</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"> 
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"> 
     <style> 
@@ -12,6 +12,8 @@
         .badge-semaforo { font-size: 0.9rem; padding: 6px 12px; border-radius: 6px; white-space: nowrap; } 
         .progress-slim { height: 12px; border-radius: 6px; } 
         .alerta-sistema { border-left: 4px solid #fd7e14; background-color: #fff3cd; }
+        .motor-dola { border-left: 4px solid #6f42c1; background: linear-gradient(to right, #f3e8ff, #ffffff); }
+        .rol-badge { font-size: 0.75rem; padding: 2px 8px; border-radius: 10px; }
     </style> 
 </head> 
 <body class="bg-light p-4"> 
@@ -23,15 +25,45 @@
                 <h3 class="fw-bold mb-0 text-dark">
                     <i class="fa-solid fa-map-location-dot me-2 text-primary"></i>
                     M5.2 Cobertura Territorial y Capacidad Operativa
+                    <span class="badge bg-primary ms-2">🧠 Motor Dola v2.0</span>
                 </h3> 
                 <small class="text-muted">
-                    Cobertura = Capacidad ÷ Demanda · Capacidad: 15 vacantes por Reclutador
+                    Cobertura = Capacidad ÷ Demanda · Capacidad: 15 vacantes por Reclutador · 
+                    Motor Inteligente: detección por rol, alcance automático y cálculo de riesgo
                 </small>
             </div>
             <button class="btn btn-outline-primary" onclick="window.cargarMatrizCobertura()">
                 <i class="fa-solid fa-rotate me-1"></i> Actualizar
             </button>
         </div> 
+
+        <!-- 🧠 PANEL DEL MOTOR INTELIGENTE -->
+        <div class="card motor-dola shadow-sm p-3 mb-4">
+            <div class="d-flex align-items-start">
+                <i class="fa-solid fa-brain fa-2x text-purple me-3 mt-1"></i>
+                <div class="flex-grow-1">
+                    <h5 class="mb-2 fw-bold text-dark">MOTOR INTELIGENTE DOLA — Análisis en Tiempo Real</h5>
+                    <div class="row g-2" id="panelMotorDola">
+                        <div class="col-md-3">
+                            <span class="text-muted small fw-bold">🔍 Personal Detectado:</span>
+                            <div class="fw-bold" id="dola_PersonalDetectado">Calculando...</div>
+                        </div>
+                        <div class="col-md-3">
+                            <span class="text-muted small fw-bold">🌐 Con Alcance Global:</span>
+                            <div class="fw-bold" id="dola_AlcanceGlobal">--</div>
+                        </div>
+                        <div class="col-md-3">
+                            <span class="text-muted small fw-bold">📊 Precisión del Cálculo:</span>
+                            <div class="fw-bold text-success" id="dola_Precision">--</div>
+                        </div>
+                        <div class="col-md-3">
+                            <span class="text-muted small fw-bold">⚠️ Nivel de Riesgo:</span>
+                            <div class="fw-bold" id="dola_Riesgo">--</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- ⚠️ ALERTA GLOBAL -->
         <div class="card alerta-sistema shadow-sm p-3 mb-4" id="alertaSistema">
@@ -86,20 +118,20 @@
 
         <!-- LEYENDA -->
         <div class="alert alert-info py-2 mb-3">
-            <strong>🔬 Lógica:</strong> 
-            Capacidad = Reclutadores × 15 vacantes · 
+            <strong>🔬 Lógica del Motor:</strong> 
+            Capacidad = Reclutadores con Alcance Global × 15 vacantes · 
             Cobertura = (Capacidad ÷ Vacantes Totales) × 100 · 
             <span class="badge bg-danger ms-2">0-35% CRÍTICO</span>
             <span class="badge bg-warning text-dark ms-1">36-70% BAJA</span>
             <span class="badge bg-success ms-1">71-100% ÓPTIMO</span>
-            <br><small>💡 El personal sin zona asignada atiende TODAS las zonas automáticamente.</small>
+            <br><small>🌐 El personal SIN zona asignada atiende TODAS las zonas automáticamente.</small>
         </div>
 
         <!-- FILTROS --> 
         <div class="card shadow-sm mb-4"> 
             <div class="card-body d-flex align-items-center justify-content-between py-2 flex-wrap gap-2"> 
                 <div class="fw-bold text-secondary">
-                    <i class="fa-solid fa-filter me-2"></i>Filtrar:
+                    <i class="fa-solid fa-filter me-2"></i>Filtrar Cobertura:
                 </div> 
                 <div class="btn-group" role="group"> 
                     <button type="button" class="btn btn-sm btn-outline-secondary active" 
@@ -109,7 +141,7 @@
                     <button type="button" class="btn btn-sm btn-outline-warning text-dark" 
                             onclick="window.filtrarTabla('SOBRECARGA', this)">🟡 Baja</button> 
                     <button type="button" class="btn btn-sm btn-outline-success" 
-                            onclick="window.filtrarTabla('OPTIMO', this)">🟢 Óptimo</button> 
+                            onclick="window.filtrarTabla('OPTIMO', this)">🟢 Óptimo</button>
                 </div>
             </div> 
         </div> 
@@ -122,17 +154,17 @@
                         <thead class="table-dark"> 
                             <tr>
                                 <th>Zona / Región</th> 
-                                <th>Empresas Vinculadas</th> 
-                                <th>Vacantes Activas</th> 
-                                <th>Capacidad Asignada</th> 
-                                <th>Coordinador(es)</th> 
-                                <th>Reclutador(es)</th> 
-                                <th style="width: 260px;">Cobertura y Semáforo</th> 
+                                <th>Empresas</th> 
+                                <th>Vacantes</th> 
+                                <th>Capacidad</th> 
+                                <th>Coordinador</th> 
+                                <th>Reclutador</th> 
+                                <th style="width: 280px;">Cobertura y Semáforo</th> 
                             </tr>
                         </thead> 
                         <tbody id="tbodyMatrizCobertura"> 
                             <tr><td colspan="7" class="text-center py-4 text-muted">
-                                <i class="fa-solid fa-spinner fa-spin me-2"></i>Conectando con Firebase...
+                                <i class="fa-solid fa-spinner fa-spin me-2"></i>Motor Dola analizando datos...
                             </td></tr>
                         </tbody> 
                     </table> 
@@ -145,6 +177,108 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/bootstrap.bundle.min.js"></script> 
     <script type="module"> 
         // ============================================================
+        // 🧠 MOTOR INTELIGENTE DOLA — NÚCLEO CENTRAL
+        // ============================================================
+        const MotorDola = {
+            // PARÁMETROS DEL SISTEMA
+            CAPACIDAD_POR_RECLUTADOR: 15,
+            UMBRAL_CRITICO: 35,
+            UMBRAL_BAJA: 70,
+
+            // 📋 DETECCIÓN DE ROL POR INTELIGENCIA
+            detectarRol(usuario) {
+                const rol = String(usuario?.rol || usuario?.rolNombre || 'Sin Rol').trim().toLowerCase();
+                return {
+                    esCoordinador: /coordinador|supervisor/.test(rol),
+                    esReclutador: /reclutador/.test(rol),
+                    esAdministrador: /admin|administrador/.test(rol),
+                    rolNombre: rol || 'Sin Rol'
+                };
+            },
+
+            // 🌐 DETECCIÓN DE ALCANCE — Inteligencia: SIN zona = atiende TODO
+            detectarAlcance(usuario) {
+                let zonas = [];
+                if (usuario.zona) zonas.push(String(usuario.zona).trim());
+                if (Array.isArray(usuario.zonas)) zonas.push(...usuario.zonas.map(z => String(z).trim()));
+                if (Array.isArray(usuario.zonasOperacion)) zonas.push(...usuario.zonasOperacion.map(z => String(z).trim()));
+                zonas = zonas.filter(z => z && z !== 'General');
+
+                return {
+                    atiendeTodas: zonas.length === 0, // ✅ SIN zonas = alcance global
+                    zonasAsignadas: zonas
+                };
+            },
+
+            // 🧮 CÁLCULO INTELIGENTE DE COBERTURA
+            calcularCobertura(vacantes, reclutadores) {
+                const capacidad = reclutadores * this.CAPACIDAD_POR_RECLUTADOR;
+                let porcentaje = 0;
+
+                if (vacantes > 0) {
+                    porcentaje = Math.round((capacidad / vacantes) * 100);
+                    if (porcentaje > 100) porcentaje = 100;
+                }
+
+                let categoria, colorBarra, colorBadge, emoji, etiqueta;
+                if (porcentaje === 0 && vacantes === 0) {
+                    categoria = 'SINDEMANDA'; colorBarra = 'bg-secondary'; colorBadge = 'bg-secondary text-white';
+                    emoji = '⚪'; etiqueta = 'Sin vacantes registradas';
+                } else if (porcentaje <= this.UMBRAL_CRITICO) {
+                    categoria = 'CRITICO'; colorBarra = 'bg-danger'; colorBadge = 'bg-danger text-white';
+                    emoji = '🔴'; etiqueta = 'CRÍTICO — INSUFICIENCIA GRAVE';
+                } else if (porcentaje <= this.UMBRAL_BAJA) {
+                    categoria = 'SOBRECARGA'; colorBarra = 'bg-warning text-dark'; colorBadge = 'bg-warning text-dark';
+                    emoji = '🟡'; etiqueta = 'BAJA — SOBRECARGA';
+                } else {
+                    categoria = 'OPTIMO'; colorBarra = 'bg-success'; colorBadge = 'bg-success text-white';
+                    emoji = '🟢'; etiqueta = 'ÓPTIMO — COBERTURA SUFICIENTE';
+                }
+
+                const descubiertas = Math.max(0, vacantes - capacidad);
+                const necesarios = descubiertas > 0 ? Math.ceil(descubiertas / this.CAPACIDAD_POR_RECLUTADOR) : 0;
+
+                return { porcentaje, capacidad, descubiertas, necesarios, categoria, colorBarra, colorBadge, emoji, etiqueta };
+            },
+
+            // 🗺️ IDENTIFICACIÓN INTELIGENTE DE ZONAS desde ubicación
+            identificarZona(entidad) {
+                const normalizar = (txt) => {
+                    if (!txt) return '';
+                    return String(txt).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+                };
+                const ubicacion = normalizar(entidad?.ubicacion || entidad?.zona || '');
+                if (!ubicacion) return null;
+                if (ubicacion.includes('apodaca')) return 'Apodaca';
+                if (ubicacion.includes('santa catarina')) return 'Santa Catarina';
+                if (ubicacion.includes('cienaga') || ubicacion.includes('cienega')) return 'Ciénaga de Flores';
+                if (ubicacion.includes('pesqueria') || ubicacion.includes('kia') || ubicacion.includes('parque kia')) return 'Pesquería';
+                if (ubicacion.includes('salinas victoria')) return 'Salinas Victoria';
+                if (/guadalajara|tlajomulco|tlaquepaque/.test(ubicacion)) return 'Guadalajara / Jalisco';
+                if (ubicacion.includes('monterrey')) return 'Monterrey';
+                return null;
+            },
+
+            // ⚠️ EVALUACIÓN INTELIGENTE DE RIESGO GLOBAL
+            evaluarRiesgo(totalReclutadores, capacidad, demanda) {
+                if (totalReclutadores === 0) return { nivel: 'CRÍTICO', clase: 'bg-danger text-white', mensaje: '🚫 NO HAY RECLUTADORES EN EL SISTEMA' };
+                if (demanda === 0) return { nivel: 'SIN DEMANDA', clase: 'bg-info text-white', mensaje: 'ℹ️ Sin vacantes registradas' };
+                const porcentaje = Math.round((capacidad / demanda) * 100);
+                if (porcentaje <= this.UMBRAL_CRITICO) return { nivel: 'ALTO', clase: 'bg-danger text-white', mensaje: `🔴 RIESGO CRÍTICO — Capacidad ${capacidad} / Demanda ${demanda}` };
+                if (porcentaje <= this.UMBRAL_BAJA) return { nivel: 'MEDIO', clase: 'bg-warning text-dark', mensaje: `🟡 SOBRECARGA — Capacidad ${capacidad} / Demanda ${demanda}` };
+                return { nivel: 'BAJO', clase: 'bg-success text-white', mensaje: `🟢 SEGURO — Capacidad ${capacidad} / Demanda ${demanda}` };
+            },
+
+            // 🔍 VERIFICAR SI USUARIO ATIENDE UNA ZONA
+            atiendeZona(usuario, nombreZona) {
+                const alcance = this.detectarAlcance(usuario);
+                if (alcance.atiendeTodas) return true;
+                const normalizar = (txt) => String(txt).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+                return alcance.zonasAsignadas.some(z => normalizar(z) === normalizar(nombreZona));
+            }
+        };
+
+        // ============================================================
         // ✅ TUS CREDENCIALES REALES
         // ============================================================
         const firebaseConfig = { 
@@ -155,11 +289,6 @@
             storageBucket: "bolsa-de-trabajo-a52e4.appspot.com", 
             messagingSenderId: "592492733212"
         };
-
-        // PARÁMETROS
-        const CAPACIDAD_POR_RECLUTADOR = 15;
-        const UMBRAL_CRITICO = 35;
-        const UMBRAL_BAJA = 70;
 
         let datosGlobalesZonas = []; 
         let app, db;
@@ -184,47 +313,12 @@
         }); 
 
         // ============================================================
-        // 🧮 LÓGICA DE CÁLCULO
-        // ============================================================
-        function calcularCobertura(vacantes, reclutadores) {
-            const capacidad = reclutadores * CAPACIDAD_POR_RECLUTADOR;
-            let porcentaje = 0;
-
-            if (vacantes > 0) {
-                porcentaje = Math.round((capacidad / vacantes) * 100);
-                if (porcentaje > 100) porcentaje = 100;
-            } else {
-                porcentaje = 0;
-            }
-
-            let categoria, colorBarra, colorBadge, emoji, etiqueta;
-            if (porcentaje === 0 && vacantes === 0) {
-                categoria = 'SINDEMANDA'; colorBarra = 'bg-secondary'; colorBadge = 'bg-secondary text-white';
-                emoji = '⚪'; etiqueta = 'Sin vacantes registradas';
-            } else if (porcentaje <= UMBRAL_CRITICO) {
-                categoria = 'CRITICO'; colorBarra = 'bg-danger'; colorBadge = 'bg-danger text-white';
-                emoji = '🔴'; etiqueta = 'CRÍTICO — INSUFICIENCIA';
-            } else if (porcentaje <= UMBRAL_BAJA) {
-                categoria = 'SOBRECARGA'; colorBarra = 'bg-warning text-dark'; colorBadge = 'bg-warning text-dark';
-                emoji = '🟡'; etiqueta = 'BAJA — SOBRECARGA';
-            } else {
-                categoria = 'OPTIMO'; colorBarra = 'bg-success'; colorBadge = 'bg-success text-white';
-                emoji = '🟢'; etiqueta = 'ÓPTIMO — SUFICIENTE';
-            }
-
-            const descubiertas = Math.max(0, vacantes - capacidad);
-            const necesarios = descubiertas > 0 ? Math.ceil(descubiertas / CAPACIDAD_POR_RECLUTADOR) : 0;
-
-            return { porcentaje, capacidad, descubiertas, necesarios, categoria, colorBarra, colorBadge, emoji, etiqueta };
-        }
-
-        // ============================================================
-        // 📥 CARGA DE DATOS — ADAPTADO A TU ESTRUCTURA REAL
+        // 📥 CARGA DE DATOS A TRAVÉS DEL MOTOR DOLA
         // ============================================================
         window.cargarMatrizCobertura = async function() { 
             const tbody = document.getElementById('tbodyMatrizCobertura');
             tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted">
-                <i class="fa-solid fa-spinner fa-spin me-2"></i>Leyendo empresas, vacantes y personal...
+                <i class="fa-solid fa-spinner fa-spin me-2"></i>Motor Dola analizando empresas, vacantes y personal...
             </td></tr>`;
 
             try { 
@@ -239,74 +333,44 @@
                 const vacantes = snapVacantes.exists() ? snapVacantes.val() : {}; 
                 const usuarios = snapUsuarios.exists() ? snapUsuarios.val() : {}; 
 
-                console.log("✅ Datos leídos:");
-                console.log("   Empresas:", Object.keys(empresas).length);
-                console.log("   Vacantes:", Object.keys(vacantes).length);
-                console.log("   Usuarios:", Object.keys(usuarios).length);
-
                 // ============================================================
-                // 👤 PROCESAR USUARIOS — TUS CAMPOS REALES
+                // 👤 MOTOR: PROCESAR USUARIOS POR ROL Y ALCANCE
                 // ============================================================
                 const arrayUsuarios = Object.entries(usuarios).map(([id, u]) => {
-                    const nombre = String(u?.nombre || 'Sin Nombre').trim();
-                    const rol = String(u?.rol || u?.rolNombre || 'Sin Rol').trim();
-                    const esCoordinador = /coordinador|supervisor/i.test(rol);
-                    const esReclutador = /reclutador/i.test(rol);
-                    
-                    // ✅ LÓGICA CLAVE: Si NO tiene zona asignada → atiende TODAS las zonas
-                    let zonas = [];
-                    if (u.zona) zonas.push(String(u.zona).trim());
-                    if (Array.isArray(u.zonas)) zonas.push(...u.zonas.map(z => String(z).trim()));
-                    if (Array.isArray(u.zonasOperacion)) zonas.push(...u.zonasOperacion.map(z => String(z).trim()));
-                    zonas = zonas.filter(z => z && z !== 'General');
-                    const tieneZonaAsignada = zonas.length > 0;
-
-                    return { 
-                        id, nombre, rol, 
-                        esCoordinador, esReclutador, 
-                        atiendeTodas: !tieneZonaAsignada, // ✅ SIN zona = cobertura total
-                        zonasAsignadas: zonas
+                    const rol = MotorDola.detectarRol(u);
+                    const alcance = MotorDola.detectarAlcance(u);
+                    return {
+                        id,
+                        nombre: String(u?.nombre || 'Sin Nombre').trim(),
+                        ...rol,
+                        ...alcance
                     };
                 });
 
                 // CONTAR PERSONAL
                 const coordinadoresGlobales = arrayUsuarios.filter(u => u.esCoordinador && u.atiendeTodas);
                 const reclutadoresGlobales = arrayUsuarios.filter(u => u.esReclutador && u.atiendeTodas);
-                const totalReclutadores = reclutadoresGlobales.length;
-                const capacidadTotal = totalReclutadores * CAPACIDAD_POR_RECLUTADOR;
-
-                console.log("👥 PERSONAL DETECTADO:");
-                console.log("   Coordinadores sin zona (atienden todo):", coordinadoresGlobales.map(c => c.nombre));
-                console.log("   Reclutadores sin zona (atienden todo):", reclutadoresGlobales.map(r => r.nombre));
-                console.log("   Capacidad total del sistema:", capacidadTotal, "vacantes");
+                const totalCoordinadores = arrayUsuarios.filter(u => u.esCoordinador).length;
+                const totalReclutadores = arrayUsuarios.filter(u => u.esReclutador).length;
+                const capacidadTotal = reclutadoresGlobales.length * MotorDola.CAPACIDAD_POR_RECLUTADOR;
 
                 // ============================================================
-                // 🗺️ IDENTIFICAR ZONAS DESDE TU CAMPO "ubicacion"
+                // 🧠 ACTUALIZAR PANEL DEL MOTOR INTELIGENTE
                 // ============================================================
-                function normalizar(txt) {
-                    if (!txt) return '';
-                    return String(txt).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
-                }
-
-                function identificarZona(entidad) {
-                    const ubicacion = normalizar(entidad?.ubicacion || '');
-                    if (!ubicacion) return null;
-                    if (ubicacion.includes('apodaca')) return 'Apodaca';
-                    if (ubicacion.includes('santa catarina')) return 'Santa Catarina';
-                    if (ubicacion.includes('cienaga') || ubicacion.includes('cienega')) return 'Ciénaga de Flores';
-                    if (ubicacion.includes('pesqueria') || ubicacion.includes('kia') || ubicacion.includes('parque kia')) return 'Pesquería';
-                    if (ubicacion.includes('salinas victoria')) return 'Salinas Victoria';
-                    if (/guadalajara|tlajomulco|tlaquepaque/.test(ubicacion)) return 'Guadalajara / Jalisco';
-                    if (ubicacion.includes('monterrey')) return 'Monterrey';
-                    return null;
-                }
+                document.getElementById('dola_PersonalDetectado').innerHTML = 
+                    `${totalCoordinadores} Coord · ${totalReclutadores} Recl.`;
+                document.getElementById('dola_AlcanceGlobal').innerHTML = 
+                    `${coordinadoresGlobales.length} Coord · ${reclutadoresGlobales.length} Recl.`;
 
                 // ============================================================
-                // 🏢 AGRUPAR EMPRESAS POR ZONA
+                // 🗺️ AGRUPAR EMPRESAS Y VACANTES POR ZONA
                 // ============================================================
                 const mapaZonas = {};
+                let totalVacantesSistema = 0;
+
+                // Empresas por zona
                 Object.entries(empresas).forEach(([id, emp]) => {
-                    const zona = identificarZona(emp);
+                    const zona = MotorDola.identificarZona(emp);
                     if (!zona) return;
                     if (!mapaZonas[zona]) mapaZonas[zona] = { empresas: [], vacantes: 0 };
                     const nombre = emp.nombre || 'Empresa sin nombre';
@@ -315,25 +379,18 @@
                     }
                 });
 
-                // ============================================================
-                // 📋 CONTAR VACANTES — SIN FILTRO DE ESTATUS
-                // ============================================================
-                let totalVacantesSistema = 0;
+                // Vacantes por zona (hereda ubicación de la empresa si falta)
                 Object.entries(vacantes).forEach(([id, v]) => {
-                    let zona = identificarZona(v);
+                    let zona = MotorDola.identificarZona(v);
                     if (!zona && v.empresaId && empresas[v.empresaId]) {
-                        zona = identificarZona(empresas[v.empresaId]);
+                        zona = MotorDola.identificarZona(empresas[v.empresaId]);
                     }
                     if (!zona) return;
-
                     if (!mapaZonas[zona]) mapaZonas[zona] = { empresas: [], vacantes: 0 };
                     const cantidad = parseInt(v.plazas) || parseInt(v.cupo) || 1;
                     mapaZonas[zona].vacantes += cantidad;
                     totalVacantesSistema += cantidad;
                 });
-
-                console.log("📍 ZONAS DETECTADAS:", Object.keys(mapaZonas));
-                console.log("📋 TOTAL VACANTES EN SISTEMA:", totalVacantesSistema);
 
                 // ============================================================
                 // 🧮 CALCULAR COBERTURA POR ZONA
@@ -345,31 +402,22 @@
                 let totalNecesarios = 0;
 
                 for (const [nombreZona, datos] of Object.entries(mapaZonas)) {
-                    // Coordinadores: los que atienden TODAS + los asignados a esta zona
-                    const coordZona = arrayUsuarios.filter(u => {
-                        if (!u.esCoordinador) return false;
-                        if (u.atiendeTodas) return true;
-                        return u.zonasAsignadas.some(z => normalizar(z) === normalizar(nombreZona));
-                    });
+                    // Coordinadores que atienden esta zona
+                    const coordZona = arrayUsuarios.filter(u => 
+                        u.esCoordinador && MotorDola.atiendeZona(u, nombreZona)
+                    );
 
-                    // Reclutadores: los que atienden TODAS + los asignados a esta zona
-                    const recZona = arrayUsuarios.filter(u => {
-                        if (!u.esReclutador) return false;
-                        if (u.atiendeTodas) return true;
-                        return u.zonasAsignadas.some(z => normalizar(z) === normalizar(nombreZona));
-                    });
+                    // Reclutadores que atienden esta zona
+                    const recZona = arrayUsuarios.filter(u => 
+                        u.esReclutador && MotorDola.atiendeZona(u, nombreZona)
+                    );
 
-                    // Capacidad PROPORCIONAL: se reparte entre zonas según demanda
+                    // Capacidad proporcional
                     const proporcion = totalVacantesSistema > 0 ? datos.vacantes / totalVacantesSistema : 0;
                     const capacidadZona = Math.round(capacidadTotal * proporcion);
+                    const reclutadoresEquivalentes = Math.round(capacidadZona / MotorDola.CAPACIDAD_POR_RECLUTADOR);
 
-                    let cobertura;
-                    if (datos.vacantes === 0) {
-                        cobertura = { porcentaje: 0, capacidad: 0, descubiertas: 0, necesarios: 0, categoria: 'SINDEMANDA', colorBarra: 'bg-secondary', colorBadge: 'bg-secondary text-white', emoji: '⚪', etiqueta: 'Sin vacantes' };
-                    } else {
-                        cobertura = calcularCobertura(datos.vacantes, Math.round(capacidadZona / 15));
-                        cobertura.capacidad = capacidadZona;
-                    }
+                    const cobertura = MotorDola.calcularCobertura(datos.vacantes, reclutadoresEquivalentes);
 
                     sumaCobertura += cobertura.porcentaje;
                     if (datos.vacantes > 0) zonasConDatos++;
@@ -381,47 +429,49 @@
                         empresas: datos.empresas,
                         vacantes: datos.vacantes,
                         capacidad: capacidadZona,
-                        coordinadores: coordZona.map(c => c.nombre).join(', ') || '<span class="text-danger">SIN COORDINADOR</span>',
-                        reclutadores: recZona.map(r => r.nombre).join(', ') || '<span class="text-danger">SIN RECLUTADOR</span>',
+                        coordinadores: coordZona.length > 0 
+                            ? coordZona.map(c => `${c.nombre}${c.atiendeTodas?' 🌐':''}`).join(', ') 
+                            : '<span class="text-danger">SIN COORDINADOR</span>',
+                        reclutadores: recZona.length > 0 
+                            ? recZona.map(r => `${r.nombre}${r.atiendeTodas?' 🌐':''}`).join(', ') 
+                            : '<span class="text-danger">SIN RECLUTADOR</span>',
                         cobertura
                     });
                 }
 
                 // ============================================================
-                // 📊 ACTUALIZAR KPIs
+                // 📊 ACTUALIZAR KPIs Y ALERTAS
                 // ============================================================
                 const promedio = zonasConDatos > 0 ? Math.round(sumaCobertura / zonasConDatos) : 0;
+                const evaluacionRiesgo = MotorDola.evaluarRiesgo(reclutadoresGlobales.length, capacidadTotal, totalVacantesSistema);
 
                 document.getElementById('kpiPromedio').innerText = totalVacantesSistema > 0 ? `${promedio}%` : '--';
                 document.getElementById('kpiCapacidadTotal').innerText = `${capacidadTotal} vacantes`;
                 document.getElementById('kpiVacantesTotal').innerText = totalVacantesSistema;
                 document.getElementById('kpiPersonalFaltante').innerText = `+${totalNecesarios}`;
 
-                // ⚠️ ALERTA GLOBAL
+                // Actualizar riesgo del Motor
+                document.getElementById('dola_Riesgo').innerText = evaluacionRiesgo.nivel;
+                document.getElementById('dola_Riesgo').className = `fw-bold ${evaluacionRiesgo.clase.replace('text-white','').replace('bg-','text-')}`;
+                document.getElementById('dola_Precision').innerText = zonasConDatos > 0 ? `${Math.round((zonasConDatos/Object.keys(mapaZonas).length)*100)}%` : '--';
+
+                // Alerta principal
                 const alerta = document.getElementById('alertaSistema');
                 const textoAlerta = document.getElementById('textoAlertaSistema');
-
-                if (totalReclutadores === 0) {
-                    alerta.className = 'card bg-danger text-white shadow-sm p-3 mb-4';
-                    textoAlerta.innerHTML = `🚫 <strong>NO HAY RECLUTADORES SIN ZONA ASIGNADA.</strong> Capacidad: 0 vacantes. Debes dejar al menos un reclutador SIN zona asignada para que atienda todo el sistema.`;
-                } else if (totalVacantesSistema === 0) {
-                    alerta.className = 'card bg-info text-white shadow-sm p-3 mb-4';
-                    textoAlerta.innerHTML = `ℹ️ <strong>Sin vacantes registradas aún.</strong> Tienes ${totalReclutadores} reclutador(es) con capacidad para ${capacidadTotal} vacantes.`;
-                } else if (promedio <= UMBRAL_CRITICO) {
-                    alerta.className = 'card bg-danger text-white shadow-sm p-3 mb-4';
-                    textoAlerta.innerHTML = `🔴 <strong>RIESGO CRÍTICO.</strong> ${totalReclutadores} reclutador(es) → Capacidad: ${capacidadTotal} / Demanda: ${totalVacantesSistema}. Faltan ${totalNecesarios} reclutador(es).`;
-                } else if (promedio <= UMBRAL_BAJA) {
-                    alerta.className = 'card bg-warning text-dark shadow-sm p-3 mb-4';
-                    textoAlerta.innerHTML = `🟡 <strong>SOBRECARGA.</strong> ${totalReclutadores} reclutador(es) → Capacidad: ${capacidadTotal} / Demanda: ${totalVacantesSistema}. Agrega ${totalNecesarios} reclutador(es).`;
-                } else {
-                    alerta.className = 'card bg-success text-white shadow-sm p-3 mb-4';
-                    textoAlerta.innerHTML = `🟢 <strong>COBERTURA SUFICIENTE.</strong> ${totalReclutadores} reclutador(es) → Capacidad: ${capacidadTotal} / Demanda: ${totalVacantesSistema}. Margen adecuado.`;
-                }
+                alerta.className = `card ${evaluacionRiesgo.clase} shadow-sm p-3 mb-4`;
+                textoAlerta.innerHTML = evaluacionRiesgo.mensaje + 
+                    ` · Cobertura promedio: ${promedio}% · Zonas detectadas: ${Object.keys(mapaZonas).length}`;
 
                 renderizarTabla(datosGlobalesZonas);
 
+                console.log("🧠 MOTOR DOLA — Análisis Completo:");
+                console.log("   Empresas:", Object.keys(empresas).length, "| Vacantes:", totalVacantesSistema, "| Usuarios:", Object.keys(usuarios).length);
+                console.log("   Coordinadores:", totalCoordinadores, `(Global: ${coordinadoresGlobales.length})`);
+                console.log("   Reclutadores:", totalReclutadores, `(Global: ${reclutadoresGlobales.length})`);
+                console.log("   Capacidad:", capacidadTotal, "vacantes | Cobertura:", promedio, "% | Faltantes:", totalNecesarios);
+
             } catch (error) { 
-                console.error("❌ ERROR:", error); 
+                console.error("❌ ERROR MOTOR:", error); 
                 tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger">
                     <i class="fa-solid fa-circle-exclamation me-2"></i>${error.message}
                 </td></tr>`;
