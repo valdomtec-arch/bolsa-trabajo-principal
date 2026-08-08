@@ -4,46 +4,22 @@
     <meta charset="UTF-8"> 
     <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
     <title>M5.2 - Cobertura Territorial y Capacidad Operativa</title>
-    <!-- Bootstrap 5 CSS & FontAwesome -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"> 
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"> 
     <style> 
-        .kpi-card { 
-            border-left: 4px solid; 
-            transition: transform 0.2s ease, box-shadow 0.2s ease; 
-        } 
-        .kpi-card:hover { 
-            transform: translateY(-3px); 
-            box-shadow: 0 0.5rem 1rem rgba(0,0,0,.12)!important;
-        } 
-        .badge-semaforo { 
-            font-size: 0.9rem; 
-            padding: 6px 12px; 
-            border-radius: 6px; 
-            white-space: nowrap;
-        } 
-        .progress-slim { 
-            height: 10px; 
-            border-radius: 5px; 
-        } 
-        .cursor-pointer { 
-            cursor: pointer; 
-        } 
-        .table th { 
-            border-top: none;
-        }
-        .table td {
-            vertical-align: middle;
-        }
-        .emoji-estatus {
-            margin-right: 6px;
-        }
+        .kpi-card { border-left: 4px solid; transition: transform 0.2s; } 
+        .kpi-card:hover { transform: translateY(-3px); } 
+        .badge-semaforo { font-size: 0.9rem; padding: 6px 12px; border-radius: 6px; white-space: nowrap; } 
+        .progress-slim { height: 12px; border-radius: 6px; } 
+        .cursor-pointer { cursor: pointer; } 
+        .emoji-estatus { margin-right: 6px; font-size: 1.1rem; }
+        .alerta-sistema { border-left: 4px solid #fd7e14; background-color: #fff3cd; }
     </style> 
 </head> 
 <body class="bg-light p-4"> 
     <div class="container-fluid"> 
 
-        <!-- ENCABEZADO Y TÍTULO --> 
+        <!-- ENCABEZADO --> 
         <div class="d-flex justify-content-between align-items-center mb-4"> 
             <div> 
                 <h3 class="fw-bold mb-0 text-dark">
@@ -51,37 +27,49 @@
                     M5.2 Cobertura Territorial y Capacidad Operativa
                 </h3> 
                 <small class="text-muted">
-                    Balance dinámico de personal, cuota de vacantes (M2) y estatus de atención por zona geográfica
+                    Cobertura = Capacidad Total ÷ Demanda Total · Capacidad: 15 vacantes por Reclutador · 
+                    Personal con cobertura global atiende automáticamente TODAS las zonas
                 </small>
             </div>
             <button class="btn btn-outline-primary" onclick="window.cargarMatrizCobertura()">
-                <i class="fa-solid fa-rotate me-1"></i> Actualizar Matriz
+                <i class="fa-solid fa-rotate me-1"></i> Actualizar
             </button>
         </div> 
 
-        <!-- TARJETAS DE MÉTRICAS GLOBALES (KPIs) --> 
+        <!-- ⚠️ ALERTA GLOBAL DE PERSONAL ESCASO -->
+        <div class="card alerta-sistema shadow-sm p-3 mb-4" id="alertaSistema">
+            <div class="d-flex align-items-center">
+                <i class="fa-solid fa-triangle-exclamation fa-2x text-warning me-3"></i>
+                <div>
+                    <h5 class="mb-1 fw-bold text-dark">RIESGO GLOBAL DEL SISTEMA</h5>
+                    <p class="mb-0 text-dark" id="textoAlertaSistema">Calculando...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- TARJETAS KPI --> 
         <div class="row g-3 mb-4"> 
             <div class="col-md-3"> 
                 <div class="card kpi-card border-primary shadow-sm p-3 h-100"> 
-                    <span class="text-muted small fw-bold">COBERTURA PROMEDIO GLOBAL</span> 
+                    <span class="text-muted small fw-bold">COBERTURA GLOBAL TOTAL</span> 
                     <div class="d-flex align-items-center justify-content-between mt-2"> 
                         <h2 class="fw-bold mb-0 text-primary" id="kpiPromedio">0%</h2> 
-                        <i class="fa-solid fa-chart-line fa-2x text-primary opacity-50"></i> 
+                        <i class="fa-solid fa-chart-pie fa-2x text-primary opacity-50"></i> 
                     </div> 
                 </div> 
             </div> 
             <div class="col-md-3"> 
-                <div class="card kpi-card border-warning shadow-sm p-3 h-100"> 
-                    <span class="text-muted small fw-bold">ZONA MÁS SATURADA</span> 
+                <div class="card kpi-card border-info shadow-sm p-3 h-100"> 
+                    <span class="text-muted small fw-bold">CAPACIDAD TOTAL DEL SISTEMA</span> 
                     <div class="d-flex align-items-center justify-content-between mt-2"> 
-                        <h4 class="fw-bold mb-0 text-truncate text-dark" id="kpiSaturada">--</h4> 
-                        <i class="fa-solid fa-triangle-exclamation fa-2x text-warning opacity-50"></i> 
+                        <h5 class="fw-bold mb-0 text-truncate text-info" id="kpiCapacidadTotal">0 vacantes</h5> 
+                        <i class="fa-solid fa-users fa-2x text-info opacity-50"></i> 
                     </div> 
                 </div> 
             </div> 
             <div class="col-md-3"> 
                 <div class="card kpi-card border-danger shadow-sm p-3 h-100"> 
-                    <span class="text-muted small fw-bold">VACANTES EN RIESGO (M2)</span> 
+                    <span class="text-muted small fw-bold">VACANTES SIN COBERTURA</span> 
                     <div class="d-flex align-items-center justify-content-between mt-2"> 
                         <h2 class="fw-bold mb-0 text-danger" id="kpiVacantesRiesgo">0</h2>
                         <i class="fa-solid fa-user-clock fa-2x text-danger opacity-50"></i> 
@@ -89,36 +77,47 @@
                 </div> 
             </div> 
             <div class="col-md-3"> 
-                <div class="card kpi-card border-success shadow-sm p-3 h-100"> 
-                    <span class="text-muted small fw-bold">PLANTILLA NECESARIA SUGERIDA</span> 
+                <div class="card kpi-card border-warning shadow-sm p-3 h-100"> 
+                    <span class="text-muted small fw-bold">RECLUTADORES FALTANTES</span> 
                     <div class="d-flex align-items-center justify-content-between mt-2"> 
-                        <h2 class="fw-bold mb-0 text-success" id="kpiPersonalSugerido">+0 Recl.</h2> 
-                        <i class="fa-solid fa-user-plus fa-2x text-success opacity-50"></i> 
+                        <h2 class="fw-bold mb-0 text-warning" id="kpiPersonalFaltante">+0</h2> 
+                        <i class="fa-solid fa-user-plus fa-2x text-warning opacity-50"></i> 
                     </div> 
                 </div> 
             </div> 
         </div> 
 
-        <!-- FILTROS INTERACTIVOS POR SEMÁFORO --> 
+        <!-- LEYENDA SEMÁFORO -->
+        <div class="alert alert-info py-2 mb-3">
+            <strong>🔬 Lógica de Cálculo:</strong> 
+            Capacidad = Reclutadores Globales × 15 vacantes · 
+            Cobertura = (Capacidad ÷ Total Vacantes) × 100 · 
+            <span class="badge bg-danger ms-2">0-35% CRÍTICO</span>
+            <span class="badge bg-warning text-dark ms-1">36-70% BAJA</span>
+            <span class="badge bg-success ms-1">71-100% ÓPTIMO</span>
+            <br><small>ℹ️ El personal con cobertura global se distribuye automáticamente entre todas las zonas reales.</small>
+        </div>
+
+        <!-- FILTROS --> 
         <div class="card shadow-sm mb-4"> 
             <div class="card-body d-flex align-items-center justify-content-between py-2 flex-wrap gap-2"> 
                 <div class="fw-bold text-secondary">
-                    <i class="fa-solid fa-filter me-2"></i>Filtrar Zonas:
+                    <i class="fa-solid fa-filter me-2"></i>Filtrar Cobertura por Zona:
                 </div> 
                 <div class="btn-group" role="group"> 
                     <button type="button" class="btn btn-sm btn-outline-secondary active" 
                             onclick="window.filtrarTabla('TODOS', this)">Todas</button> 
                     <button type="button" class="btn btn-sm btn-outline-danger" 
-                            onclick="window.filtrarTabla('CRITICO', this)"> Críticas / Sin Atención (0-35%)</button> 
+                            onclick="window.filtrarTabla('CRITICO', this)">🔴 Crítico (0-35%)</button> 
                     <button type="button" class="btn btn-sm btn-outline-warning text-dark" 
-                            onclick="window.filtrarTabla('SOBRECARGA', this)"> En Sobrecarga (36-70%)</button> 
+                            onclick="window.filtrarTabla('SOBRECARGA', this)">🟡 Baja (36-70%)</button> 
                     <button type="button" class="btn btn-sm btn-outline-success" 
-                            onclick="window.filtrarTabla('OPTIMO', this)"> Óptimas (71-100%)</button> 
+                            onclick="window.filtrarTabla('OPTIMO', this)">🟢 Óptimo (71-100%)</button> 
                 </div>
             </div> 
         </div> 
 
-        <!-- MATRIZ PRINCIPAL M5.2 --> 
+        <!-- TABLA PRINCIPAL --> 
         <div class="card shadow-sm"> 
             <div class="card-body p-0"> 
                 <div class="table-responsive"> 
@@ -126,18 +125,19 @@
                         <thead class="table-dark"> 
                             <tr>
                                 <th>Zona / Región</th> 
-                                <th>Empresas Vinculadas (M1)</th> 
-                                <th>Demandas de Vacantes (M2)</th> 
-                                <th>Coordinación</th> 
-                                <th>Reclutadores</th> 
-                                <th style="width: 240px;">Semáforo % Cobertura</th> 
+                                <th>Empresas Vinculadas</th> 
+                                <th>Vacantes Activas</th> 
+                                <th>Capacidad Asignada</th> 
+                                <th>Coordinador(es)</th> 
+                                <th>Reclutador(es)</th> 
+                                <th style="width: 280px;">Cobertura % y Semáforo</th> 
                                 <th class="text-center">Acciones</th> 
                             </tr>
                         </thead> 
                         <tbody id="tbodyMatrizCobertura"> 
                             <tr>
-                                <td colspan="7" class="text-center py-4 text-muted">
-                                    <i class="fa-solid fa-spinner fa-spin me-2"></i>Conectando con base de datos...
+                                <td colspan="8" class="text-center py-4 text-muted">
+                                    <i class="fa-solid fa-spinner fa-spin me-2"></i>Calculando cobertura...
                                 </td>
                             </tr> 
                         </tbody> 
@@ -148,34 +148,34 @@
 
     </div>
 
-    <!-- MODAL PARA ASIGNACIÓN RÁPIDA DE RECLUTADORES --> 
+    <!-- MODAL ASIGNAR PERSONAL --> 
     <div class="modal fade" id="modalAsignarPersonal" tabindex="-1" aria-hidden="true"> 
         <div class="modal-dialog modal-dialog-centered"> 
             <div class="modal-content"> 
                 <div class="modal-header bg-primary text-white"> 
                     <h5 class="modal-title">
-                        <i class="fa-solid fa-user-plus me-2"></i>Asignar Cobertura Directa
+                        <i class="fa-solid fa-user-plus me-2"></i>Asignar Cobertura
                     </h5> 
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div> 
                 <div class="modal-body"> 
-                    <p>Vincula un reclutador o coordinador directamente a la zona: 
-                        <strong id="modalNombreZona" class="text-primary">--</strong>
-                    </p>
-                    <form id="formAsignacionRapida"> 
+                    <p>Zona: <strong id="modalNombreZona" class="text-primary">--</strong></p>
+                    <form> 
                         <input type="hidden" id="modalZonaId"> 
                         <div class="mb-3"> 
-                            <label class="form-label fw-bold">Seleccionar Colaborador:</label> 
+                            <label class="form-label fw-bold">Colaborador disponible:</label> 
                             <select class="form-select" id="selectColaboradorModal" required> 
-                                <option value="">Cargando personal...</option> 
+                                <option value="">Cargando...</option> 
                             </select> 
-                        </div> 
+                        </div>
+                        <div class="form-text text-muted">
+                            💡 Si marcas "Cobertura Global", el colaborador atenderá TODAS las zonas automáticamente.
+                        </div>
                     </form> 
                 </div> 
                 <div class="modal-footer"> 
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button> 
-                    <button type="button" class="btn btn-primary" 
-                            onclick="window.guardarAsignacionRapida()">
+                    <button type="button" class="btn btn-primary" onclick="window.guardarAsignacionRapida()">
                         <i class="fa-solid fa-save me-1"></i> Guardar Asignación
                     </button> 
                 </div> 
@@ -183,11 +183,11 @@
         </div>
     </div> 
 
-    <!-- Bootstrap 5 JS Bundle & Firebase --> 
+    <!-- Firebase + Bootstrap --> 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/bootstrap.bundle.min.js"></script> 
     <script type="module"> 
         // ============================================================
-        // ✅ CREDENCIALES DE FIREBASE — YA CONFIGURADAS
+        // ✅ CONFIGURACIÓN FIREBASE — TUS DATOS REALES
         // ============================================================
         const firebaseConfig = { 
             apiKey: "AQ.Ab8RN6IBo1yotAZAix-cqbpNLLnGq2hfbpSh3Kq2nZ449PNtAw",
@@ -195,135 +195,94 @@
             databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com", 
             projectId: "bolsa-de-trabajo-a52e4", 
             storageBucket: "bolsa-de-trabajo-a52e4.appspot.com", 
-            messagingSenderId: "592492733212", 
-            appId: "PENDIENTE" // ← Pega tu appId aquí cuando lo tengas
+            messagingSenderId: "592492733212"
         };
 
-        // Capacidad estándar: vacantes que puede atender 1 reclutador
-        const CAPACIDAD_VACANTES_POR_RECLUTADOR = 15;
-
-        // Umbrales del semáforo
+        // 📊 PARÁMETROS DE CÁLCULO
+        const CAPACIDAD_POR_RECLUTADOR = 15;
         const UMBRAL_CRITICO = 35;
-        const UMBRAL_SOBRECARGA = 70;
+        const UMBRAL_BAJA = 70;
 
-        // Variables globales
         let datosGlobalesZonas = []; 
         let todosLosUsuarios = []; 
         let modalAsignacionBS = null;
-        let app = null;
-        let db = null;
+        let app, db;
 
         // ============================================================
-        // INICIALIZACIÓN
+        // INICIO
         // ============================================================
         window.addEventListener('DOMContentLoaded', async () => { 
             try {
-                // Inicializar Firebase de forma segura
                 const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js"); 
                 const { getDatabase } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js"); 
 
-                // Quitar appId si no está definido para que no falle
                 const configLimpia = {...firebaseConfig};
-                if (configLimpia.appId === "PENDIENTE") delete configLimpia.appId;
+                if (!configLimpia.appId) delete configLimpia.appId;
 
                 app = initializeApp(configLimpia); 
                 db = getDatabase(app); 
 
-                // Inicializar modal
-                const elemModal = document.getElementById('modalAsignarPersonal'); 
-                if (elemModal) {
-                    modalAsignacionBS = new bootstrap.Modal(elemModal); 
-                    elemModal.addEventListener('hidden.bs.modal', () => {
-                        document.getElementById('selectColaboradorModal').value = '';
-                    });
-                }
-
-                // Cargar datos al iniciar
+                modalAsignacionBS = new bootstrap.Modal(document.getElementById('modalAsignarPersonal'));
                 await window.cargarMatrizCobertura(); 
 
             } catch (err) {
-                console.error("❌ Error al inicializar:", err);
-                mostrarErrorGeneral("Error de inicialización: " + err.message);
+                console.error("❌ Error:", err);
+                mostrarErrorGeneral("Error: " + err.message);
             }
         }); 
 
         // ============================================================
-        // FUNCIONES AUXILIARES
+        // 🧮 LÓGICA DE COBERTURA — DISTRIBUCIÓN GLOBAL
         // ============================================================
+        function calcularCoberturaPorZona(vacantesZona, capacidadGlobal, totalVacantesSistema) {
+            // La capacidad se distribuye PROPORCIONALMENTE entre zonas según su demanda
+            const proporcionZona = totalVacantesSistema > 0 
+                ? vacantesZona / totalVacantesSistema 
+                : 0;
+            const capacidadAsignada = Math.round(capacidadGlobal * proporcionZona);
 
-        /** Normalizar texto para comparaciones */
-        function normalizarTexto(txt) { 
-            if (!txt || typeof txt !== 'string') return ''; 
-            return txt.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim(); 
-        } 
-
-        /** Extraer todas las zonas asociadas a un usuario */
-        function obtenerZonasUsuario(usuario) { 
-            if (!usuario || typeof usuario !== 'object') return [];
-            let zonas = []; 
-            if (usuario.zona) zonas.push(String(usuario.zona)); 
-            if (Array.isArray(usuario.zonas)) zonas.push(...usuario.zonas.map(String)); 
-            if (Array.isArray(usuario.zonasOperacion)) zonas.push(...usuario.zonasOperacion.map(String)); 
-            return [...new Set(zonas.map(z => z.trim()).filter(z => z))]; 
-        } 
-
-        /** Determinar zona estandarizada desde ubicación */
-        function determinarZonaLimpia(entidad) { 
-            if (!entidad || typeof entidad !== 'object') return 'General';
-            const ubicacion = String(entidad.ubicacion || entidad.zona || entidad.municipio || '');
-            const txtNorm = normalizarTexto(ubicacion);
-
-            if (txtNorm.includes('apodaca')) return 'Apodaca';
-            if (txtNorm.includes('santa catarina')) return 'Santa Catarina'; 
-            if (txtNorm.includes('cienaga de flores') || txtNorm.includes('cienega de flores')) return 'Ciénaga de Flores'; 
-            if (txtNorm.includes('pesqueria') || txtNorm.includes('parque kia')) return 'Pesquería'; 
-            if (txtNorm.includes('salinas victoria')) return 'Salinas Victoria'; 
-            if (txtNorm.includes('guadalajara') || txtNorm.includes('tlajomulco') || txtNorm.includes('tlaquepaque')) return 'Guadalajara / Jal.'; 
-            if (txtNorm.includes('monterrey')) return 'Monterrey'; 
-
-            return ubicacion.trim() || 'General'; 
-        } 
-
-        /** Obtener clase y categoría semáforo */
-        function obtenerSemaforo(porcentaje) {
-            if (porcentaje <= UMBRAL_CRITICO) return { cat: 'CRITICO', clase: 'bg-danger text-white', barra: 'bg-danger', etiqueta: 'SIN ATENCIÓN / CRÍTICA', emoji: '🚨' };
-            if (porcentaje <= UMBRAL_SOBRECARGA) return { cat: 'SOBRECARGA', clase: 'bg-warning text-dark', barra: 'bg-warning', etiqueta: 'COBERTURA BAJA', emoji: '⚠️' };
-            return { cat: 'OPTIMO', clase: 'bg-success text-white', barra: 'bg-success', etiqueta: 'COBERTURA ÓPTIMA', emoji: '✅' };
-        }
-
-        /** Mostrar error en tabla */
-        function mostrarErrorGeneral(mensaje) {
-            const tbody = document.getElementById('tbodyMatrizCobertura');
-            if (tbody) {
-                tbody.innerHTML = `
-                    <tr><td colspan="7" class="text-center py-4 text-danger">
-                        <i class="fa-solid fa-circle-exclamation me-2"></i><strong>${mensaje}</strong>
-                    </td></tr>`;
+            let porcentaje = 100;
+            if (vacantesZona > 0) {
+                porcentaje = Math.round((capacidadAsignada / vacantesZona) * 100);
+                if (porcentaje > 100) porcentaje = 100;
             }
+
+            let categoria, colorBarra, colorBadge, emoji, etiqueta;
+            if (porcentaje <= UMBRAL_CRITICO) {
+                categoria = 'CRITICO'; colorBarra = 'bg-danger'; colorBadge = 'bg-danger text-white';
+                emoji = '🔴'; etiqueta = 'CRÍTICO — INSUFICIENCIA GRAVE';
+            } else if (porcentaje <= UMBRAL_BAJA) {
+                categoria = 'SOBRECARGA'; colorBarra = 'bg-warning text-dark'; colorBadge = 'bg-warning text-dark';
+                emoji = '🟡'; etiqueta = 'BAJA — SOBRECARGA';
+            } else {
+                categoria = 'OPTIMO'; colorBarra = 'bg-success'; colorBadge = 'bg-success text-white';
+                emoji = '🟢'; etiqueta = 'ÓPTIMO — COBERTURA SUFICIENTE';
+            }
+
+            const vacantesDescubiertas = Math.max(0, vacantesZona - capacidadAsignada);
+            return {
+                porcentaje, capacidadAsignada, vacantesDescubiertas,
+                categoria, colorBarra, colorBadge, emoji, etiqueta
+            };
         }
 
         // ============================================================
-        // CARGA PRINCIPAL DE DATOS
+        // 📥 CARGA Y AGRUPACIÓN DE DATOS
         // ============================================================
         window.cargarMatrizCobertura = async function() { 
             const tbody = document.getElementById('tbodyMatrizCobertura');
-            if (!tbody || !db) return;
-
-            tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted">
-                <i class="fa-solid fa-spinner fa-spin me-2"></i>Consultando datos...
+            tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted">
+                <i class="fa-solid fa-spinner fa-spin me-2"></i>Procesando empresas, vacantes y personal...
             </td></tr>`;
 
             try { 
                 const { get, ref } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js"); 
-
-                // Leer todas las colecciones en paralelo
                 const [snapEmpresas, snapVacantes, snapUsuarios] = await Promise.all([ 
                     get(ref(db, 'empresas')), 
                     get(ref(db, 'vacantes')), 
                     get(ref(db, 'usuarios')) 
                 ]); 
 
-                // Convertir a arreglos seguros
                 const empresas = snapEmpresas.exists() ? snapEmpresas.val() : {}; 
                 const vacantes = snapVacantes.exists() ? snapVacantes.val() : {}; 
                 const usuarios = snapUsuarios.exists() ? snapUsuarios.val() : {}; 
@@ -331,213 +290,231 @@
                 const arrayEmpresas = Object.entries(empresas).map(([id, e]) => ({ id, ...e }));
                 const arrayVacantes = Object.entries(vacantes).map(([id, v]) => ({ id, ...v }));
 
-                // Procesar usuarios
+                // ============================================================
+                // 👤 PROCESAR PERSONAL
+                // ============================================================
                 todosLosUsuarios = Object.entries(usuarios).map(([id, u]) => { 
-                    const rolCalculado = String(u?.rol || u?.rolNombre || 'Sin Rol').trim(); 
-                    const zonasLista = obtenerZonasUsuario(u); 
+                    const rol = String(u?.rolNombre || u?.rol || 'Sin Rol').trim();
+                    const zonas = [];
+                    if (u.zona) zonas.push(String(u.zona).trim());
+                    if (Array.isArray(u.zonasOperacion)) zonas.push(...u.zonasOperacion.map(z => String(z).trim()));
+                    if (Array.isArray(u.zonas)) zonas.push(...u.zonas.map(z => String(z).trim()));
+                    const zonasUnicas = [...new Set(zonas.filter(z => z && z !== 'General'))]; // ✅ EXCLUIR "General"
+
                     return { 
                         id, 
-                        nombreCompleto: String(u?.nombre || u?.alias || u?.nombreCompleto || 'Usuario Desconocido').trim(), 
-                        rolCalculado, 
-                        zonasLista,
-                        esGlobal: Boolean(u?.esGlobal || u?.todasLasEmpresas)
+                        nombre: String(u?.nombre || 'Sin Nombre').trim(), 
+                        rol,
+                        esCoordinador: /coordinador|supervisor/i.test(rol),
+                        esReclutador: /reclutador/i.test(rol),
+                        coberturaGlobal: Boolean(u?.todasLasEmpresas || u?.esGlobal), // ✅ ATIENDE TODAS LAS ZONAS
+                        zonasAsignadas: zonasUnicas
                     };
-                }); 
+                });
+
+                // CONTAR PERSONAL GLOBAL
+                const totalCoordinadoresGlobal = todosLosUsuarios.filter(u => u.esCoordinador && u.coberturaGlobal).length;
+                const totalReclutadoresGlobal = todosLosUsuarios.filter(u => u.esReclutador && u.coberturaGlobal).length;
+                const capacidadTotalSistema = totalReclutadoresGlobal * CAPACIDAD_POR_RECLUTADOR;
+
+                console.log(`👥 PERSONAL: ${totalCoordinadoresGlobal} Coordinadores Globales, ${totalReclutadoresGlobal} Reclutadores Globales — Capacidad: ${capacidadTotalSistema} vacantes`);
 
                 // ============================================================
-                // AGRUPAR POR ZONAS
+                // 🗺️ AGRUPAR POR ZONAS REALES (SIN "General")
                 // ============================================================
-                const mapeoZonas = {};
-
-                // Empresas por zona
-                arrayEmpresas.forEach(emp => { 
-                    const zonaLimpia = determinarZonaLimpia(emp); 
-                    if (!mapeoZonas[zonaLimpia]) {
-                        mapeoZonas[zonaLimpia] = { empresas: [], totalVacantes: 0 };
-                    }
-                    const nombreEmpresa = String(emp.nombre || emp.nombreComercial || 'Empresa sin nombre').trim(); 
-                    if (!mapeoZonas[zonaLimpia].empresas.includes(nombreEmpresa)) {
-                        mapeoZonas[zonaLimpia].empresas.push(nombreEmpresa); 
-                    }
-                }); 
-
-                // Vacantes activas por zona
-                arrayVacantes.forEach(v => { 
-                    const estatus = normalizarTexto(v?.estatus || 'Activa'); 
-                    if (estatus !== 'abierta' && estatus !== 'activa') return;
-
-                    let zonaLimpia = determinarZonaLimpia(v); 
-                    // Heredar zona de la empresa si la vacante no tiene
-                    if (zonaLimpia === 'General' && v?.empresaId && empresas[v.empresaId]) { 
-                        zonaLimpia = determinarZonaLimpia(empresas[v.empresaId]); 
-                    }
-                    if (!mapeoZonas[zonaLimpia]) {
-                        mapeoZonas[zonaLimpia] = { empresas: [], totalVacantes: 0 };
-                    }
-                    const cantidad = Math.max(0, parseInt(v?.plazas || v?.cupo || 1));
-                    mapeoZonas[zonaLimpia].totalVacantes += cantidad; 
-                }); 
-
-                // ============================================================
-                // CALCULAR COBERTURA Y MÉTRICAS
-                // ============================================================
-                datosGlobalesZonas = []; 
-                let sumaPorcentajes = 0; 
-                let maxVacantesSaturadas = -1; 
-                let zonaMasSaturadaNombre = 'Ninguna'; 
-                let vacantesEnRiesgoTotales = 0; 
-                let reclutadoresFaltantesTotales = 0; 
-                const listaZonas = Object.keys(mapeoZonas);
-
-                if (listaZonas.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted">
-                        <i class="fa-solid fa-info-circle me-2"></i>No hay empresas o vacantes registradas.
-                    </td></tr>`;
-                    reiniciarKPIs();
-                    return;
+                function normalizar(txt) {
+                    if (!txt) return '';
+                    return String(txt).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
                 }
 
-                listaZonas.forEach(nombreZona => { 
-                    const infoZona = mapeoZonas[nombreZona];
+                function identificarZona(entidad) {
+                    const ubicacion = normalizar(entidad?.ubicacion || entidad?.zona || '');
+                    if (ubicacion.includes('apodaca')) return 'Apodaca';
+                    if (ubicacion.includes('santa catarina')) return 'Santa Catarina'; 
+                    if (ubicacion.includes('cienaga') || ubicacion.includes('cienega')) return 'Ciénaga de Flores';
+                    if (ubicacion.includes('pesqueria') || ubicacion.includes('kia')) return 'Pesquería';
+                    if (ubicacion.includes('salinas victoria')) return 'Salinas Victoria';
+                    if (/guadalajara|tlajomulco|tlaquepaque/.test(ubicacion)) return 'Guadalajara / Jalisco';
+                    if (ubicacion.includes('monterrey')) return 'Monterrey';
+                    return null; // ❌ NO asignar "General" — ignorar zonas sin ubicación
+                }
 
-                    // Coordinadores asignados a la zona
-                    const coordinadores = todosLosUsuarios.filter(u => { 
-                        const rolNorm = normalizarTexto(u.rolCalculado); 
-                        const esCoord = rolNorm.includes('coordinador') || rolNorm.includes('supervisor'); 
-                        if (!esCoord) return false; 
-                        if (u.esGlobal) return true; 
-                        return u.zonasLista.some(z => normalizarTexto(z) === normalizarTexto(nombreZona) || normalizarTexto(z) === 'general'); 
-                    });
+                const mapaZonas = {};
+                let totalVacantesSistema = 0;
 
-                    // Reclutadores asignados a la zona
-                    const reclutadores = todosLosUsuarios.filter(u => { 
-                        const rolNorm = normalizarTexto(u.rolCalculado); 
-                        const esReclutador = rolNorm.includes('reclutador'); 
-                        if (!esReclutador) return false; 
-                        if (u.esGlobal) return true; 
-                        return u.zonasLista.some(z => normalizarTexto(z) === normalizarTexto(nombreZona) || normalizarTexto(z) === 'general'); 
-                    });
-
-                    const numReclutadores = reclutadores.length; 
-                    const demandaVacantes = infoZona.totalVacantes; 
-                    const ofertaCapacidad = numReclutadores * CAPACIDAD_VACANTES_POR_RECLUTADOR;
-
-                    // Calcular porcentaje de cobertura
-                    let porcentaje = 100;
-                    if (demandaVacantes > 0) {
-                        porcentaje = Math.round((ofertaCapacidad / demandaVacantes) * 100); 
-                        if (porcentaje > 100) porcentaje = 100;
+                // Agrupar empresas
+                arrayEmpresas.forEach(emp => {
+                    const zona = identificarZona(emp);
+                    if (!zona) return; // Sin zona definida → no se muestra
+                    if (!mapaZonas[zona]) mapaZonas[zona] = { empresas: [], vacantes: 0 };
+                    const nombre = emp.nombre || 'Empresa sin nombre';
+                    if (!mapaZonas[zona].empresas.includes(nombre)) {
+                        mapaZonas[zona].empresas.push(nombre);
                     }
+                });
 
-                    // Vacantes sin atención y reclutadores necesarios
-                    if (demandaVacantes > 0 && porcentaje < UMBRAL_SOBRECARGA) {
-                        const vacantesDescubiertas = Math.max(0, demandaVacantes - ofertaCapacidad); 
-                        vacantesEnRiesgoTotales += vacantesDescubiertas; 
-                        const necesarios = Math.ceil(vacantesDescubiertas / CAPACIDAD_VACANTES_POR_RECLUTADOR);
-                        if (necesarios > 0) reclutadoresFaltantesTotales += necesarios;
+                // Agrupar vacantes ACTIVAS
+                arrayVacantes.forEach(v => {
+                    const estatus = normalizar(v?.estatus || 'Activa');
+                    if (estatus !== 'abierta' && estatus !== 'activa') return;
+
+                    let zona = identificarZona(v);
+                    // Heredar zona de la empresa si la vacante no tiene
+                    if (!zona && v.empresaId && empresas[v.empresaId]) {
+                        zona = identificarZona(empresas[v.empresaId]);
                     }
+                    if (!zona) return; // Sin zona definida → no se cuenta
 
-                    // Identificar zona más saturada
-                    if (demandaVacantes > maxVacantesSaturadas && porcentaje < 80) { 
-                        maxVacantesSaturadas = demandaVacantes; 
-                        zonaMasSaturadaNombre = nombreZona; 
-                    }
-
-                    sumaPorcentajes += porcentaje;
-
-                    // Guardar fila
-                    const semaforo = obtenerSemaforo(porcentaje);
-                    datosGlobalesZonas.push({ 
-                        zona: nombreZona, 
-                        empresas: infoZona.empresas, 
-                        totalVacantes: demandaVacantes, 
-                        coordinadores: coordinadores.map(c => c.nombreCompleto).join(', ') || '<em class="text-muted">Sin Coordinador</em>', 
-                        reclutadores: reclutadores.map(r => r.nombreCompleto).join(', ') || '<em class="text-muted">Sin Reclutador</em>', 
-                        numReclutadores,
-                        porcentaje, 
-                        categoriaSemáforo: semaforo.cat,
-                        semaforo
-                    });
+                    if (!mapaZonas[zona]) mapaZonas[zona] = { empresas: [], vacantes: 0 };
+                    const cantidad = parseInt(v.plazas) || parseInt(v.cupo) || 1;
+                    mapaZonas[zona].vacantes += cantidad;
+                    totalVacantesSistema += cantidad;
                 });
 
                 // ============================================================
-                // ACTUALIZAR KPIs
+                // 🧮 CALCULAR COBERTURA POR ZONA (DISTRIBUCIÓN PROPORCIONAL)
                 // ============================================================
-                const totalZonas = datosGlobalesZonas.length;
-                const promedio = Math.round(sumaPorcentajes / totalZonas);
-                document.getElementById('kpiPromedio').innerText = `${promedio}%`; 
-                document.getElementById('kpiSaturada').innerText = zonaMasSaturadaNombre; 
-                document.getElementById('kpiVacantesRiesgo').innerText = vacantesEnRiesgoTotales; 
-                document.getElementById('kpiPersonalSugerido').innerText = `+${reclutadoresFaltantesTotales} Recl.`; 
+                datosGlobalesZonas = [];
+                let sumaCobertura = 0;
+                let totalVacantesDescubiertas = 0;
+                let reclutadoresFaltantesTotales = 0;
+                let peorZona = { nombre: '-', porcentaje: 100 };
 
-                // Renderizar tabla
-                renderizarTabla(datosGlobalesZonas); 
+                for (const [nombreZona, datos] of Object.entries(mapaZonas)) {
+                    // Coordinadores: GLOBALES + asignados a esta zona
+                    const coordinadoresZona = todosLosUsuarios.filter(u => {
+                        if (!u.esCoordinador) return false;
+                        if (u.coberturaGlobal) return true;
+                        return u.zonasAsignadas.some(z => normalizar(z) === normalizar(nombreZona));
+                    });
+
+                    // Reclutadores: GLOBALES + asignados a esta zona
+                    const reclutadoresZona = todosLosUsuarios.filter(u => {
+                        if (!u.esReclutador) return false;
+                        if (u.coberturaGlobal) return true;
+                        return u.zonasAsignadas.some(z => normalizar(z) === normalizar(nombreZona));
+                    });
+
+                    const vacantesZona = datos.vacantes;
+                    const cobertura = calcularCoberturaPorZona(vacantesZona, capacidadTotalSistema, totalVacantesSistema);
+
+                    sumaCobertura += cobertura.porcentaje;
+                    totalVacantesDescubiertas += cobertura.vacantesDescubiertas;
+                    reclutadoresFaltantesTotales += cobertura.vacantesDescubiertas > 0 
+                        ? Math.ceil(cobertura.vacantesDescubiertas / CAPACIDAD_POR_RECLUTADOR) 
+                        : 0;
+
+                    if (cobertura.porcentaje < peorZona.porcentaje && vacantesZona > 0) {
+                        peorZona = { nombre: nombreZona, porcentaje: cobertura.porcentaje };
+                    }
+
+                    datosGlobalesZonas.push({
+                        zona: nombreZona,
+                        empresas: datos.empresas,
+                        vacantesActivas: vacantesZona,
+                        capacidadAsignada: cobertura.capacidadAsignada,
+                        coordinadores: coordinadoresZona.map(c => c.nombre).join(', ') || '<span class="text-danger">SIN COORDINADOR</span>',
+                        reclutadores: reclutadoresZona.map(r => r.nombre).join(', ') || '<span class="text-danger">SIN RECLUTADOR</span>',
+                        cobertura,
+                        vacantesDescubiertas: cobertura.vacantesDescubiertas
+                    });
+                }
+
+                // ============================================================
+                // 📊 ACTUALIZAR KPIs Y ALERTA GLOBAL
+                // ============================================================
+                const promedio = datosGlobalesZonas.length > 0 
+                    ? Math.round(sumaCobertura / datosGlobalesZonas.length) 
+                    : 0;
+                const reclutadoresNecesariosGlobal = totalVacantesDescubiertas > 0 
+                    ? Math.ceil(totalVacantesDescubiertas / CAPACIDAD_POR_RECLUTADOR) 
+                    : 0;
+
+                document.getElementById('kpiPromedio').innerText = `${promedio}%`;
+                document.getElementById('kpiCapacidadTotal').innerText = `${capacidadTotalSistema} vacantes`;
+                document.getElementById('kpiVacantesRiesgo').innerText = totalVacantesDescubiertas;
+                document.getElementById('kpiPersonalFaltante').innerText = `+${reclutadoresNecesariosGlobal}`;
+
+                // ⚠️ ALERTA GLOBAL
+                const alerta = document.getElementById('alertaSistema');
+                const textoAlerta = document.getElementById('textoAlertaSistema');
+                if (totalReclutadoresGlobal === 0) {
+                    alerta.className = 'card bg-danger text-white shadow-sm p-3 mb-4';
+                    textoAlerta.innerHTML = `<strong>⚠️ NO HAY RECLUTADORES EN EL SISTEMA.</strong> Capacidad: 0 vacantes. Necesitas contratar al menos ${reclutadoresNecesariosGlobal} reclutador(es).`;
+                } else if (promedio <= UMBRAL_CRITICO) {
+                    alerta.className = 'card bg-danger text-white shadow-sm p-3 mb-4';
+                    textoAlerta.innerHTML = `<strong>🔴 RIESGO CRÍTICO.</strong> Solo ${totalReclutadoresGlobal} reclutador(es) atendiendo TODO el sistema. Capacidad: ${capacidadTotalSistema} vacantes / Demanda: ${totalVacantesSistema}. Agrega ${reclutadoresNecesariosGlobal} reclutador(es) para cubrir la demanda.`;
+                } else if (promedio <= UMBRAL_BAJA) {
+                    alerta.className = 'card bg-warning text-dark shadow-sm p-3 mb-4';
+                    textoAlerta.innerHTML = `<strong>🟡 SOBRECARGA.</strong> ${totalReclutadoresGlobal} reclutador(es) → Capacidad: ${capacidadTotalSistema} vacantes / Demanda: ${totalVacantesSistema}. Agrega ${reclutadoresNecesariosGlobal} reclutador(es) para mejorar cobertura.`;
+                } else {
+                    alerta.className = 'card bg-success text-white shadow-sm p-3 mb-4';
+                    textoAlerta.innerHTML = `<strong>🟢 COBERTURA SUFICIENTE.</strong> ${totalReclutadoresGlobal} reclutador(es) → Capacidad: ${capacidadTotalSistema} vacantes / Demanda: ${totalVacantesSistema}. Margen adecuado.`;
+                }
+
+                renderizarTabla(datosGlobalesZonas);
 
             } catch (error) { 
-                console.error("❌ Error Firebase:", error); 
-                mostrarErrorGeneral(`Error de conexión: ${error.message}`);
-                reiniciarKPIs();
+                console.error("❌ Error:", error); 
+                mostrarErrorGeneral("Error de conexión: " + error.message);
             }
         }; 
 
-        function reiniciarKPIs() {
-            document.getElementById('kpiPromedio').innerText = '0%'; 
-            document.getElementById('kpiSaturada').innerText = '--'; 
-            document.getElementById('kpiVacantesRiesgo').innerText = '0'; 
-            document.getElementById('kpiPersonalSugerido').innerText = '+0 Recl.'; 
-        }
-
         // ============================================================
-        // RENDERIZAR TABLA
+        // 🖥️ RENDERIZAR TABLA
         // ============================================================
-        function renderizarTabla(listaZonas) { 
-            const tbody = document.getElementById('tbodyMatrizCobertura'); 
-            if (!tbody) return;
-            tbody.innerHTML = ''; 
+        function renderizarTabla(lista) {
+            const tbody = document.getElementById('tbodyMatrizCobertura');
+            tbody.innerHTML = '';
 
-            if (!listaZonas || listaZonas.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted">
-                    No hay datos para mostrar con este filtro.
+            if (!lista.length) {
+                tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted">
+                    No hay zonas con empresas o vacantes registradas.
                 </td></tr>`;
                 return;
             }
 
-            listaZonas.forEach(item => { 
-                const { semaforo } = item;
-                const tr = document.createElement('tr'); 
-                tr.innerHTML = ` 
-                    <td class="fw-bold text-dark">${item.zona}</td> 
-                    <td><small>${item.empresas.join(', ') || '<span class="text-muted">Sin empresas</span>'}</small></td> 
-                    <td><span class="badge bg-light text-dark border">${item.totalVacantes} plazas activas</span></td> 
-                    <td><small>${item.coordinadores}</small></td> 
-                    <td><small>${item.reclutadores}</small></td> 
-                    <td> 
-                        <div class="d-flex align-items-center justify-content-between mb-1"> 
-                            <span class="badge ${semaforo.clase} badge-semaforo">
-                                <span class="emoji-estatus">${semaforo.emoji}</span>
-                                ${item.porcentaje}% - ${semaforo.etiqueta}
-                            </span> 
-                        </div> 
-                        <div class="progress progress-slim"> 
-                            <div class="progress-bar ${semaforo.barra}" role="progressbar" 
-                                 style="width: ${item.porcentaje}%" 
-                                 aria-valuenow="${item.porcentaje}" aria-valuemin="0" aria-valuemax="100"></div> 
-                        </div> 
-                    </td> 
-                    <td class="text-center"> 
+            lista.forEach(item => {
+                const { cobertura } = item;
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="fw-bold">${item.zona}</td>
+                    <td><small>${item.empresas.join(', ') || '<span class="text-muted">Sin empresas</span>'}</small></td>
+                    <td><span class="badge bg-light text-dark border">${item.vacantesActivas}</span></td>
+                    <td>${item.capacidadAsignada}</td>
+                    <td><small>${item.coordinadores}</small></td>
+                    <td><small>${item.reclutadores}</small></td>
+                    <td>
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            <span class="badge ${cobertura.colorBadge} badge-semaforo">
+                                ${cobertura.emoji} ${cobertura.porcentaje}% — ${cobertura.etiqueta}
+                            </span>
+                        </div>
+                        <div class="progress progress-slim">
+                            <div class="progress-bar ${cobertura.colorBarra}" role="progressbar" 
+                                 style="width: ${cobertura.porcentaje}%" 
+                                 aria-valuenow="${cobertura.porcentaje}" aria-valuemin="0" aria-valuemax="100">
+                                ${cobertura.porcentaje}%
+                            </div>
+                        </div>
+                        ${item.vacantesDescubiertas > 0 
+                            ? `<small class="text-danger mt-1 d-block">⚠️ ${item.vacantesDescubiertas} vacantes sin cobertura</small>` 
+                            : ''}
+                    </td>
+                    <td class="text-center">
                         <button class="btn btn-sm btn-outline-primary" 
-                                title="Asignar personal a esta zona" 
+                                title="Asignar personal a esta zona"
                                 onclick="window.abrirModalAsignacion('${item.zona.replace(/'/g, "\\'")}')">
                             <i class="fa-solid fa-user-plus"></i>
-                        </button> 
-                    </td> 
-                `; 
-                tbody.appendChild(tr); 
-            }); 
-        } 
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
 
         // ============================================================
-        // FILTROS
+        // 🔍 FILTROS
         // ============================================================
         window.filtrarTabla = function(categoria, btn) { 
             document.querySelectorAll('.btn-group .btn').forEach(b => b.classList.remove('active')); 
@@ -546,13 +523,12 @@
             if (categoria === 'TODOS') { 
                 renderizarTabla(datosGlobalesZonas); 
             } else { 
-                const filtrados = datosGlobalesZonas.filter(z => z.categoriaSemáforo === categoria); 
-                renderizarTabla(filtrados); 
+                renderizarTabla(datosGlobalesZonas.filter(z => z.cobertura.categoria === categoria)); 
             }
         }; 
 
         // ============================================================
-        // MODAL: ABRIR Y CARGAR USUARIOS
+        // 📝 MODAL Y ASIGNACIÓN
         // ============================================================
         window.abrirModalAsignacion = function(nombreZona) { 
             document.getElementById('modalNombreZona').innerText = nombreZona; 
@@ -561,64 +537,44 @@
             select.innerHTML = '<option value="">-- Seleccionar Colaborador --</option>'; 
 
             todosLosUsuarios.forEach(u => {
-                const zonasTxt = u.zonasLista.length > 0 ? u.zonasLista.join(', ') : 'General / Sin Zona';
-                select.innerHTML += `<option value="${u.id}">
-                    ${u.nombreCompleto} (${u.rolCalculado}) — Asignado: ${zonasTxt}
-                </option>`; 
+                const tipo = u.esCoordinador ? 'Coordinador' : u.esReclutador ? 'Reclutador' : u.rol;
+                const alcance = u.coberturaGlobal ? '🌐 COBERTURA GLOBAL' : `Zonas: ${u.zonasAsignadas.join(', ') || 'Ninguna'}`;
+                select.innerHTML += `<option value="${u.id}">${u.nombre} (${tipo}) — ${alcance}</option>`;
             }); 
 
-            modalAsignacionBS?.show();
+            modalAsignacionBS.show();
         }; 
 
-        // ============================================================
-        // GUARDAR ASIGNACIÓN EN FIREBASE
-        // ============================================================
         window.guardarAsignacionRapida = async function() { 
-            const zonaDestino = (document.getElementById('modalZonaId')?.value || '').trim(); 
-            const usuarioId = (document.getElementById('selectColaboradorModal')?.value || '').trim(); 
+            const zonaDestino = document.getElementById('modalZonaId').value.trim(); 
+            const usuarioId = document.getElementById('selectColaboradorModal').value.trim(); 
 
-            if (!usuarioId) { 
-                alert("⚠️ Por favor selecciona a un colaborador."); 
-                return; 
-            }
-            if (!zonaDestino) {
-                alert("⚠️ No se identificó la zona destino.");
-                return;
-            }
+            if (!usuarioId) { alert("⚠️ Selecciona un colaborador."); return; }
 
             try { 
                 const { update, ref } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js"); 
-                const usrTarget = todosLosUsuarios.find(u => u.id === usuarioId);
+                const usr = todosLosUsuarios.find(u => u.id === usuarioId);
+                if (!usr) throw new Error("Usuario no encontrado");
 
-                if (!usrTarget) {
-                    throw new Error("Colaborador no encontrado");
-                }
+                // Agregar zona SIN duplicar y SIN "General"
+                const nuevasZonas = [...new Set([...usr.zonasAsignadas, zonaDestino])];
+                const payload = { zonasOperacion: nuevasZonas };
 
-                // Construir payload: agregar zona sin duplicados
-                let payloadActualizacion = {};
-                const zonaNormalizada = zonaDestino;
-
-                if (Array.isArray(usrTarget.zonasOperacion)) { 
-                    const nuevasZonas = [...new Set([...usrTarget.zonasOperacion, zonaNormalizada])]; 
-                    payloadActualizacion.zonasOperacion = nuevasZonas; 
-                } else if (Array.isArray(usrTarget.zonas)) { 
-                    const nuevasZonas = [...new Set([...usrTarget.zonas, zonaNormalizada])]; 
-                    payloadActualizacion.zonas = nuevasZonas; 
-                } else {
-                    payloadActualizacion.zona = zonaNormalizada;
-                }
-
-                await update(ref(db, `usuarios/${usuarioId}`), payloadActualizacion);
-
-                // Cerrar y recargar
-                modalAsignacionBS?.hide(); 
+                await update(ref(db, `usuarios/${usuarioId}`), payload);
+                modalAsignacionBS.hide(); 
                 await window.cargarMatrizCobertura(); 
 
             } catch (e) { 
-                console.error("❌ Error al guardar:", e);
-                alert(`Error al guardar asignación: ${e.message}`); 
+                alert("Error al guardar: " + e.message); 
             }
         }; 
+
+        function mostrarErrorGeneral(msg) {
+            document.getElementById('tbodyMatrizCobertura').innerHTML = `
+                <tr><td colspan="8" class="text-center py-4 text-danger">
+                    <i class="fa-solid fa-circle-exclamation me-2"></i>${msg}
+                </td></tr>`;
+        }
 
     </script> 
 </body>
