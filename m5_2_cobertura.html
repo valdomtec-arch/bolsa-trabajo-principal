@@ -1,440 +1,625 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!DOCTYPE html> 
+<html lang="es"> 
+<head> 
+    <meta charset="UTF-8"> 
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
     <title>M5.2 - Cobertura Territorial y Capacidad Operativa</title>
     <!-- Bootstrap 5 CSS & FontAwesome -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <style>
-        .kpi-card { border-left: 4px solid; transition: transform 0.2s; }
-        .kpi-card:hover { transform: translateY(-3px); }
-        .badge-semaforo { font-size: 0.9rem; padding: 6px 12px; border-radius: 6px; }
-        .progress-slim { height: 8px; border-radius: 4px; }
-        .cursor-pointer { cursor: pointer; }
-    </style>
-</head>
-<body class="bg-light p-4">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"> 
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"> 
+    <style> 
+        .kpi-card { 
+            border-left: 4px solid; 
+            transition: transform 0.2s ease, box-shadow 0.2s ease; 
+        } 
+        .kpi-card:hover { 
+            transform: translateY(-3px); 
+            box-shadow: 0 0.5rem 1rem rgba(0,0,0,.12)!important;
+        } 
+        .badge-semaforo { 
+            font-size: 0.9rem; 
+            padding: 6px 12px; 
+            border-radius: 6px; 
+            white-space: nowrap;
+        } 
+        .progress-slim { 
+            height: 10px; 
+            border-radius: 5px; 
+        } 
+        .cursor-pointer { 
+            cursor: pointer; 
+        } 
+        .table th { 
+            border-top: none;
+        }
+        .table td {
+            vertical-align: middle;
+        }
+        .emoji-estatus {
+            margin-right: 6px;
+        }
+    </style> 
+</head> 
+<body class="bg-light p-4"> 
+    <div class="container-fluid"> 
 
-<div class="container-fluid">
-    <!-- ENCABEZADO Y TITULO -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h3 class="fw-bold mb-0 text-dark"><i class="fa-solid fa-map-location-dot me-2 text-primary"></i>M5.2 Cobertura Territorial y Capacidad</h3>
-            <small class="text-muted">Balance dinámico de personal, cuota de vacantes (M2) y estatus de atención por zona geográfica</small>
-        </div>
-        <button class="btn btn-outline-primary" onclick="window.cargarMatrizCobertura()"><i class="fa-solid fa-rotate me-1"></i> Actualizar Matriz</button>
-    </div>
+        <!-- ENCABEZADO Y TÍTULO --> 
+        <div class="d-flex justify-content-between align-items-center mb-4"> 
+            <div> 
+                <h3 class="fw-bold mb-0 text-dark">
+                    <i class="fa-solid fa-map-location-dot me-2 text-primary"></i>
+                    M5.2 Cobertura Territorial y Capacidad Operativa
+                </h3> 
+                <small class="text-muted">
+                    Balance dinámico de personal, cuota de vacantes (M2) y estatus de atención por zona geográfica
+                </small>
+            </div>
+            <button class="btn btn-outline-primary" onclick="window.cargarMatrizCobertura()">
+                <i class="fa-solid fa-rotate me-1"></i> Actualizar Matriz
+            </button>
+        </div> 
 
-    <!-- TARJETAS DE MÉTRICAS GLOBALES (KPIs) -->
-    <div class="row g-3 mb-4">
-        <div class="col-md-3">
-            <div class="card kpi-card border-primary shadow-sm p-3">
-                <span class="text-muted small fw-bold">COBERTURA PROMEDIO GLOBAL</span>
-                <div class="d-flex align-items-center justify-content-between mt-2">
-                    <h2 class="fw-bold mb-0" id="kpiPromedio">0%</h2>
-                    <i class="fa-solid fa-chart-line fa-2x text-primary opacity-50"></i>
+        <!-- TARJETAS DE MÉTRICAS GLOBALES (KPIs) --> 
+        <div class="row g-3 mb-4"> 
+            <div class="col-md-3"> 
+                <div class="card kpi-card border-primary shadow-sm p-3 h-100"> 
+                    <span class="text-muted small fw-bold">COBERTURA PROMEDIO GLOBAL</span> 
+                    <div class="d-flex align-items-center justify-content-between mt-2"> 
+                        <h2 class="fw-bold mb-0 text-primary" id="kpiPromedio">0%</h2> 
+                        <i class="fa-solid fa-chart-line fa-2x text-primary opacity-50"></i> 
+                    </div> 
+                </div> 
+            </div> 
+            <div class="col-md-3"> 
+                <div class="card kpi-card border-warning shadow-sm p-3 h-100"> 
+                    <span class="text-muted small fw-bold">ZONA MÁS SATURADA</span> 
+                    <div class="d-flex align-items-center justify-content-between mt-2"> 
+                        <h4 class="fw-bold mb-0 text-truncate text-dark" id="kpiSaturada">--</h4> 
+                        <i class="fa-solid fa-triangle-exclamation fa-2x text-warning opacity-50"></i> 
+                    </div> 
+                </div> 
+            </div> 
+            <div class="col-md-3"> 
+                <div class="card kpi-card border-danger shadow-sm p-3 h-100"> 
+                    <span class="text-muted small fw-bold">VACANTES EN RIESGO (M2)</span> 
+                    <div class="d-flex align-items-center justify-content-between mt-2"> 
+                        <h2 class="fw-bold mb-0 text-danger" id="kpiVacantesRiesgo">0</h2>
+                        <i class="fa-solid fa-user-clock fa-2x text-danger opacity-50"></i> 
+                    </div> 
+                </div> 
+            </div> 
+            <div class="col-md-3"> 
+                <div class="card kpi-card border-success shadow-sm p-3 h-100"> 
+                    <span class="text-muted small fw-bold">PLANTILLA NECESARIA SUGERIDA</span> 
+                    <div class="d-flex align-items-center justify-content-between mt-2"> 
+                        <h2 class="fw-bold mb-0 text-success" id="kpiPersonalSugerido">+0 Recl.</h2> 
+                        <i class="fa-solid fa-user-plus fa-2x text-success opacity-50"></i> 
+                    </div> 
+                </div> 
+            </div> 
+        </div> 
+
+        <!-- FILTROS INTERACTIVOS POR SEMÁFORO --> 
+        <div class="card shadow-sm mb-4"> 
+            <div class="card-body d-flex align-items-center justify-content-between py-2 flex-wrap gap-2"> 
+                <div class="fw-bold text-secondary">
+                    <i class="fa-solid fa-filter me-2"></i>Filtrar Zonas:
+                </div> 
+                <div class="btn-group" role="group"> 
+                    <button type="button" class="btn btn-sm btn-outline-secondary active" 
+                            onclick="window.filtrarTabla('TODOS', this)">Todas</button> 
+                    <button type="button" class="btn btn-sm btn-outline-danger" 
+                            onclick="window.filtrarTabla('CRITICO', this)"> Críticas / Sin Atención (0-35%)</button> 
+                    <button type="button" class="btn btn-sm btn-outline-warning text-dark" 
+                            onclick="window.filtrarTabla('SOBRECARGA', this)"> En Sobrecarga (36-70%)</button> 
+                    <button type="button" class="btn btn-sm btn-outline-success" 
+                            onclick="window.filtrarTabla('OPTIMO', this)"> Óptimas (71-100%)</button> 
                 </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card kpi-card border-warning shadow-sm p-3">
-                <span class="text-muted small fw-bold">ZONA MÁS SATURADA</span>
-                <div class="d-flex align-items-center justify-content-between mt-2">
-                    <h4 class="fw-bold mb-0 text-truncate" id="kpiSaturada">--</h4>
-                    <i class="fa-solid fa-triangle-exclamation fa-2x text-warning opacity-50"></i>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card kpi-card border-danger shadow-sm p-3">
-                <span class="text-muted small fw-bold">VACANTES EN RIESGO (M2)</span>
-                <div class="d-flex align-items-center justify-content-between mt-2">
-                    <h2 class="fw-bold mb-0 text-danger" id="kpiVacantesRiesgo">0</h2>
-                    <i class="fa-solid fa-user-clock fa-2x text-danger opacity-50"></i>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card kpi-card border-success shadow-sm p-3">
-                <span class="text-muted small fw-bold">PLANTILLA NECESARIA SUGERIDA</span>
-                <div class="d-flex align-items-center justify-content-between mt-2">
-                    <h2 class="fw-bold mb-0 text-success" id="kpiPersonalSugerido">+0 Recl.</h2>
-                    <i class="fa-solid fa-user-plus fa-2x text-success opacity-50"></i>
-                </div>
-            </div>
-        </div>
+            </div> 
+        </div> 
+
+        <!-- MATRIZ PRINCIPAL M5.2 --> 
+        <div class="card shadow-sm"> 
+            <div class="card-body p-0"> 
+                <div class="table-responsive"> 
+                    <table class="table table-hover align-middle mb-0"> 
+                        <thead class="table-dark"> 
+                            <tr>
+                                <th>Zona / Región</th> 
+                                <th>Empresas Vinculadas (M1)</th> 
+                                <th>Demandas de Vacantes (M2)</th> 
+                                <th>Coordinación</th> 
+                                <th>Reclutadores</th> 
+                                <th style="width: 240px;">Semáforo % Cobertura</th> 
+                                <th class="text-center">Acciones</th> 
+                            </tr>
+                        </thead> 
+                        <tbody id="tbodyMatrizCobertura"> 
+                            <tr>
+                                <td colspan="7" class="text-center py-4 text-muted">
+                                    <i class="fa-solid fa-spinner fa-spin me-2"></i>Conectando con base de datos...
+                                </td>
+                            </tr> 
+                        </tbody> 
+                    </table> 
+                </div> 
+            </div> 
+        </div> 
+
     </div>
 
-    <!-- FILTROS INTERACTIVOS POR SEMÁFORO -->
-    <div class="card shadow-sm mb-4">
-        <div class="card-body d-flex align-items-center justify-content-between py-2">
-            <div class="fw-bold text-secondary"><i class="fa-solid fa-filter me-2"></i>Filtrar Zonas:</div>
-            <div class="btn-group" role="group">
-                <button type="button" class="btn btn-sm btn-outline-secondary active" onclick="window.filtrarTabla('TODOS', this)">Todas</button>
-                <button type="button" class="btn btn-sm btn-outline-danger" onclick="window.filtrarTabla('CRITICO', this)">🔴 Críticas / Sin Atención (0-35%)</button>
-                <button type="button" class="btn btn-sm btn-outline-warning text-dark" onclick="window.filtrarTabla('SOBRECARGA', this)">🟠 En Sobrecarga (36-70%)</button>
-                <button type="button" class="btn btn-sm btn-outline-success" onclick="window.filtrarTabla('OPTIMO', this)">🟢 Óptimas (71-100%)</button>
+    <!-- MODAL PARA ASIGNACIÓN RÁPIDA DE RECLUTADORES --> 
+    <div class="modal fade" id="modalAsignarPersonal" tabindex="-1" aria-hidden="true"> 
+        <div class="modal-dialog modal-dialog-centered"> 
+            <div class="modal-content"> 
+                <div class="modal-header bg-primary text-white"> 
+                    <h5 class="modal-title">
+                        <i class="fa-solid fa-user-plus me-2"></i>Asignar Cobertura Directa
+                    </h5> 
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div> 
+                <div class="modal-body"> 
+                    <p>Vincula un reclutador o coordinador directamente a la zona: 
+                        <strong id="modalNombreZona" class="text-primary">--</strong>
+                    </p>
+                    <form id="formAsignacionRapida"> 
+                        <input type="hidden" id="modalZonaId"> 
+                        <div class="mb-3"> 
+                            <label class="form-label fw-bold">Seleccionar Colaborador:</label> 
+                            <select class="form-select" id="selectColaboradorModal" required> 
+                                <option value="">Cargando personal...</option> 
+                            </select> 
+                        </div> 
+                    </form> 
+                </div> 
+                <div class="modal-footer"> 
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button> 
+                    <button type="button" class="btn btn-primary" 
+                            onclick="window.guardarAsignacionRapida()">
+                        <i class="fa-solid fa-save me-1"></i> Guardar Asignación
+                    </button> 
+                </div> 
             </div>
         </div>
-    </div>
+    </div> 
 
-    <!-- MATRIZ PRINCIPAL M5.2 -->
-    <div class="card shadow-sm">
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead class="table-dark">
-                        <tr>
-                            <th>Zona / Región</th>
-                            <th>Empresas Vinculadas (M1)</th>
-                            <th>Demandas de Vacantes (M2)</th>
-                            <th>Coordinación</th>
-                            <th>Reclutadores</th>
-                            <th style="width: 220px;">Semáforo % Cobertura</th>
-                            <th class="text-center">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tbodyMatrizCobertura">
-                        <tr><td colspan="7" class="text-center py-4 text-muted"><i class="fa-solid fa-spinner fa-spin me-2"></i>Cargando información de Firebase...</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-</div>
+    <!-- Bootstrap 5 JS Bundle & Firebase --> 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/bootstrap.bundle.min.js"></script> 
+    <script type="module"> 
+        // ============================================================
+        // ✅ CREDENCIALES DE FIREBASE — YA CONFIGURADAS
+        // ============================================================
+        const firebaseConfig = { 
+            apiKey: "AQ.Ab8RN6IBo1yotAZAix-cqbpNLLnGq2hfbpSh3Kq2nZ449PNtAw",
+            authDomain: "bolsa-de-trabajo-a52e4.firebaseapp.com", 
+            databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com", 
+            projectId: "bolsa-de-trabajo-a52e4", 
+            storageBucket: "bolsa-de-trabajo-a52e4.appspot.com", 
+            messagingSenderId: "592492733212", 
+            appId: "PENDIENTE" // ← Pega tu appId aquí cuando lo tengas
+        };
 
-<!-- MODAL PARA ASIGNACIÓN RÁPIDA DE RECLUTADORES -->
-<div class="modal fade" id="modalAsignarPersonal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title"><i class="fa-solid fa-user-plus me-2"></i>Asignar Cobertura Directa</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <p>Vincula un reclutador o coordinador directamente a la zona: <strong id="modalNombreZona" class="text-primary">--</strong></p>
-                <form id="formAsignacionRapida">
-                    <input type="hidden" id="modalZonaId">
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Seleccionar Colaborador:</label>
-                        <select class="form-select" id="selectColaboradorModal" required>
-                            <option value="">Cargando personal...</option>
-                        </select>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" onclick="window.guardarAsignacionRapida()"><i class="fa-solid fa-save me-1"></i> Guardar Asignación</button>
-            </div>
-        </div>
-    </div>
-</div>
+        // Capacidad estándar: vacantes que puede atender 1 reclutador
+        const CAPACIDAD_VACANTES_POR_RECLUTADOR = 15;
 
-<!-- Bootstrap 5 JS Bundle & Firebase JS SDK -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/bootstrap.bundle.min.js"></script>
+        // Umbrales del semáforo
+        const UMBRAL_CRITICO = 35;
+        const UMBRAL_SOBRECARGA = 70;
 
-<script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, get, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        // Variables globales
+        let datosGlobalesZonas = []; 
+        let todosLosUsuarios = []; 
+        let modalAsignacionBS = null;
+        let app = null;
+        let db = null;
 
-    // Configuración de Firebase
-    const firebaseConfig = {
-        apiKey: "TU_API_KEY",
-        authDomain: "TU_PROYECTO.firebaseapp.com",
-        databaseURL: "https://TU_PROYECTO.firebaseio.com",
-        projectId: "TU_PROYECTO_ID",
-        storageBucket: "TU_PROYECTO.appspot.com",
-        messagingSenderId: "TU_SENDER_ID",
-        appId: "TU_APP_ID"
-    };
+        // ============================================================
+        // INICIALIZACIÓN
+        // ============================================================
+        window.addEventListener('DOMContentLoaded', async () => { 
+            try {
+                // Inicializar Firebase de forma segura
+                const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js"); 
+                const { getDatabase } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js"); 
 
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
+                // Quitar appId si no está definido para que no falle
+                const configLimpia = {...firebaseConfig};
+                if (configLimpia.appId === "PENDIENTE") delete configLimpia.appId;
 
-    const CAPACIDAD_VACANTES_POR_RECLUTADOR = 15;
-    let datosGlobalesZonas = [];
-    let todosLosUsuarios = [];
-    let modalAsignacionBS = null;
+                app = initializeApp(configLimpia); 
+                db = getDatabase(app); 
 
-    window.addEventListener('DOMContentLoaded', () => {
-        const elemModal = document.getElementById('modalAsignarPersonal');
-        if (elemModal) modalAsignacionBS = new bootstrap.Modal(elemModal);
-        window.cargarMatrizCobertura();
-    });
-
-    // Función auxiliar para extraer arrays de zonas asociadas al usuario
-    function obtenerZonasUsuario(usuario) {
-        let zonas = [];
-        if (usuario.zona) zonas.push(usuario.zona);
-        if (Array.isArray(usuario.zonas)) zonas.push(...usuario.zonas);
-        if (Array.isArray(usuario.zonasOperacion)) zonas.push(...usuario.zonasOperacion);
-        return Array.from(new Set(zonas));
-    }
-
-    // Normaliza una cadena de texto para comparaciones flexibles (quita espacios, acentos y mayúsculas)
-    function normalizarTexto(txt) {
-        if (!txt) return '';
-        return txt.toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-    }
-
-    // Función para mapear una entidad a su zona limpia según su ubicación o nombre
-    function determinarZonaLimpia(entidad) {
-        const ubicacion = entidad.ubicacion || entidad.zona || entidad.municipio || '';
-        const txtNorm = normalizarTexto(ubicacion);
-
-        if (txtNorm.includes('apodaca')) return 'Apodaca';
-        if (txtNorm.includes('santa catarina')) return 'Santa Catarina';
-        if (txtNorm.includes('cienaga de flores') || txtNorm.includes('cienega de flores')) return 'Ciénaga de Flores';
-        if (txtNorm.includes('pesqueria') || txtNorm.includes('parque kia')) return 'Pesquería';
-        if (txtNorm.includes('salinas victoria')) return 'Salinas Victoria';
-        if (txtNorm.includes('guadalajara') || txtNorm.includes('tlajomulco') || txtNorm.includes('tlaquepaque')) return 'Guadalajara / Jal.';
-        if (txtNorm.includes('monterrey')) return 'Monterrey';
-
-        return ubicacion.trim() || 'General';
-    }
-
-    window.cargarMatrizCobertura = async function() {
-        const tbody = document.getElementById('tbodyMatrizCobertura');
-        tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted"><i class="fa-solid fa-spinner fa-spin me-2"></i>Conectando con Firebase...</td></tr>`;
-
-        try {
-            const [snapEmpresas, snapVacantes, snapUsuarios] = await Promise.all([
-                get(ref(db, 'empresas')),
-                get(ref(db, 'vacantes')),
-                get(ref(db, 'usuarios'))
-            ]);
-
-            const empresas = snapEmpresas.exists() ? snapEmpresas.val() : {};
-            const vacantes = snapVacantes.exists() ? snapVacantes.val() : {};
-            const usuarios = snapUsuarios.exists() ? snapUsuarios.val() : {};
-
-            const arrayEmpresas = Object.keys(empresas).map(k => ({ id: k, ...empresas[k] }));
-            const arrayVacantes = Object.keys(vacantes).map(k => ({ id: k, ...vacantes[k] }));
-            
-            // Mapeo unificado de usuarios adaptado a estructuras simples y complejas
-            todosLosUsuarios = Object.keys(usuarios).map(k => {
-                const u = usuarios[k];
-                const rolCalculado = u.rol || u.rolNombre || 'Sin Rol';
-                const zonasLista = obtenerZonasUsuario(u);
-                return {
-                    id: k,
-                    ...u,
-                    nombreCompleto: u.nombre || u.alias || u.nombreCompleto || 'Usuario Desconocido',
-                    rolCalculado: rolCalculado,
-                    zonasLista: zonasLista
-                };
-            });
-
-            const mapeoZonas = {};
-
-            // Mapeo dinámico de empresas por zona unificada
-            arrayEmpresas.forEach(emp => {
-                const zonaLimpia = determinarZonaLimpia(emp);
-                if (!mapeoZonas[zonaLimpia]) mapeoZonas[zonaLimpia] = { empresas: [], totalVacantes: 0 };
-                const nombreEmpresa = emp.nombre || emp.nombreComercial || 'Empresa sin nombre';
-                if (!mapeoZonas[zonaLimpia].empresas.includes(nombreEmpresa)) {
-                    mapeoZonas[zonaLimpia].empresas.push(nombreEmpresa);
+                // Inicializar modal
+                const elemModal = document.getElementById('modalAsignarPersonal'); 
+                if (elemModal) {
+                    modalAsignacionBS = new bootstrap.Modal(elemModal); 
+                    elemModal.addEventListener('hidden.bs.modal', () => {
+                        document.getElementById('selectColaboradorModal').value = '';
+                    });
                 }
-            });
 
-            // Mapeo dinámico de vacantes por zona unificada
-            arrayVacantes.forEach(v => {
-                const estatus = (v.estatus || 'Activa').toLowerCase();
-                if (estatus === 'abierta' || estatus === 'activa') {
-                    let zonaLimpia = determinarZonaLimpia(v);
-                    
-                    // Si la vacante no tiene zona explicita, hereda la de su empresa vinculada
-                    if (zonaLimpia === 'General' && v.empresaId && empresas[v.empresaId]) {
-                        zonaLimpia = determinarZonaLimpia(empresas[v.empresaId]);
+                // Cargar datos al iniciar
+                await window.cargarMatrizCobertura(); 
+
+            } catch (err) {
+                console.error("❌ Error al inicializar:", err);
+                mostrarErrorGeneral("Error de inicialización: " + err.message);
+            }
+        }); 
+
+        // ============================================================
+        // FUNCIONES AUXILIARES
+        // ============================================================
+
+        /** Normalizar texto para comparaciones */
+        function normalizarTexto(txt) { 
+            if (!txt || typeof txt !== 'string') return ''; 
+            return txt.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim(); 
+        } 
+
+        /** Extraer todas las zonas asociadas a un usuario */
+        function obtenerZonasUsuario(usuario) { 
+            if (!usuario || typeof usuario !== 'object') return [];
+            let zonas = []; 
+            if (usuario.zona) zonas.push(String(usuario.zona)); 
+            if (Array.isArray(usuario.zonas)) zonas.push(...usuario.zonas.map(String)); 
+            if (Array.isArray(usuario.zonasOperacion)) zonas.push(...usuario.zonasOperacion.map(String)); 
+            return [...new Set(zonas.map(z => z.trim()).filter(z => z))]; 
+        } 
+
+        /** Determinar zona estandarizada desde ubicación */
+        function determinarZonaLimpia(entidad) { 
+            if (!entidad || typeof entidad !== 'object') return 'General';
+            const ubicacion = String(entidad.ubicacion || entidad.zona || entidad.municipio || '');
+            const txtNorm = normalizarTexto(ubicacion);
+
+            if (txtNorm.includes('apodaca')) return 'Apodaca';
+            if (txtNorm.includes('santa catarina')) return 'Santa Catarina'; 
+            if (txtNorm.includes('cienaga de flores') || txtNorm.includes('cienega de flores')) return 'Ciénaga de Flores'; 
+            if (txtNorm.includes('pesqueria') || txtNorm.includes('parque kia')) return 'Pesquería'; 
+            if (txtNorm.includes('salinas victoria')) return 'Salinas Victoria'; 
+            if (txtNorm.includes('guadalajara') || txtNorm.includes('tlajomulco') || txtNorm.includes('tlaquepaque')) return 'Guadalajara / Jal.'; 
+            if (txtNorm.includes('monterrey')) return 'Monterrey'; 
+
+            return ubicacion.trim() || 'General'; 
+        } 
+
+        /** Obtener clase y categoría semáforo */
+        function obtenerSemaforo(porcentaje) {
+            if (porcentaje <= UMBRAL_CRITICO) return { cat: 'CRITICO', clase: 'bg-danger text-white', barra: 'bg-danger', etiqueta: 'SIN ATENCIÓN / CRÍTICA', emoji: '🚨' };
+            if (porcentaje <= UMBRAL_SOBRECARGA) return { cat: 'SOBRECARGA', clase: 'bg-warning text-dark', barra: 'bg-warning', etiqueta: 'COBERTURA BAJA', emoji: '⚠️' };
+            return { cat: 'OPTIMO', clase: 'bg-success text-white', barra: 'bg-success', etiqueta: 'COBERTURA ÓPTIMA', emoji: '✅' };
+        }
+
+        /** Mostrar error en tabla */
+        function mostrarErrorGeneral(mensaje) {
+            const tbody = document.getElementById('tbodyMatrizCobertura');
+            if (tbody) {
+                tbody.innerHTML = `
+                    <tr><td colspan="7" class="text-center py-4 text-danger">
+                        <i class="fa-solid fa-circle-exclamation me-2"></i><strong>${mensaje}</strong>
+                    </td></tr>`;
+            }
+        }
+
+        // ============================================================
+        // CARGA PRINCIPAL DE DATOS
+        // ============================================================
+        window.cargarMatrizCobertura = async function() { 
+            const tbody = document.getElementById('tbodyMatrizCobertura');
+            if (!tbody || !db) return;
+
+            tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted">
+                <i class="fa-solid fa-spinner fa-spin me-2"></i>Consultando datos...
+            </td></tr>`;
+
+            try { 
+                const { get, ref } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js"); 
+
+                // Leer todas las colecciones en paralelo
+                const [snapEmpresas, snapVacantes, snapUsuarios] = await Promise.all([ 
+                    get(ref(db, 'empresas')), 
+                    get(ref(db, 'vacantes')), 
+                    get(ref(db, 'usuarios')) 
+                ]); 
+
+                // Convertir a arreglos seguros
+                const empresas = snapEmpresas.exists() ? snapEmpresas.val() : {}; 
+                const vacantes = snapVacantes.exists() ? snapVacantes.val() : {}; 
+                const usuarios = snapUsuarios.exists() ? snapUsuarios.val() : {}; 
+
+                const arrayEmpresas = Object.entries(empresas).map(([id, e]) => ({ id, ...e }));
+                const arrayVacantes = Object.entries(vacantes).map(([id, v]) => ({ id, ...v }));
+
+                // Procesar usuarios
+                todosLosUsuarios = Object.entries(usuarios).map(([id, u]) => { 
+                    const rolCalculado = String(u?.rol || u?.rolNombre || 'Sin Rol').trim(); 
+                    const zonasLista = obtenerZonasUsuario(u); 
+                    return { 
+                        id, 
+                        nombreCompleto: String(u?.nombre || u?.alias || u?.nombreCompleto || 'Usuario Desconocido').trim(), 
+                        rolCalculado, 
+                        zonasLista,
+                        esGlobal: Boolean(u?.esGlobal || u?.todasLasEmpresas)
+                    };
+                }); 
+
+                // ============================================================
+                // AGRUPAR POR ZONAS
+                // ============================================================
+                const mapeoZonas = {};
+
+                // Empresas por zona
+                arrayEmpresas.forEach(emp => { 
+                    const zonaLimpia = determinarZonaLimpia(emp); 
+                    if (!mapeoZonas[zonaLimpia]) {
+                        mapeoZonas[zonaLimpia] = { empresas: [], totalVacantes: 0 };
+                    }
+                    const nombreEmpresa = String(emp.nombre || emp.nombreComercial || 'Empresa sin nombre').trim(); 
+                    if (!mapeoZonas[zonaLimpia].empresas.includes(nombreEmpresa)) {
+                        mapeoZonas[zonaLimpia].empresas.push(nombreEmpresa); 
+                    }
+                }); 
+
+                // Vacantes activas por zona
+                arrayVacantes.forEach(v => { 
+                    const estatus = normalizarTexto(v?.estatus || 'Activa'); 
+                    if (estatus !== 'abierta' && estatus !== 'activa') return;
+
+                    let zonaLimpia = determinarZonaLimpia(v); 
+                    // Heredar zona de la empresa si la vacante no tiene
+                    if (zonaLimpia === 'General' && v?.empresaId && empresas[v.empresaId]) { 
+                        zonaLimpia = determinarZonaLimpia(empresas[v.empresaId]); 
+                    }
+                    if (!mapeoZonas[zonaLimpia]) {
+                        mapeoZonas[zonaLimpia] = { empresas: [], totalVacantes: 0 };
+                    }
+                    const cantidad = Math.max(0, parseInt(v?.plazas || v?.cupo || 1));
+                    mapeoZonas[zonaLimpia].totalVacantes += cantidad; 
+                }); 
+
+                // ============================================================
+                // CALCULAR COBERTURA Y MÉTRICAS
+                // ============================================================
+                datosGlobalesZonas = []; 
+                let sumaPorcentajes = 0; 
+                let maxVacantesSaturadas = -1; 
+                let zonaMasSaturadaNombre = 'Ninguna'; 
+                let vacantesEnRiesgoTotales = 0; 
+                let reclutadoresFaltantesTotales = 0; 
+                const listaZonas = Object.keys(mapeoZonas);
+
+                if (listaZonas.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted">
+                        <i class="fa-solid fa-info-circle me-2"></i>No hay empresas o vacantes registradas.
+                    </td></tr>`;
+                    reiniciarKPIs();
+                    return;
+                }
+
+                listaZonas.forEach(nombreZona => { 
+                    const infoZona = mapeoZonas[nombreZona];
+
+                    // Coordinadores asignados a la zona
+                    const coordinadores = todosLosUsuarios.filter(u => { 
+                        const rolNorm = normalizarTexto(u.rolCalculado); 
+                        const esCoord = rolNorm.includes('coordinador') || rolNorm.includes('supervisor'); 
+                        if (!esCoord) return false; 
+                        if (u.esGlobal) return true; 
+                        return u.zonasLista.some(z => normalizarTexto(z) === normalizarTexto(nombreZona) || normalizarTexto(z) === 'general'); 
+                    });
+
+                    // Reclutadores asignados a la zona
+                    const reclutadores = todosLosUsuarios.filter(u => { 
+                        const rolNorm = normalizarTexto(u.rolCalculado); 
+                        const esReclutador = rolNorm.includes('reclutador'); 
+                        if (!esReclutador) return false; 
+                        if (u.esGlobal) return true; 
+                        return u.zonasLista.some(z => normalizarTexto(z) === normalizarTexto(nombreZona) || normalizarTexto(z) === 'general'); 
+                    });
+
+                    const numReclutadores = reclutadores.length; 
+                    const demandaVacantes = infoZona.totalVacantes; 
+                    const ofertaCapacidad = numReclutadores * CAPACIDAD_VACANTES_POR_RECLUTADOR;
+
+                    // Calcular porcentaje de cobertura
+                    let porcentaje = 100;
+                    if (demandaVacantes > 0) {
+                        porcentaje = Math.round((ofertaCapacidad / demandaVacantes) * 100); 
+                        if (porcentaje > 100) porcentaje = 100;
                     }
 
-                    if (!mapeoZonas[zonaLimpia]) mapeoZonas[zonaLimpia] = { empresas: [], totalVacantes: 0 };
-                    mapeoZonas[zonaLimpia].totalVacantes += (parseInt(v.plazas) || parseInt(v.cupo) || 1);
-                }
-            });
+                    // Vacantes sin atención y reclutadores necesarios
+                    if (demandaVacantes > 0 && porcentaje < UMBRAL_SOBRECARGA) {
+                        const vacantesDescubiertas = Math.max(0, demandaVacantes - ofertaCapacidad); 
+                        vacantesEnRiesgoTotales += vacantesDescubiertas; 
+                        const necesarios = Math.ceil(vacantesDescubiertas / CAPACIDAD_VACANTES_POR_RECLUTADOR);
+                        if (necesarios > 0) reclutadoresFaltantesTotales += necesarios;
+                    }
 
-            datosGlobalesZonas = [];
-            let sumaPorcentajes = 0;
-            let maxVacantesSaturadas = -1;
-            let zonaMasSaturadaNombre = 'Ninguna';
-            let vacantesEnRiesgoTotales = 0;
-            let reclutadoresFaltantesTotales = 0;
+                    // Identificar zona más saturada
+                    if (demandaVacantes > maxVacantesSaturadas && porcentaje < 80) { 
+                        maxVacantesSaturadas = demandaVacantes; 
+                        zonaMasSaturadaNombre = nombreZona; 
+                    }
 
-            const listaNombresZonas = Object.keys(mapeoZonas);
+                    sumaPorcentajes += porcentaje;
 
-            listaNombresZonas.forEach(nombreZona => {
-                const infoZona = mapeoZonas[nombreZona];
-
-                // Búsqueda de coordinadores de la zona
-                const coordinadores = todosLosUsuarios.filter(u => {
-                    const rolNorm = normalizarTexto(u.rolCalculado);
-                    const esCoord = rolNorm.includes('coordinador') || rolNorm.includes('supervisor');
-                    if (!esCoord) return false;
-                    if (u.esGlobal || u.todasLasEmpresas) return true;
-                    return u.zonasLista.some(z => normalizarTexto(z) === normalizarTexto(nombreZona) || normalizarTexto(z) === 'general');
+                    // Guardar fila
+                    const semaforo = obtenerSemaforo(porcentaje);
+                    datosGlobalesZonas.push({ 
+                        zona: nombreZona, 
+                        empresas: infoZona.empresas, 
+                        totalVacantes: demandaVacantes, 
+                        coordinadores: coordinadores.map(c => c.nombreCompleto).join(', ') || '<em class="text-muted">Sin Coordinador</em>', 
+                        reclutadores: reclutadores.map(r => r.nombreCompleto).join(', ') || '<em class="text-muted">Sin Reclutador</em>', 
+                        numReclutadores,
+                        porcentaje, 
+                        categoriaSemáforo: semaforo.cat,
+                        semaforo
+                    });
                 });
 
-                // Búsqueda de reclutadores de la zona
-                const reclutadores = todosLosUsuarios.filter(u => {
-                    const rolNorm = normalizarTexto(u.rolCalculado);
-                    const esReclutador = rolNorm.includes('reclutador');
-                    if (!esReclutador) return false;
-                    if (u.esGlobal || u.todasLasEmpresas) return true;
-                    return u.zonasLista.some(z => normalizarTexto(z) === normalizarTexto(nombreZona) || normalizarTexto(z) === 'general');
-                });
+                // ============================================================
+                // ACTUALIZAR KPIs
+                // ============================================================
+                const totalZonas = datosGlobalesZonas.length;
+                const promedio = Math.round(sumaPorcentajes / totalZonas);
+                document.getElementById('kpiPromedio').innerText = `${promedio}%`; 
+                document.getElementById('kpiSaturada').innerText = zonaMasSaturadaNombre; 
+                document.getElementById('kpiVacantesRiesgo').innerText = vacantesEnRiesgoTotales; 
+                document.getElementById('kpiPersonalSugerido').innerText = `+${reclutadoresFaltantesTotales} Recl.`; 
 
-                const numReclutadores = reclutadores.length;
-                const demandaVacantes = infoZona.totalVacantes;
+                // Renderizar tabla
+                renderizarTabla(datosGlobalesZonas); 
 
-                let porcentaje = 0;
-                let ofertaCapacidad = numReclutadores * CAPACIDAD_VACANTES_POR_RECLUTADOR;
+            } catch (error) { 
+                console.error("❌ Error Firebase:", error); 
+                mostrarErrorGeneral(`Error de conexión: ${error.message}`);
+                reiniciarKPIs();
+            }
+        }; 
 
-                if (demandaVacantes === 0) {
-                    porcentaje = 100;
-                } else if (numReclutadores > 0) {
-                    porcentaje = Math.round((ofertaCapacidad / demandaVacantes) * 100);
-                    if (porcentaje > 100) porcentaje = 100;
-                }
-
-                if (porcentaje < 70) {
-                    const vacantesDesatendidas = Math.max(0, demandaVacantes - ofertaCapacidad);
-                    vacantesEnRiesgoTotales += vacantesDesatendidas;
-
-                    const reclutadoresNecesarios = Math.ceil((demandaVacantes - ofertaCapacidad) / CAPACIDAD_VACANTES_POR_RECLUTADOR);
-                    if (reclutadoresNecesarios > 0) reclutadoresFaltantesTotales += reclutadoresNecesarios;
-                }
-
-                if (demandaVacantes > maxVacantesSaturadas && porcentaje < 80) {
-                    maxVacantesSaturadas = demandaVacantes;
-                    zonaMasSaturadaNombre = nombreZona;
-                }
-
-                sumaPorcentajes += porcentaje;
-
-                datosGlobalesZonas.push({
-                    zona: nombreZona,
-                    empresas: infoZona.empresas,
-                    totalVacantes: demandaVacantes,
-                    coordinadores: coordinadores.map(c => c.nombreCompleto).join(', ') || '<em>Sin Coordinador</em>',
-                    reclutadores: reclutadores.map(r => r.nombreCompleto).join(', ') || '<em>Sin Reclutador</em>',
-                    numReclutadores,
-                    porcentaje,
-                    categoriaSemáforo: porcentaje <= 35 ? 'CRITICO' : (porcentaje <= 70 ? 'SOBRECARGA' : 'OPTIMO')
-                });
-            });
-
-            const totalZonas = datosGlobalesZonas.length || 1;
-            document.getElementById('kpiPromedio').innerText = `${Math.round(sumaPorcentajes / totalZonas)}%`;
-            document.getElementById('kpiSaturada').innerText = zonaMasSaturadaNombre;
-            document.getElementById('kpiVacantesRiesgo').innerText = vacantesEnRiesgoTotales;
-            document.getElementById('kpiPersonalSugerido').innerText = `+${reclutadoresFaltantesTotales} Recl.`;
-
-            renderizarTabla(datosGlobalesZonas);
-
-        } catch (error) {
-            console.error("Error Firebase:", error);
-            tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger"><strong>Error de conexión:</strong> ${error.message}</td></tr>`;
-        }
-    };
-
-    function renderizarTabla(listaZonas) {
-        const tbody = document.getElementById('tbodyMatrizCobertura');
-        tbody.innerHTML = '';
-
-        if (listaZonas.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted">No hay datos en empresas o vacantes.</td></tr>`;
-            return;
+        function reiniciarKPIs() {
+            document.getElementById('kpiPromedio').innerText = '0%'; 
+            document.getElementById('kpiSaturada').innerText = '--'; 
+            document.getElementById('kpiVacantesRiesgo').innerText = '0'; 
+            document.getElementById('kpiPersonalSugerido').innerText = '+0 Recl.'; 
         }
 
-        listaZonas.forEach(item => {
-            let badgeClass = item.categoriaSemáforo === 'CRITICO' ? 'bg-danger text-white' : (item.categoriaSemáforo === 'SOBRECARGA' ? 'bg-warning text-dark' : 'bg-success text-white');
-            let emoji = item.categoriaSemáforo === 'CRITICO' ? '🔴' : (item.categoriaSemáforo === 'SOBRECARGA' ? '🟠' : '🟢');
-            let labelEstatus = item.categoriaSemáforo === 'CRITICO' ? 'SIN ATENCIÓN / CRÍTICA' : (item.categoriaSemáforo === 'SOBRECARGA' ? 'COBERTURA BAJA' : 'COBERTURA ÓPTIMA');
+        // ============================================================
+        // RENDERIZAR TABLA
+        // ============================================================
+        function renderizarTabla(listaZonas) { 
+            const tbody = document.getElementById('tbodyMatrizCobertura'); 
+            if (!tbody) return;
+            tbody.innerHTML = ''; 
 
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td class="fw-bold text-dark">${item.zona}</td>
-                <td><small>${item.empresas.join(', ') || 'Sin empresas'}</small></td>
-                <td><span class="badge bg-light text-dark border">${item.totalVacantes} plazas activas</span></td>
-                <td><small>${item.coordinadores}</small></td>
-                <td><small>${item.reclutadores}</small></td>
-                <td>
-                    <div class="d-flex align-items-center justify-content-between mb-1">
-                        <span class="badge ${badgeClass} badge-semaforo">${emoji} ${item.porcentaje}% - ${labelEstatus}</span>
-                    </div>
-                    <div class="progress progress-slim">
-                        <div class="progress-bar ${item.categoriaSemáforo === 'CRITICO' ? 'bg-danger' : (item.categoriaSemáforo === 'SOBRECARGA' ? 'bg-warning' : 'bg-success')}" 
-                             role="progressbar" style="width: ${item.porcentaje}%"></div>
-                    </div>
-                </td>
-                <td class="text-center">
-                    <button class="btn btn-sm btn-outline-primary" title="Asignar personal directo" onclick="window.abrirModalAsignacion('${item.zona}')">
-                        <i class="fa-solid fa-user-plus"></i>
-                    </button>
-                </td>
-            `;
-            tbody.appendChild(tr);
-        });
-    }
-
-    window.filtrarTabla = function(categoria, btn) {
-        document.querySelectorAll('.btn-group .btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-
-        if (categoria === 'TODOS') {
-            renderizarTabla(datosGlobalesZonas);
-        } else {
-            const filtrados = datosGlobalesZonas.filter(z => z.categoriaSemáforo === categoria);
-            renderizarTabla(filtrados);
-        }
-    };
-
-    window.abrirModalAsignacion = function(nombreZona) {
-        document.getElementById('modalNombreZona').innerText = nombreZona;
-        document.getElementById('modalZonaId').value = nombreZona;
-
-        const select = document.getElementById('selectColaboradorModal');
-        select.innerHTML = '<option value="">-- Seleccionar Colaborador --</option>';
-
-        todosLosUsuarios.forEach(u => {
-            const zonasTxt = u.zonasLista.length > 0 ? u.zonasLista.join(', ') : 'Sin Zona';
-            select.innerHTML += `<option value="${u.id}">${u.nombreCompleto} (${u.rolCalculado}) - Actual: ${zonasTxt}</option>`;
-        });
-
-        if (modalAsignacionBS) modalAsignacionBS.show();
-    };
-
-    window.guardarAsignacionRapida = async function() {
-        const zonaDestino = document.getElementById('modalZonaId').value;
-        const usuarioId = document.getElementById('selectColaboradorModal').value;
-
-        if (!usuarioId) {
-            alert("Por favor selecciona a un colaborador.");
-            return;
-        }
-
-        try {
-            const usrTarget = todosLosUsuarios.find(u => u.id === usuarioId);
-            let payloadActualizacion = { zona: zonaDestino };
-
-            if (usrTarget && Array.isArray(usrTarget.zonasOperacion)) {
-                const nuevasZonas = Array.from(new Set([...usrTarget.zonasOperacion, zonaDestino]));
-                payloadActualizacion.zonasOperacion = nuevasZonas;
-            } else if (usrTarget && Array.isArray(usrTarget.zonas)) {
-                const nuevasZonas = Array.from(new Set([...usrTarget.zonas, zonaDestino]));
-                payloadActualizacion.zonas = nuevasZonas;
+            if (!listaZonas || listaZonas.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted">
+                    No hay datos para mostrar con este filtro.
+                </td></tr>`;
+                return;
             }
 
-            await update(ref(db, `usuarios/${usuarioId}`), payloadActualizacion);
-            if (modalAsignacionBS) modalAsignacionBS.hide();
-            window.cargarMatrizCobertura();
-        } catch (e) {
-            alert("Error al actualizar asignación: " + e.message);
-        }
-    };
-</script>
+            listaZonas.forEach(item => { 
+                const { semaforo } = item;
+                const tr = document.createElement('tr'); 
+                tr.innerHTML = ` 
+                    <td class="fw-bold text-dark">${item.zona}</td> 
+                    <td><small>${item.empresas.join(', ') || '<span class="text-muted">Sin empresas</span>'}</small></td> 
+                    <td><span class="badge bg-light text-dark border">${item.totalVacantes} plazas activas</span></td> 
+                    <td><small>${item.coordinadores}</small></td> 
+                    <td><small>${item.reclutadores}</small></td> 
+                    <td> 
+                        <div class="d-flex align-items-center justify-content-between mb-1"> 
+                            <span class="badge ${semaforo.clase} badge-semaforo">
+                                <span class="emoji-estatus">${semaforo.emoji}</span>
+                                ${item.porcentaje}% - ${semaforo.etiqueta}
+                            </span> 
+                        </div> 
+                        <div class="progress progress-slim"> 
+                            <div class="progress-bar ${semaforo.barra}" role="progressbar" 
+                                 style="width: ${item.porcentaje}%" 
+                                 aria-valuenow="${item.porcentaje}" aria-valuemin="0" aria-valuemax="100"></div> 
+                        </div> 
+                    </td> 
+                    <td class="text-center"> 
+                        <button class="btn btn-sm btn-outline-primary" 
+                                title="Asignar personal a esta zona" 
+                                onclick="window.abrirModalAsignacion('${item.zona.replace(/'/g, "\\'")}')">
+                            <i class="fa-solid fa-user-plus"></i>
+                        </button> 
+                    </td> 
+                `; 
+                tbody.appendChild(tr); 
+            }); 
+        } 
+
+        // ============================================================
+        // FILTROS
+        // ============================================================
+        window.filtrarTabla = function(categoria, btn) { 
+            document.querySelectorAll('.btn-group .btn').forEach(b => b.classList.remove('active')); 
+            btn?.classList.add('active'); 
+
+            if (categoria === 'TODOS') { 
+                renderizarTabla(datosGlobalesZonas); 
+            } else { 
+                const filtrados = datosGlobalesZonas.filter(z => z.categoriaSemáforo === categoria); 
+                renderizarTabla(filtrados); 
+            }
+        }; 
+
+        // ============================================================
+        // MODAL: ABRIR Y CARGAR USUARIOS
+        // ============================================================
+        window.abrirModalAsignacion = function(nombreZona) { 
+            document.getElementById('modalNombreZona').innerText = nombreZona; 
+            document.getElementById('modalZonaId').value = nombreZona; 
+            const select = document.getElementById('selectColaboradorModal'); 
+            select.innerHTML = '<option value="">-- Seleccionar Colaborador --</option>'; 
+
+            todosLosUsuarios.forEach(u => {
+                const zonasTxt = u.zonasLista.length > 0 ? u.zonasLista.join(', ') : 'General / Sin Zona';
+                select.innerHTML += `<option value="${u.id}">
+                    ${u.nombreCompleto} (${u.rolCalculado}) — Asignado: ${zonasTxt}
+                </option>`; 
+            }); 
+
+            modalAsignacionBS?.show();
+        }; 
+
+        // ============================================================
+        // GUARDAR ASIGNACIÓN EN FIREBASE
+        // ============================================================
+        window.guardarAsignacionRapida = async function() { 
+            const zonaDestino = (document.getElementById('modalZonaId')?.value || '').trim(); 
+            const usuarioId = (document.getElementById('selectColaboradorModal')?.value || '').trim(); 
+
+            if (!usuarioId) { 
+                alert("⚠️ Por favor selecciona a un colaborador."); 
+                return; 
+            }
+            if (!zonaDestino) {
+                alert("⚠️ No se identificó la zona destino.");
+                return;
+            }
+
+            try { 
+                const { update, ref } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js"); 
+                const usrTarget = todosLosUsuarios.find(u => u.id === usuarioId);
+
+                if (!usrTarget) {
+                    throw new Error("Colaborador no encontrado");
+                }
+
+                // Construir payload: agregar zona sin duplicados
+                let payloadActualizacion = {};
+                const zonaNormalizada = zonaDestino;
+
+                if (Array.isArray(usrTarget.zonasOperacion)) { 
+                    const nuevasZonas = [...new Set([...usrTarget.zonasOperacion, zonaNormalizada])]; 
+                    payloadActualizacion.zonasOperacion = nuevasZonas; 
+                } else if (Array.isArray(usrTarget.zonas)) { 
+                    const nuevasZonas = [...new Set([...usrTarget.zonas, zonaNormalizada])]; 
+                    payloadActualizacion.zonas = nuevasZonas; 
+                } else {
+                    payloadActualizacion.zona = zonaNormalizada;
+                }
+
+                await update(ref(db, `usuarios/${usuarioId}`), payloadActualizacion);
+
+                // Cerrar y recargar
+                modalAsignacionBS?.hide(); 
+                await window.cargarMatrizCobertura(); 
+
+            } catch (e) { 
+                console.error("❌ Error al guardar:", e);
+                alert(`Error al guardar asignación: ${e.message}`); 
+            }
+        }; 
+
+    </script> 
 </body>
 </html>
