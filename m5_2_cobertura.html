@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>M5.2 Cobertura — GitHub Ready</title>
+    <title>M5.2 Cobertura Territorial y Capacidad</title>
+    <!-- Favicon transparente rápido para silenciar el error 404 de la consola -->
+    <link rel="icon" href="data:,">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -14,21 +16,26 @@
 <body class="bg-light p-4">
 <div class="container-fluid">
 
+<!-- ENCABEZADO -->
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
         <h3 class="fw-bold mb-1">
             <i class="fa-solid fa-map-location-dot text-primary me-2"></i>
             Cobertura Territorial y Capacidad
         </h3>
-        <p class="text-muted small mb-0">Desplegado en GitHub Pages</p>
+        <p class="text-muted small mb-0">Capacidad: 15 vacantes por Reclutador</p>
     </div>
     <button class="btn btn-primary fw-bold" onclick="cargarTodo()">
         <i class="fa-solid fa-rotate me-1"></i> Recargar Datos
     </button>
 </div>
 
+<!-- PANEL DIAGNÓSTICO -->
 <div class="card border-primary mb-4 p-3" style="background:#f3e8ff; border-left:5px solid #6f42c1;">
-    <h5 class="fw-bold text-dark mb-3">🧠 RESUMEN DE CONEXIÓN CON FIREBASE</h5>
+    <h5 class="fw-bold text-dark mb-3">
+        <i class="fa-solid fa-brain text-purple me-2"></i>
+        🧠 RESUMEN DE CONEXIÓN CON FIREBASE
+    </h5>
     <div class="row g-3">
         <div class="col-md-3"><span class="text-muted small">Coordinadores:</span><div class="fw-bold text-primary fs-5" id="m_Coord">--</div></div>
         <div class="col-md-3"><span class="text-muted small">Reclutadores:</span><div class="fw-bold text-success fs-5" id="m_Recl">--</div></div>
@@ -40,13 +47,15 @@
     </div>
 </div>
 
+<!-- METRICAS KPI -->
 <div class="row g-3 mb-4">
-    <div class="col-md-3"><div class="card border-primary p-3"><span class="text-muted small">Cobertura Promedio</span><h2 class="fw-bold text-primary mb-0" id="k_Promedio">--</h2></div></div>
-    <div class="col-md-3"><div class="card border-danger p-3"><span class="text-muted small">Vacantes Sin Cobertura</span><h2 class="fw-bold text-danger mb-0" id="k_SinCobertura">--</h2></div></div>
-    <div class="col-md-3"><div class="card border-warning p-3"><span class="text-muted small">Reclutadores Faltantes</span><h2 class="fw-bold text-warning mb-0" id="k_Faltantes">--</h2></div></div>
-    <div class="col-md-3"><div class="card border-success p-3"><span class="text-muted small">Vacantes Activas</span><h2 class="fw-bold text-success mb-0" id="k_Total">--</h2></div></div>
+    <div class="col-md-3"><div class="card border-primary p-3"><span class="text-muted small">Cobertura Promedio</span><h2 class="fw-bold text-primary mb-0" id="k_Promedio">0%</h2></div></div>
+    <div class="col-md-3"><div class="card border-danger p-3"><span class="text-muted small">Vacantes Sin Cobertura</span><h2 class="fw-bold text-danger mb-0" id="k_SinCobertura">0</h2></div></div>
+    <div class="col-md-3"><div class="card border-warning p-3"><span class="text-muted small">Reclutadores Faltantes</span><h2 class="fw-bold text-warning mb-0" id="k_Faltantes">+0</h2></div></div>
+    <div class="col-md-3"><div class="card border-success p-3"><span class="text-muted small">Vacantes Activas</span><h2 class="fw-bold text-success mb-0" id="k_Total">0</h2></div></div>
 </div>
 
+<!-- TABLA DE ZONAS -->
 <div class="card">
     <div class="card-body p-0">
         <table class="table table-hover align-middle mb-0">
@@ -58,15 +67,40 @@
                     <th>Coordinadores</th>
                     <th>Reclutadores</th>
                     <th style="width: 200px;">Cobertura</th>
+                    <th class="text-center">Acciones</th>
                 </tr>
             </thead>
             <tbody id="tabla">
-                <tr><td colspan="6" class="text-center py-4 text-muted"><i class="fa-solid fa-spinner fa-spin me-2"></i>Conectando a Firebase desde GitHub...</td></tr>
+                <tr><td colspan="7" class="text-center py-4 text-muted"><i class="fa-solid fa-spinner fa-spin me-2"></i>Consultando datos...</td></tr>
             </tbody>
         </table>
     </div>
 </div>
 
+</div>
+
+<!-- MODAL ASIGNAR -->
+<div class="modal fade" id="modalZona" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="fa-solid fa-user-plus me-2"></i>Asignar a Zona</h5>
+                <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-2">Zona: <strong id="modal_ZonaNombre" class="text-primary"></strong></p>
+                <input type="hidden" id="modal_ZonaValor">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Seleccionar Usuario:</label>
+                    <select class="form-select" id="modal_Persona"></select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn btn-primary" onclick="guardarZona()">💾 Guardar Asignación</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/bootstrap.bundle.min.js"></script>
@@ -83,71 +117,185 @@ const firebaseConfig = {
     messagingSenderId: "592492733212"
 };
 
-if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
-}
+if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// Promesa con tiempo límite para no congelar la pantalla
-function consultarConTimeout(refDb, ms = 6000) {
-    return Promise.race([
-        refDb.once('value'),
-        new Promise((_, reject) => setTimeout(() => reject(new Error("Tiempo de espera agotado. Revisa permisos CORS o Reglas de Firebase.")), ms))
-    ]);
+const CAPACIDAD_POR_RECLUTADOR = 15;
+let modalZonaObj;
+let coordinadores = [], reclutadores = [], todosUsuarios = [];
+
+function normalizar(txt) {
+    return txt ? String(txt).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim() : '';
+}
+
+function identificarZona(entidad) {
+    const raw = entidad?.ubicacion || entidad?.zona || entidad?.municipio || entidad?.ciudad || '';
+    const txt = normalizar(raw);
+    if (!txt) return 'Sin Zona Definida';
+    if (txt.includes('salinas victoria')) return 'Salinas Victoria NL';
+    if (txt.includes('apodaca')) return 'Apodaca';
+    if (txt.includes('santa catarina')) return 'Santa Catarina';
+    if (txt.includes('cienega') || txt.includes('cienaga')) return 'Ciénaga de Flores';
+    if (txt.includes('pesqueria')) return 'Pesquería';
+    if (txt.includes('monterrey')) return 'Monterrey';
+    if (txt.includes('escobedo')) return 'Escobedo';
+    if (txt.includes('guadalupe')) return 'Guadalupe';
+    return String(raw).trim();
+}
+
+function parsearUsuario(id, datos, esReclutador) {
+    const nombre = String(datos?.nombre || datos?.nombreCompleto || datos?.correo || 'Sin Nombre').trim();
+    const global = Boolean(datos?.esGlobal === true || datos?.accesoGlobal === true || datos?.rol === 'admin');
+    let zonas = [];
+    if (datos?.zona) zonas.push(datos.zona);
+    if (Array.isArray(datos?.zonas)) zonas.push(...datos.zonas);
+    return { id, nombre, esReclutador, global, zonas: [...new Set(zonas)] };
+}
+
+function atiendeZona(u, nombreZona) {
+    if (u.global) return true;
+    const target = normalizar(nombreZona);
+    return u.zonas.some(z => normalizar(z).includes(target) || target.includes(normalizar(z)));
 }
 
 async function cargarTodo() {
     const tabla = document.getElementById('tabla');
     try {
         const [snapCoord, snapRecl, snapEmp, snapVac] = await Promise.all([
-            consultarConTimeout(db.ref('usuarios')),
-            consultarConTimeout(db.ref('usuarios_reclutadores')),
-            consultarConTimeout(db.ref('empresas')),
-            consultarConTimeout(db.ref('vacantes'))
+            db.ref('usuarios').once('value'),
+            db.ref('usuarios_reclutadores').once('value'),
+            db.ref('empresas').once('value'),
+            db.ref('vacantes').once('value')
         ]);
 
-        const coordinadores = snapCoord.exists() ? Object.values(snapCoord.val()) : [];
-        const reclutadores = snapRecl.exists() ? Object.values(snapRecl.val()) : [];
+        coordinadores = snapCoord.exists() ? Object.entries(snapCoord.val()).map(([id, d]) => parsearUsuario(id, d, false)) : [];
+        reclutadores = snapRecl.exists() ? Object.entries(snapRecl.val()).map(([id, d]) => parsearUsuario(id, d, true)) : [];
+        todosUsuarios = [...coordinadores, ...reclutadores];
+
+        const recGlobal = reclutadores.filter(r => r.global);
+        const coordGlobal = coordinadores.filter(c => c.global);
+
+        document.getElementById('m_Coord').textContent = `${coordinadores.length} (${coordGlobal.length} globales)`;
+        document.getElementById('m_Recl').textContent = `${reclutadores.length} (${recGlobal.length} globales)`;
+        document.getElementById('m_Global').textContent = `${coordGlobal.length + recGlobal.length}`;
+        document.getElementById('m_Cap').textContent = `${reclutadores.length * CAPACIDAD_POR_RECLUTADOR} vacantes`;
+        document.getElementById('m_Lista').textContent = todosUsuarios.map(u => u.nombre).join(' · ');
+
         const empresas = snapEmp.exists() ? snapEmp.val() : {};
         const vacantes = snapVac.exists() ? snapVac.val() : {};
+        const mapaZonas = {};
+        let totalVacantes = 0;
 
-        document.getElementById('m_Coord').textContent = coordinadores.length;
-        document.getElementById('m_Recl').textContent = reclutadores.length;
-        document.getElementById('m_Cap').textContent = (reclutadores.length * 15) + " vacantes";
-        document.getElementById('m_Lista').textContent = [...coordinadores, ...reclutadores].map(u => u.nombre || u.correo || 'Sin nombre').join(' · ');
+        Object.values(empresas).forEach(emp => {
+            const zona = identificarZona(emp);
+            if (!mapaZonas[zona]) mapaZonas[zona] = { empresas: [], vacantes: 0 };
+            const nombre = emp.nombre || emp.razonSocial || 'Empresa';
+            if (!mapaZonas[zona].empresas.includes(nombre)) mapaZonas[zona].empresas.push(nombre);
+        });
 
-        let html = '';
-        Object.entries(empresas).forEach(([id, emp]) => {
-            const zona = emp.ubicacion || emp.zona || 'Sin Zona';
-            const empNombre = emp.nombre || emp.razonSocial || 'Empresa';
-            
-            let numVacantes = 0;
-            Object.values(vacantes).forEach(v => {
-                if (v.empresaId === id || v.empresa === empNombre) {
-                    numVacantes += parseInt(v.plazas || v.cupo || 1);
-                }
-            });
+        Object.values(vacantes).forEach(v => {
+            const zona = identificarZona(v);
+            if (!mapaZonas[zona]) mapaZonas[zona] = { empresas: [], vacantes: 0 };
+            const pl = parseInt(v.plazas || v.cupo || v.vacantes || 1);
+            mapaZonas[zona].vacantes += pl;
+            totalVacantes += pl;
+        });
+
+        let html = '', sumaCobertura = 0, totalSinCobertura = 0, totalFaltantes = 0, numZonas = 0;
+
+        for (const [zona, info] of Object.entries(mapaZonas)) {
+            numZonas++;
+            const coordZ = coordinadores.filter(c => atiendeZona(c, zona));
+            const reclZ = reclutadores.filter(r => atiendeZona(r, zona));
+
+            const reclDirectos = reclZ.filter(r => !r.global).length;
+            let capZona = reclDirectos * CAPACIDAD_POR_RECLUTADOR;
+            if (totalVacantes > 0) {
+                capZona += (info.vacantes / totalVacantes) * (recGlobal.length * CAPACIDAD_POR_RECLUTADOR);
+            }
+
+            // CORRECCIÓN MATEMÁTICA: Si hay 0 vacantes, la cobertura es 0%
+            let porcentaje = info.vacantes > 0 ? Math.min(100, Math.round((capZona / info.vacantes) * 100)) : 0;
+            let sinCob = Math.max(0, info.vacantes - Math.floor(capZona));
+            let faltantes = sinCob > 0 ? Math.ceil(sinCob / CAPACIDAD_POR_RECLUTADOR) : 0;
+
+            sumaCobertura += porcentaje;
+            totalSinCobertura += sinCob;
+            totalFaltantes += faltantes;
+
+            let badge = porcentaje <= 35 ? 'bg-danger' : (porcentaje <= 70 ? 'bg-warning text-dark' : 'bg-success');
 
             html += `
                 <tr>
                     <td class="fw-bold">${zona}</td>
-                    <td>${empNombre}</td>
-                    <td class="text-center"><span class="badge bg-secondary fs-6">${numVacantes}</span></td>
-                    <td><small class="text-muted">Procesado</small></td>
-                    <td><small class="text-muted">Procesado</small></td>
-                    <td><span class="badge bg-success">Conectado</span></td>
+                    <td><small>${info.empresas.join(', ') || 'Sin asignación'}</small></td>
+                    <td class="text-center"><span class="badge bg-secondary fs-6">${info.vacantes}</span></td>
+                    <td><small>${coordZ.map(c => c.nombre).join(', ') || '<em class="text-muted">Sin Asignar</em>'}</small></td>
+                    <td><small>${reclZ.map(r => r.nombre).join(', ') || '<em class="text-muted">Sin Asignar</em>'}</small></td>
+                    <td>
+                        <span class="badge ${badge}">${porcentaje}%</span>
+                        <div class="progress progress-sm mt-1">
+                            <div class="progress-bar ${badge}" style="width:${porcentaje}%"></div>
+                        </div>
+                    </td>
+                    <td class="text-center">
+                        <button class="btn btn-sm btn-outline-primary" onclick="abrirAsignar('${zona}')">
+                            <i class="fa-solid fa-user-plus"></i> Asignar
+                        </button>
+                    </td>
                 </tr>
             `;
-        });
+        }
 
-        tabla.innerHTML = html || '<tr><td colspan="6" class="text-center py-4">No se encontraron empresas.</td></tr>';
+        document.getElementById('k_Promedio').textContent = `${numZonas > 0 ? Math.round(sumaCobertura / numZonas) : 0}%`;
+        document.getElementById('k_SinCobertura').textContent = totalSinCobertura;
+        document.getElementById('k_Faltantes').textContent = `+${totalFaltantes}`;
+        document.getElementById('k_Total').textContent = totalVacantes;
+
+        tabla.innerHTML = html || '<tr><td colspan="7" class="text-center py-4 text-muted">Sin registros.</td></tr>';
 
     } catch (err) {
-        tabla.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-danger"><b>Error de conexión en GitHub:</b> ${err.message}</td></tr>`;
+        tabla.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger">Error: ${err.message}</td></tr>`;
     }
 }
 
-document.addEventListener("DOMContentLoaded", cargarTodo);
+function abrirAsignar(zona) {
+    document.getElementById('modal_ZonaNombre').textContent = zona;
+    document.getElementById('modal_ZonaValor').value = zona;
+    const sel = document.getElementById('modal_Persona');
+    sel.innerHTML = '<option value="">-- Seleccionar Usuario --</option>';
+    todosUsuarios.forEach(u => {
+        sel.innerHTML += `<option value="${u.id}|${u.esReclutador}">${u.nombre} (${u.esReclutador ? 'Reclutador' : 'Coordinador'})</option>`;
+    });
+    modalZonaObj.show();
+}
+
+async function guardarZona() {
+    const val = document.getElementById('modal_Persona').value;
+    const zona = document.getElementById('modal_ZonaValor').value;
+    if (!val) return alert("Selecciona a alguien.");
+    const [id, esRecl] = val.split('|');
+    const path = esRecl === 'true' ? 'usuarios_reclutadores' : 'usuarios';
+
+    try {
+        const snap = await db.ref(`${path}/${id}`).once('value');
+        const user = snap.val() || {};
+        let z = user.zonas || [];
+        if (!z.includes(zona)) z.push(zona);
+
+        await db.ref(`${path}/${id}`).update({ zonas: z, zona: z[0] });
+        modalZonaObj.hide();
+        cargarTodo();
+        alert("✅ Asignado con éxito.");
+    } catch (e) {
+        alert("Error: " + e.message);
+    }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    modalZonaObj = new bootstrap.Modal(document.getElementById('modalZona'));
+    cargarTodo();
+});
 </script>
 </body>
 </html>
