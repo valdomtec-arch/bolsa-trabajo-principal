@@ -3,13 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>M5.2 Cobertura — Versión Simplificada Funcional</title>
+    <title>M5.2 Cobertura — Corrección de Consola</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         .card { border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
-        .badge-semaforo { font-size: 0.85rem; padding: 5px 10px; border-radius: 6px; }
-        .progress-sm { height: 8px; border-radius: 4px; }
+        .progress-sm { height: 10px; border-radius: 5px; }
     </style>
 </head>
 <body class="bg-light p-4">
@@ -23,103 +22,89 @@
             Cobertura Territorial y Capacidad
         </h3>
         <p class="text-muted small mb-0">
-            ✅ Coord: <code>/usuarios</code> · Recl: <code>/usuarios_reclutadores</code> · 
-            Capacidad: 15 vacantes por Reclutador con Acceso Global
+            Capacidad: 15 vacantes por Reclutador
         </p>
     </div>
-    <button class="btn btn-primary" onclick="cargarTodo()">
+    <button class="btn btn-primary fw-bold" id="btnRecargar">
         <i class="fa-solid fa-rotate me-1"></i> Recargar Datos
     </button>
 </div>
 
-<!-- 🧠 PANEL DEL MOTOR — LO QUE DETECTA AUTOMÁTICAMENTE -->
-<div class="card bg-purple-50 border-primary mb-4 p-3" style="background:#f3e8ff; border-left:4px solid #6f42c1;">
+<!-- PANEL DIAGNÓSTICO -->
+<div class="card border-primary mb-4 p-3" style="background:#f3e8ff; border-left:5px solid #6f42c1;">
     <h5 class="fw-bold text-dark mb-3">
         <i class="fa-solid fa-brain text-purple me-2"></i>
-        🧠 MOTOR DOLA — Lo que encontró en Firebase
+        🧠 RESUMEN DE CONEXIÓN CON FIREBASE
     </h5>
     <div class="row g-3">
         <div class="col-md-3">
             <span class="text-muted small">Coordinadores:</span>
-            <div class="fw-bold text-primary" id="m_Coord">--</div>
+            <div class="fw-bold text-primary fs-5" id="m_Coord">--</div>
         </div>
         <div class="col-md-3">
             <span class="text-muted small">Reclutadores:</span>
-            <div class="fw-bold text-success" id="m_Recl">--</div>
+            <div class="fw-bold text-success fs-5" id="m_Recl">--</div>
         </div>
         <div class="col-md-3">
-            <span class="text-muted small">🌐 Con Acceso Global:</span>
-            <div class="fw-bold text-purple" id="m_Global">--</div>
+            <span class="text-muted small">Acceso Global:</span>
+            <div class="fw-bold text-purple fs-5" id="m_Global">--</div>
         </div>
         <div class="col-md-3">
-            <span class="text-muted small">Capacidad Total:</span>
-            <div class="fw-bold text-dark" id="m_Cap">--</div>
+            <span class="text-muted small">Capacidad Teórica:</span>
+            <div class="fw-bold text-dark fs-5" id="m_Cap">--</div>
         </div>
     </div>
-    <div class="mt-2 text-muted small">
-        📋 Lista completa: <span id="m_Lista"></span>
+    <div class="mt-3 text-muted small border-top pt-2">
+        <strong>Personal detectado:</strong> <span id="m_Lista">Cargando...</span>
     </div>
 </div>
 
-<!-- TARJETAS DE RESUMEN -->
+<!-- METRICAS KPI -->
 <div class="row g-3 mb-4">
     <div class="col-md-3">
         <div class="card border-primary p-3">
             <span class="text-muted small">Cobertura Promedio</span>
-            <h3 class="fw-bold text-primary" id="k_Promedio">--</h3>
+            <h2 class="fw-bold text-primary mb-0" id="k_Promedio">--</h2>
         </div>
     </div>
     <div class="col-md-3">
         <div class="card border-danger p-3">
             <span class="text-muted small">Vacantes Sin Cobertura</span>
-            <h3 class="fw-bold text-danger" id="k_SinCobertura">--</h3>
+            <h2 class="fw-bold text-danger mb-0" id="k_SinCobertura">--</h2>
         </div>
     </div>
     <div class="col-md-3">
         <div class="card border-warning p-3">
             <span class="text-muted small">Reclutadores Faltantes</span>
-            <h3 class="fw-bold text-warning" id="k_Faltantes">--</h3>
+            <h2 class="fw-bold text-warning mb-0" id="k_Faltantes">--</h2>
         </div>
     </div>
     <div class="col-md-3">
         <div class="card border-success p-3">
-            <span class="text-muted small">Vacantes Totales</span>
-            <h3 class="fw-bold text-success" id="k_Total">--</h3>
+            <span class="text-muted small">Vacantes Activas</span>
+            <h2 class="fw-bold text-success mb-0" id="k_Total">--</h2>
         </div>
     </div>
 </div>
 
-<!-- LEYENDA -->
-<div class="alert alert-info mb-4 py-2">
-    <strong>Semáforo:</strong>
-    <span class="badge bg-danger ms-2">0-35% CRÍTICO</span>
-    <span class="badge bg-warning text-dark ms-1">36-70% SOBRECARGA</span>
-    <span class="badge bg-success ms-1">71-100% ÓPTIMO</span>
-    <br>
-    <small>
-        ➕ Asignar zona → el usuario atiende esa zona específica · 
-        🌐 Dar Acceso Global → atiende TODAS las zonas (suma su capacidad de 15 vacantes)
-    </small>
-</div>
-
-<!-- TABLA -->
+<!-- TABLA DE ZONAS -->
 <div class="card">
     <div class="card-body p-0">
-        <table class="table table-hover mb-0">
+        <table class="table table-hover align-middle mb-0">
             <thead class="table-dark">
                 <tr>
-                    <th>Zona</th>
+                    <th>Zona / Territorio</th>
                     <th>Empresas</th>
-                    <th>Vacantes</th>
-                    <th>Coordinador</th>
-                    <th>Reclutador</th>
-                    <th>Cobertura</th>
+                    <th class="text-center">Vacantes</th>
+                    <th>Coordinadores</th>
+                    <th>Reclutadores</th>
+                    <th style="width: 200px;">Cobertura</th>
                     <th class="text-center">Acciones</th>
                 </tr>
             </thead>
             <tbody id="tabla">
                 <tr><td colspan="7" class="text-center py-4 text-muted">
-                    <i class="fa-solid fa-spinner fa-spin me-2"></i>Conectando con Firebase...
+                    <i class="fa-solid fa-spinner fa-spin me-2"></i>Cargando información desde Firebase...
                 </td></tr>
             </tbody>
         </table>
@@ -128,59 +113,66 @@
 
 </div>
 
-<!-- MODAL: ASIGNAR ZONA -->
+<!-- MODAL ASIGNAR ZONA -->
 <div class="modal fade" id="modalZona" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title"><i class="fa-solid fa-user-plus me-2"></i>Asignar Zona</h5>
+                <h5 class="modal-title"><i class="fa-solid fa-user-plus me-2"></i>Asignar a Zona</h5>
                 <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <p>Zona: <strong id="modal_ZonaNombre"></strong></p>
+                <p class="mb-2">Zona: <strong id="modal_ZonaNombre" class="text-primary"></strong></p>
                 <input type="hidden" id="modal_ZonaValor">
-                <label class="form-label fw-bold">Seleccionar persona:</label>
-                <select class="form-select" id="modal_Persona">
-                    <option value="">Cargando lista...</option>
-                </select>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Seleccionar Usuario:</label>
+                    <select class="form-select" id="modal_Persona">
+                        <option value="">Cargando lista...</option>
+                    </select>
+                </div>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button class="btn btn-primary" onclick="guardarZona()">💾 Guardar</button>
+                <button class="btn btn-primary" id="btnGuardarZona">💾 Guardar Asignación</button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- MODAL: DAR ACCESO GLOBAL -->
+<!-- MODAL ACCESO GLOBAL -->
 <div class="modal fade" id="modalGlobal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header text-white" style="background:#6f42c1">
-                <h5 class="modal-title"><i class="fa-solid fa-globe me-2"></i>Dar Acceso Global</h5>
+                <h5 class="modal-title"><i class="fa-solid fa-globe me-2"></i>Asignar Acceso Global</h5>
                 <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <p>Dar acceso global para que atienda TODAS las zonas:</p>
-                <select class="form-select" id="modalGlobal_Persona">
-                    <option value="">Cargando lista...</option>
-                </select>
-                <p class="text-success small mt-2">✅ Suma automáticamente 15 vacantes de capacidad</p>
+                <p>El acceso global permite atender todas las zonas:</p>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Seleccionar Usuario:</label>
+                    <select class="form-select" id="modalGlobal_Persona">
+                        <option value="">Cargando lista...</option>
+                    </select>
+                </div>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button class="btn text-white" style="background:#6f42c1" onclick="guardarGlobal()">✅ Confirmar</button>
+                <button class="btn text-white" style="background:#6f42c1" id="btnGuardarGlobal">✅ Confirmar Global</button>
             </div>
         </div>
     </div>
 </div>
 
+<!-- SCRIPT DE BOOTSTRAP PRIMERO Y OBLIGATORIO -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/bootstrap.bundle.min.js"></script>
+
+<!-- SCRIPT LÓGICO Y FIREBASE -->
 <script type="module">
 
-// ============================================================
-// ✅ FIREBASE — TUS DATOS REALES
-// ============================================================
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { getDatabase, ref, get, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
 const firebaseConfig = {
     apiKey: "AQ.Ab8RN6IBo1yotAZAix-cqbpNLLnGq2hfbpSh3Kq2nZ449PNtAw",
     authDomain: "bolsa-de-trabajo-a52e4.firebaseapp.com",
@@ -190,108 +182,72 @@ const firebaseConfig = {
     messagingSenderId: "592492733212"
 };
 
-// ============================================================
-// ⚙️ CONSTANTES DEL SISTEMA
-// ============================================================
-const CAPACIDAD_POR_RECLUTADOR = 15;
-const UMBRAL_CRITICO = 35;
-const UMBRAL_BAJA = 70;
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
 
-// ============================================================
-// 📦 VARIABLES GLOBALES
-// ============================================================
-let app, db;
-let modalZona, modalGlobal;
+const CAPACIDAD_POR_RECLUTADOR = 15;
+let modalZonaObj, modalGlobalObj;
 let coordinadores = [];
 let reclutadores = [];
 let todosUsuarios = [];
-let datosZonas = [];
 
-// ============================================================
-// 🧠 MOTOR DOLA — FUNCIONES INTELIGENTES
-// ============================================================
-function limpiarTexto(txt) {
+function normalizar(txt) {
     if (!txt) return '';
     return String(txt).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 }
 
 function identificarZona(entidad) {
-    const txt = limpiarTexto(entidad?.ubicacion || entidad?.zona || '');
-    if (!txt) return null;
+    const raw = entidad?.ubicacion || entidad?.zona || entidad?.municipio || entidad?.ciudad || '';
+    const txt = normalizar(raw);
+    if (!txt) return 'Sin Zona Definida';
+
     if (txt.includes('apodaca')) return 'Apodaca';
     if (txt.includes('santa catarina')) return 'Santa Catarina';
     if (txt.includes('cienaga') || txt.includes('cienega')) return 'Ciénaga de Flores';
     if (txt.includes('pesqueria') || txt.includes('kia')) return 'Pesquería';
     if (txt.includes('salinas victoria')) return 'Salinas Victoria';
-    if (/guadalajara|tlajomulco|tlaquepaque/.test(txt)) return 'Guadalajara / Jalisco';
+    if (/guadalajara|tlajomulco|tlaquepaque|jalisco/.test(txt)) return 'Guadalajara / Jalisco';
     if (txt.includes('monterrey')) return 'Monterrey';
-    return null;
+    if (txt.includes('escobedo')) return 'Escobedo';
+    if (txt.includes('guadalupe')) return 'Guadalupe';
+    if (txt.includes('san pedro')) return 'San Pedro';
+    if (txt.includes('juarez')) return 'Juárez';
+
+    return String(raw).trim();
 }
 
-function sacarZonas(usuario) {
-    let zonas = [];
-    if (usuario.zona) zonas.push(usuario.zona);
-    if (Array.isArray(usuario.zonas)) zonas.push(...usuario.zonas);
-    if (Array.isArray(usuario.zonasOperacion)) zonas.push(...usuario.zonasOperacion);
-    if (Array.isArray(usuario.zonasAsignadas)) zonas.push(...usuario.zonasAsignadas);
-    return zonas.map(z => String(z).trim()).filter(z => z);
+function extraerZonasUsuario(u) {
+    let z = [];
+    if (u.zona) z.push(u.zona);
+    if (Array.isArray(u.zonas)) z.push(...u.zonas);
+    if (Array.isArray(u.zonasOperacion)) z.push(...u.zonasOperacion);
+    if (Array.isArray(u.zonasAsignadas)) z.push(...u.zonasAsignadas);
+    return [...new Set(z.map(item => String(item).trim()).filter(Boolean))];
 }
 
-function crearUsuario(id, datos, esReclutador) {
-    const nombre = String(datos?.nombre || datos?.nombreCompleto || 'Sin Nombre').trim();
-    const global = Boolean(datos?.esGlobal === true || datos?.accesoGlobal === true);
-    const zonas = sacarZonas(datos);
+function parsearUsuario(id, datos, esReclutador) {
+    const nombre = String(datos?.nombre || datos?.nombreCompleto || datos?.correo || 'Sin Nombre').trim();
+    const global = Boolean(datos?.esGlobal === true || datos?.accesoGlobal === true || datos?.rol === 'admin');
+    const zonas = extraerZonasUsuario(datos);
     return { id, nombre, esReclutador, global, zonas };
 }
 
 function atiendeZona(usuario, nombreZona) {
     if (usuario.global) return true;
-    return usuario.zonas.some(z => limpiarTexto(z) === limpiarTexto(nombreZona));
+    const zTarget = normalizar(nombreZona);
+    return usuario.zonas.some(zUser => {
+        const zNorm = normalizar(zUser);
+        return zTarget.includes(zNorm) || zNorm.includes(zTarget);
+    });
 }
 
-function calcular(vacantes, cantidadReclutadoresGlobal) {
-    const capacidad = cantidadReclutadoresGlobal * CAPACIDAD_POR_RECLUTADOR;
-    let porcentaje = vacantes > 0 ? Math.min(100, Math.round((capacidad / vacantes) * 100)) : 100;
-    const sinCobertura = Math.max(0, vacantes - capacidad);
-    const faltantes = sinCobertura > 0 ? Math.ceil(sinCobertura / CAPACIDAD_POR_RECLUTADOR) : 0;
-
-    let clase, barra, emoji;
-    if (porcentaje <= UMBRAL_CRITICO) { clase = 'bg-danger text-white'; barra = 'bg-danger'; emoji = '🔴'; }
-    else if (porcentaje <= UMBRAL_BAJA) { clase = 'bg-warning text-dark'; barra = 'bg-warning'; emoji = '🟡'; }
-    else { clase = 'bg-success text-white'; barra = 'bg-success'; emoji = '🟢'; }
-
-    return { porcentaje, capacidad, sinCobertura, faltantes, clase, barra, emoji };
-}
-
-// ============================================================
-// 🚀 INICIO DEL SISTEMA
-// ============================================================
-window.onload = async function() {
-    const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js");
-    const { getDatabase } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js");
-    app = initializeApp(firebaseConfig);
-    db = getDatabase(app);
-
-    modalZona = new bootstrap.Modal(document.getElementById('modalZona'));
-    modalGlobal = new bootstrap.Modal(document.getElementById('modalGlobal'));
-
-    await cargarTodo();
-};
-
-// ============================================================
-// 📥 CARGAR TODO DESDE FIREBASE
-// ============================================================
-window.cargarTodo = async function() {
-    document.getElementById('tabla').innerHTML = `
-        <tr><td colspan="7" class="text-center py-4 text-muted">
-            <i class="fa-solid fa-spinner fa-spin me-2"></i>🧠 Motor DOLA leyendo Firebase...
-        </td></tr>`;
+async function cargarTodo() {
+    const tabla = document.getElementById('tabla');
+    if (tabla) {
+        tabla.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted"><i class="fa-solid fa-spinner fa-spin me-2"></i>Consultando Firebase...</td></tr>`;
+    }
 
     try {
-        const { get, ref } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js");
-
-        // ✅ LEE COORDINADORES desde /usuarios
-        // ✅ LEE RECLUTADORES desde /usuarios_reclutadores
         const [snapCoord, snapRecl, snapEmp, snapVac] = await Promise.all([
             get(ref(db, 'usuarios')),
             get(ref(db, 'usuarios_reclutadores')),
@@ -299,47 +255,20 @@ window.cargarTodo = async function() {
             get(ref(db, 'vacantes'))
         ]);
 
-        // ✅ PROCESAR COORDINADORES
-        coordinadores = snapCoord.exists()
-            ? Object.entries(snapCoord.val()).map(([id, d]) => crearUsuario(id, d, false))
-            : [];
-
-        // ✅ PROCESAR RECLUTADORES — ¡AQUÍ ESTÁN LUCÍA Y TODOS!
-        reclutadores = snapRecl.exists()
-            ? Object.entries(snapRecl.val()).map(([id, d]) => crearUsuario(id, d, true))
-            : [];
-
+        coordinadores = snapCoord.exists() ? Object.entries(snapCoord.val()).map(([id, d]) => parsearUsuario(id, d, false)) : [];
+        reclutadores = snapRecl.exists() ? Object.entries(snapRecl.val()).map(([id, d]) => parsearUsuario(id, d, true)) : [];
         todosUsuarios = [...coordinadores, ...reclutadores];
 
-        // ✅ CALCULAR TODO AUTOMÁTICAMENTE
         const recGlobal = reclutadores.filter(r => r.global);
         const coordGlobal = coordinadores.filter(c => c.global);
-        const capacidadTotal = recGlobal.length * CAPACIDAD_POR_RECLUTADOR;
+        const capacidadTotalAbsoluta = reclutadores.length * CAPACIDAD_POR_RECLUTADOR;
 
-        // ✅ ACTUALIZAR PANEL DEL MOTOR
-        document.getElementById('m_Coord').textContent = `${coordinadores.length} total · ${coordGlobal.length} global`;
-        document.getElementById('m_Recl').textContent = `${reclutadores.length} total · ${recGlobal.length} global`;
-        document.getElementById('m_Global').textContent = `${coordGlobal.length} Coord · ${recGlobal.length} Recl`;
-        document.getElementById('m_Cap').textContent = `${capacidadTotal} vacantes`;
+        document.getElementById('m_Coord').textContent = `${coordinadores.length} (${coordGlobal.length} globales)`;
+        document.getElementById('m_Recl').textContent = `${reclutadores.length} (${recGlobal.length} globales)`;
+        document.getElementById('m_Global').textContent = `${coordGlobal.length + recGlobal.length}`;
+        document.getElementById('m_Cap').textContent = `${capacidadTotalAbsoluta} vacantes`;
+        document.getElementById('m_Lista').textContent = todosUsuarios.map(u => `${u.nombre}${u.global ? ' (Global 🌐)' : ''}`).join(' · ') || 'Ninguno';
 
-        // ✅ MOSTRAR NOMBRES COMPLETOS
-        const nombres = todosUsuarios.map(u =>
-            `${u.nombre}${u.global?' ✅🌐':' 📍'}`
-        ).join(' · ');
-        document.getElementById('m_Lista').textContent = nombres || 'Ninguno';
-
-        // ✅ CONSOLA — VERIFICACIÓN
-        console.log("=".repeat(70));
-        console.log("✅ MOTOR DOLA — LECTURA COMPLETA DE FIREBASE");
-        console.log("=".repeat(70));
-        console.log("📂 /usuarios (Coordinadores):", coordinadores.length);
-        coordinadores.forEach(u => console.log("   👤", u.nombre, u.global?"✅ ACCESO GLOBAL":"📍 Zonas:", u.zonas.join(', ') || 'Ninguna'));
-        console.log("📂 /usuarios_reclutadores (Reclutadores):", reclutadores.length);
-        reclutadores.forEach(u => console.log("   👷", u.nombre, u.global?"✅ ACCESO GLOBAL":"📍 Zonas:", u.zonas.join(', ') || 'Ninguna'));
-        console.log("🌐 Reclutadores con accesoGlobal → Capacidad:", capacidadTotal, "vacantes");
-        console.log("=".repeat(70));
-
-        // ✅ AGRUPAR EMPRESAS Y VACANTES POR ZONA
         const empresas = snapEmp.exists() ? snapEmp.val() : {};
         const vacantes = snapVac.exists() ? snapVac.val() : {};
         const mapaZonas = {};
@@ -347,56 +276,69 @@ window.cargarTodo = async function() {
 
         Object.entries(empresas).forEach(([id, emp]) => {
             const zona = identificarZona(emp);
-            if (!zona) return;
             if (!mapaZonas[zona]) mapaZonas[zona] = { empresas: [], vacantes: 0 };
-            const nombre = emp.nombre || 'Empresa sin nombre';
-            if (!mapaZonas[zona].empresas.includes(nombre)) {
-                mapaZonas[zona].empresas.push(nombre);
-            }
+            const nombre = emp.nombre || emp.razonSocial || 'Empresa Sin Nombre';
+            if (!mapaZonas[zona].empresas.includes(nombre)) mapaZonas[zona].empresas.push(nombre);
         });
 
         Object.entries(vacantes).forEach(([id, v]) => {
-            const estatus = (v?.estatus || 'activa').toLowerCase();
-            if (!['activa','abierta'].includes(estatus)) return;
+            const estatus = String(v?.estatus || 'activa').toLowerCase();
+            if (['inactiva', 'cerrada', 'cancelada'].includes(estatus)) return;
+
             let zona = identificarZona(v);
-            if (!zona && v.empresaId && empresas[v.empresaId]) {
+            if (zona === 'Sin Zona Definida' && v.empresaId && empresas[v.empresaId]) {
                 zona = identificarZona(empresas[v.empresaId]);
             }
-            if (!zona) return;
+
             if (!mapaZonas[zona]) mapaZonas[zona] = { empresas: [], vacantes: 0 };
-            const cantidad = parseInt(v.plazas) || parseInt(v.cupo) || 1;
+            const cantidad = parseInt(v.plazas) || parseInt(v.cupo) || parseInt(v.vacantes) || 1;
             mapaZonas[zona].vacantes += cantidad;
             totalVacantes += cantidad;
         });
 
-        // ✅ CALCULAR COBERTURA POR ZONA
-        datosZonas = [];
+        const datosZonas = [];
         let sumaCobertura = 0, totalSinCobertura = 0, totalFaltantes = 0;
 
         for (const [nombreZona, info] of Object.entries(mapaZonas)) {
+            if (info.empresas.length === 0 && info.vacantes === 0) continue;
+
             const coordZ = coordinadores.filter(c => atiendeZona(c, nombreZona));
             const reclZ = reclutadores.filter(r => atiendeZona(r, nombreZona));
 
-            const proporcion = totalVacantes > 0 ? info.vacantes / totalVacantes : 0;
-            const capacidadZona = Math.round(capacidadTotal * proporcion);
-            const recEquiv = Math.round(capacidadZona / CAPACIDAD_POR_RECLUTADOR);
+            const reclDirectos = reclZ.filter(r => !r.global).length;
+            let capacidadZona = reclDirectos * CAPACIDAD_POR_RECLUTADOR;
 
-            const cobertura = calcular(info.vacantes, recEquiv);
-            sumaCobertura += cobertura.porcentaje;
-            totalSinCobertura += cobertura.sinCobertura;
-            totalFaltantes += cobertura.faltantes;
+            const bolsaGlobal = recGlobal.length * CAPACIDAD_POR_RECLUTADOR;
+            const aporteGlobal = totalVacantes > 0 ? (info.vacantes / totalVacantes) * bolsaGlobal : 0;
+            capacidadZona += aporteGlobal;
+
+            // CORRECCIÓN MATEMÁTICA: Si no hay vacantes, la cobertura no es 100%, es 0%
+            let porcentaje = 0;
+            if (info.vacantes > 0) {
+                porcentaje = Math.min(100, Math.round((capacidadZona / info.vacantes) * 100));
+            }
+
+            const sinCobertura = Math.max(0, info.vacantes - Math.floor(capacidadZona));
+            const faltantes = sinCobertura > 0 ? Math.ceil(sinCobertura / CAPACIDAD_POR_RECLUTADOR) : 0;
+
+            sumaCobertura += porcentaje;
+            totalSinCobertura += sinCobertura;
+            totalFaltantes += faltantes;
+
+            let clase = porcentaje <= 35 ? 'bg-danger text-white' : (porcentaje <= 70 ? 'bg-warning text-dark' : 'bg-success text-white');
+            let barra = porcentaje <= 35 ? 'bg-danger' : (porcentaje <= 70 ? 'bg-warning' : 'bg-success');
+            let emoji = porcentaje <= 35 ? '🔴' : (porcentaje <= 70 ? '🟡' : '🟢');
 
             datosZonas.push({
                 zona: nombreZona,
                 empresas: info.empresas,
                 vacantes: info.vacantes,
-                coordinadores: coordZ.map(c => `${c.nombre}${c.global?' 🌐':''}`).join(', ') || '<em>Sin Coordinador</em>',
-                reclutadores: reclZ.map(r => `${r.nombre}${r.global?' 🌐':''}`).join(', ') || '<em>Sin Reclutador</em>',
-                cobertura
+                coordinadores: coordZ.map(c => `${c.nombre}${c.global ? ' 🌐' : ''}`).join(', ') || '<em class="text-muted">Sin Asignar</em>',
+                reclutadores: reclZ.map(r => `${r.nombre}${r.global ? ' 🌐' : ''}`).join(', ') || '<em class="text-muted">Sin Asignar</em>',
+                cobertura: { porcentaje, sinCobertura, faltantes, clase, barra, emoji }
             });
         }
 
-        // ✅ ACTUALIZAR TARJETAS
         const promedio = datosZonas.length > 0 ? Math.round(sumaCobertura / datosZonas.length) : 0;
         document.getElementById('k_Promedio').textContent = `${promedio}%`;
         document.getElementById('k_SinCobertura').textContent = totalSinCobertura;
@@ -407,21 +349,17 @@ window.cargarTodo = async function() {
 
     } catch (err) {
         console.error("❌ ERROR:", err);
-        document.getElementById('tabla').innerHTML = `
-            <tr><td colspan="7" class="text-center py-4 text-danger">
-                <strong>Error:</strong> ${err.message}
-            </td></tr>`;
+        if (tabla) {
+            tabla.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger">Error: ${err.message}</td></tr>`;
+        }
     }
-};
+}
 
-// ============================================================
-// 🖥️ DIBUJAR LA TABLA
-// ============================================================
 function dibujarTabla(lista) {
     const tb = document.getElementById('tabla');
     tb.innerHTML = '';
     if (!lista.length) {
-        tb.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted">No hay zonas con datos.</td></tr>`;
+        tb.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted">Sin datos de zonas o empresas.</td></tr>`;
         return;
     }
     lista.forEach(item => {
@@ -430,7 +368,7 @@ function dibujarTabla(lista) {
         fila.innerHTML = `
             <td class="fw-bold">${item.zona}</td>
             <td><small>${item.empresas.join(', ') || 'Sin empresas'}</small></td>
-            <td><span class="badge bg-light text-dark border">${item.vacantes}</span></td>
+            <td class="text-center"><span class="badge bg-secondary fs-6">${item.vacantes}</span></td>
             <td><small>${item.coordinadores}</small></td>
             <td><small>${item.reclutadores}</small></td>
             <td>
@@ -438,112 +376,116 @@ function dibujarTabla(lista) {
                 <div class="progress progress-sm mt-1">
                     <div class="progress-bar ${cobertura.barra}" style="width:${cobertura.porcentaje}%"></div>
                 </div>
-                ${cobertura.sinCobertura>0?`<small class="text-danger d-block mt-1">⚠️ ${cobertura.sinCobertura} sin cobertura</small>`:''}
+                ${cobertura.sinCobertura > 0 ? `<small class="text-danger d-block mt-1 fw-bold">⚠️ ${cobertura.sinCobertura} sin cobertura</small>` : ''}
             </td>
             <td class="text-center">
-                <button class="btn btn-sm btn-outline-primary me-1" title="Asignar a esta zona" 
-                    onclick="abrirAsignar('${item.zona}')">
-                    <i class="fa-solid fa-user-plus"></i>
+                <button class="btn btn-sm btn-outline-primary me-1 btn-asignar" data-zona="${item.zona}">
+                    <i class="fa-solid fa-user-plus"></i> Asignar
                 </button>
-                <button class="btn btn-sm btn-outline-success" title="Dar Acceso Global" 
-                    onclick="abrirGlobal()">
-                    <i class="fa-solid fa-globe"></i>
+                <button class="btn btn-sm btn-outline-purple text-dark btn-global" style="background:#e9d5ff">
+                    <i class="fa-solid fa-globe"></i> Global
                 </button>
             </td>
         `;
         tb.appendChild(fila);
     });
+
+    // Event listeners dinámicos para los botones de la tabla
+    document.querySelectorAll('.btn-asignar').forEach(btn => {
+        btn.addEventListener('click', () => abrirAsignar(btn.dataset.zona));
+    });
+    document.querySelectorAll('.btn-global').forEach(btn => {
+        btn.addEventListener('click', () => abrirGlobal());
+    });
 }
 
-// ============================================================
-// ➕ BOTÓN ASIGNAR ZONA — ¡LLENA EL DESPLEGABLE!
-// ============================================================
-window.abrirAsignar = function(nombreZona) {
+function abrirAsignar(nombreZona) {
     document.getElementById('modal_ZonaNombre').textContent = nombreZona;
     document.getElementById('modal_ZonaValor').value = nombreZona;
 
-    // ✅ LLENAR DESPLEGABLE CON TODOS LOS USUARIOS
     const sel = document.getElementById('modal_Persona');
-    sel.innerHTML = '<option value="">-- Seleccionar persona --</option>';
+    sel.innerHTML = '<option value="">-- Seleccionar Usuario --</option>';
     todosUsuarios.forEach(u => {
-        const tipo = u.esReclutador ? '👷 Reclutador' : '👤 Coord';
-        const alcance = u.global ? '✅ GLOBAL' : `📍 ${u.zonas.join(', ') || 'Sin zona'}`;
-        sel.innerHTML += `<option value="${u.id}|${u.esReclutador}">${u.nombre} — ${tipo} · ${alcance}</option>`;
+        const tipo = u.esReclutador ? '👷 Reclutador' : '👤 Coordinador';
+        const alcance = u.global ? '🌐 Acceso Global' : `📍 ${u.zonas.join(', ') || 'Sin Zona'}`;
+        sel.innerHTML += `<option value="${u.id}|${u.esReclutador}">${u.nombre} — ${tipo} (${alcance})</option>`;
     });
 
-    modalZona.show();
-};
+    modalZonaObj.show();
+}
 
-// ============================================================
-// 💾 GUARDAR ASIGNACIÓN DE ZONA
-// ============================================================
-window.guardarZona = async function() {
-    const { ref, update } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js");
+async function guardarZona() {
     const valor = document.getElementById('modal_Persona').value;
     const zona = document.getElementById('modal_ZonaValor').value;
-
-    if (!valor) { alert("⚠️ Selecciona una persona."); return; }
+    if (!valor) return alert("⚠️ Selecciona una persona.");
 
     const [id, esReclutador] = valor.split('|');
     const ruta = esReclutador === 'true' ? 'usuarios_reclutadores' : 'usuarios';
 
     try {
-        const { get } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js");
         const snap = await get(ref(db, `${ruta}/${id}`));
         const usuario = snap.val() || {};
-
-        // ✅ AGREGAR ZONA SIN BORRAR LAS QUE YA TIENE
-        const zonasActuales = sacarZonas(usuario);
+        const zonasActuales = extraerZonasUsuario(usuario);
         const nuevasZonas = Array.from(new Set([...zonasActuales, zona]));
-        const campo = usuario.zonasAsignadas ? 'zonasAsignadas' 
-                        : usuario.zonasOperacion ? 'zonasOperacion' 
-                        : 'zonas';
 
-        await update(ref(db, `${ruta}/${id}`), { [campo]: nuevasZonas });
-        modalZona.hide();
+        await update(ref(db, `${ruta}/${id}`), { 
+            zonas: nuevasZonas,
+            zonasOperacion: nuevasZonas,
+            zonasAsignadas: nuevasZonas,
+            zona: nuevasZonas[0] || zona
+        });
+
+        modalZonaObj.hide();
         await cargarTodo();
-        alert("✅ Zona asignada correctamente.");
+        alert("✅ Asignación actualizada.");
     } catch (e) {
-        alert("❌ Error: " + e.message);
+        alert("❌ Error en Firebase: " + e.message);
     }
-};
+}
 
-// ============================================================
-// 🌐 BOTÓN DAR ACCESO GLOBAL — ¡LLENA EL DESPLEGABLE!
-// ============================================================
-window.abrirGlobal = function() {
-    // ✅ LLENAR DESPLEGABLE SOLO CON QUIEN NO TIENE AÚN ACCESO GLOBAL
+function abrirGlobal() {
     const sel = document.getElementById('modalGlobal_Persona');
-    sel.innerHTML = '<option value="">-- Seleccionar persona --</option>';
+    sel.innerHTML = '<option value="">-- Seleccionar Usuario --</option>';
     todosUsuarios.filter(u => !u.global).forEach(u => {
-        const tipo = u.esReclutador ? '👷 Reclutador' : '👤 Coord';
+        const tipo = u.esReclutador ? '👷 Reclutador' : '👤 Coordinador';
         sel.innerHTML += `<option value="${u.id}|${u.esReclutador}">${u.nombre} — ${tipo}</option>`;
     });
-    modalGlobal.show();
-};
+    modalGlobalObj.show();
+}
 
-// ============================================================
-// 💾 GUARDAR ACCESO GLOBAL
-// ============================================================
-window.guardarGlobal = async function() {
-    const { ref, update } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js");
+async function guardarGlobal() {
     const valor = document.getElementById('modalGlobal_Persona').value;
-
-    if (!valor) { alert("⚠️ Selecciona una persona."); return; }
+    if (!valor) return alert("⚠️ Selecciona una persona.");
 
     const [id, esReclutador] = valor.split('|');
     const ruta = esReclutador === 'true' ? 'usuarios_reclutadores' : 'usuarios';
 
     try {
-        // ✅ GUARDA: accesoGlobal: true
-        await update(ref(db, `${ruta}/${id}`), { accesoGlobal: true });
-        modalGlobal.hide();
+        await update(ref(db, `${ruta}/${id}`), { 
+            accesoGlobal: true, 
+            esGlobal: true 
+        });
+        
+        modalGlobalObj.hide();
         await cargarTodo();
-        alert("✅ Acceso Global activado. Atiende TODAS las zonas.");
+        alert("✅ Acceso global activado.");
     } catch (e) {
-        alert("❌ Error: " + e.message);
+        alert("❌ Error en Firebase: " + e.message);
     }
-};
+}
+
+// INICIALIZACIÓN SEGURA UNA VEZ QUE EL DOM ESTÁ LISTO
+document.addEventListener("DOMContentLoaded", async () => {
+    // Garantiza que Bootstrap ya existe
+    modalZonaObj = new bootstrap.Modal(document.getElementById('modalZona'));
+    modalGlobalObj = new bootstrap.Modal(document.getElementById('modalGlobal'));
+
+    document.getElementById('btnRecargar').addEventListener('click', cargarTodo);
+    document.getElementById('btnGuardarZona').addEventListener('click', guardarZona);
+    document.getElementById('btnGuardarGlobal').addEventListener('click', guardarGlobal);
+
+    await cargarTodo();
+});
 
 </script>
 </body>
