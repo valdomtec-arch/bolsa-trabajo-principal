@@ -9,7 +9,13 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         .kpi-card { border-radius: 10px; border: none; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
-        .badge-cob { font-size: 0.9rem; padding: 5px 10px; }
+        .badge-cob { font-size: 0.85rem; padding: 6px 12px; border-radius: 20px; font-weight: 700; }
+        
+        /* Semáforo personalizado */
+        .semaforo-rojo { background-color: #ff4d4d !important; color: #ffffff !important; }
+        .semaforo-amarillo { background-color: #ffcc00 !important; color: #212529 !important; }
+        .semaforo-verde { background-color: #2ed573 !important; color: #ffffff !important; }
+
         dialog::backdrop { background: rgba(0, 0, 0, 0.5); }
         dialog { border: none; border-radius: 10px; width: 95%; max-width: 480px; padding: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
     </style>
@@ -69,9 +75,9 @@
                             <th>Zona / Territorio</th>
                             <th>Empresas</th>
                             <th class="text-center">Vacantes Activas</th>
-                            <th>Coordinador Cargo</th>
+                            <th>Supervisión / Coordinación</th>
                             <th>Reclutadores Asignados</th>
-                            <th style="min-width: 140px;">% Cobertura</th>
+                            <th style="min-width: 160px;">% Cobertura</th>
                             <th class="text-center">Acción</th>
                         </tr>
                     </thead>
@@ -85,7 +91,7 @@
 
 </div>
 
-<!-- 🔄 MODAL NATIVO: TRANSFERENCE DE RECLUTADOR / ASIGNACIÓN ERGONÓMICA -->
+<!-- 🔄 MODAL NATIVO: REASIGNACIÓN DE RECLUTADOR -->
 <dialog id="dlgReasignar">
     <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
         <h5 class="fw-bold mb-0 text-primary" id="dlg_titulo"><i class="fa-solid fa-people-arrows me-2"></i>Reasignar Reclutador</h5>
@@ -136,6 +142,54 @@ function normalizar(txt) {
     return txt ? String(txt).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim() : '';
 }
 
+/**
+ * LÓGICA DE COBERTURA PONDERADA Y SEMÁFORO (0-35, 36-75, 76-100)
+ */
+function calcularMetricaZona(staffZona, vacantesActivas) {
+    const metaReclutadores = Math.max(1, Math.ceil(vacantesActivas / CAPACIDAD_POR_RECLUTADOR));
+    const activos = staffZona.filter(u => u.activo !== false);
+
+    if (activos.length === 0) {
+        return { pct: 0, claseCss: 'semaforo-rojo', etiqueta: 'CRÍTICO' };
+    }
+
+    const tieneAdminDirector = activos.some(u => ['director', 'admin'].includes(normalizar(u.rol)));
+    const tieneSupervisor = activos.some(u => normalizar(u.rol) === 'supervisor');
+    const tieneCoordinador = activos.some(u => normalizar(u.rol) === 'coordinador');
+    const reclutadoresActivos = activos.filter(u => normalizar(u.rol) === 'reclutador' || u.esReclutador).length;
+
+    // 1. Base por Jerarquía
+    let baseLiderazgo = 0;
+    if (tieneAdminDirector || tieneSupervisor) {
+        baseLiderazgo = 30;
+    } else if (tieneCoordinador) {
+        baseLiderazgo = 20;
+    } else {
+        baseLiderazgo = 10;
+    }
+
+    // 2. Proporción Reclutadores
+    const margenRestante = 100 - baseLiderazgo;
+    const factorRecl = Math.min(reclutadoresActivos / metaReclutadores, 1);
+    const aporteRecl = factorRecl * margenRestante;
+
+    const pctFinal = Math.min(100, Math.round(baseLiderazgo + aporteRecl));
+
+    // 3. Semáforo
+    let claseCss = 'semaforo-rojo';
+    let etiqueta = 'BAJO';
+
+    if (pctFinal > 75) {
+        claseCss = 'semaforo-verde';
+        etiqueta = 'ÓPTIMO';
+    } else if (pctFinal >= 36) {
+        claseCss = 'semaforo-amarillo';
+        etiqueta = 'MEDIO';
+    }
+
+    return { pct: pctFinal, claseCss, etiqueta };
+}
+
 // 1. CARGA ADAPTATIVA POR SERVIDOR
 async function cargarTablero() {
     const tabla = document.getElementById('tablaCuerpo');
@@ -151,19 +205,15 @@ async function cargarTablero() {
         const recls = snapRecl.exists() ? Object.entries(snapRecl.val()).map(([id, d]) => ({ id, ...d, esReclutador: true })) : [];
         todosLosUsuarios = [...coords, ...recls];
 
-        // MOCK DE IDENTIFICACIÓN DE USUARIO (Toma el primero o el parametro activo)
-        // En producción lee el ID del Login guardado en sessionStorage/localStorage
         const userIdActivo = localStorage.getItem('usuario_id') || coords[0]?.id;
         usuarioActual = todosLosUsuarios.find(u => u.id === userIdActivo) || { rol: 'admin', nombre: 'Administrador General' };
 
-        // Definir permisos de vista
         const esGlobal = ['admin', 'director', 'supervisor'].includes(normalizar(usuarioActual.rol)) || usuarioActual.esGlobal === true;
         
         document.getElementById('userRoleBadge').innerHTML = esGlobal 
             ? `<i class="fa-solid fa-earth-americas me-1"></i> Vista Global (${usuarioActual.nombre || 'Admin'})`
             : `<i class="fa-solid fa-user-lock me-1"></i> Vista Filtrada (${usuarioActual.nombre})`;
 
-        // Agrupar empresas y vacantes
         const empresas = snapEmp.exists() ? snapEmp.val() : {};
         const vacantes = snapVac.exists() ? snapVac.val() : {};
 
@@ -182,21 +232,20 @@ async function cargarTablero() {
             mapaZonas[z].vacantes += parseInt(v.plazas || v.cupo || v.vacantes || 1);
         });
 
-        // FILTRADO DINÁMICO POR ROL
         let html = '';
         let sumaCobertura = 0, totalSinCobertura = 0, totalFaltantes = 0, totalCapacidad = 0, totalZonas = 0;
 
         for (const [zona, info] of Object.entries(mapaZonas)) {
-            // Heredar quién atiende la zona desde el Módulo 5 (por jerarquía)
             const coordsZona = coords.filter(c => normalizar(c.zona) === normalizar(zona) || (c.zonas && c.zonas.includes(zona)));
             const reclsZona = recls.filter(r => 
                 normalizar(r.zona) === normalizar(zona) || 
-                coordsZona.some(c => c.id === r.coordinadorId) // Herencia jerárquica del M5
+                coordsZona.some(c => c.id === r.coordinadorId)
             );
 
-            // Si no es Vista Global y la persona no pertenece a esta zona/equipo, no se renderiza
+            const staffTotalZona = [...coordsZona, ...reclsZona];
+
             if (!esGlobal) {
-                const perteneceAZona = coordsZona.some(c => c.id === usuarioActual.id) || reclsZona.some(r => r.id === usuarioActual.id);
+                const perteneceAZona = staffTotalZona.some(u => u.id === usuarioActual.id);
                 if (!perteneceAZona) continue;
             }
 
@@ -205,27 +254,26 @@ async function cargarTablero() {
             const capZona = numReclutadores * CAPACIDAD_POR_RECLUTADOR;
             totalCapacidad += capZona;
 
-            let pct = info.vacantes > 0 ? Math.min(100, Math.round((capZona / info.vacantes) * 100)) : 100;
+            // Métrica unificada con el nuevo semáforo
+            const metrica = calcularMetricaZona(staffTotalZona, info.vacantes);
             let sinCob = Math.max(0, info.vacantes - capZona);
             let falt = Math.ceil(sinCob / CAPACIDAD_POR_RECLUTADOR);
 
-            sumaCobertura += pct;
+            sumaCobertura += metrica.pct;
             totalSinCobertura += sinCob;
             totalFaltantes += falt;
-
-            let badgeClass = pct <= 35 ? 'bg-danger' : (pct <= 70 ? 'bg-warning text-dark' : 'bg-success');
 
             html += `
                 <tr>
                     <td class="fw-bold">${zona}</td>
                     <td><small class="text-muted">${info.empresas.join(', ') || 'Sin empresas'}</small></td>
                     <td class="text-center"><span class="badge bg-secondary fs-6">${info.vacantes}</span></td>
-                    <td><small class="fw-bold text-primary">${coordsZona.map(c => c.nombre).join(', ') || 'Sin Coordinador'}</small></td>
+                    <td><small class="fw-bold text-primary">${coordsZona.map(c => `${c.nombre} (${c.rol || 'Coord'})`).join(', ') || 'Sin Liderazgo'}</small></td>
                     <td><small>${reclsZona.map(r => r.nombre).join(', ') || '<em class="text-muted">Sin Reclutador</em>'}</small></td>
                     <td>
-                        <span class="badge badge-cob ${badgeClass}">${pct}%</span>
+                        <span class="badge badge-cob ${metrica.claseCss}">${metrica.pct}% - ${metrica.etiqueta}</span>
                         <div class="progress mt-1" style="height: 6px;">
-                            <div class="progress-bar ${badgeClass}" style="width: ${pct}%"></div>
+                            <div class="progress-bar ${metrica.claseCss}" style="width: ${metrica.pct}%"></div>
                         </div>
                     </td>
                     <td class="text-center">
@@ -237,7 +285,6 @@ async function cargarTablero() {
             `;
         }
 
-        // MOSTRAR KPIS CALCULADOS
         document.getElementById('kpi_Capacidad').textContent = `${totalCapacidad} vac`;
         document.getElementById('kpi_Cobertura').textContent = `${totalZonas > 0 ? Math.round(sumaCobertura / totalZonas) : 0}%`;
         document.getElementById('kpi_SinCobertura').textContent = totalSinCobertura;
@@ -250,7 +297,7 @@ async function cargarTablero() {
     }
 }
 
-// 2. REASIGNACIÓN EN LÍNEA ERGONÓMICA (HERENCIA M5)
+// 2. REASIGNACIÓN DE RECLUTADOR
 function abrirReasignacion(zona) {
     zonaEnEdicion = zona;
     document.getElementById('dlg_zonaNombre').textContent = zona;
@@ -261,7 +308,6 @@ function abrirReasignacion(zona) {
     selRecl.innerHTML = '<option value="">-- Seleccionar Reclutador --</option>';
     selCoord.innerHTML = '<option value="">-- Seleccionar Nuevo Coordinador --</option>';
 
-    // Cargar Reclutadores y Coordinadores
     todosLosUsuarios.forEach(u => {
         if (u.esReclutador) {
             selRecl.innerHTML += `<option value="${u.id}">${u.nombre} (${u.zona || 'Sin Zona'})</option>`;
@@ -286,7 +332,6 @@ async function guardarReasignacion() {
     try {
         const coordObj = todosLosUsuarios.find(u => u.id === coordId);
         
-        // Actualiza el nodo en Firebase asignando el reclutador al nuevo coordinador y zona
         await db.ref(`usuarios_reclutadores/${reclId}`).update({
             coordinadorId: coordId,
             coordinadorNombre: coordObj ? coordObj.nombre : '',
