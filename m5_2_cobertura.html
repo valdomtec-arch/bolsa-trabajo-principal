@@ -4,106 +4,113 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>M5.2 Cobertura Territorial y Capacidad</title>
-    <!-- Favicon transparente rápido para silenciar el error 404 de la consola -->
     <link rel="icon" href="data:,">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
-        .card { border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
-        .progress-sm { height: 10px; border-radius: 5px; }
+        .kpi-card { border-radius: 10px; border: none; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        .badge-cob { font-size: 0.9rem; padding: 5px 10px; }
+        dialog::backdrop { background: rgba(0, 0, 0, 0.5); }
+        dialog { border: none; border-radius: 10px; width: 95%; max-width: 480px; padding: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
     </style>
 </head>
-<body class="bg-light p-4">
+<body class="bg-light p-3 p-md-4">
 <div class="container-fluid">
 
-<!-- ENCABEZADO -->
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h3 class="fw-bold mb-1">
-            <i class="fa-solid fa-map-location-dot text-primary me-2"></i>
-            Cobertura Territorial y Capacidad
-        </h3>
-        <p class="text-muted small mb-0">Capacidad: 15 vacantes por Reclutador</p>
+    <!-- ENCABEZADO Y ROL ACTIVO -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+        <div>
+            <h3 class="fw-bold mb-0 text-dark">
+                <i class="fa-solid fa-chart-pie text-primary me-2"></i>M5.2 Cobertura Territorial y Capacidad
+            </h3>
+            <p class="text-muted small mb-0">Vista adaptativa basada en perfil del servidor</p>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-dark px-3 py-2" id="userRoleBadge"><i class="fa-solid fa-spinner fa-spin me-1"></i> Detectando Rol...</span>
+            <button class="btn btn-primary fw-bold" onclick="cargarTablero()"><i class="fa-solid fa-rotate me-1"></i> Recargar</button>
+        </div>
     </div>
-    <button class="btn btn-primary fw-bold" onclick="cargarTodo()">
-        <i class="fa-solid fa-rotate me-1"></i> Recargar Datos
-    </button>
-</div>
 
-<!-- PANEL DIAGNÓSTICO -->
-<div class="card border-primary mb-4 p-3" style="background:#f3e8ff; border-left:5px solid #6f42c1;">
-    <h5 class="fw-bold text-dark mb-3">
-        <i class="fa-solid fa-brain text-purple me-2"></i>
-        🧠 RESUMEN DE CONEXIÓN CON FIREBASE
-    </h5>
-    <div class="row g-3">
-        <div class="col-md-3"><span class="text-muted small">Coordinadores:</span><div class="fw-bold text-primary fs-5" id="m_Coord">--</div></div>
-        <div class="col-md-3"><span class="text-muted small">Reclutadores:</span><div class="fw-bold text-success fs-5" id="m_Recl">--</div></div>
-        <div class="col-md-3"><span class="text-muted small">Acceso Global:</span><div class="fw-bold text-purple fs-5" id="m_Global">--</div></div>
-        <div class="col-md-3"><span class="text-muted small">Capacidad Teórica:</span><div class="fw-bold text-dark fs-5" id="m_Cap">--</div></div>
-    </div>
-    <div class="mt-3 text-muted small border-top pt-2">
-        <strong>Personal detectado:</strong> <span id="m_Lista">Cargando...</span>
-    </div>
-</div>
-
-<!-- METRICAS KPI -->
-<div class="row g-3 mb-4">
-    <div class="col-md-3"><div class="card border-primary p-3"><span class="text-muted small">Cobertura Promedio</span><h2 class="fw-bold text-primary mb-0" id="k_Promedio">0%</h2></div></div>
-    <div class="col-md-3"><div class="card border-danger p-3"><span class="text-muted small">Vacantes Sin Cobertura</span><h2 class="fw-bold text-danger mb-0" id="k_SinCobertura">0</h2></div></div>
-    <div class="col-md-3"><div class="card border-warning p-3"><span class="text-muted small">Reclutadores Faltantes</span><h2 class="fw-bold text-warning mb-0" id="k_Faltantes">+0</h2></div></div>
-    <div class="col-md-3"><div class="card border-success p-3"><span class="text-muted small">Vacantes Activas</span><h2 class="fw-bold text-success mb-0" id="k_Total">0</h2></div></div>
-</div>
-
-<!-- TABLA DE ZONAS -->
-<div class="card">
-    <div class="card-body p-0">
-        <table class="table table-hover align-middle mb-0">
-            <thead class="table-dark">
-                <tr>
-                    <th>Zona / Territorio</th>
-                    <th>Empresas</th>
-                    <th class="text-center">Vacantes</th>
-                    <th>Coordinadores</th>
-                    <th>Reclutadores</th>
-                    <th style="width: 200px;">Cobertura</th>
-                    <th class="text-center">Acciones</th>
-                </tr>
-            </thead>
-            <tbody id="tabla">
-                <tr><td colspan="7" class="text-center py-4 text-muted"><i class="fa-solid fa-spinner fa-spin me-2"></i>Consultando datos...</td></tr>
-            </tbody>
-        </table>
-    </div>
-</div>
-
-</div>
-
-<!-- MODAL ASIGNAR -->
-<div class="modal fade" id="modalZona" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title"><i class="fa-solid fa-user-plus me-2"></i>Asignar a Zona</h5>
-                <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+    <!-- 📊 LOS 4 KPIS DINÁMICOS -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="card kpi-card p-3 border-start border-primary border-4">
+                <span class="text-muted small fw-bold">Capacidad Teórica</span>
+                <h3 class="fw-bold text-primary mb-0" id="kpi_Capacidad">0 vac</h3>
             </div>
-            <div class="modal-body">
-                <p class="mb-2">Zona: <strong id="modal_ZonaNombre" class="text-primary"></strong></p>
-                <input type="hidden" id="modal_ZonaValor">
-                <div class="mb-3">
-                    <label class="form-label fw-bold">Seleccionar Usuario:</label>
-                    <select class="form-select" id="modal_Persona"></select>
-                </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card kpi-card p-3 border-start border-info border-4">
+                <span class="text-muted small fw-bold">Cobertura Promedio</span>
+                <h3 class="fw-bold text-info mb-0" id="kpi_Cobertura">0%</h3>
             </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button class="btn btn-primary" onclick="guardarZona()">💾 Guardar Asignación</button>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card kpi-card p-3 border-start border-danger border-4">
+                <span class="text-muted small fw-bold">Vacantes Sin Cobertura</span>
+                <h3 class="fw-bold text-danger mb-0" id="kpi_SinCobertura">0</h3>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card kpi-card p-3 border-start border-warning border-4">
+                <span class="text-muted small fw-bold">Reclutadores Faltantes</span>
+                <h3 class="fw-bold text-warning mb-0" id="kpi_Faltantes">+0</h3>
             </div>
         </div>
     </div>
+
+    <!-- 📋 MATRIZ DE COBERTURA -->
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Zona / Territorio</th>
+                            <th>Empresas</th>
+                            <th class="text-center">Vacantes Activas</th>
+                            <th>Coordinador Cargo</th>
+                            <th>Reclutadores Asignados</th>
+                            <th style="min-width: 140px;">% Cobertura</th>
+                            <th class="text-center">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaCuerpo">
+                        <tr><td colspan="7" class="text-center py-4 text-muted"><i class="fa-solid fa-spinner fa-spin me-2"></i>Consultando estructura en servidor...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/bootstrap.bundle.min.js"></script>
+<!-- 🔄 MODAL NATIVO: TRANSFERENCE DE RECLUTADOR / ASIGNACIÓN ERGONÓMICA -->
+<dialog id="dlgReasignar">
+    <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
+        <h5 class="fw-bold mb-0 text-primary" id="dlg_titulo"><i class="fa-solid fa-people-arrows me-2"></i>Reasignar Reclutador</h5>
+        <button type="button" class="btn-close" onclick="cerrarDialog()"></button>
+    </div>
+    
+    <p class="small text-muted mb-3">Mueve un reclutador a un nuevo coordinador para balancear la carga de la zona <strong id="dlg_zonaNombre"></strong>.</p>
+
+    <div class="mb-3">
+        <label class="form-label fw-bold small">1. Selecciona Reclutador a Mover:</label>
+        <select id="dlg_reclutador" class="form-select"></select>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label fw-bold small">2. Asignar al Coordinador Responsable:</label>
+        <select id="dlg_coordinador" class="form-select"></select>
+    </div>
+
+    <div class="d-flex justify-content-end gap-2 mt-4">
+        <button class="btn btn-light fw-bold" onclick="cerrarDialog()">Cancelar</button>
+        <button class="btn btn-primary fw-bold" onclick="guardarReasignacion()">💾 Aplicar Cambio</button>
+    </div>
+</dialog>
+
+<!-- FIREBASE SDK -->
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
@@ -121,45 +128,17 @@ if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
 const CAPACIDAD_POR_RECLUTADOR = 15;
-let modalZonaObj;
-let coordinadores = [], reclutadores = [], todosUsuarios = [];
+let todosLosUsuarios = [], todasLasVacantes = [], todasLasEmpresas = [];
+let usuarioActual = null;
+let zonaEnEdicion = '';
 
 function normalizar(txt) {
     return txt ? String(txt).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim() : '';
 }
 
-function identificarZona(entidad) {
-    const raw = entidad?.ubicacion || entidad?.zona || entidad?.municipio || entidad?.ciudad || '';
-    const txt = normalizar(raw);
-    if (!txt) return 'Sin Zona Definida';
-    if (txt.includes('salinas victoria')) return 'Salinas Victoria NL';
-    if (txt.includes('apodaca')) return 'Apodaca';
-    if (txt.includes('santa catarina')) return 'Santa Catarina';
-    if (txt.includes('cienega') || txt.includes('cienaga')) return 'Ciénaga de Flores';
-    if (txt.includes('pesqueria')) return 'Pesquería';
-    if (txt.includes('monterrey')) return 'Monterrey';
-    if (txt.includes('escobedo')) return 'Escobedo';
-    if (txt.includes('guadalupe')) return 'Guadalupe';
-    return String(raw).trim();
-}
-
-function parsearUsuario(id, datos, esReclutador) {
-    const nombre = String(datos?.nombre || datos?.nombreCompleto || datos?.correo || 'Sin Nombre').trim();
-    const global = Boolean(datos?.esGlobal === true || datos?.accesoGlobal === true || datos?.rol === 'admin');
-    let zonas = [];
-    if (datos?.zona) zonas.push(datos.zona);
-    if (Array.isArray(datos?.zonas)) zonas.push(...datos.zonas);
-    return { id, nombre, esReclutador, global, zonas: [...new Set(zonas)] };
-}
-
-function atiendeZona(u, nombreZona) {
-    if (u.global) return true;
-    const target = normalizar(nombreZona);
-    return u.zonas.some(z => normalizar(z).includes(target) || target.includes(normalizar(z)));
-}
-
-async function cargarTodo() {
-    const tabla = document.getElementById('tabla');
+// 1. CARGA ADAPTATIVA POR SERVIDOR
+async function cargarTablero() {
+    const tabla = document.getElementById('tablaCuerpo');
     try {
         const [snapCoord, snapRecl, snapEmp, snapVac] = await Promise.all([
             db.ref('usuarios').once('value'),
@@ -168,134 +147,161 @@ async function cargarTodo() {
             db.ref('vacantes').once('value')
         ]);
 
-        coordinadores = snapCoord.exists() ? Object.entries(snapCoord.val()).map(([id, d]) => parsearUsuario(id, d, false)) : [];
-        reclutadores = snapRecl.exists() ? Object.entries(snapRecl.val()).map(([id, d]) => parsearUsuario(id, d, true)) : [];
-        todosUsuarios = [...coordinadores, ...reclutadores];
+        const coords = snapCoord.exists() ? Object.entries(snapCoord.val()).map(([id, d]) => ({ id, ...d, esReclutador: false })) : [];
+        const recls = snapRecl.exists() ? Object.entries(snapRecl.val()).map(([id, d]) => ({ id, ...d, esReclutador: true })) : [];
+        todosLosUsuarios = [...coords, ...recls];
 
-        const recGlobal = reclutadores.filter(r => r.global);
-        const coordGlobal = coordinadores.filter(c => c.global);
+        // MOCK DE IDENTIFICACIÓN DE USUARIO (Toma el primero o el parametro activo)
+        // En producción lee el ID del Login guardado en sessionStorage/localStorage
+        const userIdActivo = localStorage.getItem('usuario_id') || coords[0]?.id;
+        usuarioActual = todosLosUsuarios.find(u => u.id === userIdActivo) || { rol: 'admin', nombre: 'Administrador General' };
 
-        document.getElementById('m_Coord').textContent = `${coordinadores.length} (${coordGlobal.length} globales)`;
-        document.getElementById('m_Recl').textContent = `${reclutadores.length} (${recGlobal.length} globales)`;
-        document.getElementById('m_Global').textContent = `${coordGlobal.length + recGlobal.length}`;
-        document.getElementById('m_Cap').textContent = `${reclutadores.length * CAPACIDAD_POR_RECLUTADOR} vacantes`;
-        document.getElementById('m_Lista').textContent = todosUsuarios.map(u => u.nombre).join(' · ');
+        // Definir permisos de vista
+        const esGlobal = ['admin', 'director', 'supervisor'].includes(normalizar(usuarioActual.rol)) || usuarioActual.esGlobal === true;
+        
+        document.getElementById('userRoleBadge').innerHTML = esGlobal 
+            ? `<i class="fa-solid fa-earth-americas me-1"></i> Vista Global (${usuarioActual.nombre || 'Admin'})`
+            : `<i class="fa-solid fa-user-lock me-1"></i> Vista Filtrada (${usuarioActual.nombre})`;
 
+        // Agrupar empresas y vacantes
         const empresas = snapEmp.exists() ? snapEmp.val() : {};
         const vacantes = snapVac.exists() ? snapVac.val() : {};
+
         const mapaZonas = {};
-        let totalVacantes = 0;
 
         Object.values(empresas).forEach(emp => {
-            const zona = identificarZona(emp);
-            if (!mapaZonas[zona]) mapaZonas[zona] = { empresas: [], vacantes: 0 };
-            const nombre = emp.nombre || emp.razonSocial || 'Empresa';
-            if (!mapaZonas[zona].empresas.includes(nombre)) mapaZonas[zona].empresas.push(nombre);
+            const z = emp.ubicacion || emp.zona || emp.municipio || 'Sin Zona';
+            if (!mapaZonas[z]) mapaZonas[z] = { empresas: [], vacantes: 0 };
+            const n = emp.nombre || emp.razonSocial || 'Empresa';
+            if (!mapaZonas[z].empresas.includes(n)) mapaZonas[z].empresas.push(n);
         });
 
         Object.values(vacantes).forEach(v => {
-            const zona = identificarZona(v);
-            if (!mapaZonas[zona]) mapaZonas[zona] = { empresas: [], vacantes: 0 };
-            const pl = parseInt(v.plazas || v.cupo || v.vacantes || 1);
-            mapaZonas[zona].vacantes += pl;
-            totalVacantes += pl;
+            const z = v.ubicacion || v.zona || 'Sin Zona';
+            if (!mapaZonas[z]) mapaZonas[z] = { empresas: [], vacantes: 0 };
+            mapaZonas[z].vacantes += parseInt(v.plazas || v.cupo || v.vacantes || 1);
         });
 
-        let html = '', sumaCobertura = 0, totalSinCobertura = 0, totalFaltantes = 0, numZonas = 0;
+        // FILTRADO DINÁMICO POR ROL
+        let html = '';
+        let sumaCobertura = 0, totalSinCobertura = 0, totalFaltantes = 0, totalCapacidad = 0, totalZonas = 0;
 
         for (const [zona, info] of Object.entries(mapaZonas)) {
-            numZonas++;
-            const coordZ = coordinadores.filter(c => atiendeZona(c, zona));
-            const reclZ = reclutadores.filter(r => atiendeZona(r, zona));
+            // Heredar quién atiende la zona desde el Módulo 5 (por jerarquía)
+            const coordsZona = coords.filter(c => normalizar(c.zona) === normalizar(zona) || (c.zonas && c.zonas.includes(zona)));
+            const reclsZona = recls.filter(r => 
+                normalizar(r.zona) === normalizar(zona) || 
+                coordsZona.some(c => c.id === r.coordinadorId) // Herencia jerárquica del M5
+            );
 
-            const reclDirectos = reclZ.filter(r => !r.global).length;
-            let capZona = reclDirectos * CAPACIDAD_POR_RECLUTADOR;
-            if (totalVacantes > 0) {
-                capZona += (info.vacantes / totalVacantes) * (recGlobal.length * CAPACIDAD_POR_RECLUTADOR);
+            // Si no es Vista Global y la persona no pertenece a esta zona/equipo, no se renderiza
+            if (!esGlobal) {
+                const perteneceAZona = coordsZona.some(c => c.id === usuarioActual.id) || reclsZona.some(r => r.id === usuarioActual.id);
+                if (!perteneceAZona) continue;
             }
 
-            // CORRECCIÓN MATEMÁTICA: Si hay 0 vacantes, la cobertura es 0%
-            let porcentaje = info.vacantes > 0 ? Math.min(100, Math.round((capZona / info.vacantes) * 100)) : 0;
-            let sinCob = Math.max(0, info.vacantes - Math.floor(capZona));
-            let faltantes = sinCob > 0 ? Math.ceil(sinCob / CAPACIDAD_POR_RECLUTADOR) : 0;
+            totalZonas++;
+            const numReclutadores = reclsZona.length;
+            const capZona = numReclutadores * CAPACIDAD_POR_RECLUTADOR;
+            totalCapacidad += capZona;
 
-            sumaCobertura += porcentaje;
+            let pct = info.vacantes > 0 ? Math.min(100, Math.round((capZona / info.vacantes) * 100)) : 100;
+            let sinCob = Math.max(0, info.vacantes - capZona);
+            let falt = Math.ceil(sinCob / CAPACIDAD_POR_RECLUTADOR);
+
+            sumaCobertura += pct;
             totalSinCobertura += sinCob;
-            totalFaltantes += faltantes;
+            totalFaltantes += falt;
 
-            let badge = porcentaje <= 35 ? 'bg-danger' : (porcentaje <= 70 ? 'bg-warning text-dark' : 'bg-success');
+            let badgeClass = pct <= 35 ? 'bg-danger' : (pct <= 70 ? 'bg-warning text-dark' : 'bg-success');
 
             html += `
                 <tr>
                     <td class="fw-bold">${zona}</td>
-                    <td><small>${info.empresas.join(', ') || 'Sin asignación'}</small></td>
+                    <td><small class="text-muted">${info.empresas.join(', ') || 'Sin empresas'}</small></td>
                     <td class="text-center"><span class="badge bg-secondary fs-6">${info.vacantes}</span></td>
-                    <td><small>${coordZ.map(c => c.nombre).join(', ') || '<em class="text-muted">Sin Asignar</em>'}</small></td>
-                    <td><small>${reclZ.map(r => r.nombre).join(', ') || '<em class="text-muted">Sin Asignar</em>'}</small></td>
+                    <td><small class="fw-bold text-primary">${coordsZona.map(c => c.nombre).join(', ') || 'Sin Coordinador'}</small></td>
+                    <td><small>${reclsZona.map(r => r.nombre).join(', ') || '<em class="text-muted">Sin Reclutador</em>'}</small></td>
                     <td>
-                        <span class="badge ${badge}">${porcentaje}%</span>
-                        <div class="progress progress-sm mt-1">
-                            <div class="progress-bar ${badge}" style="width:${porcentaje}%"></div>
+                        <span class="badge badge-cob ${badgeClass}">${pct}%</span>
+                        <div class="progress mt-1" style="height: 6px;">
+                            <div class="progress-bar ${badgeClass}" style="width: ${pct}%"></div>
                         </div>
                     </td>
                     <td class="text-center">
-                        <button class="btn btn-sm btn-outline-primary" onclick="abrirAsignar('${zona}')">
-                            <i class="fa-solid fa-user-plus"></i> Asignar
+                        <button class="btn btn-sm btn-outline-primary fw-bold" onclick="abrirReasignacion('${zona}')">
+                            <i class="fa-solid fa-arrow-right-arrow-left me-1"></i> Mover
                         </button>
                     </td>
                 </tr>
             `;
         }
 
-        document.getElementById('k_Promedio').textContent = `${numZonas > 0 ? Math.round(sumaCobertura / numZonas) : 0}%`;
-        document.getElementById('k_SinCobertura').textContent = totalSinCobertura;
-        document.getElementById('k_Faltantes').textContent = `+${totalFaltantes}`;
-        document.getElementById('k_Total').textContent = totalVacantes;
+        // MOSTRAR KPIS CALCULADOS
+        document.getElementById('kpi_Capacidad').textContent = `${totalCapacidad} vac`;
+        document.getElementById('kpi_Cobertura').textContent = `${totalZonas > 0 ? Math.round(sumaCobertura / totalZonas) : 0}%`;
+        document.getElementById('kpi_SinCobertura').textContent = totalSinCobertura;
+        document.getElementById('kpi_Faltantes').textContent = `+${totalFaltantes}`;
 
-        tabla.innerHTML = html || '<tr><td colspan="7" class="text-center py-4 text-muted">Sin registros.</td></tr>';
+        tabla.innerHTML = html || '<tr><td colspan="7" class="text-center py-4 text-muted">No hay registros asignados para su perfil.</td></tr>';
 
-    } catch (err) {
-        tabla.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger">Error: ${err.message}</td></tr>`;
+    } catch (e) {
+        tabla.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger"><b>Error al cargar datos:</b> ${e.message}</td></tr>`;
     }
 }
 
-function abrirAsignar(zona) {
-    document.getElementById('modal_ZonaNombre').textContent = zona;
-    document.getElementById('modal_ZonaValor').value = zona;
-    const sel = document.getElementById('modal_Persona');
-    sel.innerHTML = '<option value="">-- Seleccionar Usuario --</option>';
-    todosUsuarios.forEach(u => {
-        sel.innerHTML += `<option value="${u.id}|${u.esReclutador}">${u.nombre} (${u.esReclutador ? 'Reclutador' : 'Coordinador'})</option>`;
+// 2. REASIGNACIÓN EN LÍNEA ERGONÓMICA (HERENCIA M5)
+function abrirReasignacion(zona) {
+    zonaEnEdicion = zona;
+    document.getElementById('dlg_zonaNombre').textContent = zona;
+
+    const selRecl = document.getElementById('dlg_reclutador');
+    const selCoord = document.getElementById('dlg_coordinador');
+
+    selRecl.innerHTML = '<option value="">-- Seleccionar Reclutador --</option>';
+    selCoord.innerHTML = '<option value="">-- Seleccionar Nuevo Coordinador --</option>';
+
+    // Cargar Reclutadores y Coordinadores
+    todosLosUsuarios.forEach(u => {
+        if (u.esReclutador) {
+            selRecl.innerHTML += `<option value="${u.id}">${u.nombre} (${u.zona || 'Sin Zona'})</option>`;
+        } else {
+            selCoord.innerHTML += `<option value="${u.id}">${u.nombre} (${u.zona || 'Sin Zona'})</option>`;
+        }
     });
-    modalZonaObj.show();
+
+    document.getElementById('dlgReasignar').showModal();
 }
 
-async function guardarZona() {
-    const val = document.getElementById('modal_Persona').value;
-    const zona = document.getElementById('modal_ZonaValor').value;
-    if (!val) return alert("Selecciona a alguien.");
-    const [id, esRecl] = val.split('|');
-    const path = esRecl === 'true' ? 'usuarios_reclutadores' : 'usuarios';
+function cerrarDialog() {
+    document.getElementById('dlgReasignar').close();
+}
+
+async function guardarReasignacion() {
+    const reclId = document.getElementById('dlg_reclutador').value;
+    const coordId = document.getElementById('dlg_coordinador').value;
+
+    if (!reclId || !coordId) return alert("Por favor selecciona ambos campos.");
 
     try {
-        const snap = await db.ref(`${path}/${id}`).once('value');
-        const user = snap.val() || {};
-        let z = user.zonas || [];
-        if (!z.includes(zona)) z.push(zona);
+        const coordObj = todosLosUsuarios.find(u => u.id === coordId);
+        
+        // Actualiza el nodo en Firebase asignando el reclutador al nuevo coordinador y zona
+        await db.ref(`usuarios_reclutadores/${reclId}`).update({
+            coordinadorId: coordId,
+            coordinadorNombre: coordObj ? coordObj.nombre : '',
+            zona: zonaEnEdicion
+        });
 
-        await db.ref(`${path}/${id}`).update({ zonas: z, zona: z[0] });
-        modalZonaObj.hide();
-        cargarTodo();
-        alert("✅ Asignado con éxito.");
+        cerrarDialog();
+        cargarTablero();
+        alert("✅ Reclutador reasignado con éxito. Métricas actualizadas.");
     } catch (e) {
-        alert("Error: " + e.message);
+        alert("❌ Error al guardar reasignación: " + e.message);
     }
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-    modalZonaObj = new bootstrap.Modal(document.getElementById('modalZona'));
-    cargarTodo();
-});
+document.addEventListener("DOMContentLoaded", cargarTablero);
 </script>
 </body>
 </html>
