@@ -14,6 +14,9 @@
         .badge-optima { background-color: #198754; color: #fff; }
         .badge-preventiva { background-color: #ffc107; color: #000; }
         .badge-critica { background-color: #dc3545; color: #fff; }
+        .metric-number { font-size: 1.25rem; font-weight: 700; }
+        .small-muted { color: #6c757d; font-size: .85rem; }
+        .matrix-table td, .matrix-table th { white-space: nowrap; }
     </style>
 </head>
 <body class="bg-light p-3 p-md-4">
@@ -25,13 +28,24 @@
                 <h3 class="m-0 text-primary"><i class="bi bi-shield-check me-2"></i>Submódulo 5.2: Cobertura y Fuerza de Trabajo</h3>
                 <p class="text-muted small m-0 mt-1">Gestión integral de vacantes, distribución de reclutadores y monitoreo de KPIs</p>
             </div>
-            <button class="btn btn-outline-secondary btn-sm" onclick="iniciarCargaDatosM52()">
-                <i class="bi bi-arrow-clockwise me-1"></i>Sincronizar
-            </button>
+            <div>
+                <button class="btn btn-outline-secondary btn-sm me-2" onclick="iniciarCargaDatosM52()">
+                    <i class="bi bi-arrow-clockwise me-1"></i>Sincronizar
+                </button>
+                <button class="btn btn-outline-info btn-sm" onclick="renderizarMatrizAcceso(true)">
+                    <i class="bi bi-grid-3x3-gap me-1"></i>Ver Matriz de Acceso
+                </button>
+            </div>
         </div>
 
         <!-- CONTENEDOR DE ALERTAS DE AUTENTICACIÓN / SISTEMA -->
         <div id="m52_alertas"></div>
+
+        <!-- MÉTRICAS RESUMEN -->
+        <div id="m52_metricas" class="mb-3"></div>
+
+        <!-- MATRIZ DE ACCESO (RECLUTADORES x EMPRESAS) -->
+        <div id="m52_matriz" class="mb-3"></div>
 
         <!-- TABLA PRINCIPAL DE COBERTURA -->
         <div class="card shadow-sm border-0">
@@ -205,10 +219,12 @@
                 M52_State.coberturaData = snapCobertura.exists() ? snapCobertura.val() : {};
 
                 renderizarTablaCobertura();
+                renderizarMetricas();
+                renderizarMatrizAcceso(false);
 
             }).catch((error) => {
                 console.error("Error al cargar datos desde Firebase:", error);
-                mostrarErrorModulo("Error al consultar la base de datos de cobertura: " + error.message);
+                mostrarErrorModulo("Error al consultar la base de datos de cobertura: " + (error && error.message ? error.message : error));
             });
         }
 
@@ -224,8 +240,8 @@
 
             let html = "";
             M52_State.empresas.forEach((emp) => {
-                const req = parseInt(emp.vacantes_requeridas || emp.plantilla_requerida || 0);
-                const cub = parseInt(emp.vacantes_cubiertas || emp.plantilla_actual || 0);
+                const req = parseInt(emp.vacantes_requeridas || emp.plantilla_requerida || 0) || 0;
+                const cub = parseInt(emp.vacantes_cubiertas || emp.plantilla_actual || 0) || 0;
                 const pct = req > 0 ? Math.round((cub / req) * 100) : 0;
 
                 // Semaforización KPI
@@ -247,10 +263,12 @@
                     return rec ? rec.nombre : uid;
                 });
 
+                const safeName = (emp.nombre || emp.razon_social || emp.id || '').toString().replace(/'/g, "\\'");
+
                 html += `
                     <tr>
                         <td>
-                            <strong class="text-dark">${emp.nombre || emp.razon_social || emp.id}</strong>
+                            <strong class="text-dark">${safeName}</strong>
                         </td>
                         <td class="text-center fw-bold text-secondary">${req}</td>
                         <td class="text-center fw-bold text-primary">${cub}</td>
@@ -262,7 +280,7 @@
                                 : '<span class="text-muted small"><em>Sin asignar</em></span>'}
                         </td>
                         <td class="text-end pe-4">
-                            <button class="btn btn-sm btn-outline-primary" onclick="abrirModalAsignacion('${emp.id}', '${(emp.nombre || emp.id).replace(/'/g, "\\'")}')">
+                            <button class="btn btn-sm btn-outline-primary" onclick="abrirModalAsignacion('${emp.id}', '${safeName}')">
                                 <i class="bi bi-person-plus-fill me-1"></i> Asignar
                             </button>
                         </td>
@@ -271,6 +289,131 @@
             });
 
             tbody.innerHTML = html;
+        }
+
+        // Métricas resumen
+        function renderizarMetricas() {
+            const cont = document.getElementById('m52_metricas');
+            // Calcular totales
+            let totalReq = 0, totalCub = 0, optima = 0, preventiva = 0, critica = 0;
+
+            M52_State.empresas.forEach(emp => {
+                const req = parseInt(emp.vacantes_requeridas || emp.plantilla_requerida || 0) || 0;
+                const cub = parseInt(emp.vacantes_cubiertas || emp.plantilla_actual || 0) || 0;
+                totalReq += req;
+                totalCub += cub;
+                const pct = req > 0 ? Math.round((cub / req) * 100) : 0;
+                if (pct >= 76) optima++; else if (pct >= 36) preventiva++; else critica++;
+            });
+
+            const overallPct = totalReq > 0 ? Math.round((totalCub / totalReq) * 100) : 0;
+
+            cont.innerHTML = `
+                <div class="row g-3">
+                    <div class="col-12 col-md-6 col-lg-3">
+                        <div class="card card-kpi shadow-sm p-3 h-100">
+                            <div class="small-muted">Vacantes Requeridas</div>
+                            <div class="metric-number">${totalReq}</div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-6 col-lg-3">
+                        <div class="card card-kpi shadow-sm p-3 h-100">
+                            <div class="small-muted">Vacantes Cubiertas</div>
+                            <div class="metric-number text-primary">${totalCub}</div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-6 col-lg-3">
+                        <div class="card card-kpi shadow-sm p-3 h-100">
+                            <div class="small-muted">Cobertura Global</div>
+                            <div class="metric-number">${overallPct}%</div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-6 col-lg-3">
+                        <div class="card card-kpi shadow-sm p-3 h-100">
+                            <div class="small-muted">Empresas: Óptima / Preventiva / Crítica</div>
+                            <div class="metric-number"><span class="text-success">${optima}</span> / <span class="text-warning">${preventiva}</span> / <span class="text-danger">${critica}</span></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Renderizar Matriz de Acceso (lista de reclutadores y sus empresas asignadas)
+        function renderizarMatrizAcceso(showToast = false) {
+            const cont = document.getElementById('m52_matriz');
+
+            if (!M52_State.reclutadores || M52_State.reclutadores.length === 0) {
+                cont.innerHTML = `<div class="card shadow-sm p-3"><div class="text-muted">No hay reclutadores registrados para construir la matriz de acceso.</div></div>`;
+                return;
+            }
+
+            // Construir filas: cada reclutador -> listado de empresas asignadas
+            let rows = '';
+            M52_State.reclutadores.forEach(r => {
+                const asignadas = [];
+                Object.keys(M52_State.coberturaData || {}).forEach(empId => {
+                    if (M52_State.coberturaData[empId]?.reclutadores?.[r.uid]) {
+                        const emp = M52_State.empresas.find(e => e.id === empId);
+                        const name = emp ? (emp.nombre || emp.razon_social || emp.id) : empId;
+                        asignadas.push(name);
+                    }
+                });
+
+                rows += `
+                    <tr>
+                        <td>${r.nombre}</td>
+                        <td class="text-center">${asignadas.length}</td>
+                        <td>${asignadas.length > 0 ? asignadas.map(n => `<span class="badge bg-light text-dark border me-1">${n}</span>`).join('') : '<span class="text-muted small">Sin asignaciones</span>'}</td>
+                    </tr>
+                `;
+            });
+
+            cont.innerHTML = `
+                <div class="card shadow-sm">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="m-0">Matriz de Acceso - Reclutadores</h6>
+                            <div class="small-muted">Muestra cuántas y cuáles empresas tiene asignadas cada reclutador.</div>
+                        </div>
+                        <div>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="renderizarMatrizAcceso(false)"><i class="bi bi-arrow-clockwise me-1"></i>Actualizar</button>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-sm matrix-table mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Reclutador</th>
+                                        <th class="text-center"># Empresas</th>
+                                        <th>Empresas Asignadas</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${rows}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            if (showToast) {
+                // small temporary visual confirmation
+                const alertId = 'm52_toast_confirm';
+                const alertDiv = document.createElement('div');
+                alertDiv.id = alertId;
+                alertDiv.className = 'toast align-items-center text-bg-success border-0 position-fixed bottom-0 end-0 m-3';
+                alertDiv.role = 'status';
+                alertDiv.innerHTML = `
+                    <div class="d-flex">
+                        <div class="toast-body">Matriz de Acceso actualizada.</div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" onclick="document.getElementById('${alertId}').remove()"></button>
+                    </div>
+                `;
+                document.body.appendChild(alertDiv);
+                setTimeout(() => { try { alertDiv.remove(); } catch(e){} }, 2500);
+            }
         }
 
         // 4. MODAL Y ASIGNACIÓN EN TIEMPO REAL
@@ -315,16 +458,21 @@
             }
 
             // Escritura en Firebase Realtime Database
+            if (typeof firebase === 'undefined' || !firebase.database) {
+                alert('No se puede guardar: Firebase Realtime Database no está inicializado.');
+                return;
+            }
+
             const ruta = `cobertura/${empresaId}/reclutadores/${reclutadorUid}`;
             firebase.database().ref(ruta).set({
                 fecha_asignacion: new Date().toISOString(),
-                asignado_por: M52_State.usuarioActual.uid
+                asignado_por: M52_State.usuarioActual ? M52_State.usuarioActual.uid : 'sistema'
             }).then(() => {
                 M52_State.bsModal.hide();
                 iniciarCargaDatosM52(); // Refrescar vista
             }).catch(err => {
                 console.error("Error al guardar en Firebase:", err);
-                alert("Error al actualizar la base de datos: " + err.message);
+                alert("Error al actualizar la base de datos: " + (err && err.message ? err.message : err));
             });
         }
 
@@ -335,7 +483,9 @@
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
             `;
-            document.getElementById("tabla_cobertura_body").innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger">No se pudieron cargar los datos debido a un problema de autenticación.</td></tr>`;
+            document.getElementById("tabla_cobertura_body").innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger">No se pudieron cargar los datos debido a un problema de autenticación o conexión. Revise la consola y la configuración de Firebase.</td></tr>`;
+            document.getElementById('m52_metricas').innerHTML = '';
+            document.getElementById('m52_matriz').innerHTML = '';
         }
     </script>
 </body>
