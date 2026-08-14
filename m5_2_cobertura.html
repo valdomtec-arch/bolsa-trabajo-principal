@@ -25,9 +25,14 @@
                 <h3 class="m-0 text-primary"><i class="bi bi-shield-check me-2"></i>Submódulo 5.2: Cobertura y Fuerza de Trabajo</h3>
                 <p class="text-muted small m-0 mt-1">Gestión integral de vacantes, distribución de reclutadores y monitoreo de KPIs</p>
             </div>
-            <button class="btn btn-outline-secondary btn-sm" onclick="iniciarCargaDatosM52()">
-                <i class="bi bi-arrow-clockwise me-1"></i>Sincronizar
-            </button>
+            <div>
+                <button class="btn btn-outline-secondary btn-sm me-2" onclick="iniciarCargaDatosM52()">
+                    <i class="bi bi-arrow-clockwise me-1"></i>Sincronizar
+                </button>
+                <button id="btn_auth_action" class="btn btn-outline-primary btn-sm" onclick="abrirPhoneLogin()">
+                    <i class="bi bi-telephone-forward me-1"></i>Ingresar (Teléfono)
+                </button>
+            </div>
         </div>
 
         <!-- CONTENEDOR DE ALERTAS DE AUTENTICACIÓN / SISTEMA -->
@@ -97,72 +102,206 @@
         </div>
     </div>
 
+    <!-- MODAL DE LOGIN POR TELÉFONO -->
+    <div class="modal fade" id="modalPhoneLogin" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header bg-secondary text-white">
+            <h5 class="modal-title"><i class="bi bi-telephone-fill me-2"></i>Iniciar sesión con teléfono</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div id="phone_login_alert"></div>
+            <div class="mb-3">
+              <label class="form-label">Número de teléfono</label>
+              <input type="tel" id="login_phone" class="form-control" placeholder="+5215512345678">
+              <div class="form-text">Usa formato E.164 (ej: +5215512345678). Asegúrate de que el dominio esté autorizado en Firebase Auth.</div>
+            </div>
+
+            <div id="recaptcha-container"></div>
+
+            <div class="mb-3" id="code_group" style="display:none;">
+              <label class="form-label">Código SMS</label>
+              <input type="text" id="login_code" class="form-control" maxlength="6" placeholder="000000">
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-light border" data-bs-dismiss="modal">Cerrar</button>
+            <button class="btn btn-outline-primary" id="btnSendCode" onclick="sendVerificationCode()">Enviar código</button>
+            <button class="btn btn-primary" id="btnVerifyCode" onclick="verifyCode()" style="display:none;">Confirmar código</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Bootstrap 5 JS Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
-    <!-- SCRIPT DE LÓGICA E INTEGRACIÓN CON FIREBASE -->
+    <!-- FIREBASE SDK (compat) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+
+    <!-- Espera: config/firebase.js (local) -->
+    <script src="config/firebase.js"></script>
+
     <script>
-        // Objeto de Estado del Submódulo
+        // Estado
         const M52_State = {
             usuarioActual: null,
             reclutadores: [],
             empresas: [],
             coberturaData: {},
             MAX_EMPRESAS_POR_RECLUTADOR: 10,
-            bsModal: null
+            bsModal: null,
+            bsLoginModal: null,
+            confirmationResult: null
         };
 
         document.addEventListener("DOMContentLoaded", () => {
             M52_State.bsModal = new bootstrap.Modal(document.getElementById('modalAsignacionReclutador'));
-            autenticarYEjecutarM52();
-        });
+            M52_State.bsLoginModal = new bootstrap.Modal(document.getElementById('modalPhoneLogin'));
 
-        // 1. SISTEMA DE AUTENTICACIÓN DIRECTA Y FALLBACK
-        function autenticarYEjecutarM52() {
-            console.log("m5_2: Verificando autenticación...");
-
-            // Verificación vía Firebase Auth si está presente
-            if (typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser) {
-                const user = firebase.auth().currentUser;
-                M52_State.usuarioActual = { uid: user.uid, email: user.email };
-                console.log("m5_2: Autenticado vía Firebase Auth ->", user.uid);
-                iniciarCargaDatosM52();
-                return;
-            }
-
-            // Fallback usando Storage de la Consola ERP
-            try {
-                const sesionRaw = sessionStorage.getItem("sesion_reclutamiento") || localStorage.getItem("sesion_reclutamiento");
-                if (sesionRaw) {
-                    const sesion = JSON.parse(sesionRaw);
-                    const uid = sesion.uid || sesion.id || sesion.userId;
-                    if (uid) {
-                        M52_State.usuarioActual = { uid: uid, ...sesion };
-                        console.log("m5_2: Autenticado vía Storage Local ->", uid);
-                        iniciarCargaDatosM52();
-                        return;
+            // Inicializar Firebase si existe la configuración
+            if (typeof window.firebaseConfig !== 'undefined') {
+                try {
+                    if (!firebase.apps || !firebase.apps.length) {
+                        firebase.initializeApp(window.firebaseConfig);
                     }
+                } catch (e) {
+                    console.warn('Firebase init warning:', e);
                 }
-            } catch (e) {
-                console.error("m5_2: Error en lectura de sesión", e);
+            } else {
+                mostrarErrorModulo('Falta el archivo de configuración config/firebase.js. Copia config/firebase.example.js y completa tus valores.');
+                // Mostrar modal login habilitado pero informativo
             }
 
-            // Si falla la autenticación, reintenta con observador de Firebase
+            // Observador de Auth
             if (typeof firebase !== 'undefined' && firebase.auth) {
-                firebase.auth().onAuthStateChanged((user) => {
+                firebase.auth().onAuthStateChanged(async (user) => {
                     if (user) {
-                        M52_State.usuarioActual = { uid: user.uid, email: user.email };
-                        iniciarCargaDatosM52();
+                        // Mapeo teléfono -> usuarios_reclutadores
+                        const phone = (user.phoneNumber || '').replace(/\s|-/g, '');
+                        if (phone) {
+                            try {
+                                const snap = await firebase.database().ref('usuarios_reclutadores').orderByChild('telefono').equalTo(phone).once('value');
+                                if (snap.exists()) {
+                                    let foundKey = null;
+                                    let foundVal = null;
+                                    snap.forEach(child => { foundKey = child.key; foundVal = child.val(); });
+                                    M52_State.usuarioActual = { uid: foundKey, authUid: user.uid, telefono: phone, ...foundVal };
+                                    document.getElementById('btn_auth_action').innerText = 'Salir';
+                                    document.getElementById('btn_auth_action').onclick = hacerLogout;
+                                    mostrarInfoModulo('Autenticado como ' + (foundVal.nombre || phone));
+                                    iniciarCargaDatosM52();
+                                    return;
+                                } else {
+                                    mostrarErrorModulo('Teléfono autenticado no está asociado a ningún reclutador en la base de datos. Contacta al administrador.');
+                                    // Sign out to avoid partial auth state
+                                    firebase.auth().signOut();
+                                    return;
+                                }
+                            } catch (err) {
+                                console.error('Error al mapear teléfono en DB:', err);
+                                mostrarErrorModulo('Error al verificar usuario en la base de datos. Revisa la consola.');
+                                return;
+                            }
+                        }
                     } else {
-                        mostrarErrorModulo("No se logró identificar la sesión del usuario. Verifique su acceso al sistema.");
+                        M52_State.usuarioActual = null;
+                        document.getElementById('btn_auth_action').innerText = 'Ingresar (Teléfono)';
+                        document.getElementById('btn_auth_action').onclick = abrirPhoneLogin;
+                        mostrarInfoModulo('No autenticado. Inicia sesión con tu número telefónico.');
+                        document.getElementById('tabla_cobertura_body').innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted">Inicia sesión para cargar los datos.</td></tr>`;
                     }
                 });
             } else {
-                mostrarErrorModulo("No se detectó SDK de Firebase o sesión activa.");
+                mostrarErrorModulo('SDK de Firebase no cargado o no disponible. Revisa config y scripts.');
+            }
+        });
+
+        // UI util
+        function abrirPhoneLogin() {
+            if (!M52_State.bsLoginModal) M52_State.bsLoginModal = new bootstrap.Modal(document.getElementById('modalPhoneLogin'));
+            document.getElementById('phone_login_alert').innerHTML = '';
+            document.getElementById('login_phone').value = '';
+            document.getElementById('login_code').value = '';
+            document.getElementById('code_group').style.display = 'none';
+            document.getElementById('btnSendCode').style.display = '';
+            document.getElementById('btnVerifyCode').style.display = 'none';
+            M52_State.bsLoginModal.show();
+
+            // Inicializar reCAPTCHA invisible
+            try {
+                if (typeof firebase !== 'undefined' && firebase.auth) {
+                    if (!window.recaptchaVerifier) {
+                        window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', { size: 'invisible' });
+                        window.recaptchaVerifier.render().then(() => {});
+                    }
+                }
+            } catch (e) {
+                console.warn('reCAPTCHA init failed:', e);
             }
         }
 
-        // 2. CONSULTA DIRECTA A REALTIME DATABASE
+        function sendVerificationCode() {
+            const phone = document.getElementById('login_phone').value.trim();
+            if (!phone) { document.getElementById('phone_login_alert').innerHTML = '<div class="alert alert-warning">Ingresa un número de teléfono válido.</div>'; return; }
+            if (typeof firebase === 'undefined' || !firebase.auth) { document.getElementById('phone_login_alert').innerHTML = '<div class="alert alert-danger">Firebase Auth no está disponible.</div>'; return; }
+
+            const appVerifier = window.recaptchaVerifier;
+            document.getElementById('phone_login_alert').innerHTML = '<div class="text-muted small">Enviando código...</div>';
+
+            firebase.auth().signInWithPhoneNumber(phone, appVerifier)
+                .then((confirmationResult) => {
+                    M52_State.confirmationResult = confirmationResult;
+                    document.getElementById('phone_login_alert').innerHTML = '<div class="alert alert-success">Código enviado. Revisa tu SMS.</div>';
+                    document.getElementById('code_group').style.display = '';
+                    document.getElementById('btnSendCode').style.display = 'none';
+                    document.getElementById('btnVerifyCode').style.display = '';
+                }).catch((error) => {
+                    console.error('Error sending SMS:', error);
+                    document.getElementById('phone_login_alert').innerHTML = `<div class="alert alert-danger">Error al enviar código: ${error.message}</div>`;
+                    if (window.recaptchaVerifier) window.recaptchaVerifier.clear();
+                });
+        }
+
+        function verifyCode() {
+            const code = document.getElementById('login_code').value.trim();
+            if (!code || !M52_State.confirmationResult) { document.getElementById('phone_login_alert').innerHTML = '<div class="alert alert-warning">Ingresa el código recibido.</div>'; return; }
+            M52_State.confirmationResult.confirm(code).then((result) => {
+                // onAuthStateChanged se encargará del resto
+                M52_State.bsLoginModal.hide();
+            }).catch((err) => {
+                console.error('Código incorrecto:', err);
+                document.getElementById('phone_login_alert').innerHTML = '<div class="alert alert-danger">Código incorrecto o expirado.</div>';
+            });
+        }
+
+        function hacerLogout() {
+            if (typeof firebase !== 'undefined' && firebase.auth) firebase.auth().signOut().then(() => { location.reload(); });
+        }
+
+        function mostrarInfoModulo(mensaje) {
+            document.getElementById("m52_alertas").innerHTML = `
+                <div class="alert alert-info alert-dismissible fade show shadow-sm" role="alert">
+                    <i class="bi bi-info-circle-fill me-2"></i><strong>Info:</strong> ${mensaje}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            `;
+        }
+
+        function mostrarErrorModulo(mensaje) {
+            document.getElementById("m52_alertas").innerHTML = `
+                <div class="alert alert-danger alert-dismissible fade show shadow-sm" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i><strong>Error de Autenticación / Conexión:</strong> ${mensaje}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            `;
+            document.getElementById("tabla_cobertura_body").innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger">No se pudieron cargar los datos debido a un problema de autenticación o conexión. Revise la consola para detalles.</td></tr>`;
+        }
+
+        // CARGA DE DATOS
         function iniciarCargaDatosM52() {
             if (typeof firebase === 'undefined' || !firebase.database) {
                 mostrarErrorModulo("Firebase Realtime Database no se encuentra inicializado.");
@@ -176,7 +315,6 @@
                 db.child('empresas').once('value'),
                 db.child('cobertura').once('value')
             ]).then(([snapReclutadores, snapEmpresas, snapCobertura]) => {
-                
                 // Mapeo de Reclutadores
                 M52_State.reclutadores = [];
                 if (snapReclutadores.exists()) {
@@ -185,7 +323,8 @@
                         M52_State.reclutadores.push({
                             uid: child.key,
                             nombre: val.nombre || val.displayName || val.email || "Reclutador sin nombre",
-                            activo: val.activo !== false
+                            activo: val.activo !== false,
+                            telefono: val.telefono || null
                         });
                     });
                 }
@@ -208,11 +347,10 @@
 
             }).catch((error) => {
                 console.error("Error al cargar datos desde Firebase:", error);
-                mostrarErrorModulo("Error al consultar la base de datos de cobertura: " + error.message);
+                mostrarErrorModulo("Error al consultar la base de datos de cobertura: " + (error && error.message ? error.message : String(error)));
             });
         }
 
-        // 3. RENDERIZADO DE INTERFAZ Y SEMÁFOROS
         function renderizarTablaCobertura() {
             const tbody = document.getElementById("tabla_cobertura_body");
             document.getElementById("total_empresas_badge").innerText = `${M52_State.empresas.length} Empresas`;
@@ -224,22 +362,15 @@
 
             let html = "";
             M52_State.empresas.forEach((emp) => {
-                const req = parseInt(emp.vacantes_requeridas || emp.plantilla_requerida || 0);
-                const cub = parseInt(emp.vacantes_cubiertas || emp.plantilla_actual || 0);
+                const req = parseInt(emp.vacantes_requeridas || emp.plantilla_requerida || 0) || 0;
+                const cub = parseInt(emp.vacantes_cubiertas || emp.plantilla_actual || 0) || 0;
                 const pct = req > 0 ? Math.round((cub / req) * 100) : 0;
 
-                // Semaforización KPI
                 let badgeClass = "badge-critica";
                 let estadoTexto = "Crítica (≤35%)";
-                if (pct >= 76) {
-                    badgeClass = "badge-optima";
-                    estadoTexto = "Óptima (76-100%)";
-                } else if (pct >= 36) {
-                    badgeClass = "badge-preventiva";
-                    estadoTexto = "Preventiva (36-75%)";
-                }
+                if (pct >= 76) { badgeClass = "badge-optima"; estadoTexto = "Óptima (76-100%)"; }
+                else if (pct >= 36) { badgeClass = "badge-preventiva"; estadoTexto = "Preventiva (36-75%)"; }
 
-                // Obtener nombres de reclutadores asignados
                 const cobEmpresa = M52_State.coberturaData[emp.id] || {};
                 const reclutadoresMap = cobEmpresa.reclutadores || {};
                 const asignados = Object.keys(reclutadoresMap).map(uid => {
@@ -273,8 +404,8 @@
             tbody.innerHTML = html;
         }
 
-        // 4. MODAL Y ASIGNACIÓN EN TIEMPO REAL
         function abrirModalAsignacion(empresaId, empresaNombre) {
+            if (!M52_State.usuarioActual) { alert('Debes iniciar sesión antes de asignar reclutadores.'); abrirPhoneLogin(); return; }
             document.getElementById("modal_empresa_id").value = empresaId;
             document.getElementById("modal_empresa_nombre").innerText = empresaNombre;
 
@@ -282,7 +413,6 @@
             select.innerHTML = `<option value="">-- Seleccionar Reclutador --</option>`;
 
             M52_State.reclutadores.forEach(r => {
-                // Contar empresas actuales del reclutador
                 let conCount = 0;
                 Object.keys(M52_State.coberturaData).forEach(empKey => {
                     if (M52_State.coberturaData[empKey]?.reclutadores?.[r.uid]) conCount++;
@@ -295,47 +425,31 @@
         }
 
         function guardarAsignacionFirebase() {
+            if (!M52_State.usuarioActual) { alert('Sesión inválida. Inicia sesión nuevamente.'); abrirPhoneLogin(); return; }
+
             const empresaId = document.getElementById("modal_empresa_id").value;
             const reclutadorUid = document.getElementById("select_reclutadores").value;
 
-            if (!reclutadorUid) {
-                alert("Por favor seleccione un reclutador.");
-                return;
-            }
+            if (!reclutadorUid) { alert("Por favor seleccione un reclutador."); return; }
 
-            // Validar Límite Operativo
             let asignadas = 0;
             Object.keys(M52_State.coberturaData).forEach(empKey => {
                 if (M52_State.coberturaData[empKey]?.reclutadores?.[reclutadorUid]) asignadas++;
             });
 
-            if (asignadas >= M52_State.MAX_EMPRESAS_POR_RECLUTADOR) {
-                alert(`Límite superado: Este reclutador ya cuenta con ${M52_State.MAX_EMPRESAS_POR_RECLUTADOR} empresas asignadas.`);
-                return;
-            }
+            if (asignadas >= M52_State.MAX_EMPRESAS_POR_RECLUTADOR) { alert(`Límite superado: Este reclutador ya cuenta con ${M52_State.MAX_EMPRESAS_POR_RECLUTADOR} empresas asignadas.`); return; }
 
-            // Escritura en Firebase Realtime Database
             const ruta = `cobertura/${empresaId}/reclutadores/${reclutadorUid}`;
             firebase.database().ref(ruta).set({
                 fecha_asignacion: new Date().toISOString(),
                 asignado_por: M52_State.usuarioActual.uid
             }).then(() => {
                 M52_State.bsModal.hide();
-                iniciarCargaDatosM52(); // Refrescar vista
+                iniciarCargaDatosM52();
             }).catch(err => {
                 console.error("Error al guardar en Firebase:", err);
                 alert("Error al actualizar la base de datos: " + err.message);
             });
-        }
-
-        function mostrarErrorModulo(mensaje) {
-            document.getElementById("m52_alertas").innerHTML = `
-                <div class="alert alert-danger alert-dismissible fade show shadow-sm" role="alert">
-                    <i class="bi bi-exclamation-triangle-fill me-2"></i><strong>Error de Autenticación / Conexión:</strong> ${mensaje}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            `;
-            document.getElementById("tabla_cobertura_body").innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger">No se pudieron cargar los datos debido a un problema de autenticación.</td></tr>`;
         }
     </script>
 </body>
