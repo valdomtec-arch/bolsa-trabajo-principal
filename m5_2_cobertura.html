@@ -11,10 +11,16 @@
         .kpi-card { border-radius: 10px; border: none; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
         .badge-cob { font-size: 0.85rem; padding: 6px 12px; border-radius: 20px; font-weight: 700; }
         
-        /* Semáforo personalizado */
+        /* Semáforo Oficial M5.2 */
         .semaforo-rojo { background-color: #ff4d4d !important; color: #ffffff !important; }
         .semaforo-amarillo { background-color: #ffcc00 !important; color: #212529 !important; }
         .semaforo-verde { background-color: #2ed573 !important; color: #ffffff !important; }
+
+        .badge-rol { font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; font-weight: 600; }
+        .rol-director { background-color: #6f42c1; color: #fff; }
+        .rol-supervisor { background-color: #0d6efd; color: #fff; }
+        .rol-coordinador { background-color: #0dcaf0; color: #212529; }
+        .rol-reclutador { background-color: #198754; color: #fff; }
 
         dialog::backdrop { background: rgba(0, 0, 0, 0.5); }
         dialog { border: none; border-radius: 10px; width: 95%; max-width: 480px; padding: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
@@ -29,7 +35,7 @@
             <h3 class="fw-bold mb-0 text-dark">
                 <i class="fa-solid fa-chart-pie text-primary me-2"></i>M5.2 Cobertura Territorial y Capacidad
             </h3>
-            <p class="text-muted small mb-0">Vista adaptativa basada en perfil del servidor</p>
+            <p class="text-muted small mb-0">Reconocimiento estricto de roles (Director, Supervisor, Coordinador, Reclutador)</p>
         </div>
         <div class="d-flex align-items-center gap-2">
             <span class="badge bg-dark px-3 py-2" id="userRoleBadge"><i class="fa-solid fa-spinner fa-spin me-1"></i> Detectando Rol...</span>
@@ -65,7 +71,7 @@
         </div>
     </div>
 
-    <!-- 📋 MATRIZ DE COBERTURA -->
+    <!-- 📋 MATRIZ DE COBERTURA CON NIVELES JERÁRQUICOS -->
     <div class="card shadow-sm border-0">
         <div class="card-body p-0">
             <div class="table-responsive">
@@ -75,14 +81,14 @@
                             <th>Zona / Territorio</th>
                             <th>Empresas</th>
                             <th class="text-center">Vacantes Activas</th>
-                            <th>Supervisión / Coordinación</th>
-                            <th>Reclutadores Asignados</th>
-                            <th style="min-width: 160px;">% Cobertura</th>
+                            <th>Liderazgo (Supervisión / Coordinación)</th>
+                            <th>Equipo Reclutamiento</th>
+                            <th style="min-width: 170px;">% Cobertura</th>
                             <th class="text-center">Acción</th>
                         </tr>
                     </thead>
                     <tbody id="tablaCuerpo">
-                        <tr><td colspan="7" class="text-center py-4 text-muted"><i class="fa-solid fa-spinner fa-spin me-2"></i>Consultando estructura en servidor...</td></tr>
+                        <tr><td colspan="7" class="text-center py-4 text-muted"><i class="fa-solid fa-spinner fa-spin me-2"></i>Cargando jerarquías de Firebase...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -98,15 +104,15 @@
         <button type="button" class="btn-close" onclick="cerrarDialog()"></button>
     </div>
     
-    <p class="small text-muted mb-3">Mueve un reclutador a un nuevo coordinador para balancear la carga de la zona <strong id="dlg_zonaNombre"></strong>.</p>
+    <p class="small text-muted mb-3">Mueve un reclutador a una nueva zona/coordinación <strong id="dlg_zonaNombre"></strong>.</p>
 
     <div class="mb-3">
-        <label class="form-label fw-bold small">1. Selecciona Reclutador a Mover:</label>
+        <label class="form-label fw-bold small">1. Selecciona Reclutador:</label>
         <select id="dlg_reclutador" class="form-select"></select>
     </div>
 
     <div class="mb-3">
-        <label class="form-label fw-bold small">2. Asignar al Coordinador Responsable:</label>
+        <label class="form-label fw-bold small">2. Asignar Liderazgo / Coordinador:</label>
         <select id="dlg_coordinador" class="form-select"></select>
     </div>
 
@@ -134,7 +140,7 @@ if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
 const CAPACIDAD_POR_RECLUTADOR = 15;
-let todosLosUsuarios = [], todasLasVacantes = [], todasLasEmpresas = [];
+let todosLosUsuarios = [];
 let usuarioActual = null;
 let zonaEnEdicion = '';
 
@@ -143,80 +149,111 @@ function normalizar(txt) {
 }
 
 /**
- * LÓGICA DE COBERTURA PONDERADA Y SEMÁFORO (0-35, 36-75, 76-100)
+ * RECONOCIMIENTO EXACTO DE ROLES Y NIVELES JERÁRQUICOS
+ */
+function obtenerNivelRol(u) {
+    const r = normalizar(u.rol || u.puesto || u.tipo);
+    if (r === 'director' || r === 'admin' || r === 'administrador') return { nivel: 5, clave: 'director', label: 'Director/Admin', claseCSS: 'rol-director' };
+    if (r === 'supervisor' || r === 'supervisora') return { nivel: 4, clave: 'supervisor', label: 'Supervisor', claseCSS: 'rol-supervisor' };
+    if (r === 'coordinador' || r === 'coordinadora') return { nivel: 3, clave: 'coordinador', label: 'Coordinador', claseCSS: 'rol-coordinador' };
+    return { nivel: 2, clave: 'reclutador', label: 'Reclutador', claseCSS: 'rol-reclutador' };
+}
+
+/**
+ * MOTOR DE CÁLCULO DE COBERTURA PONDERADO POR ROLES Y SEMÁFORO
  */
 function calcularMetricaZona(staffZona, vacantesActivas) {
     const metaReclutadores = Math.max(1, Math.ceil(vacantesActivas / CAPACIDAD_POR_RECLUTADOR));
     const activos = staffZona.filter(u => u.activo !== false);
 
     if (activos.length === 0) {
-        return { pct: 0, claseCss: 'semaforo-rojo', etiqueta: 'CRÍTICO' };
+        return { pct: 0, claseCss: 'semaforo-rojo', etiqueta: 'CRÍTICO / BAJO', baseLiderazgo: 0, reclutadoresActivos: 0, metaReclutadores };
     }
 
-    const tieneAdminDirector = activos.some(u => ['director', 'admin'].includes(normalizar(u.rol)));
-    const tieneSupervisor = activos.some(u => normalizar(u.rol) === 'supervisor');
-    const tieneCoordinador = activos.some(u => normalizar(u.rol) === 'coordinador');
-    const reclutadoresActivos = activos.filter(u => normalizar(u.rol) === 'reclutador' || u.esReclutador).length;
+    // Identificar niveles presentes en la zona
+    const tieneDirector = activos.some(u => obtenerNivelRol(u).nivel === 5);
+    const tieneSupervisor = activos.some(u => obtenerNivelRol(u).nivel === 4);
+    const tieneCoordinador = activos.some(u => obtenerNivelRol(u).nivel === 3);
+    const reclutadoresActivos = activos.filter(u => obtenerNivelRol(u).nivel === 2).length;
 
-    // 1. Base por Jerarquía
+    // 1. Cobertura Base según la Jerarquía de Mando Máxima Presente
     let baseLiderazgo = 0;
-    if (tieneAdminDirector || tieneSupervisor) {
-        baseLiderazgo = 30;
+    if (tieneDirector || tieneSupervisor) {
+        baseLiderazgo = 30; // 30% Base por Supervisión/Dirección Activa
     } else if (tieneCoordinador) {
-        baseLiderazgo = 20;
+        baseLiderazgo = 20; // 20% Base por Coordinador Asignado
     } else {
-        baseLiderazgo = 10;
+        baseLiderazgo = 10; // 10% Base por Reclutador Directo
     }
 
-    // 2. Proporción Reclutadores
+    // 2. Aporte Proporcional por Reclutadores
     const margenRestante = 100 - baseLiderazgo;
-    const factorRecl = Math.min(reclutadoresActivos / metaReclutadores, 1);
-    const aporteRecl = factorRecl * margenRestante;
+    const factorReclutamiento = Math.min(reclutadoresActivos / metaReclutadores, 1);
+    const aporteReclutadores = factorReclutamiento * margenRestante;
 
-    const pctFinal = Math.min(100, Math.round(baseLiderazgo + aporteRecl));
+    const pctFinal = Math.min(100, Math.round(baseLiderazgo + aporteReclutadores));
 
-    // 3. Semáforo
+    // 3. Semáforo Personalizado (0-35, 36-75, 76-100)
     let claseCss = 'semaforo-rojo';
-    let etiqueta = 'BAJO';
+    let etiqueta = 'CRÍTICO / BAJO';
 
-    if (pctFinal > 75) {
+    if (pctFinal >= 76) {
         claseCss = 'semaforo-verde';
-        etiqueta = 'ÓPTIMO';
+        etiqueta = 'ÓPTIMO / ALTA';
     } else if (pctFinal >= 36) {
         claseCss = 'semaforo-amarillo';
-        etiqueta = 'MEDIO';
+        etiqueta = 'MEDIO / EN PROCESO';
     }
 
-    return { pct: pctFinal, claseCss, etiqueta };
+    return { 
+        pct: pctFinal, 
+        claseCss, 
+        etiqueta, 
+        baseLiderazgo, 
+        reclutadoresActivos, 
+        metaReclutadores 
+    };
 }
 
-// 1. CARGA ADAPTATIVA POR SERVIDOR
+// 1. CARGA ADAPTATIVA Y MAPPING DE FIREBASE
 async function cargarTablero() {
     const tabla = document.getElementById('tablaCuerpo');
     try {
-        const [snapCoord, snapRecl, snapEmp, snapVac] = await Promise.all([
+        const [snapUsers, snapRecl, snapEmp, snapVac] = await Promise.all([
             db.ref('usuarios').once('value'),
             db.ref('usuarios_reclutadores').once('value'),
             db.ref('empresas').once('value'),
             db.ref('vacantes').once('value')
         ]);
 
-        const coords = snapCoord.exists() ? Object.entries(snapCoord.val()).map(([id, d]) => ({ id, ...d, esReclutador: false })) : [];
-        const recls = snapRecl.exists() ? Object.entries(snapRecl.val()).map(([id, d]) => ({ id, ...d, esReclutador: true })) : [];
-        todosLosUsuarios = [...coords, ...recls];
+        let usuariosList = [];
+        if (snapUsers.exists()) {
+            Object.entries(snapUsers.val()).forEach(([id, d]) => usuariosList.push({ id, ...d }));
+        }
+        if (snapRecl.exists()) {
+            Object.entries(snapRecl.val()).forEach(([id, d]) => {
+                if (!usuariosList.some(u => u.id === id)) {
+                    usuariosList.push({ id, rol: 'reclutador', ...d });
+                }
+            });
+        }
 
-        const userIdActivo = localStorage.getItem('usuario_id') || coords[0]?.id;
-        usuarioActual = todosLosUsuarios.find(u => u.id === userIdActivo) || { rol: 'admin', nombre: 'Administrador General' };
+        todosLosUsuarios = usuariosList;
 
-        const esGlobal = ['admin', 'director', 'supervisor'].includes(normalizar(usuarioActual.rol)) || usuarioActual.esGlobal === true;
+        // Usuario actual
+        const userIdActivo = localStorage.getItem('usuario_id') || todosLosUsuarios[0]?.id;
+        usuarioActual = todosLosUsuarios.find(u => u.id === userIdActivo) || { rol: 'admin', nombre: 'Jose Antonio (Tony)' };
+
+        const nivelActual = obtenerNivelRol(usuarioActual).nivel;
+        const esGlobal = nivelActual >= 4 || usuarioActual.esGlobal === true;
         
         document.getElementById('userRoleBadge').innerHTML = esGlobal 
-            ? `<i class="fa-solid fa-earth-americas me-1"></i> Vista Global (${usuarioActual.nombre || 'Admin'})`
-            : `<i class="fa-solid fa-user-lock me-1"></i> Vista Filtrada (${usuarioActual.nombre})`;
+            ? `<i class="fa-solid fa-earth-americas me-1"></i> Vista Global (${usuarioActual.nombre})`
+            : `<i class="fa-solid fa-user-lock me-1"></i> Vista Zona (${usuarioActual.nombre})`;
 
+        // Agrupar empresas y vacantes por zona
         const empresas = snapEmp.exists() ? snapEmp.val() : {};
         const vacantes = snapVac.exists() ? snapVac.val() : {};
-
         const mapaZonas = {};
 
         Object.values(empresas).forEach(emp => {
@@ -236,26 +273,30 @@ async function cargarTablero() {
         let sumaCobertura = 0, totalSinCobertura = 0, totalFaltantes = 0, totalCapacidad = 0, totalZonas = 0;
 
         for (const [zona, info] of Object.entries(mapaZonas)) {
-            const coordsZona = coords.filter(c => normalizar(c.zona) === normalizar(zona) || (c.zonas && c.zonas.includes(zona)));
-            const reclsZona = recls.filter(r => 
-                normalizar(r.zona) === normalizar(zona) || 
-                coordsZona.some(c => c.id === r.coordinadorId)
-            );
+            // Filtrar personal que atiende la zona
+            const staffZona = todosLosUsuarios.filter(u => {
+                const zU = normalizar(u.zona);
+                const esDeZona = zU === normalizar(zona) || (u.zonas && u.zonas.includes(zona));
+                return esDeZona;
+            });
 
-            const staffTotalZona = [...coordsZona, ...reclsZona];
-
-            if (!esGlobal) {
-                const perteneceAZona = staffTotalZona.some(u => u.id === usuarioActual.id);
-                if (!perteneceAZona) continue;
+            // Si no es Vista Global y no pertenece a la zona, omitir
+            if (!esGlobal && !staffZona.some(u => u.id === usuarioActual.id)) {
+                continue;
             }
 
             totalZonas++;
-            const numReclutadores = reclsZona.length;
+
+            // Separar visualmente Liderazgo vs Reclutadores
+            const lideresZona = staffZona.filter(u => obtenerNivelRol(u).nivel >= 3);
+            const reclutadoresZona = staffZona.filter(u => obtenerNivelRol(u).nivel === 2);
+
+            const numReclutadores = reclutadoresZona.length;
             const capZona = numReclutadores * CAPACIDAD_POR_RECLUTADOR;
             totalCapacidad += capZona;
 
-            // Métrica unificada con el nuevo semáforo
-            const metrica = calcularMetricaZona(staffTotalZona, info.vacantes);
+            // Métrica de Cobertura Ponderada
+            const metrica = calcularMetricaZona(staffZona, info.vacantes);
             let sinCob = Math.max(0, info.vacantes - capZona);
             let falt = Math.ceil(sinCob / CAPACIDAD_POR_RECLUTADOR);
 
@@ -263,15 +304,31 @@ async function cargarTablero() {
             totalSinCobertura += sinCob;
             totalFaltantes += falt;
 
+            // Renderizado HTML de Liderazgo
+            const htmlLideres = lideresZona.length > 0 
+                ? lideresZona.map(l => {
+                    const infoRol = obtenerNivelRol(l);
+                    return `<div><strong>${l.nombre}</strong> <span class="badge-rol ${infoRol.claseCSS}">${infoRol.label}</span></div>`;
+                }).join('')
+                : '<em class="text-muted small">Sin Liderazgo Directo</em>';
+
+            // Renderizado HTML de Reclutadores
+            const htmlReclutadores = reclutadoresZona.length > 0
+                ? reclutadoresZona.map(r => `<div><i class="fa-solid fa-user me-1 text-secondary"></i>${r.nombre}</div>`).join('')
+                : '<em class="text-muted small">Sin Reclutador Asignado</em>';
+
             html += `
                 <tr>
                     <td class="fw-bold">${zona}</td>
                     <td><small class="text-muted">${info.empresas.join(', ') || 'Sin empresas'}</small></td>
                     <td class="text-center"><span class="badge bg-secondary fs-6">${info.vacantes}</span></td>
-                    <td><small class="fw-bold text-primary">${coordsZona.map(c => `${c.nombre} (${c.rol || 'Coord'})`).join(', ') || 'Sin Liderazgo'}</small></td>
-                    <td><small>${reclsZona.map(r => r.nombre).join(', ') || '<em class="text-muted">Sin Reclutador</em>'}</small></td>
+                    <td><small>${htmlLideres}</small></td>
+                    <td><small>${htmlReclutadores}</small></td>
                     <td>
-                        <span class="badge badge-cob ${metrica.claseCss}">${metrica.pct}% - ${metrica.etiqueta}</span>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="badge badge-cob ${metrica.claseCss}">${metrica.pct}%</span>
+                            <small class="text-muted ms-1" style="font-size: 0.75rem;">(Base +${metrica.baseLiderazgo}%)</small>
+                        </div>
                         <div class="progress mt-1" style="height: 6px;">
                             <div class="progress-bar ${metrica.claseCss}" style="width: ${metrica.pct}%"></div>
                         </div>
@@ -285,19 +342,20 @@ async function cargarTablero() {
             `;
         }
 
+        // MOSTRAR KPIS CALCULADOS
         document.getElementById('kpi_Capacidad').textContent = `${totalCapacidad} vac`;
         document.getElementById('kpi_Cobertura').textContent = `${totalZonas > 0 ? Math.round(sumaCobertura / totalZonas) : 0}%`;
         document.getElementById('kpi_SinCobertura').textContent = totalSinCobertura;
         document.getElementById('kpi_Faltantes').textContent = `+${totalFaltantes}`;
 
-        tabla.innerHTML = html || '<tr><td colspan="7" class="text-center py-4 text-muted">No hay registros asignados para su perfil.</td></tr>';
+        tabla.innerHTML = html || '<tr><td colspan="7" class="text-center py-4 text-muted">No hay zonas asignadas para su perfil.</td></tr>';
 
     } catch (e) {
         tabla.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger"><b>Error al cargar datos:</b> ${e.message}</td></tr>`;
     }
 }
 
-// 2. REASIGNACIÓN DE RECLUTADOR
+// 2. REASIGNACIÓN DE RECLUTADORES / LIDERAZGO
 function abrirReasignacion(zona) {
     zonaEnEdicion = zona;
     document.getElementById('dlg_zonaNombre').textContent = zona;
@@ -306,13 +364,14 @@ function abrirReasignacion(zona) {
     const selCoord = document.getElementById('dlg_coordinador');
 
     selRecl.innerHTML = '<option value="">-- Seleccionar Reclutador --</option>';
-    selCoord.innerHTML = '<option value="">-- Seleccionar Nuevo Coordinador --</option>';
+    selCoord.innerHTML = '<option value="">-- Seleccionar Liderazgo --</option>';
 
     todosLosUsuarios.forEach(u => {
-        if (u.esReclutador) {
+        const infoRol = obtenerNivelRol(u);
+        if (infoRol.nivel === 2) {
             selRecl.innerHTML += `<option value="${u.id}">${u.nombre} (${u.zona || 'Sin Zona'})</option>`;
         } else {
-            selCoord.innerHTML += `<option value="${u.id}">${u.nombre} (${u.zona || 'Sin Zona'})</option>`;
+            selCoord.innerHTML += `<option value="${u.id}">${u.nombre} [${infoRol.label}] (${u.zona || 'Sin Zona'})</option>`;
         }
     });
 
@@ -327,22 +386,28 @@ async function guardarReasignacion() {
     const reclId = document.getElementById('dlg_reclutador').value;
     const coordId = document.getElementById('dlg_coordinador').value;
 
-    if (!reclId || !coordId) return alert("Por favor selecciona ambos campos.");
+    if (!reclId) return alert("Por favor selecciona un reclutador a reasignar.");
 
     try {
         const coordObj = todosLosUsuarios.find(u => u.id === coordId);
         
+        await db.ref(`usuarios/${reclId}`).update({
+            coordinadorId: coordId || '',
+            coordinadorNombre: coordObj ? coordObj.nombre : '',
+            zona: zonaEnEdicion
+        });
+
         await db.ref(`usuarios_reclutadores/${reclId}`).update({
-            coordinadorId: coordId,
+            coordinadorId: coordId || '',
             coordinadorNombre: coordObj ? coordObj.nombre : '',
             zona: zonaEnEdicion
         });
 
         cerrarDialog();
         cargarTablero();
-        alert("✅ Reclutador reasignado con éxito. Métricas actualizadas.");
+        alert("✅ Reclutador asignado correctamente. Métricas y cobertura actualizadas.");
     } catch (e) {
-        alert("❌ Error al guardar reasignación: " + e.message);
+        alert("❌ Error al aplicar cambio: " + e.message);
     }
 }
 
