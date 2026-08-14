@@ -4,8 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Módulo 5.2 - Cobertura Operativa y Control de Staff</title>
-  <!-- Tailwind CSS para Estilos Pro y Scannable -->
+
+  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Firebase SDK Compat (Conexión directa sin fallos de módulos) -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
 </head>
 <body class="bg-slate-100 text-slate-800 antialiased min-h-screen p-6">
 
@@ -18,9 +23,9 @@
         <h1 class="text-2xl font-bold text-slate-900">Módulo 5.2: Control de Cobertura y Staff Operativo</h1>
         <p class="text-slate-500 text-sm">Monitoreo de cobertura porcentual por empresa y asignación de personal en tiempo real.</p>
       </div>
-      <div id="status-connection" class="flex items-center space-x-2 bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-xs font-semibold">
-        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-        <span>Conectado a Firebase</span>
+      <div id="status-connection" class="flex items-center space-x-2 bg-amber-50 text-amber-700 px-3 py-1 rounded-full text-xs font-semibold">
+        <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+        <span>Conectando a Firebase...</span>
       </div>
     </header>
 
@@ -90,46 +95,47 @@
 
   </div>
 
-  <!-- SCRIPT LOGIC (FIREBASE REALTIME & CORE ENGINE) -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-
-    // CONFIGURACIÓN FIREBASE INTEGRADA DIRECTAMENTE
+  <!-- SCRIPT LOGIC (FIREBASE COMPAT ENGINE) -->
+  <script>
+    // Configuración explícita de la Realtime Database
     const firebaseConfig = {
       databaseURL: "https://bolsadetrabajo-c6cb9-default-rtdb.firebaseio.com"
     };
 
-    // Inicialización de la App y Base de Datos
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
+    // Inicialización segura de Firebase
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+    const db = firebase.database();
 
-    // Document Ready / Init
     document.addEventListener("DOMContentLoaded", () => {
       escucharCambiosFirebase();
     });
 
     /**
-     * Escucha en tiempo real la raíz de la base de datos de Firebase
+     * Listener en tiempo real para Realtime Database
      */
     function escucharCambiosFirebase() {
-      const dbRef = ref(db, "/");
+      const dbRef = db.ref("/");
 
-      onValue(dbRef, (snapshot) => {
+      dbRef.on("value", (snapshot) => {
+        const statusEl = document.getElementById("status-connection");
+        if (statusEl) {
+          statusEl.className = "flex items-center space-x-2 bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-xs font-semibold";
+          statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span><span>Conectado a Firebase</span>`;
+        }
+
         if (!snapshot.exists()) {
-          console.warn("No se encontraron registros en la Base de Datos.");
           renderizarTablaVacia();
           return;
         }
 
         const data = snapshot.val();
         
-        // Mapeo seguro de nodos
         const empresasNodo = data.empresas || {};
         const staffNodo = data.modulo_5_staff || {};
         const logsNodo = data.modulo_7_logs || data.logs_sistema || {};
 
-        // Ejecución del cálculo y renderizado
         const calculo = procesarCoberturaSistema(empresasNodo, staffNodo, logsNodo);
         actualizarUI(calculo);
 
@@ -137,20 +143,17 @@
         console.error("Error conectando con Firebase Realtime:", error);
         const statusEl = document.getElementById("status-connection");
         if (statusEl) {
-          statusEl.className = "flex items-center space-x-2 bg-red-50 text-red-700 px-3 py-1 rounded-full text-xs font-semibold";
-          statusEl.innerHTML = `<span>Error de conexión</span>`;
+          statusEl.className = "flex items-center space-x-2 bg-rose-50 text-rose-700 px-3 py-1 rounded-full text-xs font-semibold";
+          statusEl.innerHTML = `<span>Error de Lectura Firebase</span>`;
         }
       });
     }
 
     /**
-     * Procesa la información cruzando M1, M5 y M7
+     * Motor de cálculo: M1 + M5 + M7
      */
     function procesarCoberturaSistema(empresas, staffEstructurado, logs) {
-      // 1. Unificar plantilla activa considerando logs de auditoría (M7)
       const plantillaStaff = reconciliarPlantillaStaff(staffEstructurado, logs);
-
-      // 2. Filtrar empresas activas ignorando eliminadas o inactivas
       const reporteEmpresas = [];
       let sumaPorcentajesTotal = 0;
       
@@ -162,23 +165,16 @@
       empresaKeys.forEach((key) => {
         const emp = empresas[key];
 
-        // Filtrar colaboradores asignados a esta empresa específica o con cobertura TODAS
         const asignados = plantillaStaff.filter((u) => {
           if (!u.empresas) return Boolean(u.todasLasEmpresas);
           if (u.todasLasEmpresas || u.empresas.includes("TODAS")) return true;
           return u.empresas.includes(key) || (emp.id && u.empresas.includes(emp.id));
         });
 
-        const supervisores = asignados.filter(u => u.nivel === 4 || u.nivel === 5);
-        const coordinadores = asignados.filter(u => u.nivel === 3);
-        const reclutadores = asignados.filter(u => u.nivel === 2);
+        const supervisores = asignados.filter(u => Number(u.nivel) === 4 || Number(u.nivel) === 5);
+        const coordinadores = asignados.filter(u => Number(u.nivel) === 3);
+        const reclutadores = asignados.filter(u => Number(u.nivel) === 2);
 
-        /*
-         * FÓRMULA DE COBERTURA PORCENTUAL PROGRESIVA:
-         * - Presencia de Líder/Supervisor/Coordinador: +40%
-         * - Cada Reclutador operativo asignado: +30% por reclutador
-         * - Tope máximo: 100%
-         */
         let porcentaje = 0;
         const tieneLiderazgo = (supervisores.length + coordinadores.length) > 0;
         
@@ -216,12 +212,11 @@
     }
 
     /**
-     * Reconstruye la lista viva de personal aplicando altas/bajas de logs M7
+     * Reconciliador de auditoría
      */
     function reconciliarPlantillaStaff(staff, logs) {
       const mapa = {};
 
-      // Carga base de M5
       Object.keys(staff).forEach(k => {
         const u = staff[k];
         if (u && u.nombre) {
@@ -229,7 +224,6 @@
         }
       });
 
-      // Cruzar auditoría de logs M7
       Object.keys(logs).forEach(logId => {
         const log = logs[logId];
         if (!log) return;
@@ -258,19 +252,17 @@
     }
 
     /**
-     * Actualiza el DOM (UI) con los resultados calculados
+     * Renderizado dinámico en UI
      */
     function actualizarUI(datos) {
       const { metricaGlobal, empresas } = datos;
 
-      // Actualizar Métricas
       document.getElementById("metric-cobertura").textContent = `${metricaGlobal.promedio}%`;
       document.getElementById("bar-cobertura-global").style.width = `${metricaGlobal.promedio}%`;
       document.getElementById("metric-empresas").textContent = metricaGlobal.totalEmpresas;
       document.getElementById("metric-staff").textContent = metricaGlobal.totalStaff;
       document.getElementById("fecha-actualizacion").textContent = `Última actualización: ${new Date().toLocaleTimeString()}`;
 
-      // Renderizar Tabla
       const tbody = document.getElementById("tabla-cobertura-body");
       tbody.innerHTML = "";
 
@@ -312,20 +304,11 @@
 
     function getBadgeStyle(porcentaje) {
       if (porcentaje >= 80) {
-        return {
-          bgBar: "bg-emerald-500",
-          badgeClass: "bg-emerald-100 text-emerald-800"
-        };
+        return { bgBar: "bg-emerald-500", badgeClass: "bg-emerald-100 text-emerald-800" };
       } else if (porcentaje >= 40) {
-        return {
-          bgBar: "bg-amber-500",
-          badgeClass: "bg-amber-100 text-amber-800"
-        };
+        return { bgBar: "bg-amber-500", badgeClass: "bg-amber-100 text-amber-800" };
       } else {
-        return {
-          bgBar: "bg-rose-500",
-          badgeClass: "bg-rose-100 text-rose-800"
-        };
+        return { bgBar: "bg-rose-500", badgeClass: "bg-rose-100 text-rose-800" };
       }
     }
 
