@@ -35,15 +35,15 @@
             <h3 class="fw-bold mb-0 text-dark">
                 <i class="fa-solid fa-chart-pie text-primary me-2"></i>M5.2 Cobertura Territorial y Capacidad
             </h3>
-            <p class="text-muted small mb-0">Reconocimiento estricto de roles (Director, Supervisor, Coordinador, Reclutador)</p>
+            <p class="text-muted small mb-0">Gestión de jerarquías y cobertura dinámica desde Firebase DB</p>
         </div>
         <div class="d-flex align-items-center gap-2">
-            <span class="badge bg-dark px-3 py-2" id="userRoleBadge"><i class="fa-solid fa-spinner fa-spin me-1"></i> Detectando Rol...</span>
+            <span class="badge bg-dark px-3 py-2" id="userRoleBadge"><i class="fa-solid fa-spinner fa-spin me-1"></i> Leyendo Firebase...</span>
             <button class="btn btn-primary fw-bold" onclick="cargarTablero()"><i class="fa-solid fa-rotate me-1"></i> Recargar</button>
         </div>
     </div>
 
-    <!-- 📊 LOS 4 KPIS DINÁMICOS -->
+    <!-- 📊 KPIS DINÁMICOS -->
     <div class="row g-3 mb-4">
         <div class="col-6 col-md-3">
             <div class="card kpi-card p-3 border-start border-primary border-4">
@@ -71,7 +71,7 @@
         </div>
     </div>
 
-    <!-- 📋 MATRIZ DE COBERTURA CON NIVELES JERÁRQUICOS -->
+    <!-- 📋 MATRIZ DE COBERTURA -->
     <div class="card shadow-sm border-0">
         <div class="card-body p-0">
             <div class="table-responsive">
@@ -88,7 +88,7 @@
                         </tr>
                     </thead>
                     <tbody id="tablaCuerpo">
-                        <tr><td colspan="7" class="text-center py-4 text-muted"><i class="fa-solid fa-spinner fa-spin me-2"></i>Cargando jerarquías de Firebase...</td></tr>
+                        <tr><td colspan="7" class="text-center py-4 text-muted"><i class="fa-solid fa-spinner fa-spin me-2"></i>Consultando Firebase Realtime Database...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -97,7 +97,7 @@
 
 </div>
 
-<!-- 🔄 MODAL NATIVO: REASIGNACIÓN DE RECLUTADOR -->
+<!-- 🔄 MODAL REASIGNACIÓN -->
 <dialog id="dlgReasignar">
     <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
         <h5 class="fw-bold mb-0 text-primary" id="dlg_titulo"><i class="fa-solid fa-people-arrows me-2"></i>Reasignar Reclutador</h5>
@@ -149,73 +149,77 @@ function normalizar(txt) {
 }
 
 /**
- * RECONOCIMIENTO EXACTO DE ROLES Y NIVELES JERÁRQUICOS
+ * PARSER DINÁMICO DE ROLES Y NIVELES JERÁRQUICOS DESDE FIREBASE
  */
-function obtenerNivelRol(u) {
-    const r = normalizar(u.rol || u.puesto || u.tipo);
-    if (r === 'director' || r === 'admin' || r === 'administrador') return { nivel: 5, clave: 'director', label: 'Director/Admin', claseCSS: 'rol-director' };
-    if (r === 'supervisor' || r === 'supervisora') return { nivel: 4, clave: 'supervisor', label: 'Supervisor', claseCSS: 'rol-supervisor' };
-    if (r === 'coordinador' || r === 'coordinadora') return { nivel: 3, clave: 'coordinador', label: 'Coordinador', claseCSS: 'rol-coordinador' };
-    return { nivel: 2, clave: 'reclutador', label: 'Reclutador', claseCSS: 'rol-reclutador' };
+function obtenerNivelRol(usuario) {
+    if (!usuario) return { nivel: 2, clave: 'reclutador', label: 'Reclutador', claseCSS: 'rol-reclutador' };
+    
+    // Leemos cualquier varianza de campos donde se guarde el rol en la DB
+    const strRol = normalizar(usuario.rol || usuario.puesto || usuario.tipo || usuario.perfil || usuario.nivel || '');
+    
+    // Evaluaciones flex por coincidencia limpia de palabras clave
+    if (strRol.includes('admin') || strRol.includes('director') || strRol.includes('gerente') || strRol.includes('programador') || strRol.includes('superusuario') || strRol.includes('desarrollador')) {
+        return { nivel: 5, clave: 'director', label: usuario.rol || 'Admin/Director', claseCSS: 'rol-director' };
+    }
+    
+    if (strRol.includes('supervis')) {
+        return { nivel: 4, clave: 'supervisor', label: usuario.rol || 'Supervisor', claseCSS: 'rol-supervisor' };
+    }
+    
+    if (strRol.includes('coordinad')) {
+        return { nivel: 3, clave: 'coordinador', label: usuario.rol || 'Coordinador', claseCSS: 'rol-coordinador' };
+    }
+
+    return { nivel: 2, clave: 'reclutador', label: usuario.rol || 'Reclutador', claseCSS: 'rol-reclutador' };
 }
 
 /**
- * MOTOR DE CÁLCULO DE COBERTURA PONDERADO POR ROLES Y SEMÁFORO
+ * MOTOR DE CÁLCULO DE COBERTURA PONDERADA Y SEMÁFORO
  */
 function calcularMetricaZona(staffZona, vacantesActivas) {
     const metaReclutadores = Math.max(1, Math.ceil(vacantesActivas / CAPACIDAD_POR_RECLUTADOR));
     const activos = staffZona.filter(u => u.activo !== false);
 
     if (activos.length === 0) {
-        return { pct: 0, claseCss: 'semaforo-rojo', etiqueta: 'CRÍTICO / BAJO', baseLiderazgo: 0, reclutadoresActivos: 0, metaReclutadores };
+        return { pct: 0, claseCss: 'semaforo-rojo', etiqueta: 'CRÍTICO', baseLiderazgo: 0, reclutadoresActivos: 0, metaReclutadores };
     }
 
-    // Identificar niveles presentes en la zona
     const tieneDirector = activos.some(u => obtenerNivelRol(u).nivel === 5);
     const tieneSupervisor = activos.some(u => obtenerNivelRol(u).nivel === 4);
     const tieneCoordinador = activos.some(u => obtenerNivelRol(u).nivel === 3);
     const reclutadoresActivos = activos.filter(u => obtenerNivelRol(u).nivel === 2).length;
 
-    // 1. Cobertura Base según la Jerarquía de Mando Máxima Presente
+    // Base porcentual por estructura de mando
     let baseLiderazgo = 0;
     if (tieneDirector || tieneSupervisor) {
-        baseLiderazgo = 30; // 30% Base por Supervisión/Dirección Activa
+        baseLiderazgo = 30;
     } else if (tieneCoordinador) {
-        baseLiderazgo = 20; // 20% Base por Coordinador Asignado
+        baseLiderazgo = 20;
     } else {
-        baseLiderazgo = 10; // 10% Base por Reclutador Directo
+        baseLiderazgo = 10;
     }
 
-    // 2. Aporte Proporcional por Reclutadores
     const margenRestante = 100 - baseLiderazgo;
     const factorReclutamiento = Math.min(reclutadoresActivos / metaReclutadores, 1);
     const aporteReclutadores = factorReclutamiento * margenRestante;
 
     const pctFinal = Math.min(100, Math.round(baseLiderazgo + aporteReclutadores));
 
-    // 3. Semáforo Personalizado (0-35, 36-75, 76-100)
     let claseCss = 'semaforo-rojo';
-    let etiqueta = 'CRÍTICO / BAJO';
+    let etiqueta = 'BAJO';
 
     if (pctFinal >= 76) {
         claseCss = 'semaforo-verde';
-        etiqueta = 'ÓPTIMO / ALTA';
+        etiqueta = 'ÓPTIMO';
     } else if (pctFinal >= 36) {
         claseCss = 'semaforo-amarillo';
-        etiqueta = 'MEDIO / EN PROCESO';
+        etiqueta = 'MEDIO';
     }
 
-    return { 
-        pct: pctFinal, 
-        claseCss, 
-        etiqueta, 
-        baseLiderazgo, 
-        reclutadoresActivos, 
-        metaReclutadores 
-    };
+    return { pct: pctFinal, claseCss, etiqueta, baseLiderazgo, reclutadoresActivos, metaReclutadores };
 }
 
-// 1. CARGA ADAPTATIVA Y MAPPING DE FIREBASE
+// 1. CARGA ADAPTATIVA BASADA 100% EN DATOS DE FIREBASE
 async function cargarTablero() {
     const tabla = document.getElementById('tablaCuerpo');
     try {
@@ -233,25 +237,27 @@ async function cargarTablero() {
         if (snapRecl.exists()) {
             Object.entries(snapRecl.val()).forEach(([id, d]) => {
                 if (!usuariosList.some(u => u.id === id)) {
-                    usuariosList.push({ id, rol: 'reclutador', ...d });
+                    usuariosList.push({ id, ...d });
                 }
             });
         }
 
         todosLosUsuarios = usuariosList;
 
-        // Usuario actual
-        const userIdActivo = localStorage.getItem('usuario_id') || todosLosUsuarios[0]?.id;
-        usuarioActual = todosLosUsuarios.find(u => u.id === userIdActivo) || { rol: 'admin', nombre: 'Jose Antonio (Tony)' };
+        // Carga del usuario actual logueado
+        const userIdActivo = localStorage.getItem('usuario_id');
+        usuarioActual = todosLosUsuarios.find(u => u.id === userIdActivo) || todosLosUsuarios[0] || { id: 'generic', nombre: 'Usuario Firebase', rol: 'admin' };
 
-        const nivelActual = obtenerNivelRol(usuarioActual).nivel;
-        const esGlobal = nivelActual >= 4 || usuarioActual.esGlobal === true;
+        const infoRolActual = obtenerNivelRol(usuarioActual);
+        
+        // Vista Global si tiene Rol Administrador/Supervisor o permiso explícito esGlobal/esAdmin en Firebase
+        const esGlobal = infoRolActual.nivel >= 4 || usuarioActual.esGlobal === true || usuarioActual.esAdmin === true;
         
         document.getElementById('userRoleBadge').innerHTML = esGlobal 
-            ? `<i class="fa-solid fa-earth-americas me-1"></i> Vista Global (${usuarioActual.nombre})`
-            : `<i class="fa-solid fa-user-lock me-1"></i> Vista Zona (${usuarioActual.nombre})`;
+            ? `<i class="fa-solid fa-earth-americas me-1"></i> Vista Global (${usuarioActual.nombre || 'Usuario'})`
+            : `<i class="fa-solid fa-user-lock me-1"></i> Vista Zona (${usuarioActual.nombre || 'Usuario'})`;
 
-        // Agrupar empresas y vacantes por zona
+        // Agrupación de Empresas y Vacantes por Zonas de Firebase
         const empresas = snapEmp.exists() ? snapEmp.val() : {};
         const vacantes = snapVac.exists() ? snapVac.val() : {};
         const mapaZonas = {};
@@ -273,21 +279,19 @@ async function cargarTablero() {
         let sumaCobertura = 0, totalSinCobertura = 0, totalFaltantes = 0, totalCapacidad = 0, totalZonas = 0;
 
         for (const [zona, info] of Object.entries(mapaZonas)) {
-            // Filtrar personal que atiende la zona
+            // Filtrar personal que Firebase registra asignado a esta zona
             const staffZona = todosLosUsuarios.filter(u => {
                 const zU = normalizar(u.zona);
-                const esDeZona = zU === normalizar(zona) || (u.zonas && u.zonas.includes(zona));
-                return esDeZona;
+                return zU === normalizar(zona) || (u.zonas && u.zonas.map(normalizar).includes(normalizar(zona)));
             });
 
-            // Si no es Vista Global y no pertenece a la zona, omitir
+            // Si es vista filtrada y el usuario actual no está asignado a la zona, omitir
             if (!esGlobal && !staffZona.some(u => u.id === usuarioActual.id)) {
                 continue;
             }
 
             totalZonas++;
 
-            // Separar visualmente Liderazgo vs Reclutadores
             const lideresZona = staffZona.filter(u => obtenerNivelRol(u).nivel >= 3);
             const reclutadoresZona = staffZona.filter(u => obtenerNivelRol(u).nivel === 2);
 
@@ -295,7 +299,6 @@ async function cargarTablero() {
             const capZona = numReclutadores * CAPACIDAD_POR_RECLUTADOR;
             totalCapacidad += capZona;
 
-            // Métrica de Cobertura Ponderada
             const metrica = calcularMetricaZona(staffZona, info.vacantes);
             let sinCob = Math.max(0, info.vacantes - capZona);
             let falt = Math.ceil(sinCob / CAPACIDAD_POR_RECLUTADOR);
@@ -304,15 +307,13 @@ async function cargarTablero() {
             totalSinCobertura += sinCob;
             totalFaltantes += falt;
 
-            // Renderizado HTML de Liderazgo
             const htmlLideres = lideresZona.length > 0 
                 ? lideresZona.map(l => {
                     const infoRol = obtenerNivelRol(l);
                     return `<div><strong>${l.nombre}</strong> <span class="badge-rol ${infoRol.claseCSS}">${infoRol.label}</span></div>`;
                 }).join('')
-                : '<em class="text-muted small">Sin Liderazgo Directo</em>';
+                : '<em class="text-muted small">Sin Liderazgo Asignado</em>';
 
-            // Renderizado HTML de Reclutadores
             const htmlReclutadores = reclutadoresZona.length > 0
                 ? reclutadoresZona.map(r => `<div><i class="fa-solid fa-user me-1 text-secondary"></i>${r.nombre}</div>`).join('')
                 : '<em class="text-muted small">Sin Reclutador Asignado</em>';
@@ -326,8 +327,7 @@ async function cargarTablero() {
                     <td><small>${htmlReclutadores}</small></td>
                     <td>
                         <div class="d-flex justify-content-between align-items-center">
-                            <span class="badge badge-cob ${metrica.claseCss}">${metrica.pct}%</span>
-                            <small class="text-muted ms-1" style="font-size: 0.75rem;">(Base +${metrica.baseLiderazgo}%)</small>
+                            <span class="badge badge-cob ${metrica.claseCss}">${metrica.pct}% - ${metrica.etiqueta}</span>
                         </div>
                         <div class="progress mt-1" style="height: 6px;">
                             <div class="progress-bar ${metrica.claseCss}" style="width: ${metrica.pct}%"></div>
@@ -342,20 +342,20 @@ async function cargarTablero() {
             `;
         }
 
-        // MOSTRAR KPIS CALCULADOS
+        // KPIS GLOBALES
         document.getElementById('kpi_Capacidad').textContent = `${totalCapacidad} vac`;
         document.getElementById('kpi_Cobertura').textContent = `${totalZonas > 0 ? Math.round(sumaCobertura / totalZonas) : 0}%`;
         document.getElementById('kpi_SinCobertura').textContent = totalSinCobertura;
         document.getElementById('kpi_Faltantes').textContent = `+${totalFaltantes}`;
 
-        tabla.innerHTML = html || '<tr><td colspan="7" class="text-center py-4 text-muted">No hay zonas asignadas para su perfil.</td></tr>';
+        tabla.innerHTML = html || '<tr><td colspan="7" class="text-center py-4 text-muted">No se encontraron zonas ni empresas asignadas a su perfil en Firebase.</td></tr>';
 
     } catch (e) {
-        tabla.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger"><b>Error al cargar datos:</b> ${e.message}</td></tr>`;
+        tabla.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger"><b>Error al cargar datos desde Firebase:</b> ${e.message}</td></tr>`;
     }
 }
 
-// 2. REASIGNACIÓN DE RECLUTADORES / LIDERAZGO
+// 2. REASIGNACIÓN DE RECLUTADORES
 function abrirReasignacion(zona) {
     zonaEnEdicion = zona;
     document.getElementById('dlg_zonaNombre').textContent = zona;
@@ -405,9 +405,9 @@ async function guardarReasignacion() {
 
         cerrarDialog();
         cargarTablero();
-        alert("✅ Reclutador asignado correctamente. Métricas y cobertura actualizadas.");
+        alert("✅ Asignación actualizada con éxito en Firebase DB.");
     } catch (e) {
-        alert("❌ Error al aplicar cambio: " + e.message);
+        alert("❌ Error al actualizar Firebase: " + e.message);
     }
 }
 
