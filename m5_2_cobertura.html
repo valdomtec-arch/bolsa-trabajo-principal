@@ -95,9 +95,9 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-    // 1. CONFIGURACIÓN FIREBASE (Modifica la databaseURL por la de tu proyecto)
+    // CONFIGURACIÓN FIREBASE INTEGRADA DIRECTAMENTE
     const firebaseConfig = {
-      databaseURL: "https://TU_PROYECTO_FIREBASE.firebaseio.com"
+      databaseURL: "https://bolsadetrabajo-c6cb9-default-rtdb.firebaseio.com"
     };
 
     // Inicialización de la App y Base de Datos
@@ -135,30 +135,38 @@
 
       }, (error) => {
         console.error("Error conectando con Firebase Realtime:", error);
-        document.getElementById("status-connection").className = "flex items-center space-x-2 bg-red-50 text-red-700 px-3 py-1 rounded-full text-xs font-semibold";
-        document.getElementById("status-connection").innerHTML = `<span>Error de conexión</span>`;
+        const statusEl = document.getElementById("status-connection");
+        if (statusEl) {
+          statusEl.className = "flex items-center space-x-2 bg-red-50 text-red-700 px-3 py-1 rounded-full text-xs font-semibold";
+          statusEl.innerHTML = `<span>Error de conexión</span>`;
+        }
       });
     }
 
     /**
-     * Procesa y "casa" la información cruzando M1, M5 y M7
+     * Procesa la información cruzando M1, M5 y M7
      */
     function procesarCoberturaSistema(empresas, staffEstructurado, logs) {
       // 1. Unificar plantilla activa considerando logs de auditoría (M7)
       const plantillaStaff = reconciliarPlantillaStaff(staffEstructurado, logs);
 
-      // 2. Procesar por cada empresa registrada en M1
+      // 2. Filtrar empresas activas ignorando eliminadas o inactivas
       const reporteEmpresas = [];
       let sumaPorcentajesTotal = 0;
-      const empresaKeys = Object.keys(empresas);
+      
+      const empresaKeys = Object.keys(empresas).filter((key) => {
+        const emp = empresas[key];
+        return emp && emp.estatus !== "ELIMINADA" && emp.estatus !== "INACTIVA";
+      });
 
       empresaKeys.forEach((key) => {
         const emp = empresas[key];
 
         // Filtrar colaboradores asignados a esta empresa específica o con cobertura TODAS
         const asignados = plantillaStaff.filter((u) => {
+          if (!u.empresas) return Boolean(u.todasLasEmpresas);
           if (u.todasLasEmpresas || u.empresas.includes("TODAS")) return true;
-          return u.empresas.includes(key) || u.empresas.includes(emp.id);
+          return u.empresas.includes(key) || (emp.id && u.empresas.includes(emp.id));
         });
 
         const supervisores = asignados.filter(u => u.nivel === 4 || u.nivel === 5);
@@ -216,25 +224,31 @@
       // Carga base de M5
       Object.keys(staff).forEach(k => {
         const u = staff[k];
-        mapa[u.nombre] = { ...u };
+        if (u && u.nombre) {
+          mapa[u.nombre] = { ...u };
+        }
       });
 
       // Cruzar auditoría de logs M7
       Object.keys(logs).forEach(logId => {
         const log = logs[logId];
+        if (!log) return;
+
         const esModuloValido = log.modulo === "M5_STAFF_GOBERNANZA" || log.modulo === "Modulo 5 - Control de Staff y Gobernanza";
 
         if (esModuloValido) {
           if ((log.evento === "ALTA_COLABORADOR" || log.evento === "MODIFICACION_COLABORADOR") && log.datosNuevos) {
             const u = log.datosNuevos;
-            mapa[u.nombre] = {
-              nombre: u.nombre,
-              nivel: Number(u.nivel),
-              todasLasEmpresas: Boolean(u.todasLasEmpresas),
-              empresas: Array.isArray(u.empresas) ? u.empresas : []
-            };
+            if (u.nombre) {
+              mapa[u.nombre] = {
+                nombre: u.nombre,
+                nivel: Number(u.nivel || 1),
+                todasLasEmpresas: Boolean(u.todasLasEmpresas),
+                empresas: Array.isArray(u.empresas) ? u.empresas : []
+              };
+            }
           }
-          if (log.evento === "ELIMINACION_STAFF" && log.datosPrevios) {
+          if (log.evento === "ELIMINACION_STAFF" && log.datosPrevios && log.datosPrevios.nombre) {
             delete mapa[log.datosPrevios.nombre];
           }
         }
@@ -317,11 +331,13 @@
 
     function renderizarTablaVacia() {
       const tbody = document.getElementById("tabla-cobertura-body");
-      tbody.innerHTML = `
-        <tr>
-          <td colspan="5" class="p-8 text-center text-slate-400">No hay empresas activas registradas para evaluar.</td>
-        </tr>
-      `;
+      if (tbody) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="5" class="p-8 text-center text-slate-400">No hay empresas activas registradas para evaluar.</td>
+          </tr>
+        `;
+      }
     }
   </script>
 </body>
