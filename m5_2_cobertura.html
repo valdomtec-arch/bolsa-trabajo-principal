@@ -1,327 +1,427 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Módulo 5.2 - Cobertura Operativa y Control de Staff</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Submódulo 5.2 - Cobertura y Fuerza de Trabajo</title>
+    <!-- CSS & Fonts -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #121212;
+            --card-bg: #1e1e1e;
+            --text-light: #f8f9fa;
+            --kpi-red: #dc3545;
+            --kpi-yellow: #ffc107;
+            --kpi-green: #198754;
+        }
 
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
 
-  <!-- Firebase SDK Compat (Conexión directa sin fallos de módulos) -->
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+        .card-custom {
+            background-color: var(--card-bg);
+            border: 1px solid #333;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .kpi-badge {
+            font-size: 0.9rem;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-weight: bold;
+        }
+
+        .bg-kpi-red { background-color: var(--kpi-red); color: #fff; }
+        .bg-kpi-yellow { background-color: var(--kpi-yellow); color: #000; }
+        .bg-kpi-green { background-color: var(--kpi-green); color: #fff; }
+
+        .load-indicator {
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .role-badge {
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.5px;
+        }
+
+        .table-dark-custom {
+            --bs-table-bg: #1e1e1e;
+            --bs-table-color: #f8f9fa;
+            border-color: #333;
+        }
+    </style>
 </head>
-<body class="bg-slate-100 text-slate-800 antialiased min-h-screen p-6">
+<body class="p-3 p-md-4">
 
-  <!-- CONTENEDOR PRINCIPAL -->
-  <div class="max-w-7xl mx-auto space-y-6">
-
-    <!-- HEADER DEL MÓDULO -->
-    <header class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex justify-between items-center">
-      <div>
-        <h1 class="text-2xl font-bold text-slate-900">Módulo 5.2: Control de Cobertura y Staff Operativo</h1>
-        <p class="text-slate-500 text-sm">Monitoreo de cobertura porcentual por empresa y asignación de personal en tiempo real.</p>
-      </div>
-      <div id="status-connection" class="flex items-center space-x-2 bg-amber-50 text-amber-700 px-3 py-1 rounded-full text-xs font-semibold">
-        <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-        <span>Conectando a Firebase...</span>
-      </div>
-    </header>
-
-    <!-- METRICAS DASHBOARD -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-      
-      <!-- Card 1: Cobertura Promedio -->
-      <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-        <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Cobertura Promedio Global</span>
-        <div class="mt-2 flex items-baseline space-x-2">
-          <span id="metric-cobertura" class="text-4xl font-extrabold text-emerald-600">--%</span>
-          <span class="text-xs text-slate-400">Meta: 100%</span>
+    <div class="container-fluid">
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="fw-bold m-0"><i class="fa-solid fa-chart-pie me-2 text-warning"></i>Submódulo 5.2: Cobertura de Personal</h2>
+                <small class="text-muted">Gestión de Fuerza de Trabajo, Jerarquías y Balance Operativo</small>
+            </div>
+            <div id="userInfo" class="text-end">
+                <span id="userRoleBadge" class="badge bg-primary role-badge mb-1">Cargando...</span>
+                <div id="userName" class="fw-semibold">Usuario</div>
+            </div>
         </div>
-        <div class="w-full bg-slate-100 rounded-full h-2 mt-4 overflow-hidden">
-          <div id="bar-cobertura-global" class="bg-emerald-500 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
+
+        <!-- Alertas de Cobertura Crítica (Visibilidad según Rol) -->
+        <div id="alertSection" class="alert alert-danger d-none align-items-center mb-4" role="alert">
+            <i class="fa-solid fa-triangle-exclamation fa-2x me-3"></i>
+            <div>
+                <strong>¡Atención Operativa!</strong> Hay empresas/zonas en nivel crítico de cobertura (< 35%). Se requiere reasignación inmediata de reclutadores.
+            </div>
         </div>
-      </div>
 
-      <!-- Card 2: Total Empresas Evaluadas -->
-      <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-        <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Empresas Activas Monitoreadas</span>
-        <div class="mt-2">
-          <span id="metric-empresas" class="text-4xl font-extrabold text-slate-900">0</span>
-          <span class="text-xs text-slate-400 ml-1">Cuentas activas</span>
-        </div>
-        <p class="text-xs text-slate-500 mt-4">Sincronizado con M1 (Excluye cuentas dadas de baja)</p>
-      </div>
-
-      <!-- Card 3: Plantilla Staff -->
-      <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-        <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Plantilla Activa Integrada</span>
-        <div class="mt-2">
-          <span id="metric-staff" class="text-4xl font-extrabold text-slate-900">0</span>
-          <span class="text-xs text-slate-400 ml-1">Colaboradores</span>
-        </div>
-        <p class="text-xs text-slate-500 mt-4">Reconciliación con Auditoría M7 en tiempo real</p>
-      </div>
-
-    </div>
-
-    <!-- TABLA PRINCIPAL DE EMPRESAS Y COBERTURA -->
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-      <div class="p-5 border-b border-slate-100 flex justify-between items-center">
-        <h2 class="text-lg font-bold text-slate-900">Cobertura por Empresa y Asignación de Roles</h2>
-        <span id="fecha-actualizacion" class="text-xs text-slate-400">Última actualización: --</span>
-      </div>
-
-      <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse">
-          <thead>
-            <tr class="bg-slate-50 border-b border-slate-200 text-xs font-bold uppercase text-slate-500">
-              <th class="p-4">Empresa / Cliente</th>
-              <th class="p-4">Supervisión / Coordinación</th>
-              <th class="p-4">Reclutadores Asignados</th>
-              <th class="p-4 text-center">Nivel de Cobertura</th>
-              <th class="p-4 text-center">Estatus</th>
-            </tr>
-          </thead>
-          <tbody id="tabla-cobertura-body" class="divide-y divide-slate-100 text-sm text-slate-700">
-            <tr>
-              <td colspan="5" class="p-8 text-center text-slate-400 italic">Cargando y procesando matriz de datos...</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-  </div>
-
-  <!-- SCRIPT LOGIC (FIREBASE COMPAT ENGINE) -->
-  <script>
-    // Configuración explícita de la Realtime Database
-    const firebaseConfig = {
-      databaseURL: "https://bolsadetrabajo-c6cb9-default-rtdb.firebaseio.com"
-    };
-
-    // Inicialización segura de Firebase
-    if (!firebase.apps.length) {
-      firebase.initializeApp(firebaseConfig);
-    }
-    const db = firebase.database();
-
-    document.addEventListener("DOMContentLoaded", () => {
-      escucharCambiosFirebase();
-    });
-
-    /**
-     * Listener en tiempo real para Realtime Database
-     */
-    function escucharCambiosFirebase() {
-      const dbRef = db.ref("/");
-
-      dbRef.on("value", (snapshot) => {
-        const statusEl = document.getElementById("status-connection");
-        if (statusEl) {
-          statusEl.className = "flex items-center space-x-2 bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-xs font-semibold";
-          statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span><span>Conectado a Firebase</span>`;
-        }
-
-        if (!snapshot.exists()) {
-          renderizarTablaVacia();
-          return;
-        }
-
-        const data = snapshot.val();
-        
-        const empresasNodo = data.empresas || {};
-        const staffNodo = data.modulo_5_staff || {};
-        const logsNodo = data.modulo_7_logs || data.logs_sistema || {};
-
-        const calculo = procesarCoberturaSistema(empresasNodo, staffNodo, logsNodo);
-        actualizarUI(calculo);
-
-      }, (error) => {
-        console.error("Error conectando con Firebase Realtime:", error);
-        const statusEl = document.getElementById("status-connection");
-        if (statusEl) {
-          statusEl.className = "flex items-center space-x-2 bg-rose-50 text-rose-700 px-3 py-1 rounded-full text-xs font-semibold";
-          statusEl.innerHTML = `<span>Error de Lectura Firebase</span>`;
-        }
-      });
-    }
-
-    /**
-     * Motor de cálculo: M1 + M5 + M7
-     */
-    function procesarCoberturaSistema(empresas, staffEstructurado, logs) {
-      const plantillaStaff = reconciliarPlantillaStaff(staffEstructurado, logs);
-      const reporteEmpresas = [];
-      let sumaPorcentajesTotal = 0;
-      
-      const empresaKeys = Object.keys(empresas).filter((key) => {
-        const emp = empresas[key];
-        return emp && emp.estatus !== "ELIMINADA" && emp.estatus !== "INACTIVA";
-      });
-
-      empresaKeys.forEach((key) => {
-        const emp = empresas[key];
-
-        const asignados = plantillaStaff.filter((u) => {
-          if (!u.empresas) return Boolean(u.todasLasEmpresas);
-          if (u.todasLasEmpresas || u.empresas.includes("TODAS")) return true;
-          return u.empresas.includes(key) || (emp.id && u.empresas.includes(emp.id));
-        });
-
-        const supervisores = asignados.filter(u => Number(u.nivel) === 4 || Number(u.nivel) === 5);
-        const coordinadores = asignados.filter(u => Number(u.nivel) === 3);
-        const reclutadores = asignados.filter(u => Number(u.nivel) === 2);
-
-        let porcentaje = 0;
-        const tieneLiderazgo = (supervisores.length + coordinadores.length) > 0;
-        
-        if (tieneLiderazgo) {
-          porcentaje += 40;
-        }
-
-        porcentaje += (reclutadores.length * 30);
-        if (porcentaje > 100) porcentaje = 100;
-
-        sumaPorcentajesTotal += porcentaje;
-
-        reporteEmpresas.push({
-          id: emp.id || key,
-          nombre: emp.nombre || key.toUpperCase(),
-          porcentaje: porcentaje,
-          supervisores: supervisores.map(s => s.nombre),
-          coordinadores: coordinadores.map(c => c.nombre),
-          reclutadores: reclutadores.map(r => r.nombre),
-          totalPersonal: asignados.length
-        });
-      });
-
-      const totalEmpresas = empresaKeys.length;
-      const promedioGlobal = totalEmpresas > 0 ? Math.round(sumaPorcentajesTotal / totalEmpresas) : 0;
-
-      return {
-        metricaGlobal: {
-          promedio: promedioGlobal,
-          totalEmpresas: totalEmpresas,
-          totalStaff: plantillaStaff.length
-        },
-        empresas: reporteEmpresas
-      };
-    }
-
-    /**
-     * Reconciliador de auditoría
-     */
-    function reconciliarPlantillaStaff(staff, logs) {
-      const mapa = {};
-
-      Object.keys(staff).forEach(k => {
-        const u = staff[k];
-        if (u && u.nombre) {
-          mapa[u.nombre] = { ...u };
-        }
-      });
-
-      Object.keys(logs).forEach(logId => {
-        const log = logs[logId];
-        if (!log) return;
-
-        const esModuloValido = log.modulo === "M5_STAFF_GOBERNANZA" || log.modulo === "Modulo 5 - Control de Staff y Gobernanza";
-
-        if (esModuloValido) {
-          if ((log.evento === "ALTA_COLABORADOR" || log.evento === "MODIFICACION_COLABORADOR") && log.datosNuevos) {
-            const u = log.datosNuevos;
-            if (u.nombre) {
-              mapa[u.nombre] = {
-                nombre: u.nombre,
-                nivel: Number(u.nivel || 1),
-                todasLasEmpresas: Boolean(u.todasLasEmpresas),
-                empresas: Array.isArray(u.empresas) ? u.empresas : []
-              };
-            }
-          }
-          if (log.evento === "ELIMINACION_STAFF" && log.datosPrevios && log.datosPrevios.nombre) {
-            delete mapa[log.datosPrevios.nombre];
-          }
-        }
-      });
-
-      return Object.values(mapa);
-    }
-
-    /**
-     * Renderizado dinámico en UI
-     */
-    function actualizarUI(datos) {
-      const { metricaGlobal, empresas } = datos;
-
-      document.getElementById("metric-cobertura").textContent = `${metricaGlobal.promedio}%`;
-      document.getElementById("bar-cobertura-global").style.width = `${metricaGlobal.promedio}%`;
-      document.getElementById("metric-empresas").textContent = metricaGlobal.totalEmpresas;
-      document.getElementById("metric-staff").textContent = metricaGlobal.totalStaff;
-      document.getElementById("fecha-actualizacion").textContent = `Última actualización: ${new Date().toLocaleTimeString()}`;
-
-      const tbody = document.getElementById("tabla-cobertura-body");
-      tbody.innerHTML = "";
-
-      if (empresas.length === 0) {
-        renderizarTablaVacia();
-        return;
-      }
-
-      empresas.forEach(emp => {
-        const lideres = [...emp.supervisores, ...emp.coordinadores].join(", ") || "<span class='text-slate-400 font-normal italic'>Sin Líder Asignado</span>";
-        const reclutadores = emp.reclutadores.join(", ") || "<span class='text-slate-400 font-normal italic'>Sin Reclutador Asignado</span>";
-        
-        const badgeStyle = getBadgeStyle(emp.porcentaje);
-        const estatusTexto = emp.porcentaje >= 80 ? 'Óptima' : emp.porcentaje >= 40 ? 'Parcial' : 'Crítica';
-
-        const row = `
-          <tr class="hover:bg-slate-50 transition-colors">
-            <td class="p-4 font-semibold text-slate-900">${emp.nombre}</td>
-            <td class="p-4 text-slate-600">${lideres}</td>
-            <td class="p-4 text-slate-600">${reclutadores}</td>
-            <td class="p-4 text-center">
-              <div class="inline-flex items-center space-x-2">
-                <span class="font-bold">${emp.porcentaje}%</span>
-                <div class="w-16 bg-slate-100 rounded-full h-1.5 overflow-hidden hidden sm:block">
-                  <div class="${badgeStyle.bgBar} h-1.5 rounded-full" style="width: ${emp.porcentaje}%"></div>
+        <!-- Dashboard Grid -->
+        <div class="row">
+            <!-- Columna Izquierda: Matriz de Cobertura por Empresa/Zona -->
+            <div class="col-lg-7">
+                <div class="card card-custom p-3">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="m-0"><i class="fa-solid fa-building me-2"></i>Matriz de Cobertura por Empresa / Zona</h5>
+                        <span class="badge bg-secondary" id="totalEmpresasCount">0 Empresas</span>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-dark-custom table-hover align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Empresa / Planta</th>
+                                    <th>Implant a Cargo</th>
+                                    <th>Reclutadores</th>
+                                    <th>Cobertura (%)</th>
+                                    <th>Estatus KPI</th>
+                                    <th class="text-end action-col">Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tblCoberturaBody">
+                                <tr><td colspan="6" class="text-center py-4 text-muted">Cargando datos de cobertura...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-              </div>
-            </td>
-            <td class="p-4 text-center">
-              <span class="inline-block px-3 py-1 rounded-full text-xs font-bold ${badgeStyle.badgeClass}">
-                ${estatusTexto}
-              </span>
-            </td>
-          </tr>
-        `;
-        tbody.innerHTML += row;
-      });
-    }
+            </div>
 
-    function getBadgeStyle(porcentaje) {
-      if (porcentaje >= 80) {
-        return { bgBar: "bg-emerald-500", badgeClass: "bg-emerald-100 text-emerald-800" };
-      } else if (porcentaje >= 40) {
-        return { bgBar: "bg-amber-500", badgeClass: "bg-amber-100 text-amber-800" };
-      } else {
-        return { bgBar: "bg-rose-500", badgeClass: "bg-rose-100 text-rose-800" };
-      }
-    }
+            <!-- Columna Derecha: Jerarquía de Staff y Carga de Reclutadores -->
+            <div class="col-lg-5">
+                <div class="card card-custom p-3">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="m-0"><i class="fa-solid fa-users-gear me-2"></i>Carga y Jerarquía de Staff</h5>
+                        <small class="text-muted">Límite: 10 Empresas/Reclutador</small>
+                    </div>
+                    <div id="staffHierarchyContainer">
+                        <div class="text-center py-4 text-muted">Cargando equipo de trabajo...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-    function renderizarTablaVacia() {
-      const tbody = document.getElementById("tabla-cobertura-body");
-      if (tbody) {
-        tbody.innerHTML = `
-          <tr>
-            <td colspan="5" class="p-8 text-center text-slate-400">No hay empresas activas registradas para evaluar.</td>
-          </tr>
-        `;
-      }
-    }
-  </script>
+    <!-- Modal de Reasignación de Reclutador -->
+    <div class="modal fade" id="modalReasignar" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content bg-dark text-light border-secondary">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title"><i class="fa-solid fa-user-plus me-2"></i>Asignar / Mover Reclutador</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="formReasignar">
+                        <input type="hidden" id="modalEmpresaId">
+                        <div class="mb-3">
+                            <label class="form-label text-muted">Empresa / Zona Objetivo:</label>
+                            <input type="text" id="modalEmpresaNombre" class="form-control bg-secondary text-light border-0" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label for="selectReclutador" class="form-label">Seleccionar Reclutador Disponible:</label>
+                            <select id="selectReclutador" class="form-select bg-dark text-light border-secondary" required>
+                                <option value="">Cargando reclutadores...</option>
+                            </select>
+                            <small class="form-text text-muted">Solo se muestran reclutadores con carga inferior a 10 empresas.</small>
+                        </div>
+                        <div class="d-grid gap-2 mt-4">
+                            <button type="submit" class="btn btn-warning fw-bold"><i class="fa-solid fa-floppy-disk me-2"></i>Guardar Asignación</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts de Firebase SDK v9+ y Lógica del Módulo -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getDatabase, ref, onValue, update, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+        // Configuración exacta vinculada a tu proyecto
+        const firebaseConfig = {
+            apiKey: "TU_API_KEY", // Coloca tu API Key de Firebase Console
+            authDomain: "bolsa-de-trabajo-a52e4.firebaseapp.com",
+            databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com",
+            projectId: "bolsa-de-trabajo-a52e4",
+            storageBucket: "bolsa-de-trabajo-a52e4.appspot.com",
+            messagingSenderId: "SENDER_ID",
+            appId: "APP_ID"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getDatabase(app);
+
+        // ESTADO GLOBAL
+        let currentUser = null;
+        let currentUserRole = "reclutador"; // Default
+        let globalStaff = {};
+        let globalEmpresas = {};
+        let globalAsignaciones = {};
+
+        // INICIALIZACIÓN
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                obtenerPerfilUsuario(user.uid);
+            } else {
+                console.log("No hay usuario autenticado.");
+            }
+        });
+
+        // 1. OBTENER ROL Y NIVEL DE ACCESO
+        function obtenerPerfilUsuario(uid) {
+            const userRef = ref(db, `staff/${uid}`);
+            onValue(userRef, (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    currentUserRole = (data.rol || "reclutador").toLowerCase();
+                    document.getElementById('userName').innerText = data.nombre || "Usuario";
+                    document.getElementById('userRoleBadge').innerText = currentUserRole;
+                } else {
+                    // Fallback para administradores globales
+                    currentUserRole = "administrador";
+                    document.getElementById('userName').innerText = "Admin / Supervisor";
+                    document.getElementById('userRoleBadge').innerText = currentUserRole;
+                }
+                inicializarEscuchadores();
+            });
+        }
+
+        // 2. ESCUCHADORES EN TIEMPO REAL DESDE FIREBASE
+        function inicializarEscuchadores() {
+            // Escuchar Staff
+            onValue(ref(db, 'staff'), (snapshot) => {
+                globalStaff = snapshot.val() || {};
+                renderizarTodo();
+            });
+
+            // Escuchar Empresas/Zonas Activas
+            onValue(ref(db, 'empresas'), (snapshot) => {
+                globalEmpresas = snapshot.val() || {};
+                renderizarTodo();
+            });
+
+            // Escuchar Matriz de Asignaciones de Cobertura
+            onValue(ref(db, 'cobertura'), (snapshot) => {
+                globalAsignaciones = snapshot.val() || {};
+                renderizarTodo();
+            });
+        }
+
+        // 3. RENDERIZADO GENERAL Y CONTROL DE ACCESO (RBAC)
+        function renderizarTodo() {
+            if (!globalStaff || !globalEmpresas) return;
+
+            const reclutadorCarga = calcularCargaReclutadores();
+            renderizarTablaCobertura(reclutadorCarga);
+            renderizarListaStaff(reclutadorCarga);
+            poblarSelectReclutadores(reclutadorCarga);
+        }
+
+        // CALCULAR CUÁNTAS EMPRESAS TIENE CADA RECLUTADOR (MÁXIMO 10)
+        function calcularCargaReclutadores() {
+            const carga = {};
+            Object.keys(globalStaff).forEach(uid => {
+                if (globalStaff[uid].rol === 'reclutador') {
+                    carga[uid] = 0;
+                }
+            });
+
+            Object.values(globalAsignaciones).forEach(asig => {
+                if (asig.reclutadores) {
+                    Object.keys(asig.reclutadores).forEach(recId => {
+                        if (carga[recId] !== undefined) {
+                            carga[recId]++;
+                        } else {
+                            carga[recId] = 1;
+                        }
+                    });
+                }
+            });
+
+            return carga;
+        }
+
+        // 4. RENDERIZAR TABLA DE MATRIZ DE COBERTURA CON SEMÁFORO DE KPI
+        function renderizarTablaCobertura(cargaReclutadores) {
+            const tbody = document.getElementById('tblCoberturaBody');
+            tbody.innerHTML = '';
+
+            let hayAlertasCriticas = false;
+            let empresasProcesadas = 0;
+
+            const esGlobal = ['administrador', 'director', 'gerente', 'supervisor'].includes(currentUserRole);
+
+            Object.keys(globalEmpresas).forEach(empresaId => {
+                const emp = globalEmpresas[empresaId];
+                if (emp.estatus === 'baja') return; // Excluir empresas dadas de baja
+
+                const asig = globalAsignaciones[empresaId] || {};
+                const reclutadoresAsignados = asig.reclutadores ? Object.keys(asig.reclutadores) : [];
+                const implantId = asig.implantId || null;
+
+                // APLICAR SEGMENTACIÓN POR ROL
+                if (!esGlobal) {
+                    if (currentUserRole === 'coordinador' && asig.coordinadorId !== currentUser.uid) return;
+                    if (currentUserRole === 'implant' && implantId !== currentUser.uid) return;
+                    if (currentUserRole === 'reclutador' && !reclutadoresAsignados.includes(currentUser.uid)) return;
+                }
+
+                empresasProcesadas++;
+
+                // Cálculo del Semáforo
+                const metaMeta = emp.metaReclutadores || 3; // Valor meta por defecto
+                const totalPersonal = reclutadoresAsignados.length + (implantId ? 1 : 0);
+                const porcentaje = Math.min(Math.round((totalPersonal / metaMeta) * 100), 100);
+
+                let badgeClass = 'bg-kpi-green';
+                let statusText = '🟢 ÓPTIMA (76-100%)';
+
+                if (porcentaje <= 35) {
+                    badgeClass = 'bg-kpi-red';
+                    statusText = '🔴 CRÍTICA (0-35%)';
+                    hayAlertasCriticas = true;
+                } else if (porcentaje <= 75) {
+                    badgeClass = 'bg-kpi-yellow';
+                    statusText = '🟡 PREVENTIVA (36-75%)';
+                }
+
+                // Generar Fila
+                const implantNombre = implantId && globalStaff[implantId] ? globalStaff[implantId].nombre : 'Sin Implant';
+                const reclutadoresNombres = reclutadoresAsignados
+                    .map(id => globalStaff[id] ? globalStaff[id].nombre : 'Desconocido')
+                    .join(', ') || '<span class="text-muted">Sin Reclutadores</span>';
+
+                const showActionBtn = ['administrador', 'director', 'gerente', 'supervisor', 'coordinador'].includes(currentUserRole);
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><strong>${emp.nombre}</strong><br><small class="text-muted">${emp.ubicacion || 'N/A'}</small></td>
+                    <td><i class="fa-solid fa-user-tie me-1 text-info"></i>${implantNombre}</td>
+                    <td>${reclutadoresNombres}</td>
+                    <td><strong>${porcentaje}%</strong></td>
+                    <td><span class="kpi-badge ${badgeClass}">${statusText}</span></td>
+                    <td class="text-end action-col">
+                        ${showActionBtn ? `<button class="btn btn-sm btn-outline-warning" onclick="abrirModalAsignar('${empresaId}', '${emp.nombre}')"><i class="fa-solid fa-user-plus"></i></button>` : ''}
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById('totalEmpresasCount').innerText = `${empresasProcesadas} Empresas`;
+
+            // Mostrar/Ocultar Alerta Crítica
+            const alertSec = document.getElementById('alertSection');
+            if (hayAlertasCriticas && esGlobal) {
+                alertSec.classList.remove('d-none');
+                alertSec.classList.add('d-flex');
+            } else {
+                alertSec.classList.add('d-none');
+            }
+        }
+
+        // 5. RENDERIZAR JERARQUÍA DE STAFF Y CONTROL DE LIMITE (10 MÁX)
+        function renderizarListaStaff(cargaReclutadores) {
+            const container = document.getElementById('staffHierarchyContainer');
+            container.innerHTML = '';
+
+            Object.keys(globalStaff).forEach(uid => {
+                const persona = globalStaff[uid];
+                if (persona.rol === 'reclutador') {
+                    const totalCuentas = cargaReclutadores[uid] || 0;
+                    
+                    let loadBadge = 'bg-success';
+                    if (totalCuentas >= 10) loadBadge = 'bg-danger';
+                    else if (totalCuentas >= 7) loadBadge = 'bg-warning text-dark';
+
+                    const item = document.createElement('div');
+                    item.className = 'd-flex justify-content-between align-items-center p-2 mb-2 bg-dark rounded border border-secondary';
+                    item.innerHTML = `
+                        <div>
+                            <i class="fa-solid fa-user-gear me-2 text-primary"></i>
+                            <strong>${persona.nombre}</strong>
+                        </div>
+                        <div>
+                            <span class="badge ${loadBadge} load-indicator">${totalCuentas} / 10 Cuentas</span>
+                        </div>
+                    `;
+                    container.appendChild(item);
+                }
+            });
+        }
+
+        // 6. POBLAR SELECT CON VALIDACIÓN ESTRICTA DE LÍMITE (10 CUENTAS)
+        function poblarSelectReclutadores(cargaReclutadores) {
+            const select = document.getElementById('selectReclutador');
+            select.innerHTML = '<option value="">-- Seleccionar Reclutador --</option>';
+
+            Object.keys(globalStaff).forEach(uid => {
+                const persona = globalStaff[uid];
+                if (persona.rol === 'reclutador') {
+                    const cargaActual = cargaReclutadores[uid] || 0;
+                    if (cargaActual < 10) {
+                        const opt = document.createElement('option');
+                        opt.value = uid;
+                        opt.innerText = `${persona.nombre} (${cargaActual}/10 Empresas Asignadas)`;
+                        select.appendChild(opt);
+                    }
+                }
+            });
+        }
+
+        // 7. ASIGNAR RECLUTADOR A EMPRESA EN FIREBASE
+        window.abrirModalAsignar = function(empresaId, nombreEmpresa) {
+            document.getElementById('modalEmpresaId').value = empresaId;
+            document.getElementById('modalEmpresaNombre').value = nombreEmpresa;
+            const modal = new bootstrap.Modal(document.getElementById('modalReasignar'));
+            modal.show();
+        };
+
+        document.getElementById('formReasignar').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const empresaId = document.getElementById('modalEmpresaId').value;
+            const reclutadorId = document.getElementById('selectReclutador').value;
+
+            if (!empresaId || !reclutadorId) return;
+
+            // Guardar en Firebase
+            const asignacionRef = ref(db, `cobertura/${empresaId}/reclutadores/${reclutadorId}`);
+            set(asignacionRef, true)
+                .then(() => {
+                    bootstrap.Modal.getInstance(document.getElementById('modalReasignar')).hide();
+                    document.getElementById('formReasignar').reset();
+                })
+                .catch(err => alert("Error al guardar en Firebase: " + err.message));
+        });
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
