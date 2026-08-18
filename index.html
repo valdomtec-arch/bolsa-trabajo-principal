@@ -1355,6 +1355,7 @@
         wrapper.classList.remove('open');
     };
 
+    // MANEJO DE AUTENTICACIÓN Y REDIRECCIÓN SEGÚN ROL / NIVEL
     document.getElementById('adminLoginForm').addEventListener('submit', async function(event) {
         event.preventDefault();
 
@@ -1374,6 +1375,24 @@
             const userCredential = await signInWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
 
+            // 1. EVALUACIÓN DE CUENTA MÁSTER (SUPERADMIN NIVEL 5)
+            if (user.email.toLowerCase() === 'jvalladares@hremploy.com.mx') {
+                const sesionMaster = {
+                    uid: user.uid,
+                    email: user.email,
+                    nombre: "Tony",
+                    rolNombre: "SuperAdmin Máster",
+                    nivel: 5,
+                    esMaster: true
+                };
+                sessionStorage.setItem('usuarioLogueado', JSON.stringify(sesionMaster));
+
+                // Redirección directa al Panel de Gobernanza / Staff
+                window.location.href = "m5_staff.html";
+                return;
+            }
+
+            // 2. EVALUACIÓN DE USUARIOS CONVENCIONALES (NIVEL 1 A 4)
             const userRef = ref(db, `usuarios_reclutadores/${user.uid}`);
             const snapshot = await get(userRef);
 
@@ -1382,7 +1401,7 @@
 
                 if (userData.estatus !== 'Activo') {
                     await signOut(auth);
-                    alert("Tu cuenta se encuentra Inactiva o Suspendida. Contacta al Administrador del sistema.");
+                    alert("Tu cuenta se encuentra inactiva o suspendida.");
                     btnSubmit.disabled = false;
                     btnSubmit.textContent = "Entrar al Portal";
                     return;
@@ -1390,19 +1409,19 @@
 
                 sessionStorage.setItem('usuarioLogueado', JSON.stringify({
                     uid: user.uid,
-                    nombre: userData.nombre || user.email,
-                    correo: user.email,
-                    rolNombre: userData.rolNombre || "Sin Rol",
+                    email: user.email,
+                    nombre: userData.nombre || "Usuario",
+                    rolNombre: userData.rolNombre || "Reclutador",
                     nivel: userData.nivel || 1,
-                    empresasAsignadas: userData.empresasAsignadas || [],
-                    permisos: userData.permisos || {}
+                    permisos: userData.permisos || {},
+                    empresasAsignadas: userData.empresasAsignadas || []
                 }));
 
                 window.location.href = "admin.html";
 
             } else {
                 await signOut(auth);
-                alert("El usuario autenticado no cuenta con un registro de permisos activo en el sistema.");
+                alert("El usuario no cuenta con perfil registrado en la base de datos.");
                 btnSubmit.disabled = false;
                 btnSubmit.textContent = "Entrar al Portal";
             }
