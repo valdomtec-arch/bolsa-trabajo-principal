@@ -214,7 +214,7 @@
             box-shadow: 0 18px 35px -5px rgba(0, 0, 0, 0.6), 0 0 20px var(--primary-orange-glow);
         }
 
-        /* BADGES / PILLS DE TIPO DE MÓDULO (SUPERIOR DERECHA) */
+        /* BADGES / PILLS DE TIPO DE MÓDULO */
         .badge-type {
             position: absolute;
             top: 14px;
@@ -404,83 +404,108 @@
         </div>
     </main>
 
-    <!-- DEPENDENCIAS OFICIALES DE FIREBASE -->
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    <!-- DEPENDENCIAS MODULARES DE FIREBASE v10 -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, onValue, get, update, query, orderByChild } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
-    <script>
         const firebaseConfig = {
-            databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com/"
+            apiKey: "AIzaSyDxgP1YnycCEqkQ2vr3SPkwc9QMhtG8Zqw",
+            authDomain: "bolsa-de-trabajo-a52e4.firebaseapp.com",
+            databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com",
+            projectId: "bolsa-de-trabajo-a52e4",
+            storageBucket: "bolsa-de-trabajo-a52e4.firebasestorage.app",
+            messagingSenderId: "592492733212",
+            appId: "1:592492733212:web:88e8ec243bd53608b6d0d9",
+            measurementId: "G-DH2LD3BJEF"
         };
 
-        if (!firebase.apps.length) {
-            firebase.initializeApp(firebaseConfig);
-        }
-        const db = firebase.database();
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const auth = getAuth(app);
 
         let usuarioLogueadoObj = null;
         let rolUsuarioActivo = "SuperAdmin";
         let permisosManualesUsuario = null;
         const BASE_URL = "https://valdomtec-arch.github.io/bolsa-trabajo-principal/";
 
-        document.addEventListener("DOMContentLoaded", () => {
+        // Verificación de Autenticación y Carga de Sesión
+        onAuthStateChanged(auth, async (user) => {
             const usuarioSesion = sessionStorage.getItem('usuarioLogueado') || localStorage.getItem('usuarioLogueado');
             
-            if (usuarioSesion) {
+            if (user && usuarioSesion) {
                 try {
                     usuarioLogueadoObj = JSON.parse(usuarioSesion);
-                    const userId = usuarioLogueadoObj.id || usuarioLogueadoObj.key || usuarioLogueadoObj.telefono;
+                    
+                    // Consultar los permisos actualizados en Firebase usando el UID
+                    const userSnap = await get(ref(db, `usuarios_reclutadores/${user.uid}`));
+                    if (userSnap.exists()) {
+                        const dbUserData = userSnap.val();
+                        
+                        if (dbUserData.estatus !== 'Activo') {
+                            alert("Tu cuenta ha sido desactivada. Redirigiendo...");
+                            window.cerrarSesionAdmin();
+                            return;
+                        }
 
-                    // Consultar en tiempo real los permisos actualizados en Firebase
-                    if (userId) {
-                        db.ref(`usuarios_reclutadores/${userId}`).once('value').then((snap) => {
-                            if (snap.exists()) {
-                                const dbUserData = snap.val();
-                                rolUsuarioActivo = dbUserData.rol || usuarioLogueadoObj.rol || "Reclutador";
-                                permisosManualesUsuario = dbUserData.permisosManuales || null;
-                                
-                                document.getElementById('userSessionDisplay').innerText = `${dbUserData.nombre || 'Usuario'} • ${rolUsuarioActivo}`;
-                            } else {
-                                fallbackSesion(usuarioLogueadoObj);
-                            }
-                            inicializarRendersTiempoReal();
-                        }).catch(() => {
-                            fallbackSesion(usuarioLogueadoObj);
-                            inicializarRendersTiempoReal();
-                        });
+                        rolUsuarioActivo = dbUserData.rolNombre || dbUserData.rol || usuarioLogueadoObj.rolNombre || "Reclutador";
+                        permisosManualesUsuario = dbUserData.permisos || dbUserData.permisosManuales || null;
+                        
+                        document.getElementById('userSessionDisplay').innerText = `${dbUserData.nombre || user.email} • ${rolUsuarioActivo}`;
                     } else {
                         fallbackSesion(usuarioLogueadoObj);
-                        inicializarRendersTiempoReal();
                     }
-
                 } catch(e) {
-                    rolUsuarioActivo = "SuperAdmin";
-                    document.getElementById('userSessionDisplay').innerText = `Administrador • SuperAdmin`;
-                    inicializarRendersTiempoReal();
+                    console.error("Error al procesar sesión:", e);
+                    fallbackSesion(usuarioLogueadoObj);
+                }
+            } else if (user) {
+                // Si hay sesión en Firebase Auth pero no en sessionStorage
+                try {
+                    const userSnap = await get(ref(db, `usuarios_reclutadores/${user.uid}`));
+                    if (userSnap.exists()) {
+                        const dbUserData = userSnap.val();
+                        rolUsuarioActivo = dbUserData.rolNombre || dbUserData.rol || "Reclutador";
+                        permisosManualesUsuario = dbUserData.permisos || dbUserData.permisosManuales || null;
+                        document.getElementById('userSessionDisplay').innerText = `${dbUserData.nombre || user.email} • ${rolUsuarioActivo}`;
+                    } else {
+                        rolUsuarioActivo = "SuperAdmin";
+                        document.getElementById('userSessionDisplay').innerText = `${user.email} • SuperAdmin`;
+                    }
+                } catch(e) {
+                    fallbackSesion({ nombre: user.email, rol: "SuperAdmin" });
                 }
             } else {
-                rolUsuarioActivo = "SuperAdmin";
-                document.getElementById('userSessionDisplay').innerText = `Sesión Directa • SuperAdmin`;
-                inicializarRendersTiempoReal();
+                // Redirección si no hay sesión activa
+                window.location.href = BASE_URL + "index.html";
+                return;
             }
+
+            inicializarRendersTiempoReal();
         });
 
         function fallbackSesion(usuarioObj) {
-            rolUsuarioActivo = usuarioObj.rol || "SuperAdmin";
-            permisosManualesUsuario = usuarioObj.permisosManuales || null;
+            rolUsuarioActivo = usuarioObj.rolNombre || usuarioObj.rol || "SuperAdmin";
+            permisosManualesUsuario = usuarioObj.permisos || usuarioObj.permisosManuales || null;
             document.getElementById('userSessionDisplay').innerText = `${usuarioObj.nombre || 'Administrador'} • ${rolUsuarioActivo}`;
         }
 
-        // Redirección segura a index.html al desconectar
-        function cerrarSesionAdmin() {
+        // Cierre de sesión seguro
+        window.cerrarSesionAdmin = async function() {
             sessionStorage.removeItem('usuarioLogueado');
             localStorage.removeItem('usuarioLogueado');
+            try {
+                await signOut(auth);
+            } catch (e) {
+                console.error("Error cerrando sesión:", e);
+            }
             window.location.href = BASE_URL + "index.html";
-        }
+        };
 
-        // Estructura de respaldo ante bases vacías
-        function verificarYRestaurarBase() {
-            const refModulos = db.ref("modulos_config");
+        // Estructura de respaldo ante bases de datos vacías
+        async function verificarYRestaurarBase() {
+            const refModulos = ref(db, "modulos_config");
             const estructuraMaestra = {
                 "m1_empresas": { id: "m1_empresas", titulo: "Registrar Empresas", descripcion: "Alta de clientes corporativos, marcas y logos.", icono: "fa-building", url: `${BASE_URL}m1_empresas.html`, activo: true, orden: 1, tipo: "standard", roles_permitidos: ["SuperAdmin", "Admin", "Administrador", "Gerente General"] },
                 "m2_vacantes": { id: "m2_vacantes", titulo: "Control Vacantes (IA)", descripcion: "Motor IA Gemini para extracción de perfiles.", icono: "fa-briefcase", url: `${BASE_URL}m2_vacantes.html`, activo: true, orden: 2, tipo: "standard", roles_permitidos: ["SuperAdmin", "Admin", "Administrador", "Gerente General"] },
@@ -491,14 +516,15 @@
                 "m7_logs": { id: "m7_logs", titulo: "Caja Negra / Auditoría", descripcion: "Caja negra inalterable de auditoría e historial global.", icono: "fa-shield-halved", url: `${BASE_URL}m7_logs.html`, activo: true, orden: 7, tipo: "critical", roles_permitidos: ["SuperAdmin", "Admin", "Administrador"] },
                 "m8_creador_modulos": { id: "m8_creador_modulos", titulo: "Creador de Módulos", descripcion: "Inyección dinámica y expansión de nuevas vistas.", icono: "fa-screwdriver-wrench", url: `${BASE_URL}m8_creador_modulos.html`, activo: true, orden: 8, tipo: "core", roles_permitidos: ["SuperAdmin", "Admin", "Administrador"] }
             };
-            refModulos.update(estructuraMaestra);
+            await update(refModulos, estructuraMaestra);
         }
 
-        // Renderizado dinámico respetando los permisos manuales del Módulo 5
+        // Renderizado dinámico sincronizado en tiempo real
         function inicializarRendersTiempoReal() {
             const contenedorDinamico = document.getElementById("hub-modulos-dinamico");
-            
-            db.ref("modulos_config").orderByChild("orden").on("value", (snapshot) => {
+            const q = query(ref(db, "modulos_config"), orderByChild("orden"));
+
+            onValue(q, (snapshot) => {
                 if (!snapshot.exists()) {
                     verificarYRestaurarBase();
                     return;
@@ -515,17 +541,13 @@
                     let tienePermiso = false;
 
                     if (esAdminGlobal) {
-                        // El Admin y Gerente ven todo por defecto
                         tienePermiso = true;
                     } else if (permisosManualesUsuario && typeof permisosManualesUsuario === 'object') {
-                        // EVALUACIÓN DE PERMISOS MANUALES ASIGNADOS EN EL MÓDULO 5
-                        // Mapeo entre id de módulo en config (ej. m8_creador_modulos) vs M5 (ej. m8_creador)
                         let keyEnM5 = id;
                         if (id === "m8_creador_modulos") keyEnM5 = "m8_creador";
 
                         tienePermiso = permisosManualesUsuario[keyEnM5] === true;
                     } else {
-                        // Fallback si no hay matriz asignada aún
                         const rolesPermitidos = modulo.roles_permitidos || ["SuperAdmin", "Admin", "Administrador"];
                         tienePermiso = rolesPermitidos.includes(rolUsuarioActivo);
                     }
