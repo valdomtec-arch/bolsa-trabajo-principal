@@ -154,7 +154,6 @@
             pointer-events: none;
         }
 
-        /* ANIMACIÓN DE DESTELLO FLASH SOBRE EL LOGO */
         .logo-container::after {
             content: '';
             position: absolute;
@@ -724,7 +723,7 @@
             transform: translateY(-2px);
         }
 
-        /* MODAL DE ACCESO ADMINISTRATIVO EN CENTRO Y OPAGO */
+        /* MODAL DE ACCESO ADMINISTRATIVO */
         .admin-login-wrapper {
             position: fixed;
             top: 0;
@@ -804,7 +803,6 @@
             margin-bottom: 6px;
         }
 
-        .admin-input-group select,
         .admin-input-group input {
             width: 100%;
             padding: 12px 16px;
@@ -817,15 +815,9 @@
             transition: all 0.3s ease;
         }
 
-        .admin-input-group select:focus,
         .admin-input-group input:focus {
             border-color: var(--primary-orange);
             background-color: #1a2f5c;
-        }
-
-        .admin-input-group select option {
-            background-color: #0d1b3e;
-            color: var(--white);
         }
 
         .btn-submit-admin {
@@ -887,11 +879,9 @@
                 <img src="imagen-logo.jpg" alt="HR Employment" class="logo-header">
             </div>
             
-            <!-- TEXTOS CON ANIMACIÓN Y BRILLO DINÁMICO -->
             <h1>¡Súmate a nuestro equipo!</h1>
             <p>Tu talento hace la diferencia</p>
 
-            <!-- BUSCADOR FLOTANTE INTEGRADO -->
             <div class="search-container">
                 <div class="search-wrapper">
                     <input type="text" id="mainSearch" class="search-input" placeholder="Buscar por empresa, vacante o ubicación...">
@@ -998,29 +988,22 @@
     </footer>
 </div>
 
-<!-- MODAL ACCESO ADMINISTRATIVO REESTRUCTURADO M5_STAFF DINÁMICO CON ROLES DE MODULO 5 -->
+<!-- MODAL ACCESO ADMINISTRATIVO REESTRUCTURADO -->
 <div id="adminLoginWrapper" class="admin-login-wrapper">
     <div class="admin-login-card">
         <button type="button" class="btn-close-admin-modal" onclick="cerrarAccesoAdministrativo()" title="Cerrar">&times;</button>
         <h3>Acceso al Sistema</h3>
-        <p>Ingresa tus credenciales de colaborador para administrar el portal</p>
+        <p>Ingresa con tu correo corporativo y contraseña asignada</p>
         <form id="adminLoginForm">
             <div class="admin-input-group">
-                <label for="adminCargo"><i class="fas fa-briefcase"></i> Rol Jerárquico</label>
-                <!-- Opciones cargadas dinámicamente desde el Módulo M5 (nodo roles_dinamicos) -->
-                <select id="adminCargo" required>
-                    <option value="" disabled selected hidden>Cargando roles disponibles...</option>
-                </select>
+                <label for="adminEmail"><i class="fas fa-envelope"></i> Correo Electrónico</label>
+                <input type="email" id="adminEmail" required placeholder="ejemplo@empresa.com" autocomplete="username">
             </div>
             <div class="admin-input-group">
-                <label for="adminPhone"><i class="fas fa-phone"></i> Teléfono (WhatsApp de Registro)</label>
-                <input type="tel" id="adminPhone" maxlength="10" pattern="[0-9]{10}" required placeholder="10 dígitos (Ej. 6461974763)">
+                <label for="adminPassword"><i class="fas fa-key"></i> Contraseña</label>
+                <input type="password" id="adminPassword" required placeholder="••••••••" autocomplete="current-password">
             </div>
-            <div class="admin-input-group">
-                <label for="adminPassword"><i class="fas fa-key"></i> Clave de Acceso (PIN)</label>
-                <input type="password" id="adminPassword" required placeholder="••••••••">
-            </div>
-            <button type="submit" class="btn-submit-admin">Entrar al Portal</button>
+            <button type="submit" class="btn-submit-admin" id="btnSubmitAdmin">Entrar al Portal</button>
         </form>
     </div>
 </div>
@@ -1032,15 +1015,25 @@
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getDatabase, ref, onValue, set, push, increment, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getAuth, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
+    // Configuración completa del proyecto
     const firebaseConfig = {
-        databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com/"
+        apiKey: "AIzaSyDxgP1YnycCEqkQ2vr3SPkwc9QMhtG8Zqw",
+        authDomain: "bolsa-de-trabajo-a52e4.firebaseapp.com",
+        databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com",
+        projectId: "bolsa-de-trabajo-a52e4",
+        storageBucket: "bolsa-de-trabajo-a52e4.firebasestorage.app",
+        messagingSenderId: "592492733212",
+        appId: "1:592492733212:web:88e8ec243bd53608b6d0d9",
+        measurementId: "G-DH2LD3BJEF"
     };
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
+    const auth = getAuth(app);
     
-    // CARRUSEL DE FONDO (FADE Y KEN BURNS EFFECT)
+    // CARRUSEL DE FONDO HERO
     const slides = document.querySelectorAll('.hero-slides-bg .slide');
     let currentSlide = 0;
 
@@ -1174,38 +1167,18 @@
         window.updateGallery();
     };
 
-    // ESCUCHADOR PRINCIPAL DE BASE DE DATOS PARA VACANTES, EMPRESAS Y ROLES DE MÓDULO 5
+    // ESCUCHADOR PRINCIPAL DE BASE DE DATOS
     onValue(rootRef, (snapshot) => {
         const data = snapshot.val() || {};
         todasLasEmpresas = data.empresas || {}; 
         todasLasVacantes = data.vacantes_detalles || {};
         
-        // CORRECCIÓN 1: Apuntar explícitamente a roles_dinamicos en lugar de roles
-        const rolesM5 = data.roles_dinamicos || {};
-        
-        // 1. Llenar combo de Empresas
+        // Llenar combo de Empresas
         const selectEmpresa = document.getElementById('empresa');
         selectEmpresa.innerHTML = '<option value="" disabled selected hidden></option>';
         Object.keys(todasLasEmpresas).forEach((id) => {
             selectEmpresa.innerHTML += `<option value="${id}">${todasLasEmpresas[id].nombre}</option>`;
         });
-
-        // 2. Llenar combo de Roles en Modal Administrativo desde roles_dinamicos
-        const selectAdminCargo = document.getElementById('adminCargo');
-        selectAdminCargo.innerHTML = '<option value="" disabled selected hidden>Selecciona tu rol registrado</option>';
-        
-        const rolesKeys = Object.keys(rolesM5);
-        if (rolesKeys.length > 0) {
-            rolesKeys.forEach((id) => {
-                const rolObj = rolesM5[id];
-                // Soporte para rolNombre o nombre según la estructura en roles_dinamicos
-                const nombreRol = rolObj.rolNombre || rolObj.nombre || id;
-                const nivelRol = rolObj.nivel ? ` (Nivel ${rolObj.nivel})` : '';
-                selectAdminCargo.innerHTML += `<option value="${nombreRol}">${nombreRol}${nivelRol}</option>`;
-            });
-        } else {
-            selectAdminCargo.innerHTML = '<option value="" disabled selected hidden>No hay roles registrados en M5</option>';
-        }
 
         window.ejecutarBusqueda(document.getElementById('mainSearch').value);
         window.updateItemsPerPage();
@@ -1359,7 +1332,7 @@
         window.open(urlWhatsApp, '_blank');
     };
 
-    // --- ACCESO ADMINISTRATIVO CON INTEGRACIÓN M5_STAFF Y SHA-256 ---
+    // --- ACCESO ADMINISTRATIVO CON FIREBASE AUTH Y RBAC POR UID ---
     window.accesoAdministrativo = function() {
         const wrapper = document.getElementById('adminLoginWrapper');
         wrapper.classList.add('open');
@@ -1370,85 +1343,71 @@
         wrapper.classList.remove('open');
     };
 
-    // CORRECCIÓN 3: Garantizar que la función procese password + salt con codificación UTF-8 exacta
-    async function generarHashSHA256(password, salt) {
-        const encoder = new TextEncoder();
-        const data = encoder.encode(password + salt);
-        const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
-        const hashArray = Array.from(new Uint8Array(hashBuffer));
-        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    }
-
     document.getElementById('adminLoginForm').addEventListener('submit', async function(event) {
         event.preventDefault();
 
-        const cargo = document.getElementById('adminCargo').value;
-        const phone = document.getElementById('adminPhone').value.trim();
-        const passwordInput = document.getElementById('adminPassword').value.trim();
+        const email = document.getElementById('adminEmail').value.trim();
+        const password = document.getElementById('adminPassword').value.trim();
+        const btnSubmit = document.getElementById('btnSubmitAdmin');
 
-        if (!cargo || !phone || !passwordInput) {
-            alert("Por favor completa todos los campos del formulario.");
+        if (!email || !password) {
+            alert("Por favor ingresa tu correo y contraseña.");
             return;
         }
 
-        // Consulta sobre el nodo m5_staff: usuarios_reclutadores
-        const staffRef = ref(db, 'usuarios_reclutadores');
-
         try {
-            const snapshot = await get(staffRef);
+            btnSubmit.disabled = true;
+            btnSubmit.textContent = "Verificando...";
+
+            // Autenticación nativa
+            const userCredential = await signInWithEmailAndPassword(auth, email, password);
+            const user = userCredential.user;
+
+            // Consulta directa por UID
+            const userRef = ref(db, `usuarios_reclutadores/${user.uid}`);
+            const snapshot = await get(userRef);
+
             if (snapshot.exists()) {
-                const usuarios = snapshot.val();
-                let usuarioEncontrado = null;
-                let userKey = null;
+                const userData = snapshot.val();
 
-                // Búsqueda por número de teléfono
-                Object.keys(usuarios).forEach(key => {
-                    if (usuarios[key].telefono === phone) {
-                        usuarioEncontrado = usuarios[key];
-                        userKey = key;
-                    }
-                });
-
-                if (usuarioEncontrado) {
-                    // Validar si el usuario está activo
-                    if (usuarioEncontrado.estatus !== 'Activo') {
-                        alert("Tu cuenta se encuentra Inactiva o Suspendida. Contacta al Administrador del sistema.");
-                        return;
-                    }
-
-                    // CORRECCIÓN 2: Validación flexible para comprobar rolNombre o rol
-                    const rolUsuario = usuarioEncontrado.rolNombre || usuarioEncontrado.rol;
-                    if (rolUsuario !== cargo) {
-                        alert(`El rol seleccionado (${cargo}) no coincide con el cargo registrado para este usuario (${rolUsuario}).`);
-                        return;
-                    }
-
-                    // Verificación de credenciales con SHA-256 + Salt
-                    if (usuarioEncontrado.salt && usuarioEncontrado.passwordHash) {
-                        const hashCalculado = await generarHashSHA256(passwordInput, usuarioEncontrado.salt);
-                        
-                        if (hashCalculado === usuarioEncontrado.passwordHash) {
-                            alert(`¡Bienvenido, ${usuarioEncontrado.nombre}! Acceso autorizado como ${rolUsuario}.`);
-                            sessionStorage.setItem('usuarioLogueado', JSON.stringify({
-                                uid: userKey,
-                                ...usuarioEncontrado
-                            }));
-                            window.location.href = "https://valdomtec-arch.github.io/bolsa-trabajo-principal/admin.html";
-                        } else {
-                            alert("Clave de acceso (PIN) incorrecta.");
-                        }
-                    } else {
-                        alert("Error de integridad de seguridad. El usuario no tiene un hash/salt válido asignado.");
-                    }
-                } else {
-                    alert("No se encontró ningún colaborador registrado con ese número telefónico.");
+                if (userData.estatus !== 'Activo') {
+                    await signOut(auth);
+                    alert("Tu cuenta se encuentra Inactiva o Suspendida. Contacta al Administrador del sistema.");
+                    btnSubmit.disabled = false;
+                    btnSubmit.textContent = "Entrar al Portal";
+                    return;
                 }
+
+                sessionStorage.setItem('usuarioLogueado', JSON.stringify({
+                    uid: user.uid,
+                    nombre: userData.nombre || user.email,
+                    correo: user.email,
+                    rolNombre: userData.rolNombre || "Sin Rol",
+                    nivel: userData.nivel || 1,
+                    empresasAsignadas: userData.empresasAsignadas || [],
+                    permisos: userData.permisos || {}
+                }));
+
+                window.location.href = "admin.html";
+
             } else {
-                alert("No existen usuarios registrados en el sistema de gobernanza.");
+                await signOut(auth);
+                alert("El usuario autenticado no cuenta con un registro de permisos activo en el sistema.");
+                btnSubmit.disabled = false;
+                btnSubmit.textContent = "Entrar al Portal";
             }
+
         } catch (error) {
-            console.error("Error al autenticar con el nodo m5_staff: ", error);
-            alert("Hubo un problema de conexión al validar las credenciales.");
+            console.error("Error al autenticar:", error);
+            let msg = "Error al iniciar sesión. Revisa tus credenciales.";
+            if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+                msg = "Correo o contraseña incorrectos.";
+            } else if (error.code === 'auth/too-many-requests') {
+                msg = "Demasiados intentos fallidos. Intenta más tarde.";
+            }
+            alert(msg);
+            btnSubmit.disabled = false;
+            btnSubmit.textContent = "Entrar al Portal";
         }
     });
 </script>
