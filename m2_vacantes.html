@@ -3,17 +3,16 @@
 <head> 
 <meta charset="UTF-8"> 
 <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
-<title>Panel de Control - Gestión de Vacantes Dinámico</title> 
-<!-- Tailwind CSS --> 
+<title>Panel Administrativo - Módulo 2 Vacantes</title> 
+<!-- Tailwind CSS v4 --> 
 <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script> 
 <!-- Iconos Lucide --> 
 <script src="https://unpkg.com/lucide@latest"></script> 
 
-<!-- Firebase v8.10.1 (Librerías Base) -->
+<!-- Firebase v8 (Conexión Embebida - Opción B) -->
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
-<!-- Inicialización de Firebase Directa (Opción B) -->
 <script>
   const firebaseConfig = {
     apiKey: "AIzaSyDxgP1YnycCEqkQ2vr3SPkwc9QMhtG8Zqw",
@@ -36,276 +35,296 @@
 <!-- Lectura de archivos --> 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script> 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script> 
+
 <style> 
-body { background-color: #111e2e; color: #e2e8f0; } 
-.input-dark { 
-background-color: #1b2a3a; 
-border: 1px solid #2d4156; 
-color: #f8fafc; 
-transition: all 0.2s ease; 
-}
-.input-dark:focus { 
-outline: none; 
-border-color: #f97316;
-box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.2); 
-}
+  body { background-color: #0d1520; color: #e2e8f0; font-family: system-ui, -apple-system, sans-serif; } 
+  .card-panel { background-color: #14202e; border: 1px solid #233446; border-radius: 0.75rem; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3); }
+  .input-dark { 
+    background-color: #1a293b; 
+    border: 1px solid #2e445e; 
+    color: #f8fafc; 
+    transition: all 0.2s ease; 
+  }
+  .input-dark:focus { 
+    outline: none; 
+    border-color: #f97316;
+    box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.2); 
+  }
 </style> 
 </head> 
-<body class="p-6 min-h-screen"> 
-<div class="max-w-7xl mx-auto"> 
-<!-- Encabezado --> 
-<header class="flex items-center justify-between mb-8 border-b border-[#2d4156] pb-4"> 
-<div class="flex items-center gap-3"> 
-<i data-lucide="layout-dashboard" class="text-blue-400 w-8 h-8"></i> 
-<h1 class="text-2xl font-bold text-blue-400">Panel Administrativo Dinámico - Módulo 2 Vacantes</h1> 
-</div> 
-<span id="serverStatus" class="text-xs text-slate-400 font-mono bg-[#1b2a3a] px-3 py-1 rounded-full border border-[#2d4156] transition-all duration-300">Verificando conexión...</span> 
-</header> 
+<body class="p-4 md:p-6 min-h-screen"> 
+<div class="max-w-7xl mx-auto space-y-6"> 
 
-<!-- Contenido principal --> 
-<div class="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6"> 
-<!-- Columna izquierda -->
-<div class="lg:col-span-4 flex flex-col gap-6"> 
-<div class="bg-[#162231] border border-[#2d4156] p-5 rounded-xl shadow-lg flex flex-col gap-4">
-<div class="flex items-center gap-2 mb-4 text-[#f97316] font-bold text-sm tracking-wide uppercase"> 
-<h2>Configuración de Destino</h2> 
-</div> 
-<div class="flex items-center justify-between mb-2"> 
-<label class="block text-xs text-[#f97316] font-bold">Selecciona Empresa:</label> 
-<button id="btnRefreshEmpresas" class="text-xs text-slate-400 hover:text-white flex items-center gap-1 transition cursor-pointer"> 
-<i data-lucide="refresh-cw" class="w-3 h-3"></i> Actualizar 
-</button> 
-</div> 
-<select id="selectEmpresa" class="w-full p-3 rounded-lg input-dark text-sm font-medium"> 
-<option value="">-- Cargando empresas... --</option> 
-</select> 
+  <!-- Encabezado --> 
+  <header class="card-panel p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-l-4 border-l-blue-500"> 
+    <div class="flex items-center gap-3"> 
+      <div class="p-2.5 bg-blue-500/10 rounded-lg text-blue-400">
+        <i data-lucide="layout-dashboard" class="w-7 h-7"></i> 
+      </div>
+      <div>
+        <h1 class="text-xl font-bold text-white tracking-wide">Gestión de Vacantes Dinámico</h1> 
+        <p class="text-xs text-slate-400">Módulo 2 • Control de Captura Manual e Inteligente</p>
+      </div>
+    </div> 
+    <span id="serverStatus" class="text-xs text-slate-400 font-mono bg-[#1a293b] px-3.5 py-1.5 rounded-full border border-[#2e445e] transition-all duration-300">
+      Verificando conexión...
+    </span> 
+  </header> 
 
-<!-- CRUD Vacantes -->
-<div class="border border-dashed border-red-500/60 bg-[#1a151b] p-4 rounded-xl flex flex-col gap-3 mt-4"> 
-<div class="flex items-center gap-2 text-red-400 font-bold text-sm"> 
-<i data-lucide="folder-minus" class="w-4 h-4 text-red-400"></i> 
-<span>Modificar o Eliminar Vacantes</span> 
-</div> 
-<select id="selectVacante" class="w-full p-2.5 rounded-lg bg-[#24171a] border border-red-900 text-red-200 text-sm focus:outline-none focus:border-red-500"> 
-<option value="">-- Selecciona vacante --</option> 
-</select>
-<div class="grid grid-cols-3 gap-2 mt-1"> 
-<button type="button" id="btnLoadVacante" class="py-2 px-3 bg-[#f59e0b] hover:bg-[#d97706] text-slate-900 font-bold rounded-lg text-xs flex items-center justify-center gap-1 cursor-pointer"> 
-<i data-lucide="edit-3" class="w-3.5 h-3.5"></i> Cargar 
-</button> 
-<button type="button" id="btnDeleteVacante" class="py-2 px-3 bg-[#ef4444] hover:bg-[#dc2626] text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1 cursor-pointer"> 
-<i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Borrar 
-</button> 
-<button type="button" id="btnClearForm" class="py-2 px-3 bg-[#475569] hover:bg-[#334155] text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1 cursor-pointer"> 
-<i data-lucide="eraser" class="w-3.5 h-3.5"></i> Limpiar 
-</button> 
-</div> 
-</div> 
-</div> 
+  <!-- Contenido principal --> 
+  <div class="grid grid-cols-1 lg:grid-cols-12 gap-6"> 
+    
+    <!-- Columna Izquierda: Controles & Extractor (4 columnas) -->
+    <div class="lg:col-span-4 space-y-6"> 
+      
+      <!-- Panel de Control de Empresa -->
+      <div class="card-panel p-5 space-y-4">
+        <div class="flex items-center justify-between border-b border-[#233446] pb-3"> 
+          <span class="text-xs font-bold text-orange-400 uppercase tracking-wider flex items-center gap-1.5">
+            <i data-lucide="building-2" class="w-4 h-4"></i> Destino
+          </span> 
+          <button id="btnRefreshEmpresas" class="text-xs text-slate-400 hover:text-white flex items-center gap-1 transition cursor-pointer"> 
+            <i data-lucide="refresh-cw" class="w-3 h-3"></i> Actualizar 
+          </button> 
+        </div> 
 
-<!-- Extractor IA -->
-<div class="bg-[#1e1b4b] border border-[#4338ca] p-5 rounded-xl shadow-lg"> 
-<div class="flex items-center justify-between mb-4"> 
-<div class="flex items-center gap-2 text-indigo-300 font-semibold"> 
-<i data-lucide="sparkles" class="w-5 h-5"></i> 
-<h2>Extractor Inteligente IA</h2> 
-</div>
-<span class="text-[10px] bg-[#312e81] text-indigo-300 font-mono px-2 py-0.5 rounded border border-[#4338ca]">Gemini 2.5 Flash</span>
-</div>
-<div class="mb-4"> 
-<label class="block text-xs text-indigo-200 uppercase tracking-wider mb-2 font-bold">Texto de la Vacante / WhatsApp</label> 
-<textarea id="rawText" rows="5" placeholder="Pega aquí el texto informal..." class="w-full p-3 rounded-lg bg-[#111827] border border-[#374151] text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:border-indigo-500"></textarea> 
-</div> 
-<div class="mb-4"> 
-<label class="block text-xs text-indigo-200 uppercase tracking-wider mb-2 font-bold">Adjuntar Documento o Imagen</label> 
-<label class="flex flex-col items-center justify-center w-full h-24 border-2 border-[#4338ca] border-dashed rounded-lg cursor-pointer bg-[#111827] hover:bg-[#161445] transition"> 
-<div class="flex flex-col items-center justify-center pt-3 pb-4 text-center px-2"> 
-<i data-lucide="upload-cloud" class="w-6 h-6 text-indigo-400 mb-1"></i> 
-<p class="text-xs text-slate-300"><span class="font-semibold">Haz clic para subir</span></p> 
-</div> 
-<input id="fileInput" type="file" accept=".txt,.pdf,.docx,.png,.jpg,.jpeg" class="hidden" /> 
-</label> 
-<div id="fileStatus" class="text-xs text-emerald-400 mt-2 font-mono hidden flex items-center gap-1"> 
-<i data-lucide="check-circle" class="w-3.5 h-3.5"></i> <span>Archivo listo.</span> 
-</div> 
-</div> 
-<button id="btnExtract" type="button" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg shadow-md transition flex items-center justify-center gap-2 text-sm uppercase tracking-wide cursor-pointer"> 
-<i data-lucide="cpu" class="w-4 h-4"></i> Procesar Documento con IA
-</button 
-</div> 
-</div> 
+        <div>
+          <label class="block text-xs text-slate-300 mb-1 font-medium">Selecciona Empresa:</label> 
+          <select id="selectEmpresa" class="w-full p-2.5 rounded-lg input-dark text-sm font-medium"> 
+            <option value="">-- Cargando empresas... --</option> 
+          </select> 
+        </div>
 
-<!-- Columna derecha: Formulario -->
-<div class="lg:col-span-8 flex flex-col gap-6"> 
-<form id="vacanteForm" class="bg-[#162231] border border-[#2d4156] p-6 rounded-xl shadow-lg flex flex-col gap-6"> 
-<!-- Enlaces e Identificación -->
-<div> 
-<div class="flex items-center gap-2 mb-3 text-blue-400 font-medium text-sm tracking-wide border-b border-[#2d4156] pb-1"> 
-<i data-lucide="link" class="w-4 h-4"></i> 
-<h3>ENLACES E IDENTIFICACIÓN</h3> 
-</div> 
-<div class="grid grid-cols-1 md:grid-cols-3 gap-4"> 
-<div>
-<label class="block text-xs text-slate-400 mb-1">ID Clave (puestoId)</label> 
-<input type="text" id="puestoId" readonly class="w-full p-2.5 rounded-lg input-dark text-sm font-mono bg-[#111e2e] opacity-70 cursor-not-allowed" placeholder="auto-generado (empresa_vacante)"> 
-</div>
-<div>
-<label class="block text-xs text-slate-400 mb-1">Estatus de Publicación</label> 
-<select id="estatus" class="w-full p-2.5 rounded-lg input-dark text-sm"> 
-<option value="disponible">disponible</option> 
-<option value="pausada">pausada</option> 
-<option value="cerrada">cerrada</option> 
-</select>
-</div>
-<div>
-<label class="block text-xs text-slate-400 mb-1">URL Banner Promocional</label> 
-<input type="text" id="bannerUrl" class="w-full p-2.5 rounded-lg input-dark text-sm" placeholder="https://..."> 
-</div>
-</div> 
-</div> 
+        <!-- CRUD Vacantes Existentes -->
+        <div class="bg-[#1a1c23] border border-red-500/30 p-4 rounded-xl space-y-3"> 
+          <div class="flex items-center gap-2 text-red-400 font-bold text-xs uppercase tracking-wider"> 
+            <i data-lucide="folder-minus" class="w-4 h-4"></i> 
+            <span>Modificar / Eliminar Vacante</span> 
+          </div> 
+          <select id="selectVacante" class="w-full p-2.5 rounded-lg bg-[#241a1c] border border-red-900/60 text-red-100 text-sm focus:outline-none focus:border-red-500"> 
+            <option value="">-- Selecciona vacante --</option> 
+          </select>
+          <div class="grid grid-cols-3 gap-2 pt-1"> 
+            <button type="button" id="btnLoadVacante" class="py-2 px-2 bg-amber-600 hover:bg-amber-500 text-white font-semibold rounded-lg text-xs flex items-center justify-center gap-1 cursor-pointer transition"> 
+              <i data-lucide="edit-3" class="w-3.5 h-3.5"></i> Cargar 
+            </button> 
+            <button type="button" id="btnDeleteVacante" class="py-2 px-2 bg-rose-600 hover:bg-rose-500 text-white font-semibold rounded-lg text-xs flex items-center justify-center gap-1 cursor-pointer transition"> 
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Borrar 
+            </button> 
+            <button type="button" id="btnClearForm" class="py-2 px-2 bg-slate-700 hover:bg-slate-600 text-white font-semibold rounded-lg text-xs flex items-center justify-center gap-1 cursor-pointer transition"> 
+              <i data-lucide="eraser" class="w-3.5 h-3.5"></i> Limpiar 
+            </button> 
+          </div> 
+        </div> 
+      </div> 
 
-<!-- Requisitos -->
-<div> 
-<div class="flex items-center gap-2 mb-3 text-blue-400 font-medium text-sm tracking-wide border-b border-[#2d4156] pb-1"> 
-<i data-lucide="graduation-cap" class="w-4 h-4"></i> 
-<h3>REQUISITOS DEL PERFIL</h3> 
-</div> 
-<div class="grid grid-cols-1 gap-4 mb-4"> 
-<div>
-<label class="block text-xs text-slate-400 mb-1">Nombre Comercial de Vacante</label> 
-<input type="text" id="nombreVacante" class="w-full p-2.5 rounded-lg input-dark text-sm" placeholder="Ej: Ayudante General"> 
-</div>
-</div> 
-<div class="grid grid-cols-1 md:grid-cols-4 gap-4"> 
-<div>
-<label class="block text-xs text-slate-400 mb-1">Rango de Edad</label> 
-<input type="text" id="edad" class="w-full p-2.5 rounded-lg input-dark text-sm"> 
-</div>
-<div>
-<label class="block text-xs text-slate-400 mb-1">Género / Sexo</label> 
-<input type="text" id="sexo" class="w-full p-2.5 rounded-lg input-dark text-sm"> 
-</div> 
-<div>
-<label class="block text-xs text-slate-400 mb-1">Experiencia Requerida</label> 
-<input type="text" id="experiencia" class="w-full p-2.5 rounded-lg input-dark text-sm"> 
-</div> 
-<div>
-<label class="block text-xs text-slate-400 mb-1">Escolaridad Mínima</label> 
-<input type="text" id="escolaridad" class="w-full p-2.5 rounded-lg input-dark text-sm"> 
-</div>
-</div> 
-</div> 
+      <!-- Extractor IA (Gemini) -->
+      <div class="card-panel p-5 border-l-4 border-l-indigo-500 bg-[#12182b] space-y-4"> 
+        <div class="flex items-center justify-between border-b border-[#233446] pb-3"> 
+          <div class="flex items-center gap-2 text-indigo-300 font-bold text-xs uppercase tracking-wider"> 
+            <i data-lucide="sparkles" class="w-4 h-4"></i> 
+            <span>Extractor Inteligente</span> 
+          </div>
+          <span class="text-[10px] bg-indigo-950 text-indigo-300 font-mono px-2 py-0.5 rounded border border-indigo-700">Gemini 2.5</span>
+        </div>
 
-<!-- Condiciones -->
-<div> 
-<div class="flex items-center gap-2 mb-3 text-blue-400 font-medium text-sm tracking-wide border-b border-[#2d4156] pb-1"> 
-<i data-lucide="briefcase" class="w-4 h-4"></i> 
-<h3>CONDICIONES DE TRABAJO</h3> 
-</div>
-<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4"> 
-<div>
-<label class="block text-xs text-slate-400 mb-1">Salario y Retribución</label> 
-<input type="text" id="salario" class="w-full p-2.5 rounded-lg input-dark text-sm"> 
-</div>
-<div>
-<label class="block text-xs text-slate-400 mb-1">Zona / Ubicación</label> 
-<input type="text" id="lugarOrigen" class="w-full p-2.5 rounded-lg input-dark text-sm"> 
-</div>
-<div>
-<label class="block text-xs text-slate-400 mb-1">Turnos y Horarios</label> 
-<input type="text" id="turnos" class="w-full p-2.5 rounded-lg input-dark text-sm"> 
-</div> 
-</div> 
-<div class="grid grid-cols-1 md:grid-cols-2 gap-4"> 
-<div>
-<label class="block text-xs text-slate-400 mb-1">Rutas de Transporte Disponibles</label> 
-<input type="text" id="rutasTransporte" class="w-full p-2.5 rounded-lg input-dark text-sm"> 
-</div>
-<div>
-<label class="block text-xs text-slate-400 mb-1">Información General Extra</label> 
-<input type="text" id="infoGeneral" class="w-full p-2.5 rounded-lg input-dark text-sm"> 
-</div>
-</div>
-</div> 
+        <div> 
+          <label class="block text-xs text-slate-300 mb-1 font-medium">Texto de la Vacante / WhatsApp</label> 
+          <textarea id="rawText" rows="4" placeholder="Pega aquí el texto borrador o informal..." class="w-full p-2.5 rounded-lg input-dark text-slate-100 placeholder-slate-500 text-xs"></textarea> 
+        </div> 
 
-<!-- Descripción -->
-<div> 
-<div class="flex items-center gap-2 mb-3 text-blue-400 font-medium text-sm tracking-wide border-b border-[#2d4156] pb-1"> 
-<i data-lucide="file-text" class="w-4 h-4"></i> 
-<h3>DESCRIPCIÓN DETALLADA</h3> 
-</div> 
-<div class="grid grid-cols-1 gap-4"> 
-<div> 
-<label class="block text-xs text-slate-400 mb-1">Actividades Principales</label> 
-<textarea id="actividades" rows="2" class="w-full p-2.5 rounded-lg input-dark text-sm"></textarea> 
-</div> 
-<div> 
-<label class="block text-xs text-slate-400 mb-1">Prestaciones y Beneficios</label> 
-<textarea id="beneficios" rows="2" class="w-full p-2.5 rounded-lg input-dark text-sm"></textarea> 
-</div> 
-</div> 
-</div> 
+        <div> 
+          <label class="block text-xs text-slate-300 mb-1 font-medium">Adjuntar Documento o Imagen</label> 
+          <label class="flex flex-col items-center justify-center w-full h-20 border border-indigo-500/40 border-dashed rounded-lg cursor-pointer bg-[#182035] hover:bg-[#1f2a45] transition"> 
+            <div class="flex flex-col items-center justify-center text-center p-2"> 
+              <i data-lucide="upload-cloud" class="w-5 h-5 text-indigo-400 mb-1"></i> 
+              <p class="text-xs text-slate-300"><span class="font-semibold">Subir PDF, Word e Imagen</span></p> 
+            </div> 
+            <input id="fileInput" type="file" accept=".txt,.pdf,.docx,.png,.jpg,.jpeg" class="hidden" /> 
+          </label> 
+          <div id="fileStatus" class="text-xs text-emerald-400 mt-2 font-mono hidden flex items-center gap-1"> 
+            <i data-lucide="check-circle" class="w-3.5 h-3.5"></i> <span>Archivo cargado.</span> 
+          </div> 
+        </div> 
 
-<!-- Botones -->
-<div class="flex items-center justify-end gap-4 border-t border-[#2d4156] pt-4"> 
-<button type="button" id="btnSaveChange" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg text-sm transition flex items-center gap-2 cursor-pointer"> 
-<i data-lucide="save" class="w-4 h-4"></i> Guardar Cambios 
-</button>
-<button type="submit" id="btnPublish" class="px-6 py-2.5 bg-orange-500 hover:bg-orange-400 text-white font-bold rounded-lg text-sm transition flex items-center gap-2 shadow-md cursor-pointer"> 
-<i data-lucide="globe" class="w-4 h-4"></i> Publicar Vacante 
-</button> 
-</div> 
-</form> 
+        <button id="btnExtract" type="button" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg shadow-md transition flex items-center justify-center gap-2 text-xs uppercase tracking-wider cursor-pointer"> 
+          <i data-lucide="cpu" class="w-4 h-4"></i> Procesar Documento con IA
+        </button> 
+      </div> 
 
-<!-- Salida JSON -->
-<div class="bg-[#11271f] border border-[#1b5e46] p-5 rounded-xl shadow-lg"> 
-<div class="flex items-center gap-2 mb-3 text-[#10b981] font-bold text-sm uppercase tracking-wide"> 
-<i data-lucide="code" class="w-4 h-4 text-[#10b981]"></i> 
-<h2>Estructura JSON en Tiempo Real</h2> 
-</div> 
-<pre id="jsonOutput" class="w-full p-4 rounded-lg bg-[#0a1813] border border-[#144232] text-[#34d399] text-xs font-mono overflow-x-auto max-h-60">{}</pre> 
-</div> 
-</div> 
-</div> 
+      <!-- Configuración API Key -->
+      <div class="card-panel p-4 space-y-2"> 
+        <div class="flex items-center gap-2 text-slate-400 font-bold text-xs uppercase tracking-wider"> 
+          <i data-lucide="key" class="w-4 h-4 text-orange-400"></i> 
+          <span>API Key Gemini</span> 
+        </div> 
+        <input type="password" id="apiKeyInput" class="w-full p-2 rounded-lg input-dark text-xs font-mono tracking-widest" placeholder="•••••••••••••••••••••••••••••••• font-mono"> 
+      </div> 
 
-<!-- API Key -->
-<div class="bg-[#162231] border border-[#2d4156] p-5 rounded-xl shadow-lg mt-6"> 
-<div class="flex items-center gap-2 mb-3 text-[#f97316] font-bold text-sm uppercase tracking-wide"> 
-<i data-lucide="key" class="w-4 h-4 text-[#f97316]"></i> 
-<h2>Configuración de API Key (Gemini)</h2> 
-</div> 
-<input type="password" id="apiKeyInput" class="w-full p-3 rounded-lg input-dark text-sm font-mono tracking-widest" placeholder="••••••••••••••••••••••••••••••••••••••••••••••••"> 
-</div> 
+    </div> 
+
+    <!-- Columna Derecha: Formulario & JSON (8 columnas) -->
+    <div class="lg:col-span-8 space-y-6"> 
+      
+      <form id="vacanteForm" class="card-panel p-6 space-y-6"> 
+        
+        <!-- Bloque 1: Enlaces e Identificación -->
+        <div class="space-y-3"> 
+          <div class="flex items-center gap-2 text-blue-400 font-bold text-xs uppercase tracking-wider border-b border-[#233446] pb-2"> 
+            <i data-lucide="link" class="w-4 h-4"></i> 
+            <h3>1. Enlaces e Identificación</h3> 
+          </div> 
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4"> 
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">ID Clave (puestoId)</label> 
+              <input type="text" id="puestoId" readonly class="w-full p-2.5 rounded-lg input-dark text-xs font-mono bg-[#111823] opacity-70 cursor-not-allowed" placeholder="auto-generado"> 
+            </div>
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">Estatus de Publicación</label> 
+              <select id="estatus" class="w-full p-2.5 rounded-lg input-dark text-xs font-medium"> 
+                <option value="disponible">disponible</option> 
+                <option value="pausada">pausada</option> 
+                <option value="cerrada">cerrada</option> 
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">URL Banner Promocional</label> 
+              <input type="text" id="bannerUrl" class="w-full p-2.5 rounded-lg input-dark text-xs" placeholder="https://..."> 
+            </div>
+          </div> 
+        </div> 
+
+        <!-- Bloque 2: Requisitos -->
+        <div class="space-y-3"> 
+          <div class="flex items-center gap-2 text-blue-400 font-bold text-xs uppercase tracking-wider border-b border-[#233446] pb-2"> 
+            <i data-lucide="graduation-cap" class="w-4 h-4"></i> 
+            <h3>2. Requisitos del Perfil</h3> 
+          </div> 
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Nombre Comercial de Vacante</label> 
+            <input type="text" id="nombreVacante" class="w-full p-2.5 rounded-lg input-dark text-xs font-semibold" placeholder="Ej: Ayudante General"> 
+          </div>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4"> 
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">Rango de Edad</label> 
+              <input type="text" id="edad" class="w-full p-2.5 rounded-lg input-dark text-xs"> 
+            </div>
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">Género / Sexo</label> 
+              <input type="text" id="sexo" class="w-full p-2.5 rounded-lg input-dark text-xs"> 
+            </div> 
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">Experiencia Requerida</label> 
+              <input type="text" id="experiencia" class="w-full p-2.5 rounded-lg input-dark text-xs"> 
+            </div> 
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">Escolaridad Mínima</label> 
+              <input type="text" id="escolaridad" class="w-full p-2.5 rounded-lg input-dark text-xs"> 
+            </div>
+          </div> 
+        </div> 
+
+        <!-- Bloque 3: Condiciones -->
+        <div class="space-y-3"> 
+          <div class="flex items-center gap-2 text-blue-400 font-bold text-xs uppercase tracking-wider border-b border-[#233446] pb-2"> 
+            <i data-lucide="briefcase" class="w-4 h-4"></i> 
+            <h3>3. Condiciones de Trabajo</h3> 
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4"> 
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">Salario y Retribución</label> 
+              <input type="text" id="salario" class="w-full p-2.5 rounded-lg input-dark text-xs"> 
+            </div>
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">Zona / Ubicación</label> 
+              <input type="text" id="lugarOrigen" class="w-full p-2.5 rounded-lg input-dark text-xs"> 
+            </div>
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">Turnos y Horarios</label> 
+              <input type="text" id="turnos" class="w-full p-2.5 rounded-lg input-dark text-xs"> 
+            </div> 
+          </div> 
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4"> 
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">Rutas de Transporte Disponibles</label> 
+              <input type="text" id="rutasTransporte" class="w-full p-2.5 rounded-lg input-dark text-xs"> 
+            </div>
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">Información General Extra</label> 
+              <input type="text" id="infoGeneral" class="w-full p-2.5 rounded-lg input-dark text-xs"> 
+            </div>
+          </div>
+        </div> 
+
+        <!-- Bloque 4: Descripción -->
+        <div class="space-y-3"> 
+          <div class="flex items-center gap-2 text-blue-400 font-bold text-xs uppercase tracking-wider border-b border-[#233446] pb-2"> 
+            <i data-lucide="file-text" class="w-4 h-4"></i> 
+            <h3>4. Descripción Detallada</h3> 
+          </div> 
+          <div class="grid grid-cols-1 gap-4"> 
+            <div> 
+              <label class="block text-xs text-slate-400 mb-1">Actividades Principales</label> 
+              <textarea id="actividades" rows="2" class="w-full p-2.5 rounded-lg input-dark text-xs"></textarea> 
+            </div> 
+            <div> 
+              <label class="block text-xs text-slate-400 mb-1">Prestaciones y Beneficios</label> 
+              <textarea id="beneficios" rows="2" class="w-full p-2.5 rounded-lg input-dark text-xs"></textarea> 
+            </div> 
+          </div> 
+        </div> 
+
+        <!-- Acciones principales -->
+        <div class="flex items-center justify-end gap-3 border-t border-[#233446] pt-4"> 
+          <button type="button" id="btnSaveChange" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg text-xs transition flex items-center gap-2 cursor-pointer"> 
+            <i data-lucide="save" class="w-4 h-4"></i> Guardar Cambios 
+          </button>
+          <button type="submit" id="btnPublish" class="px-6 py-2.5 bg-orange-500 hover:bg-orange-400 text-white font-bold rounded-lg text-xs transition flex items-center gap-2 shadow-lg cursor-pointer"> 
+            <i data-lucide="globe" class="w-4 h-4"></i> Publicar Vacante 
+          </button> 
+        </div> 
+      </form> 
+
+      <!-- Salida JSON Estructurado -->
+      <div class="card-panel p-5 bg-[#0f1d18] border-emerald-900/60 space-y-3"> 
+        <div class="flex items-center gap-2 text-emerald-400 font-bold text-xs uppercase tracking-wider"> 
+          <i data-lucide="code" class="w-4 h-4"></i> 
+          <h2>Estructura JSON en Tiempo Real</h2> 
+        </div> 
+        <pre id="jsonOutput" class="w-full p-4 rounded-lg bg-[#08120e] border border-emerald-950 text-emerald-400 text-xs font-mono overflow-x-auto max-h-48">{}</pre> 
+      </div> 
+
+    </div> 
+
+  </div> 
+
 </div> 
 
 <!-- MODAL REVISIÓN MULTIVACANTES -->
 <div id="modalMultivacantes" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-  <div class="bg-[#162231] border border-[#2d4156] rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
-    <!-- Header Modal -->
-    <div class="p-5 border-b border-[#2d4156] flex items-center justify-between bg-[#111e2e]">
-      <div class="flex items-center gap-3">
-        <i data-lucide="layers" class="w-6 h-6 text-indigo-400"></i>
-        <h3 class="text-lg font-bold text-slate-100">Vacantes Detectadas por IA (<span id="modalCount">0</span>)</h3>
+  <div class="card-panel max-w-3xl w-full max-h-[85vh] flex flex-col overflow-hidden">
+    <div class="p-4 border-b border-[#233446] flex items-center justify-between bg-[#111a26]">
+      <div class="flex items-center gap-2">
+        <i data-lucide="layers" class="w-5 h-5 text-indigo-400"></i>
+        <h3 class="text-sm font-bold text-white">Vacantes Detectadas por IA (<span id="modalCount">0</span>)</h3>
       </div>
-      <button id="btnCloseModal" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-[#1b2a3a] transition cursor-pointer">
+      <button id="btnCloseModal" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-[#1a293b] transition cursor-pointer">
         <i data-lucide="x" class="w-5 h-5"></i>
       </button>
     </div>
     
-    <!-- Contenido Modal -->
-    <div id="modalVacantesList" class="p-6 overflow-y-auto flex flex-col gap-4 max-h-[60vh] bg-[#111e2e]/50">
+    <div id="modalVacantesList" class="p-5 overflow-y-auto space-y-3 max-h-[60vh] bg-[#0d1520]">
       <!-- Se puebla dinámicamente -->
     </div>
     
-    <!-- Footer Modal -->
-    <div class="p-5 border-t border-[#2d4156] flex items-center justify-between bg-[#111e2e]">
+    <div class="p-4 border-t border-[#233446] flex items-center justify-between bg-[#111a26]">
       <span class="text-xs text-slate-400" id="modalEmpresaTarget">Empresa asignada: </span>
-      <div class="flex items-center gap-3">
-        <button id="btnCancelModal" class="px-4 py-2 bg-[#2d4156] hover:bg-[#3d5672] text-slate-200 font-semibold rounded-lg text-xs transition cursor-pointer">
+      <div class="flex items-center gap-2">
+        <button id="btnCancelModal" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold rounded-lg text-xs transition cursor-pointer">
           Cancelar
         </button>
-        <button id="btnSaveAllModal" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs transition flex items-center gap-2 cursor-pointer shadow-lg">
-          <i data-lucide="upload-cloud" class="w-4 h-4"></i> Subir Todo el Bloque a Firebase
+        <button id="btnSaveAllModal" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs transition flex items-center gap-1.5 cursor-pointer shadow-lg">
+          <i data-lucide="upload-cloud" class="w-4 h-4"></i> Subir Todo a Firebase
         </button>
       </div>
     </div>
@@ -315,29 +334,28 @@ box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.2);
 <script> 
 lucide.createIcons(); 
 
-// 📋 REGISTRO EN AUDITORÍA (MÓDULO 7)
+// 📋 AUDITORÍA
 function registrarLog(usuarioId, moduloOrigen, operacion, detalles) {
     if (typeof database === 'undefined' || !database) return;
-    
     database.ref("logs_sistema").push({
         timestamp: new Date().toISOString(),
         usuario_id: usuarioId || "Sistema / Anónimo",
         modulo: moduloOrigen,
         operacion: operacion,
         detalles: detalles
-    }).catch(err => console.error("Error guardando log en auditoría:", err));
+    }).catch(err => console.error("Error guardando log:", err));
 }
 
-// 🟢 MONITOREO DE CONEXIÓN
+// 🟢 MONITOREO CONEXIÓN
 const connectedRef = database.ref(".info/connected");
 connectedRef.on("value", (snap) => {
   const statusLabel = document.getElementById('serverStatus');
   if (!statusLabel) return;
   if (snap.val() === true) {
-    statusLabel.className = "text-xs text-emerald-400 font-mono bg-[#11271f] px-3 py-1 rounded-full border border-[#1b5e46] flex items-center gap-1.5";
+    statusLabel.className = "text-xs text-emerald-400 font-mono bg-[#0f241d] px-3.5 py-1.5 rounded-full border border border-emerald-800 flex items-center gap-2";
     statusLabel.innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> CONECTADO ✅`;
   } else {
-    statusLabel.className = "text-xs text-rose-400 font-mono bg-[#2e171a] px-3 py-1 rounded-full border border-[#5e1b24] flex items-center gap-1.5";
+    statusLabel.className = "text-xs text-rose-400 font-mono bg-[#281316] px-3.5 py-1.5 rounded-full border border-rose-900 flex items-center gap-2";
     statusLabel.innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-rose-500"></span> DESCONECTADO ❌`;
   }
 });
@@ -345,7 +363,6 @@ connectedRef.on("value", (snap) => {
 let extractedFileText = "", attachedFileBase64 = "", attachedFileType = "", cacheVacantesEmpresa = {}; 
 let tempVacantesExtraidas = [];
 
-// 📋 Cargar empresas
 function loadEmpresasDinamicas() { 
   const select = document.getElementById('selectEmpresa'); 
   select.innerHTML = '<option value="">-- Selecciona una empresa --</option>'; 
@@ -366,14 +383,12 @@ function loadEmpresasDinamicas() {
 loadEmpresasDinamicas(); 
 document.getElementById('btnRefreshEmpresas').addEventListener('click', loadEmpresasDinamicas); 
 
-// Al cambiar empresa → cargar vacantes y actualizar ID si hay nombre escrito
 document.getElementById('selectEmpresa').addEventListener('change', e => { 
   const emp = e.target.value; 
   const selVac = document.getElementById('selectVacante'); 
   selVac.innerHTML = '<option value="">-- Selecciona vacante --</option>'; 
   cacheVacantesEmpresa = {}; 
   
-  // Recalcular ID si hay un nombre de vacante activo
   const nombreVac = document.getElementById('nombreVacante').value;
   if (nombreVac) {
     document.getElementById('puestoId').value = generarPuestoIdEstructurado(emp, nombreVac);
@@ -393,7 +408,6 @@ document.getElementById('selectEmpresa').addEventListener('change', e => {
   }); 
 }); 
 
-// 📥 Cargar vacante al formulario
 document.getElementById('btnLoadVacante').addEventListener('click', () => { 
   const key = document.getElementById('selectVacante').value; 
   if (!key || !cacheVacantesEmpresa[key]) return alert("Selecciona una vacante válida"); 
@@ -421,7 +435,6 @@ function cargarObjetoEnFormulario(d) {
   updateJsonOutput(d);
 }
 
-// 🗑️ Borrar vacante
 document.getElementById('btnDeleteVacante').addEventListener('click', () => {
   const emp = document.getElementById('selectEmpresa').value;
   const key = document.getElementById('selectVacante').value;
@@ -429,13 +442,7 @@ document.getElementById('btnDeleteVacante').addEventListener('click', () => {
   if (confirm(`¿Eliminar vacante: ${key}?`)) {
     database.ref(`vacantes_detalles/${emp}/${key}`).remove()
     .then(() => { 
-      registrarLog(
-        "Administrador",
-        "Módulo 2: Vacantes",
-        "ELIMINAR",
-        `Se eliminó la vacante '${key}' perteneciente a la empresa '${emp.toUpperCase()}'.`
-      );
-
+      registrarLog("Administrador", "Módulo 2: Vacantes", "ELIMINAR", `Se eliminó vacante '${key}' de '${emp.toUpperCase()}'.`);
       alert("Eliminada ✅"); 
       document.getElementById('selectEmpresa').dispatchEvent(new Event('change')); 
       resetFormFields(); 
@@ -453,7 +460,6 @@ function resetFormFields() {
 }
 function updateJsonOutput(d) { document.getElementById('jsonOutput').innerText = JSON.stringify(d, null, 2); }
 
-// 📄 Leer archivos
 document.getElementById('fileInput').addEventListener('change', async e => { 
   const file = e.target.files[0]; 
   if (!file) return; 
@@ -475,7 +481,6 @@ document.getElementById('fileInput').addEventListener('change', async e => {
   }
 }); 
 
-// 🆔 GENERACIÓN DINÁMICA DE PUESTO ID (empresa_vacante)
 function generarPuestoIdEstructurado(empresaKey, nombreVacante) {
   if (!nombreVacante) return "";
   const slugVacante = nombreVacante.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]/g,"_").replace(/_+/g,"_").trim();
@@ -489,37 +494,27 @@ document.getElementById('nombreVacante').addEventListener('input', e => {
   document.getElementById('puestoId').value = generarPuestoIdEstructurado(emp, e.target.value);
 }); 
 
-// 🤖 GEMINI MULTIVACANTES CON PROMPT UNIFICADO
 document.getElementById('btnExtract').addEventListener('click', async () => { 
   const emp = document.getElementById('selectEmpresa').value.trim();
-  if (!emp) return alert("⚠️ REQUISITO OBLIGATORIO: Primero debes seleccionar una Empresa Destino en el selector superior.");
+  if (!emp) return alert("⚠️ Selecciona una Empresa Destino antes de procesar.");
 
   const key = document.getElementById('apiKeyInput').value.trim(); 
   if (!key) return alert("Ingresa tu API Key de Gemini"); 
   
   const txt = document.getElementById('rawText').value.trim(); 
-  if (!txt && !extractedFileText && !attachedFileBase64) return alert("Agrega información mediante texto o subiendo un archivo."); 
+  if (!txt && !extractedFileText && !attachedFileBase64) return alert("Agrega texto o un archivo para procesar."); 
 
   const btn = document.getElementById('btnExtract'); btn.disabled = true; btn.innerHTML = "Analizando Multivacantes...";
   
   const systemPrompt = `Eres un extractor de datos de vacantes de empleo. Analiza el documento y detecta TODAS las vacantes presentes.
-  Si hay más de una vacante declarada, sepáralas. Replica la información general o compartida (como beneficios, rutas de transporte, ubicación) en cada vacante, pero mantén independientes el nombre del puesto, salario, edad, escolaridad y actividades de cada una.
-  
+  Si hay más de una vacante declarada, sepáralas. Replica la información general compartida en cada vacante, pero mantén independientes el nombre del puesto, salario, edad, escolaridad y actividades.
   Responde ÚNICAMENTE con un ARREGLO JSON DE OBJETOS con esta estructura exacta para cada vacante:
   [
     {
-      "nombreVacante": "Nombre de la vacante (Ej: Ayudante General)",
-      "edad": "",
-      "sexo": "",
-      "escolaridad": "",
-      "experiencia": "",
-      "salario": "",
-      "lugarOrigen": "",
-      "turnos": "",
-      "actividades": "",
-      "beneficios": "",
-      "rutasTransporte": "",
-      "infoGeneral": ""
+      "nombreVacante": "Nombre del puesto",
+      "edad": "", "sexo": "", "escolaridad": "", "experiencia": "",
+      "salario": "", "lugarOrigen": "", "turnos": "", "actividades": "",
+      "beneficios": "", "rutasTransporte": "", "infoGeneral": ""
     }
   ]`;
 
@@ -543,16 +538,14 @@ document.getElementById('btnExtract').addEventListener('click', async () => {
     let rawTextResponse = data.candidates[0].content.parts[0].text.replace(/```json|```/g,"").trim();
     let parsedArray = JSON.parse(rawTextResponse);
     
-    if (!Array.isArray(parsedArray)) {
-      parsedArray = [parsedArray];
-    }
+    if (!Array.isArray(parsedArray)) parsedArray = [parsedArray];
 
     tempVacantesExtraidas = parsedArray;
     abrirModalMultivacantes(emp, tempVacantesExtraidas);
 
   } catch (err) { 
     console.error(err); 
-    alert("Error al procesar con Gemini: Revisa tu API Key o la estructura del documento."); 
+    alert("Error al procesar con Gemini: Revisa tu API Key o el formato."); 
   } finally { 
     btn.disabled = false; 
     btn.innerHTML = `<i data-lucide="cpu" class="w-4 h-4"></i> Procesar Documento con IA`; 
@@ -560,7 +553,6 @@ document.getElementById('btnExtract').addEventListener('click', async () => {
   }
 }); 
 
-// 🪟 GESTIÓN DE MODAL Y LISTADO
 function abrirModalMultivacantes(empresaKey, vacantes) {
   const modal = document.getElementById('modalMultivacantes');
   const container = document.getElementById('modalVacantesList');
@@ -571,21 +563,18 @@ function abrirModalMultivacantes(empresaKey, vacantes) {
 
   vacantes.forEach((v, idx) => {
     const card = document.createElement('div');
-    card.className = "bg-[#1b2a3a] border border-[#2d4156] p-4 rounded-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4";
+    card.className = "bg-[#182332] border border-[#2e445e] p-4 rounded-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4";
     card.innerHTML = `
-      <div class="flex-1">
-        <div class="flex items-center gap-2 mb-1">
-          <span class="text-xs font-mono bg-indigo-900/60 text-indigo-300 px-2 py-0.5 rounded border border-indigo-700">Vacante #${idx+1}</span>
-          <h4 class="font-bold text-slate-100 text-sm">${v.nombreVacante || 'Sin Nombre'}</h4>
+      <div class="flex-1 space-y-1">
+        <div class="flex items-center gap-2">
+          <span class="text-[10px] font-mono bg-indigo-900/60 text-indigo-300 px-2 py-0.5 rounded border border-indigo-700">Vacante #${idx+1}</span>
+          <h4 class="font-bold text-white text-sm">${v.nombreVacante || 'Sin Nombre'}</h4>
         </div>
         <p class="text-xs text-slate-400"><strong>Salario:</strong> ${v.salario || 'N/A'} | <strong>Edad:</strong> ${v.edad || 'N/A'} | <strong>Escolaridad:</strong> ${v.escolaridad || 'N/A'}</p>
-        <p class="text-xs text-slate-500 line-clamp-1 mt-1"><strong>Actividades:</strong> ${v.actividades || 'Sin definir'}</p>
       </div>
-      <div class="flex items-center gap-2 w-full md:w-auto">
-        <button onclick="cargarUnaSolaVacante(${idx})" class="w-full md:w-auto px-3 py-2 bg-amber-600 hover:bg-amber-500 text-white font-semibold rounded-lg text-xs transition flex items-center justify-center gap-1 cursor-pointer">
-          <i data-lucide="arrow-right-circle" class="w-3.5 h-3.5"></i> Cargar al Formulario
-        </button>
-      </div>
+      <button onclick="cargarUnaSolaVacante(${idx})" class="w-full md:w-auto px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white font-semibold rounded-lg text-xs transition flex items-center justify-center gap-1 cursor-pointer">
+        <i data-lucide="arrow-right-circle" class="w-3.5 h-3.5"></i> Cargar
+      </button>
     `;
     container.appendChild(card);
   });
@@ -600,7 +589,6 @@ function cerrarModal() {
 document.getElementById('btnCloseModal').addEventListener('click', cerrarModal);
 document.getElementById('btnCancelModal').addEventListener('click', cerrarModal);
 
-// Cargar individualmente desde el modal al formulario
 window.cargarUnaSolaVacante = function(index) {
   const item = tempVacantesExtraidas[index];
   if (!item) return;
@@ -611,27 +599,19 @@ window.cargarUnaSolaVacante = function(index) {
 
   cargarObjetoEnFormulario(item);
   cerrarModal();
-  alert(`Vacante "${item.nombreVacante}" cargada al formulario. Revisa los datos y presiona Guardar o Publicar.`);
+  alert(`Vacante "${item.nombreVacante}" cargada al formulario.`);
 };
 
-// 🆔 CÁLCULO DE ID ÚNICO SIN SOBREESCRIBIR
 function calcularIdUnicoConSufijo(baseSlug) {
-  if (!cacheVacantesEmpresa[baseSlug]) {
-    return baseSlug;
-  }
-  
+  if (!cacheVacantesEmpresa[baseSlug]) return baseSlug;
   let contador = 2;
-  while (cacheVacantesEmpresa[`${baseSlug}_${contador}`]) {
-    contador++;
-  }
+  while (cacheVacantesEmpresa[`${baseSlug}_${contador}`]) { contador++; }
   return `${baseSlug}_${contador}`;
 }
 
-// 💾 SUBIDA MASIVA EN BLOQUE A FIREBASE
 document.getElementById('btnSaveAllModal').addEventListener('click', async () => {
   const emp = document.getElementById('selectEmpresa').value.trim();
-  if (!emp) return alert("Selecciona una empresa activa primero.");
-  if (!tempVacantesExtraidas || tempVacantesExtraidas.length === 0) return;
+  if (!emp || !tempVacantesExtraidas.length) return;
 
   const btn = document.getElementById('btnSaveAllModal');
   btn.disabled = true;
@@ -665,14 +645,7 @@ document.getElementById('btnSaveAllModal').addEventListener('click', async () =>
     try {
       await database.ref(`vacantes_detalles/${emp}/${pid}`).set(datosFinales);
       cacheVacantesEmpresa[pid] = datosFinales;
-
-      registrarLog(
-        "Administrador",
-        "Módulo 2: Vacantes",
-        "CREAR",
-        `Creación masiva de vacante '${datosFinales.nombreVacante}' (ID: ${pid}) para '${emp.toUpperCase()}'.`
-      );
-
+      registrarLog("Administrador", "Módulo 2: Vacantes", "CREAR", `Lote: '${datosFinales.nombreVacante}' para '${emp.toUpperCase()}'.`);
       guardadas++;
     } catch (e) {
       console.error(`Error guardando vacante ${pid}:`, e);
@@ -680,16 +653,14 @@ document.getElementById('btnSaveAllModal').addEventListener('click', async () =>
   }
 
   btn.disabled = false;
-  btn.innerHTML = `<i data-lucide="upload-cloud" class="w-4 h-4"></i> Subir Todo el Bloque a Firebase`;
+  btn.innerHTML = `<i data-lucide="upload-cloud" class="w-4 h-4"></i> Subir Todo a Firebase`;
   lucide.createIcons();
   
   cerrarModal();
-  alert(`¡Proceso en bloque finalizado! Se guardaron ${guardadas} vacantes exitosamente en ${emp.toUpperCase()} ✅`);
-  
+  alert(`¡Proceso finalizado! Se guardaron ${guardadas} vacantes en ${emp.toUpperCase()} ✅`);
   document.getElementById('selectEmpresa').dispatchEvent(new Event('change'));
 });
 
-// 💾 Guardar en Firebase Individual
 document.getElementById('vacanteForm').addEventListener('submit', e => { e.preventDefault(); guardar(); }); 
 document.getElementById('btnSaveChange').addEventListener('click', guardar); 
 
@@ -713,8 +684,6 @@ function guardar() {
   }
 
   const esEdicion = !!cacheVacantesEmpresa[pid];
-  const operacionLog = esEdicion ? "MODIFICAR" : "CREAR";
-
   const datos = { 
     puestoId: pid, 
     nombreVacante: nombreVac, 
@@ -739,13 +708,7 @@ function guardar() {
     if (err) {
       alert("Error: " + err.message); 
     } else { 
-      registrarLog(
-        "Administrador",
-        "Módulo 2: Vacantes",
-        operacionLog,
-        `Vacante '${datos.nombreVacante || pid}' (ID: ${pid}) fue ${esEdicion ? 'actualizada' : 'creada'} para la empresa '${emp.toUpperCase()}'.`
-      );
-
+      registrarLog("Administrador", "Módulo 2: Vacantes", esEdicion ? "MODIFICAR" : "CREAR", `Vacante '${pid}' ${esEdicion ? 'actualizada' : 'creada'} en '${emp.toUpperCase()}'.`);
       alert(`Guardado en ${emp.toUpperCase()} con ID: ${pid} ✅`); 
       loadEmpresasDinamicas(); 
       document.getElementById('selectEmpresa').value = emp; 
