@@ -166,9 +166,10 @@
             color: rgba(148, 163, 184, 0.35);
         }
 
+        /* Ajustado a 3 columnas por fila en pantallas grandes */
         .inputs-horizontal-row {
             display: grid;
-            grid-template-columns: repeat(5, 1fr);
+            grid-template-columns: repeat(3, 1fr);
             gap: 16px;
         }
 
@@ -350,19 +351,14 @@
         .btn-table-delete:hover { background: #bd2130; transform: translateY(-1px); }
 
         @media (max-width: 1200px) {
-            .inputs-horizontal-row { grid-template-columns: repeat(3, 1fr); }
+            .inputs-horizontal-row { grid-template-columns: repeat(2, 1fr); }
         }
 
         @media (max-width: 768px) {
-            .inputs-horizontal-row { grid-template-columns: repeat(2, 1fr); }
+            .inputs-horizontal-row { grid-template-columns: 1fr; }
             .action-button-row { grid-template-columns: 1fr; gap: 10px; }
             .generated-link-box { flex-direction: column; align-items: stretch; }
             .btn-link-action { justify-content: center; }
-        }
-
-        @media (max-width: 576px) {
-            .inputs-horizontal-row { grid-template-columns: 1fr; }
-            .actions-cell-wrapper { flex-direction: column; gap: 4px; }
         }
     </style>
 </head>
@@ -410,12 +406,16 @@
                         <input type="text" id="inputNombre" class="form-control-tech w-100" placeholder="Ej: Hyundai Glovis" required>
                     </div>
                     <div>
-                        <label class="form-label-tech"><i class="fa-solid fa-tags"></i> Etiquetas / TAG</label>
-                        <input type="text" id="inputTags" class="form-control-tech w-100" placeholder="Ej: Logística">
+                        <label class="form-label-tech"><i class="fa-solid fa-location-dot"></i> Dirección Física Completa *</label>
+                        <input type="text" id="inputDireccion" class="form-control-tech w-100" placeholder="Ej: Av. Industrial #500, Pesquería, N.L." required>
                     </div>
                     <div>
-                        <label class="form-label-tech"><i class="fa-solid fa-map-location-dot"></i> Ubicación Base (Google Maps) *</label>
-                        <input type="text" id="inputUbicacion" class="form-control-tech w-100" placeholder="Pegue la URL o Coordenadas de Google Maps" required>
+                        <label class="form-label-tech"><i class="fa-solid fa-map-location-dot"></i> Google Maps URL *</label>
+                        <input type="text" id="inputUbicacion" class="form-control-tech w-100" placeholder="https://maps.app.goo.gl/..." required>
+                    </div>
+                    <div>
+                        <label class="form-label-tech"><i class="fa-solid fa-tags"></i> Etiquetas / TAG</label>
+                        <input type="text" id="inputTags" class="form-control-tech w-100" placeholder="Ej: Logística">
                     </div>
                     <div>
                         <label class="form-label-tech"><i class="fa-solid fa-image"></i> URL del Logo Corporativo</label>
@@ -465,9 +465,9 @@
                             <th>Logo</th>
                             <th>ID</th>
                             <th>Nombre Comercial</th>
-                            <th>Ubicación / Maps</th>
+                            <th>Dirección</th>
+                            <th>Maps</th>
                             <th>Tags</th>
-                            <th>Enlace</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
@@ -505,12 +505,9 @@
 
         let catalogoEmpresasCompleto = {};
 
-        // PARSER PARA DEDUCIR COORDENADAS DESDE ENLACES O TEXTO
         function extraerCoordenadas(textoUbicacion) {
             let lat = null;
             let lng = null;
-
-            // Busca patrones de coordenadas latitud, longitud numéricas
             const regexCoords = /(-?\d+\.\d+),\s*(-?\d+\.\d+)/;
             const match = textoUbicacion.match(regexCoords);
 
@@ -580,18 +577,18 @@
 
                     const tr = document.createElement("tr");
 
-                    let ubicacionHTML = emp.ubicacion || '';
+                    let mapaLink = emp.ubicacion || '';
                     if (emp.ubicacion && (emp.ubicacion.startsWith('http://') || emp.ubicacion.startsWith('https://'))) {
-                        ubicacionHTML = `<a href="${emp.ubicacion}" target="_blank" class="text-info text-decoration-none"><i class="fa-solid fa-map-location-dot me-1"></i> Ver en Maps</a>`;
+                        mapaLink = `<a href="${emp.ubicacion}" target="_blank" class="text-info text-decoration-none"><i class="fa-solid fa-map-location-dot me-1"></i> Ver Maps</a>`;
                     }
 
                     tr.innerHTML = `
                         <td><img src="${emp.imagen || ''}" onerror="this.src='https://placehold.co/100x100/0b1329/fff?text=Logo'" class="logo-preview-cell"></td>
                         <td class="font-monospace text-warning">${emp.id || key}</td>
                         <td class="fw-bold">${emp.nombre || ''}</td>
-                        <td>${ubicacionHTML}</td>
+                        <td class="small text-light">${emp.direccion || '<span class="text-muted">Sin dirección</span>'}</td>
+                        <td>${mapaLink}</td>
                         <td><span class="text-muted small">${emp.tags || ''}</span></td>
-                        <td><span class="text-success small font-monospace">Listo</span></td>
                         <td>
                             <div class="actions-cell-wrapper">
                                 <button onclick="cargarEmpresaEnFormulario('${key}')" class="btn-action-table btn-table-edit">
@@ -613,12 +610,13 @@
         function guardarEmpresa() {
             const id = document.getElementById("inputID").value.trim().toLowerCase();
             const nombre = document.getElementById("inputNombre").value.trim();
+            const direccion = document.getElementById("inputDireccion").value.trim();
             const ubicacion = document.getElementById("inputUbicacion").value.trim();
             const tags = document.getElementById("inputTags").value.trim();
             const imagen = document.getElementById("inputImagen").value.trim();
             const link = document.getElementById("linkAutogenerado").value.trim();
 
-            if (!id || !nombre || !ubicacion) {
+            if (!id || !nombre || !direccion || !ubicacion) {
                 alert("Por favor rellene todos los campos obligatorios (*)");
                 return;
             }
@@ -630,6 +628,7 @@
             const payload = {
                 id: id,
                 nombre: nombre,
+                direccion: direccion,
                 ubicacion: ubicacion,
                 latitud: coords.latitud,
                 longitud: coords.longitud,
@@ -661,6 +660,7 @@
             document.getElementById("inputID").value = emp.id || key;
             document.getElementById("inputID").disabled = true; 
             document.getElementById("inputNombre").value = emp.nombre || '';
+            document.getElementById("inputDireccion").value = emp.direccion || '';
             document.getElementById("inputUbicacion").value = emp.ubicacion || '';
             document.getElementById("inputTags").value = emp.tags || '';
             document.getElementById("inputImagen").value = emp.imagen || '';
@@ -671,19 +671,14 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        // ======================================================
-        // ELIMINACIÓN EN CASCADA (EMPRESA + VACANTES + RUTAS)
-        // ======================================================
         async function eliminarEmpresaDirecto(key) {
             const confirmacion = confirm(`⚠️ ¡ATENCIÓN! ⚠️\n\n¿Desea eliminar la empresa [${key.toUpperCase()}]?\n\nEsta acción borrará EN CASCADA:\n1. La ficha de la empresa\n2. TODAS las vacantes asociadas a este ID\n3. TODAS las rutas de transporte vinculadas`);
             
             if (!confirmacion) return;
 
             try {
-                // 1. Borrar Ficha de Empresa
                 await db.ref("empresas/" + key).remove();
 
-                // 2. Buscar y Borrar Vacantes ligadas a esta empresa
                 const snapVacantes = await db.ref("vacantes").orderByChild("empresaId").equalTo(key).once("value");
                 if (snapVacantes.exists()) {
                     const promesasVacantes = [];
@@ -693,7 +688,6 @@
                     await Promise.all(promesasVacantes);
                 }
 
-                // 3. Buscar y Borrar Rutas de Transporte ligadas a esta empresa
                 const snapRutas = await db.ref("rutas_transporte").orderByChild("empresaId").equalTo(key).once("value");
                 if (snapRutas.exists()) {
                     const promesasRutas = [];
@@ -703,7 +697,6 @@
                     await Promise.all(promesasRutas);
                 }
 
-                // Auditoría (Módulo 7)
                 registrarLog(
                     "Administrador",
                     "Módulo 1: Empresas",
