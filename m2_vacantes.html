@@ -345,7 +345,7 @@
 <script> 
 lucide.createIcons(); 
 
-// Variable global para almacenar los datos de la empresa actual (incluyendo su tag)
+// Variable global para almacenar los datos de la empresa actual
 let cacheEmpresaActual = null;
 
 function registrarLog(usuarioId, moduloOrigen, operacion, detalles) {
@@ -409,23 +409,22 @@ document.getElementById('selectEmpresa').addEventListener('change', e => {
 
   if (!emp) return; 
 
-  // 1. Consulta Ubicación, Mapa URL y TAG desde Módulo 1 (nodo 'empresas')
+  // 1. Consulta Ubicación, Direcciones, Mapa URL desde Módulo 1 (nodo 'empresas')
   database.ref(`empresas/${emp}`).once('value', snap => {
     const empData = snap.val();
     if (empData) {
       cacheEmpresaActual = empData;
       
-      const ubicacionRaw = empData.ubicacion || "";
-      const mapaUrlRaw = empData.mapaUrl || "";
-      const tagMascara = empData.tag || empData.referencias || empData.nombre || "Ver Ubicación";
+      // PRIORIZACIÓN: Buscar en 'direccion' o 'direcciones', de lo contrario 'ubicacion', y finalmente 'tag'
+      const direccionFisica = empData.direccion || empData.direcciones || empData.ubicacion || empData.tag || empData.nombre || "";
+      const mapaUrlRaw = empData.mapaUrl || (empData.ubicacion && empData.ubicacion.startsWith('http') ? empData.ubicacion : "");
 
-      // LÓGICA DE CORRECCIÓN MÓDULO 1:
-      // Si el campo 'ubicacion' guardado en M1 trae la URL del mapa
-      if (ubicacionRaw.startsWith('http')) {
-        document.getElementById('mapaUrl').value = ubicacionRaw;
-        document.getElementById('lugarOrigen').value = tagMascara;
+      // Si direccionFisica por error viene como URL, la filtramos
+      if (direccionFisica.startsWith('http')) {
+        document.getElementById('lugarOrigen').value = empData.direccion || empData.direcciones || empData.tag || empData.nombre || "";
+        document.getElementById('mapaUrl').value = direccionFisica;
       } else {
-        document.getElementById('lugarOrigen').value = ubicacionRaw || tagMascara;
+        document.getElementById('lugarOrigen').value = direccionFisica;
         document.getElementById('mapaUrl').value = mapaUrlRaw;
       }
     }
@@ -480,17 +479,17 @@ function cargarObjetoEnFormulario(d) {
   document.getElementById('experiencia').value = d.experiencia || ""; 
   document.getElementById('salario').value = d.salario || ""; 
   
-  // Sanitización de ubicación al cargar un objeto
-  const tagMascara = (cacheEmpresaActual && (cacheEmpresaActual.tag || cacheEmpresaActual.referencias || cacheEmpresaActual.nombre)) || "Ver Ubicación";
+  // Sanitización de ubicación priorizando direccion/direcciones
+  const direccionFallback = (cacheEmpresaActual && (cacheEmpresaActual.direccion || cacheEmpresaActual.direcciones || cacheEmpresaActual.tag || cacheEmpresaActual.nombre)) || "";
   let lugar = d.lugarOrigen || "";
   let mapa = d.mapaUrl || "";
 
   if (lugar.startsWith('http')) {
     mapa = lugar;
-    lugar = tagMascara;
+    lugar = direccionFallback;
   }
 
-  document.getElementById('lugarOrigen').value = lugar || tagMascara; 
+  document.getElementById('lugarOrigen').value = lugar || direccionFallback; 
   document.getElementById('mapaUrl').value = mapa; 
   document.getElementById('turnos').value = d.turnos || "";
   document.getElementById('rutasTransporte').value = d.rutasTransporte || "";
@@ -612,7 +611,7 @@ document.getElementById('btnExtract').addEventListener('click', async () => {
     if (!Array.isArray(parsedArray)) parsedArray = [parsedArray];
 
     // SANITIZACIÓN DEL VECTOR EXTRAÍDO
-    const tagMascara = (cacheEmpresaActual && (cacheEmpresaActual.tag || cacheEmpresaActual.referencias || cacheEmpresaActual.nombre)) || "Ver Ubicación";
+    const direccionFallback = (cacheEmpresaActual && (cacheEmpresaActual.direccion || cacheEmpresaActual.direcciones || cacheEmpresaActual.tag || cacheEmpresaActual.nombre)) || "";
     
     tempVacantesExtraidas = parsedArray.map(item => {
       let l = item.lugarOrigen || "";
@@ -620,9 +619,9 @@ document.getElementById('btnExtract').addEventListener('click', async () => {
 
       if (l.startsWith('http')) {
         m = l;
-        l = tagMascara;
+        l = direccionFallback;
       } else if (!l) {
-        l = tagMascara;
+        l = direccionFallback;
       }
 
       return { ...item, lugarOrigen: l, mapaUrl: m };
@@ -703,7 +702,7 @@ document.getElementById('btnSaveAllModal').addEventListener('click', async () =>
   btn.innerHTML = "Guardando Lote...";
 
   let guardadas = 0;
-  const tagMascara = (cacheEmpresaActual && (cacheEmpresaActual.tag || cacheEmpresaActual.referencias || cacheEmpresaActual.nombre)) || "Ver Ubicación";
+  const direccionFallback = (cacheEmpresaActual && (cacheEmpresaActual.direccion || cacheEmpresaActual.direcciones || cacheEmpresaActual.tag || cacheEmpresaActual.nombre)) || "";
 
   for (let item of tempVacantesExtraidas) {
     const baseSlug = generarPuestoIdEstructurado(emp, item.nombreVacante || "vacante");
@@ -714,9 +713,9 @@ document.getElementById('btnSaveAllModal').addEventListener('click', async () =>
 
     if (l.startsWith('http')) {
       m = l;
-      l = tagMascara;
+      l = direccionFallback;
     } else if (!l) {
-      l = tagMascara;
+      l = direccionFallback;
     }
 
     const datosFinales = {
@@ -782,12 +781,12 @@ function guardar() {
 
   let lugarInput = document.getElementById('lugarOrigen').value.trim();
   let mapaInput = document.getElementById('mapaUrl').value.trim();
-  const tagMascara = (cacheEmpresaActual && (cacheEmpresaActual.tag || cacheEmpresaActual.referencias || cacheEmpresaActual.nombre)) || "Ver Ubicación";
+  const direccionFallback = (cacheEmpresaActual && (cacheEmpresaActual.direccion || cacheEmpresaActual.direcciones || cacheEmpresaActual.tag || cacheEmpresaActual.nombre)) || "";
 
   // Control manual antes de subir a DB
   if (lugarInput.startsWith('http')) {
     mapaInput = lugarInput;
-    lugarInput = tagMascara;
+    lugarInput = direccionFallback;
     document.getElementById('mapaUrl').value = mapaInput;
     document.getElementById('lugarOrigen').value = lugarInput;
   }
@@ -803,7 +802,7 @@ function guardar() {
     escolaridad: document.getElementById('escolaridad').value, 
     experiencia: document.getElementById('experiencia').value, 
     salario: document.getElementById('salario').value, 
-    lugarOrigen: lugarInput || tagMascara, 
+    lugarOrigen: lugarInput || direccionFallback, 
     mapaUrl: mapaInput, 
     turnos: document.getElementById('turnos').value, 
     rutasTransporte: document.getElementById('rutasTransporte').value, 
