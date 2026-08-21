@@ -8,9 +8,11 @@
 <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script> 
 <!-- Iconos Lucide --> 
 <script src="https://unpkg.com/lucide@latest"></script> 
-<!-- Firebase v8.10.1 (MISMA VERSIÓN PARA TODOS) -->
+<!-- Firebase v8.10.1 (Librerías Base) -->
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<!-- Archivo de Configuración Centralizado de Firebase -->
+<script src="firebase-config.js"></script>
 <!-- Lectura de archivos --> 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script> 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script> 
@@ -35,7 +37,7 @@ box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.2);
 <header class="flex items-center justify-between mb-8 border-b border-[#2d4156] pb-4"> 
 <div class="flex items-center gap-3"> 
 <i data-lucide="layout-dashboard" class="text-blue-400 w-8 h-8"></i> 
-<h1 class="text-2xl font-bold text-blue-400">Panel Administrativo Dinámico - Mini ERP</h1> 
+<h1 class="text-2xl font-bold text-blue-400">Panel Administrativo Dinámico - Módulo 2 Vacantes</h1> 
 </div> 
 <span id="serverStatus" class="text-xs text-slate-400 font-mono bg-[#1b2a3a] px-3 py-1 rounded-full border border-[#2d4156] transition-all duration-300">Verificando conexión...</span> 
 </header> 
@@ -125,7 +127,7 @@ box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.2);
 <div class="grid grid-cols-1 md:grid-cols-3 gap-4"> 
 <div>
 <label class="block text-xs text-slate-400 mb-1">ID Clave (puestoId)</label> 
-<input type="text" id="puestoId" readonly class="w-full p-2.5 rounded-lg input-dark text-sm font-mono bg-[#111e2e] opacity-70 cursor-not-allowed" placeholder="auto-generado"> 
+<input type="text" id="puestoId" readonly class="w-full p-2.5 rounded-lg input-dark text-sm font-mono bg-[#111e2e] opacity-70 cursor-not-allowed" placeholder="auto-generado (empresa_vacante)"> 
 </div>
 <div>
 <label class="block text-xs text-slate-400 mb-1">Estatus de Publicación</label> 
@@ -148,14 +150,10 @@ box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.2);
 <i data-lucide="graduation-cap" class="w-4 h-4"></i> 
 <h3>REQUISITOS DEL PERFIL</h3> 
 </div> 
-<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4"> 
+<div class="grid grid-cols-1 gap-4 mb-4"> 
 <div>
 <label class="block text-xs text-slate-400 mb-1">Nombre Comercial de Vacante</label> 
-<input type="text" id="nombreVacante" class="w-full p-2.5 rounded-lg input-dark text-sm" placeholder="Ej: Operador General"> 
-</div>
-<div>
-<label class="block text-xs text-slate-400 mb-1">Título Oficial Completo</label> 
-<input type="text" id="vacanteNombre" class="w-full p-2.5 rounded-lg input-dark text-sm" placeholder="Ej: OPERADORES GENERALES"> 
+<input type="text" id="nombreVacante" class="w-full p-2.5 rounded-lg input-dark text-sm" placeholder="Ej: Ayudante General"> 
 </div>
 </div> 
 <div class="grid grid-cols-1 md:grid-cols-4 gap-4"> 
@@ -297,19 +295,7 @@ box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.2);
 <script> 
 lucide.createIcons(); 
 
-// 🔌 CONEXIÓN FIREBASE CORREGIDA 100%
-const firebaseConfig = {
-  databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com/"
-};
-
-if (!firebase.apps.length) {
-  firebase.initializeApp(firebaseConfig);
-}
-const database = firebase.database();
-
-// ==========================================
-// FUNCIÓN EMISORA HACIA MÓDULO 7 (AUDITORÍA)
-// ==========================================
+// 📋 REGISTRO EN AUDITORÍA (MÓDULO 7)
 function registrarLog(usuarioId, moduloOrigen, operacion, detalles) {
     if (typeof database === 'undefined' || !database) return;
     
@@ -322,7 +308,7 @@ function registrarLog(usuarioId, moduloOrigen, operacion, detalles) {
     }).catch(err => console.error("Error guardando log en auditoría:", err));
 }
 
-// 🟢 MONITOREO DE CONEXIÓN CORREGIDO
+// 🟢 MONITOREO DE CONEXIÓN
 const connectedRef = database.ref(".info/connected");
 connectedRef.on("value", (snap) => {
   const statusLabel = document.getElementById('serverStatus');
@@ -360,12 +346,19 @@ function loadEmpresasDinamicas() {
 loadEmpresasDinamicas(); 
 document.getElementById('btnRefreshEmpresas').addEventListener('click', loadEmpresasDinamicas); 
 
-// Al cambiar empresa → cargar vacantes
+// Al cambiar empresa → cargar vacantes y actualizar ID si hay nombre escrito
 document.getElementById('selectEmpresa').addEventListener('change', e => { 
   const emp = e.target.value; 
   const selVac = document.getElementById('selectVacante'); 
   selVac.innerHTML = '<option value="">-- Selecciona vacante --</option>'; 
   cacheVacantesEmpresa = {}; 
+  
+  // Recalcular ID si hay un nombre de vacante activo
+  const nombreVac = document.getElementById('nombreVacante').value;
+  if (nombreVac) {
+    document.getElementById('puestoId').value = generarPuestoIdEstructurado(emp, nombreVac);
+  }
+
   if (!emp) return; 
   database.ref(`vacantes_detalles/${emp}`).once('value', snap => { 
     const v = snap.val(); 
@@ -392,7 +385,6 @@ document.getElementById('btnLoadVacante').addEventListener('click', () => {
 function cargarObjetoEnFormulario(d) {
   document.getElementById('puestoId').value = d.puestoId || ""; 
   document.getElementById('nombreVacante').value = d.nombreVacante || ""; 
-  document.getElementById('vacanteNombre').value = d.vacanteNombre || ""; 
   document.getElementById('estatus').value = d.estatus || "disponible"; 
   document.getElementById('bannerUrl').value = d.bannerUrl || ""; 
   document.getElementById('edad').value = d.edad || ""; 
@@ -463,12 +455,21 @@ document.getElementById('fileInput').addEventListener('change', async e => {
   }
 }); 
 
-// Generar ID Manual
+// 🆔 GENERACIÓN DINÁMICA DE PUESTO ID (empresa_vacante)
+function generarPuestoIdEstructurado(empresaKey, nombreVacante) {
+  if (!nombreVacante) return "";
+  const slugVacante = nombreVacante.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]/g,"_").replace(/_+/g,"_").trim();
+  if (!empresaKey) return slugVacante;
+  const slugEmpresa = empresaKey.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]/g,"_").trim();
+  return `${slugEmpresa}_${slugVacante}`;
+}
+
 document.getElementById('nombreVacante').addEventListener('input', e => { 
-  document.getElementById('puestoId').value = e.target.value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]/g,"").trim(); 
+  const emp = document.getElementById('selectEmpresa').value.trim();
+  document.getElementById('puestoId').value = generarPuestoIdEstructurado(emp, e.target.value);
 }); 
 
-// 🤖 GEMINI MULTIVACANTES CON VALIDACIÓN
+// 🤖 GEMINI MULTIVACANTES CON PROMPT UNIFICADO
 document.getElementById('btnExtract').addEventListener('click', async () => { 
   const emp = document.getElementById('selectEmpresa').value.trim();
   if (!emp) return alert("⚠️ REQUISITO OBLIGATORIO: Primero debes seleccionar una Empresa Destino en el selector superior.");
@@ -487,8 +488,7 @@ document.getElementById('btnExtract').addEventListener('click', async () => {
   Responde ÚNICAMENTE con un ARREGLO JSON DE OBJETOS con esta estructura exacta para cada vacante:
   [
     {
-      "nombreVacante": "Nombre corto (Ej: Operador General)",
-      "vacanteNombre": "Título oficial (Ej: OPERADOR GENERAL DE PRODUCCIÓN)",
+      "nombreVacante": "Nombre de la vacante (Ej: Ayudante General)",
       "edad": "",
       "sexo": "",
       "escolaridad": "",
@@ -524,7 +524,7 @@ document.getElementById('btnExtract').addEventListener('click', async () => {
     let parsedArray = JSON.parse(rawTextResponse);
     
     if (!Array.isArray(parsedArray)) {
-      parsedArray = [parsedArray]; // Forzar a Array si devolvió un solo objeto
+      parsedArray = [parsedArray];
     }
 
     tempVacantesExtraidas = parsedArray;
@@ -585,8 +585,8 @@ window.cargarUnaSolaVacante = function(index) {
   const item = tempVacantesExtraidas[index];
   if (!item) return;
   
-  // Asignar ID único dinámico local
-  const baseSlug = (item.nombreVacante || "vacante").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]/g,"").trim();
+  const emp = document.getElementById('selectEmpresa').value.trim();
+  const baseSlug = generarPuestoIdEstructurado(emp, item.nombreVacante || "vacante");
   item.puestoId = calcularIdUnicoConSufijo(baseSlug);
 
   cargarObjetoEnFormulario(item);
@@ -594,18 +594,17 @@ window.cargarUnaSolaVacante = function(index) {
   alert(`Vacante "${item.nombreVacante}" cargada al formulario. Revisa los datos y presiona Guardar o Publicar.`);
 };
 
-// 🆔 CÁLCULO DE ID ÚNICO SIN SOBREESCRIBIR (CON SUFIJO)
+// 🆔 CÁLCULO DE ID ÚNICO SIN SOBREESCRIBIR
 function calcularIdUnicoConSufijo(baseSlug) {
   if (!cacheVacantesEmpresa[baseSlug]) {
-    return baseSlug; // No existe, se usa tal cual
+    return baseSlug;
   }
   
-  // Si ya existe, buscar sufijo libre: baseSlug-2, baseSlug-3...
   let contador = 2;
-  while (cacheVacantesEmpresa[`${baseSlug}-${contador}`]) {
+  while (cacheVacantesEmpresa[`${baseSlug}_${contador}`]) {
     contador++;
   }
-  return `${baseSlug}-${contador}`;
+  return `${baseSlug}_${contador}`;
 }
 
 // 💾 SUBIDA MASIVA EN BLOQUE A FIREBASE
@@ -621,13 +620,12 @@ document.getElementById('btnSaveAllModal').addEventListener('click', async () =>
   let guardadas = 0;
 
   for (let item of tempVacantesExtraidas) {
-    const baseSlug = (item.nombreVacante || "vacante").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]/g,"").trim();
+    const baseSlug = generarPuestoIdEstructurado(emp, item.nombreVacante || "vacante");
     const pid = calcularIdUnicoConSufijo(baseSlug);
 
     const datosFinales = {
       puestoId: pid,
       nombreVacante: item.nombreVacante || "",
-      vacanteNombre: item.vacanteNombre || item.nombreVacante || "",
       estatus: "disponible",
       bannerUrl: "",
       edad: item.edad || "",
@@ -646,11 +644,8 @@ document.getElementById('btnSaveAllModal').addEventListener('click', async () =>
 
     try {
       await database.ref(`vacantes_detalles/${emp}/${pid}`).set(datosFinales);
-      
-      // Actualizar caché local para iteraciones inmediatas
       cacheVacantesEmpresa[pid] = datosFinales;
 
-      // Registrar Auditoría en Módulo 7
       registrarLog(
         "Administrador",
         "Módulo 2: Vacantes",
@@ -671,7 +666,6 @@ document.getElementById('btnSaveAllModal').addEventListener('click', async () =>
   cerrarModal();
   alert(`¡Proceso en bloque finalizado! Se guardaron ${guardadas} vacantes exitosamente en ${emp.toUpperCase()} ✅`);
   
-  // Recargar listado de vacantes de la empresa
   document.getElementById('selectEmpresa').dispatchEvent(new Event('change'));
 });
 
@@ -683,13 +677,16 @@ function guardar() {
   let emp = document.getElementById('selectEmpresa').value.trim(); 
   let pid = document.getElementById('puestoId').value.trim(); 
 
-  if (!emp) { emp = prompt("Nombre de la empresa:"); if (!emp) return; emp = emp.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]/g,"").trim(); }
+  if (!emp) { 
+    emp = prompt("Nombre de la empresa:"); 
+    if (!emp) return; 
+    emp = emp.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]/g,"").trim(); 
+  }
   
   const nombreVac = document.getElementById('nombreVacante').value.trim();
   if (!nombreVac) return alert("Asigna un nombre a la vacante.");
 
-  // Si no hay ID o estamos creando una nueva, verificar que no exista y calcular sufijo si aplica
-  const baseSlug = nombreVac.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]/g,"").trim();
+  const baseSlug = generarPuestoIdEstructurado(emp, nombreVac);
   if (!pid) {
     pid = calcularIdUnicoConSufijo(baseSlug);
     document.getElementById('puestoId').value = pid;
@@ -701,7 +698,6 @@ function guardar() {
   const datos = { 
     puestoId: pid, 
     nombreVacante: nombreVac, 
-    vacanteNombre: document.getElementById('vacanteNombre').value, 
     estatus: document.getElementById('estatus').value, 
     bannerUrl: document.getElementById('bannerUrl').value, 
     edad: document.getElementById('edad').value, 
