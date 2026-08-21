@@ -383,6 +383,7 @@ function loadEmpresasDinamicas() {
 loadEmpresasDinamicas(); 
 document.getElementById('btnRefreshEmpresas').addEventListener('click', loadEmpresasDinamicas); 
 
+// 🔄 EVENTO PRINCIPAL INTEGRADO CON MÓDULO 1 Y MÓDULO 4
 document.getElementById('selectEmpresa').addEventListener('change', e => { 
   const emp = e.target.value; 
   const selVac = document.getElementById('selectVacante'); 
@@ -395,6 +396,32 @@ document.getElementById('selectEmpresa').addEventListener('change', e => {
   }
 
   if (!emp) return; 
+
+  // 1. Consulta Ubicación desde el Módulo 1 (nodo 'empresas')
+  database.ref(`empresas/${emp}`).once('value', snap => {
+    const empData = snap.val();
+    if (empData && empData.ubicacion) {
+      document.getElementById('lugarOrigen').value = empData.ubicacion;
+    }
+  });
+
+  // 2. Consulta Nombres de Rutas desde el Módulo 4 (nodo 'rutas')
+  database.ref(`rutas/${emp}`).once('value', snap => {
+    const rutasData = snap.val();
+    if (rutasData) {
+      let nombresRutas = [];
+      if (typeof rutasData === 'object') {
+        nombresRutas = Object.values(rutasData)
+          .map(r => typeof r === 'object' ? (r.nombreRuta || r.nombre) : r)
+          .filter(Boolean);
+      }
+      document.getElementById('rutasTransporte').value = nombresRutas.join(', ');
+    } else {
+      document.getElementById('rutasTransporte').value = "";
+    }
+  });
+
+  // 3. Consulta la lista de vacantes existentes de la empresa
   database.ref(`vacantes_detalles/${emp}`).once('value', snap => { 
     const v = snap.val(); 
     if (!v) return; 
