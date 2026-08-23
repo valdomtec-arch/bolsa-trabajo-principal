@@ -103,11 +103,11 @@
             </div>
         </div>
 
-        <!-- FILTROS MAESTROS EN CASCADA Y SUPERVISIÓN -->
+        <!-- FILTROS MAESTROS EN CASCADA Y SUPERVISIÓN (OPCIÓN A IMPLEMENTADA) -->
         <div class="bg-[#0d1b3e] p-4 rounded-xl border border-blue-900/30 mb-6 grid grid-cols-1 md:grid-cols-3 gap-4 shadow-inner">
             <div>
                 <label class="block text-xs font-bold uppercase text-[#ff6600] mb-1"><i class="fas fa-filter"></i> Filtrar por Empresa</label>
-                <select id="filtroEmpresa" onchange="cargarPostulantes()" class="w-full bg-[#15264a] border border-blue-950 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-[#ff6600] transition-colors">
+                <select id="filtroEmpresa" onchange="alCambiarEmpresa()" class="w-full bg-[#15264a] border border-blue-950 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-[#ff6600] transition-colors">
                     <option value="TODAS">-- Todas las Empresas --</option>
                 </select>
             </div>
@@ -192,7 +192,6 @@
                     <input type="text" id="editCurp" class="w-full bg-[#15264a] border border-blue-950 text-white rounded-lg p-2 text-sm font-mono focus:outline-none focus:border-[#ff6600]">
                 </div>
 
-                <!-- OPCIÓN LIMPIA Y TRANSPARENTE DE REASIGNACIÓN DE OPERADOR -->
                 <div class="bg-[#0a1426] p-3 rounded-lg border border-amber-500/30">
                     <label class="block text-xs font-bold uppercase text-amber-400 mb-1 flex items-center gap-2">
                         <i class="fas fa-user-check"></i> Asignar / Reasignar Operador Responsable
@@ -213,7 +212,6 @@
                     </select>
                 </div>
                 
-                <!-- AGENDA ESTRUCTURADA CON SELECTORES DESPLEGABLES -->
                 <div class="grid grid-cols-2 gap-3 bg-[#0b1329] p-3 rounded-lg border border-blue-950">
                     <div class="col-span-2"><span class="block text-xs font-bold uppercase text-[#ff6600]">Agenda de Entrevista</span></div>
                     <div>
@@ -253,17 +251,31 @@
         </div>
     </div>
 
-    <!-- SDK DE FIREBASE (Versión 8) -->
+    <!-- SDK DE FIREBASE (Versión 8 / Compat) -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-analytics.js"></script>
 
     <script>
+        // CONFIGURACIÓN COMPLETA Y UNIFICADA DE FIREBASE
         const firebaseConfig = {
-            databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com"
+            apiKey: "AIzaSyDxgP1YnycCEqkQ2vr3SPkwc9QMhtG8Zqw",
+            authDomain: "bolsa-de-trabajo-a52e4.firebaseapp.com",
+            databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com",
+            projectId: "bolsa-de-trabajo-a52e4",
+            storageBucket: "bolsa-de-trabajo-a52e4.firebasestorage.app",
+            messagingSenderId: "592492733212",
+            appId: "1:592492733212:web:88e8ec243bd53608b6d0d9",
+            measurementId: "G-DH2LD3BJEF"
         };
         
         if (!firebase.apps.length) {
             firebase.initializeApp(firebaseConfig);
+            try {
+                firebase.analytics();
+            } catch (e) {
+                console.log("Analytics no disponible en este entorno.");
+            }
         }
         const db = firebase.database();
 
@@ -426,16 +438,30 @@
             if (selEdit) editReclutador.value = selEdit;
         }
 
+        // --- OPCIÓN B: FUNCIONES JS CORREGIDAS (MANEJO EN CASCADA Y MAPEO DE VACANTES) ---
+
+        function alCambiarEmpresa() {
+            // Resetear el filtro de vacante a TODAS para evitar bloqueos por incongruencia de catálogo
+            document.getElementById("filtroVacante").value = "TODAS";
+            
+            // Recargar dinámicamente las vacantes asociadas a la empresa seleccionada
+            db.ref().once("value", (snap) => {
+                actualizarFiltroVacantes(snap.val() || {});
+                cargarPostulantes();
+            });
+        }
+
         function actualizarFiltroVacantes(data) {
             const filtroVacante = document.getElementById("filtroVacante");
             const empresaSel = document.getElementById("filtroEmpresa").value;
-            const selActual = filtroVacante.value;
+            const vacantePrevio = filtroVacante.value;
 
             filtroVacante.innerHTML = '<option value="TODAS">-- Todas las Vacantes --</option>';
             const vacantesSet = new Set();
 
-            if (empresaSel === "TODAS") {
-                if (data.vacantes_detalles) {
+            // 1. Extraer vacantes desde el nodo principal 'vacantes_detalles'
+            if (data.vacantes_detalles) {
+                if (empresaSel === "TODAS") {
                     Object.values(data.vacantes_detalles).forEach(empVac => {
                         if (empVac) {
                             Object.values(empVac).forEach(v => {
@@ -443,28 +469,34 @@
                             });
                         }
                     });
+                } else if (data.vacantes_detalles[empresaSel]) {
+                    Object.values(data.vacantes_detalles[empresaSel]).forEach(v => {
+                        if (v && v.vacanteNombre) vacantesSet.add(v.vacanteNombre.trim());
+                    });
                 }
-            } else if (data.vacantes_detalles && data.vacantes_detalles[empresaSel]) {
-                Object.values(data.vacantes_detalles[empresaSel]).forEach(v => {
-                    if (v && v.vacanteNombre) vacantesSet.add(v.vacanteNombre.trim());
-                });
             }
 
+            // 2. Coincidencia secundaria desde postulantes (Garantiza mapeo de vacantes huérfanas o directas)
             Object.values(todosLosPostulantes).forEach(p => {
                 const empCandidate = p.empresaId || p.empresa || p.empresa_id;
-                if ((empresaSel === "TODAS" || empCandidate === empresaSel) && p.vacante) {
+                
+                const coincideEmpresa = (empresaSel === "TODAS") || 
+                    (empCandidate === empresaSel) || 
+                    (catalogoEmpresas[empresaSel] && catalogoEmpresas[empresaSel].nombre === empCandidate);
+
+                if (coincideEmpresa && p.vacante) {
                     vacantesSet.add(p.vacante.trim());
                 }
             });
 
+            // Construcción visual del selector
             Array.from(vacantesSet).sort().forEach(v => {
                 filtroVacante.innerHTML += `<option value="${v}">${v}</option>`;
             });
 
-            if (selActual && filtroVacante.querySelector(`option[value="${selActual}"]`)) {
-                filtroVacante.value = selActual;
-            } else {
-                filtroVacante.value = "TODAS";
+            // Reasignar la selección si aún existe en el conjunto filtrado
+            if (vacantePrevio && filtroVacante.querySelector(`option[value="${vacantePrevio}"]`)) {
+                filtroVacante.value = vacantePrevio;
             }
         }
 
