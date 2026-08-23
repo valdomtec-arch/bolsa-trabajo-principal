@@ -70,9 +70,9 @@
                 <div id="btnFirebaseStatus" class="bg-[#0a1426] border border-red-500 text-red-400 font-bold py-2 px-4 rounded-xl flex items-center gap-2 text-xs transition-all duration-300 shadow-sm">
                     <span class="inline-block w-2 h-2 rounded-full bg-red-500 animate-pulse"></span> Desconectado
                 </div>
-                <!-- BOTÓN DE UNIFICACIÓN Y DEPURACIÓN DE OPERADOR -->
-                <button onclick="depurarYUnificarOperadorJoseAntonio()" title="Unifica candidatos duplicados y elimina IDs fantasmas de José Antonio" class="bg-amber-600 hover:bg-amber-500 text-white font-semibold py-2 px-3 rounded-xl shadow flex items-center gap-1.5 text-xs transition-all">
-                    <i class="fas fa-user-check"></i> Depurar José Antonio
+                <!-- BOTÓN DE UNIFICACIÓN Y DEPURACIÓN UNIVERSAL DE OPERADOR -->
+                <button onclick="depurarYUnificarOperadorSeleccionado()" title="Unifica candidatos duplicados y elimina IDs fantasmas del operador seleccionado en el filtro" class="bg-amber-600 hover:bg-amber-500 text-white font-semibold py-2 px-3 rounded-xl shadow flex items-center gap-1.5 text-xs transition-all">
+                    <i class="fas fa-user-check"></i> Depurar Operador Seleccionado
                 </button>
                 <button onclick="exportarExcel()" class="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 text-white font-semibold py-2 px-4 rounded-xl shadow flex items-center gap-2 text-xs transition-all transform hover:-translate-y-0.5">
                     <i class="fas fa-file-excel"></i> Exportar Base de Datos (.xlsx)
@@ -522,36 +522,32 @@
         function cargarPostulantes() {
             const tabla = document.getElementById("tablaPostulantes");
             if (!tabla) return;
-
-            // Uso de DocumentFragment para evitar reflujo innecesario del DOM
-            const fragment = document.createDocumentFragment();
             tabla.innerHTML = "";
 
-            const empresaFiltro = document.getElementById("filtroEmpresa")?.value || "TODAS";
-            const vacanteFiltro = document.getElementById("filtroVacante")?.value || "TODAS";
-            const operadorFiltro = document.getElementById("filtroOperador")?.value || "TODOS";
+            const empresaFiltro = document.getElementById("filtroEmpresa") ? document.getElementById("filtroEmpresa").value : "TODAS";
+            const vacanteFiltro = document.getElementById("filtroVacante") ? document.getElementById("filtroVacante").value : "TODAS";
+            const operadorFiltro = document.getElementById("filtroOperador") ? document.getElementById("filtroOperador").value : "TODOS";
 
-            const metricaSexo = { Masculino: 0, Femenino: 0, Otro: 0 };
-            const metricaEdad = { "18-25": 0, "26-35": 0, "36-45": 0, "46+": 0 };
+            let metricaSexo = { Masculino: 0, Femenino: 0, Otro: 0 };
+            let metricaEdad = { "18-25": 0, "26-35": 0, "36-45": 0, "46+": 0 };
             let totalContados = 0;
 
             if (!todosLosPostulantes || typeof todosLosPostulantes !== 'object') return;
 
-            // Normalización de filtro de operador
+            // Datos del Operador Seleccionado en el Filtro
             const objetoOpFiltro = catalogoUsuarios[operadorFiltro] || {};
             const nombreOpFiltro = (objetoOpFiltro.nombre || objetoOpFiltro.usuario || "").toLowerCase().trim();
-            const opFiltroLower = operadorFiltro.toLowerCase().trim();
 
-            Object.entries(todosLosPostulantes).forEach(([id, p]) => {
+            const postulantesEntradas = Object.entries(todosLosPostulantes);
+
+            postulantesEntradas.forEach(([id, p]) => {
                 if (!p) return;
 
-                // Normalización de Campos Primarios
                 const empCandidateRaw = p.empresaId || p.empresa_id || p.empresa || "";
-                const vacanteDisplay = p.vacante || p.vacanteInteres || "⚠️ Sin Vacante Asignada";
                 const recId = p.reclutadorId || p.agenteId || "";
                 const recNombre = (p.reclutadorNombre || p.asesor || "").toLowerCase().trim();
 
-                // 1. Módulo de Seguridad y Permisos
+                // 1. Permisos por Rol
                 if (usuarioSesion.rol === "Reclutador" || usuarioSesion.rol === "Implant") {
                     if (recId !== usuarioSesion.uid && !recNombre.includes(usuarioSesion.nombre.toLowerCase())) return;
                 } else if (usuarioSesion.rol === "Coordinador") {
@@ -560,22 +556,28 @@
                     if (!esMio && !esDeMiEquipo) return;
                 }
 
-                // 2. Filtrado Avanzado por Operador
+                // 2. FILTRO DE OPERADOR/RECLUTADOR TOLERANTE A ID Y NOMBRE MULTICLAVE
                 if (operadorFiltro !== "TODOS") {
-                    const coincide = (recId === operadorFiltro) || 
-                                     (nombreOpFiltro && recNombre.includes(nombreOpFiltro)) || 
-                                     (recNombre && recNombre.includes(opFiltroLower));
-                    if (!coincide) return;
+                    const coincidePorId = (recId === operadorFiltro);
+                    const coincidePorNombre = (nombreOpFiltro && recNombre.includes(nombreOpFiltro));
+                    const coincidePorNombreDirecto = recNombre && recNombre.includes(operadorFiltro.toLowerCase().trim());
+
+                    if (!coincidePorId && !coincidePorNombre && !coincidePorNombreDirecto) {
+                        return;
+                    }
                 }
 
-                // 3. Resolución y Filtrado por Empresa
+                // 3. Recuperación de Empresa
                 const datosEmpresaCatalogo = (catalogoEmpresas && catalogoEmpresas[empCandidateRaw]) || {};
                 const nombreEmpresaCatalogo = datosEmpresaCatalogo.nombre 
                     || (p.empresa && p.empresa !== "SIN_EMPRESA" ? p.empresa : null)
                     || (empCandidateRaw !== "SIN_EMPRESA" ? empCandidateRaw : null);
 
                 if (empresaFiltro !== "TODAS") {
-                    const filtroNombre = catalogoEmpresas[empresaFiltro]?.nombre?.toLowerCase() || empresaFiltro.toLowerCase();
+                    const filtroNombre = (catalogoEmpresas[empresaFiltro] && catalogoEmpresas[empresaFiltro].nombre) 
+                        ? catalogoEmpresas[empresaFiltro].nombre.toLowerCase() 
+                        : empresaFiltro.toLowerCase();
+                    
                     const matchesKey = empCandidateRaw.toLowerCase() === empresaFiltro.toLowerCase();
                     const matchesNombre = nombreEmpresaCatalogo ? nombreEmpresaCatalogo.toLowerCase() === filtroNombre : false;
 
@@ -586,13 +588,15 @@
                     return;
                 }
 
-                // 4. Filtrado por Vacante
                 if (vacanteFiltro !== "TODAS" && (p.vacante !== vacanteFiltro && p.vacanteInteres !== vacanteFiltro)) return;
 
-                // Métricas e Incrementos
                 totalContados++;
-                if (p.sexo === "Masculino" || p.sexo === "Femenino") metricaSexo[p.sexo]++;
-                else metricaSexo["Otro"]++;
+
+                if (p.sexo === "Masculino" || p.sexo === "Femenino") {
+                    metricaSexo[p.sexo]++;
+                } else {
+                    metricaSexo["Otro"]++;
+                }
 
                 const edadNum = parseInt(p.edad) || 0;
                 if (edadNum >= 18 && edadNum <= 25) metricaEdad["18-25"]++;
@@ -600,47 +604,67 @@
                 else if (edadNum >= 36 && edadNum <= 45) metricaEdad["36-45"]++;
                 else if (edadNum > 45) metricaEdad["46+"]++;
 
-                // Semáforo de Estatus
                 let claseSemaforo = "status-postulado";
-                const estatusActual = p.estatus || "Postulado";
+                let estatusActual = p.estatus || "Postulado";
+
                 if (estatusActual === "En Entrevista") claseSemaforo = "status-entrevista";
                 else if (estatusActual === "Inducción") claseSemaforo = "status-induccion";
                 else if (estatusActual === "Contratado") claseSemaforo = "status-contratado";
                 else if (estatusActual === "Declinante") claseSemaforo = "status-declinante";
 
-                // Preparación de UI
-                const citaTexto = p.diaEntrevista || 'Por agendar';
-                const reclutadorDisplay = p.asesor || p.reclutadorNombre || (catalogoUsuarios[recId] ? catalogoUsuarios[recId].nombre : 'Sin Asignar');
-                const empresaNombreDisplay = nombreEmpresaCatalogo || "⚠️ Sin Empresa Asignada";
+                let citaTexto = p.diaEntrevista || 'Por agendar';
+                let reclutadorDisplay = p.asesor || p.reclutadorNombre || (catalogoUsuarios[recId] ? catalogoUsuarios[recId].nombre : 'Sin Asignar');
+                
+                let empresaNombreDisplay = nombreEmpresaCatalogo || "⚠️ Sin Empresa Asignada";
+                let vacanteDisplay = p.vacante || p.vacanteInteres || "⚠️ Sin Vacante Asignada";
 
-                let mensajeWhatsApp = `Hola *${p.nombre}*, te saludamos de Reclutamiento. Con respecto a tu postulación para *${vacanteDisplay}* en *${empresaNombreDisplay}*, tu estatus es: *${estatusActual}*.`;
-                if (estatusActual === "En Entrevista" && p.diaEntrevista) {
-                    mensajeWhatsApp += ` Cita agendada para: *${p.diaEntrevista}*.`;
+                let mensajeWhatsApp = `Hola *${p.nombre}*, te saludamos de Reclutamiento. Con respecto a tu postulación para *${vacanteDisplay}* en la empresa *${empresaNombreDisplay}*, te informamos que tu estatus actual es: *${estatusActual}*.`;
+                if(estatusActual === "En Entrevista" && p.diaEntrevista) {
+                    mensajeWhatsApp += ` Recuerda que tu cita está agendada para: *${p.diaEntrevista}*.`;
                 }
 
                 const urlWhatsApp = `https://wa.me/52${p.telefono}?text=${encodeURIComponent(mensajeWhatsApp)}`;
 
-                // Construcción del Nodo
-                const tr = document.createElement("tr");
-                tr.className = "hover:bg-[#15264a]/30 transition-colors";
-                tr.innerHTML = `
-                    <td class="p-3"><span class="px-2.5 py-1 text-xs font-bold rounded shadow-sm ${claseSemaforo}">${estatusActual}</span></td>
-                    <td class="p-3"><div class="font-bold text-white">${p.nombre || 'Sin Nombre'}</div><div class="text-xs text-[#94a3b8]">${p.telefono || 'Sin Teléfono'}</div></td>
-                    <td class="p-3"><div class="font-mono text-xs text-amber-300 font-bold">${p.curp || 'SIN CURP'}</div><div class="text-xs text-[#94a3b8]">${p.sexo || 'No definido'} • ${p.edad || 0} años</div></td>
-                    <td class="p-3"><div class="text-xs font-semibold text-[#ff6600]">${empresaNombreDisplay}</div><div class="text-xs font-bold text-slate-200">${vacanteDisplay}</div></td>
-                    <td class="p-3"><div class="text-xs text-amber-400 font-bold"><i class="fas fa-user-check"></i> Rec: ${reclutadorDisplay}</div><div class="text-xs text-slate-300">🗓️ Cita: <span class="font-semibold text-amber-300">${citaTexto}</span></div></td>
-                    <td class="p-3 text-center">
-                        <div class="flex justify-center items-center gap-2">
-                            <a href="${urlWhatsApp}" target="_blank" title="Enviar WhatsApp" class="bg-green-600 hover:bg-green-500 text-white p-2 rounded-xl shadow transition-all"><i class="fab fa-whatsapp"></i></a>
-                            <button onclick="abrirModalEditar('${id}')" title="Editar" class="bg-blue-600 hover:bg-blue-500 text-white p-2 rounded-xl shadow transition-all"><i class="fas fa-user-edit"></i></button>
-                            <button onclick="eliminarPostulante('${id}')" title="Borrar" class="bg-red-600 hover:bg-red-500 text-white p-2 rounded-xl shadow transition-all"><i class="fas fa-trash-alt"></i></button>
-                        </div>
-                    </td>
+                tabla.innerHTML += `
+                    <tr class="hover:bg-[#15264a]/30 transition-colors">
+                        <td class="p-3">
+                            <span class="px-2.5 py-1 text-xs font-bold rounded shadow-sm ${claseSemaforo}">
+                                ${estatusActual}
+                            </span>
+                        </td>
+                        <td class="p-3">
+                            <div class="font-bold text-white">${p.nombre || 'Sin Nombre'}</div>
+                            <div class="text-xs text-[#94a3b8]">${p.telefono || 'Sin Teléfono'}</div>
+                        </td>
+                        <td class="p-3">
+                            <div class="font-mono text-xs text-amber-300 font-bold">${p.curp || 'SIN CURP'}</div>
+                            <div class="text-xs text-[#94a3b8]">${p.sexo || 'No definido'} • ${p.edad || 0} años</div>
+                        </td>
+                        <td class="p-3">
+                            <div class="text-xs font-semibold text-[#ff6600]">${empresaNombreDisplay}</div>
+                            <div class="text-xs font-bold text-slate-200">${vacanteDisplay}</div>
+                        </td>
+                        <td class="p-3">
+                            <div class="text-xs text-amber-400 font-bold"><i class="fas fa-user-check"></i> Rec: ${reclutadorDisplay}</div>
+                            <div class="text-xs text-slate-300">🗓️ Cita: <span class="font-semibold text-amber-300">${citaTexto}</span></div>
+                        </td>
+                        <td class="p-3 text-center">
+                            <div class="flex justify-center items-center gap-2">
+                                <a href="${urlWhatsApp}" target="_blank" title="Enviar WhatsApp Inteligente" class="bg-green-600 hover:bg-green-500 text-white p-2 rounded-xl shadow transition-all">
+                                    <i class="fab fa-whatsapp"></i>
+                                </a>
+                                <button onclick="abrirModalEditar('${id}')" title="Gestión y Reasignación" class="bg-blue-600 hover:bg-blue-500 text-white p-2 rounded-xl shadow transition-all">
+                                    <i class="fas fa-user-edit"></i>
+                                </button>
+                                <button onclick="eliminarPostulante('${id}')" title="Borrar Registro" class="bg-red-600 hover:bg-red-500 text-white p-2 rounded-xl shadow transition-all">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
                 `;
-                fragment.appendChild(tr);
             });
 
-            tabla.appendChild(fragment);
             document.getElementById("txtTotalPostulados").innerText = totalContados;
             
             if (typeof actualizarGraficosDemograficos === 'function') {
@@ -890,11 +914,25 @@
                 .catch(err => alert("Error al guardar: " + err.message));
         }
 
-        async function depurarYUnificarOperadorJoseAntonio() {
-            const UID_OFICIAL = "SYS_ADMIN_01";
-            const NOMBRE_OFICIAL = "Jose Antonio Valladares Cid";
+        /**
+         * Depurar y Unificar Operador Universal
+         * Toma el operador activo del filtro '#filtroOperador' y consolida sus candidatos
+         * unificando IDs y nombres en Firebase, eliminando usuarios duplicados.
+         */
+        async function depurarYUnificarOperadorSeleccionado() {
+            const filtroOperadorSelect = document.getElementById("filtroOperador");
+            const opUidSeleccionado = filtroOperadorSelect ? filtroOperadorSelect.value : "TODOS";
 
-            if (!confirm(`¿Deseas iniciar la depuración y unificación para ${NOMBRE_OFICIAL}?\n\nEsto asociará todos sus postulantes al UID oficial (${UID_OFICIAL}) y eliminará registros de usuario duplicados.`)) {
+            if (opUidSeleccionado === "TODOS" || !opUidSeleccionado) {
+                alert("⚠️ Selecciona primero un operador específico en el filtro 'Operador / Reclutador' para realizar su depuración y unificación.");
+                return;
+            }
+
+            const datosOperador = catalogoUsuarios[opUidSeleccionado] || {};
+            const nombreOficial = datosOperador.nombre || datosOperador.usuario || "Operador Desconocido";
+            const primerNombre = nombreOficial.split(" ")[0].toLowerCase();
+
+            if (!confirm(`¿Deseas iniciar la depuración y unificación para el operador:\n"${nombreOficial}"?\n\n• UID Oficial: ${opUidSeleccionado}\n• Esto asociará todos sus postulantes a su UID oficial y limpiará perfiles de usuario duplicados en la base de datos.`)) {
                 return;
             }
 
@@ -910,28 +948,33 @@
 
                 const updatesCandidatos = {};
 
-                // A. UNIFICAR CANDIDATOS
+                // A. UNIFICAR CANDIDATOS DEL OPERADOR SELECCIONADO
                 Object.entries(postulantes).forEach(([candId, p]) => {
                     if (!p) return;
 
                     const recId = p.reclutadorId || p.agenteId || "";
                     const recNombre = (p.reclutadorNombre || p.asesor || "").toLowerCase();
 
-                    if (recNombre.includes("jose antonio") || recNombre.includes("valladares") || recId.includes("jose") || recId === UID_OFICIAL) {
-                        updatesCandidatos[`postulantes/${candId}/reclutadorId`] = UID_OFICIAL;
-                        updatesCandidatos[`postulantes/${candId}/reclutadorNombre`] = NOMBRE_OFICIAL;
-                        updatesCandidatos[`postulantes/${candId}/asesor`] = NOMBRE_OFICIAL;
+                    // Coincide si tiene su UID actual o si su nombre contiene el primer nombre/término clave del operador
+                    const coincideId = (recId === opUidSeleccionado);
+                    const coincideNombre = recNombre.includes(nombreOficial.toLowerCase()) || (primerNombre.length > 3 && recNombre.includes(primerNombre));
+
+                    if (coincideId || coincideNombre) {
+                        updatesCandidatos[`postulantes/${candId}/reclutadorId`] = opUidSeleccionado;
+                        updatesCandidatos[`postulantes/${candId}/reclutadorNombre`] = nombreOficial;
+                        updatesCandidatos[`postulantes/${candId}/asesor`] = nombreOficial;
                         candidatosMigrados++;
                     }
                 });
 
-                // B. LIMPIAR CATÁLOGO DE USUARIOS DUPLICADOS
+                // B. LIMPIAR CATÁLOGO DE USUARIOS DUPLICADOS PARA ESTE OPERADOR
                 Object.entries(usuarios).forEach(([uUid, uData]) => {
                     if (!uData) return;
 
                     const uNombre = (uData.nombre || uData.usuario || "").toLowerCase();
 
-                    if ((uNombre.includes("jose antonio") || uNombre.includes("valladares")) && uUid !== UID_OFICIAL) {
+                    // Si coincide con el nombre pero tiene un UID distinto al oficial, es un duplicado
+                    if (uUid !== opUidSeleccionado && (uNombre.includes(nombreOficial.toLowerCase()) || (primerNombre.length > 3 && uNombre.includes(primerNombre)))) {
                         updatesCandidatos[`usuarios_reclutadores/${uUid}`] = null;
                         usuariosBorrados++;
                     }
@@ -939,12 +982,19 @@
 
                 if (Object.keys(updatesCandidatos).length > 0) {
                     await db.ref().update(updatesCandidatos);
-                    alert(`✅ Saneamiento Exitoso:\n• ${candidatosMigrados} candidatos unificados a ${NOMBRE_OFICIAL}.\n• ${usuariosBorrados} registros duplicados de usuario eliminados.`);
+                    
+                    registrarAuditoriaLog("UNIFICACION_UNIVERSAL_OPERADOR", opUidSeleccionado, {
+                        operador: nombreOficial,
+                        candidatosConsolidados: candidatosMigrados,
+                        usuariosEliminados: usuariosBorrados
+                    });
+
+                    alert(`✅ Depuración Exitosa para [${nombreOficial}]:\n• ${candidatosMigrados} candidatos unificados con UID oficial.\n• ${usuariosBorrados} perfiles duplicados de usuario eliminados.`);
                 } else {
-                    alert("ℹ️ No se encontraron registros inconsistentes para depurar.");
+                    alert(`ℹ️ No se encontraron registros inconsistentes para depurar en la cuenta de ${nombreOficial}.`);
                 }
             } catch (err) {
-                alert("Error durante la depuración: " + err.message);
+                alert("Error durante la depuración del operador: " + err.message);
             }
         }
 
