@@ -103,7 +103,7 @@
             </div>
         </div>
 
-        <!-- FILTROS MAESTROS EN CASCADA Y SUPERVISIÓN (OPCIÓN A IMPLEMENTADA) -->
+        <!-- FILTROS MAESTROS EN CASCADA -->
         <div class="bg-[#0d1b3e] p-4 rounded-xl border border-blue-900/30 mb-6 grid grid-cols-1 md:grid-cols-3 gap-4 shadow-inner">
             <div>
                 <label class="block text-xs font-bold uppercase text-[#ff6600] mb-1"><i class="fas fa-filter"></i> Filtrar por Empresa</label>
@@ -164,13 +164,13 @@
 
     </div>
 
-    <!-- MODAL INTEGRADO PARA EDICIÓN Y REASIGNACIÓN TRANSPARENTE -->
+    <!-- MODAL INTEGRADO PARA EDICIÓN INTEGRAL Y SANEAMIENTO -->
     <div id="modalEditar" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 transition-opacity">
-        <div class="bg-[#0d1b3e] border-2 border-[#ff6600] rounded-xl shadow-2xl max-w-lg w-full p-6 relative">
+        <div class="bg-[#0d1b3e] border-2 border-[#ff6600] rounded-xl shadow-2xl max-w-lg w-full p-6 relative max-h-[90vh] overflow-y-auto">
             <button type="button" onclick="cerrarModal()" class="absolute top-3 right-4 text-[#94a3b8] hover:text-[#ff6600] text-2xl font-bold transition-colors">&times;</button>
             
-            <h2 class="text-lg font-bold text-white mb-1 flex items-center gap-2"><i class="fas fa-user-edit text-[#ff6600]"></i> Gestión de Expediente y Asignación</h2>
-            <p class="text-xs text-[#94a3b8] mb-4">Los cambios de operador se registrarán en la Caja Negra (Módulo 7).</p>
+            <h2 class="text-lg font-bold text-white mb-1 flex items-center gap-2"><i class="fas fa-user-edit text-[#ff6600]"></i> Edición Integral y Saneamiento</h2>
+            <p class="text-xs text-[#94a3b8] mb-4">Ajusta o desvincula empresa/vacante para sanear la base de datos.</p>
             
             <input type="hidden" id="editId">
             <input type="hidden" id="originalReclutadorId">
@@ -192,6 +192,28 @@
                     <input type="text" id="editCurp" class="w-full bg-[#15264a] border border-blue-950 text-white rounded-lg p-2 text-sm font-mono focus:outline-none focus:border-[#ff6600]">
                 </div>
 
+                <!-- REASIGNACIÓN DE EMPRESA Y VACANTE -->
+                <div class="bg-[#0a1426] p-3 rounded-lg border border-orange-500/30 space-y-3">
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-[#ff6600] mb-1 flex items-center gap-1">
+                            <i class="fas fa-building"></i> Empresa Asignada
+                        </label>
+                        <select id="editEmpresa" onchange="alCambiarEmpresaEnModal()" class="w-full bg-[#15264a] border border-blue-950 text-white rounded-lg p-2 text-sm focus:outline-none focus:border-[#ff6600]">
+                            <!-- Inyección dinámica -->
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-[#ff6600] mb-1 flex items-center gap-1">
+                            <i class="fas fa-briefcase"></i> Vacante Asignada
+                        </label>
+                        <select id="editVacante" class="w-full bg-[#15264a] border border-blue-950 text-white rounded-lg p-2 text-sm focus:outline-none focus:border-[#ff6600]">
+                            <!-- Inyección dinámica -->
+                        </select>
+                    </div>
+                </div>
+
+                <!-- REASIGNACIÓN DE OPERADOR -->
                 <div class="bg-[#0a1426] p-3 rounded-lg border border-amber-500/30">
                     <label class="block text-xs font-bold uppercase text-amber-400 mb-1 flex items-center gap-2">
                         <i class="fas fa-user-check"></i> Asignar / Reasignar Operador Responsable
@@ -282,6 +304,7 @@
         let todosLosPostulantes = {};
         let catalogoEmpresas = {};
         let catalogoUsuarios = {};
+        let catalogoVacantesDetalles = {};
         let chartSexoInstance = null;
         let chartEdadInstance = null;
 
@@ -354,10 +377,11 @@
                 todosLosPostulantes = data.modulo_3_agenda || data.postulantes || {};
                 catalogoEmpresas = data.empresas || {};
                 catalogoUsuarios = data.usuarios_reclutadores || {};
+                catalogoVacantesDetalles = data.vacantes_detalles || {};
 
                 let totalVacantes = 0;
-                if (data.vacantes_detalles) {
-                    Object.entries(data.vacantes_detalles).forEach(([empKey, empresaVac]) => {
+                if (catalogoVacantesDetalles) {
+                    Object.entries(catalogoVacantesDetalles).forEach(([empKey, empresaVac]) => {
                         if (empresaVac && (usuarioSesion.todasLasEmpresas || usuarioSesion.empresas.includes(empKey))) {
                             totalVacantes += Object.keys(empresaVac).length; 
                         }
@@ -438,13 +462,9 @@
             if (selEdit) editReclutador.value = selEdit;
         }
 
-        // --- OPCIÓN B: FUNCIONES JS CORREGIDAS (MANEJO EN CASCADA Y MAPEO DE VACANTES) ---
-
         function alCambiarEmpresa() {
-            // Resetear el filtro de vacante a TODAS para evitar bloqueos por incongruencia de catálogo
             document.getElementById("filtroVacante").value = "TODAS";
             
-            // Recargar dinámicamente las vacantes asociadas a la empresa seleccionada
             db.ref().once("value", (snap) => {
                 actualizarFiltroVacantes(snap.val() || {});
                 cargarPostulantes();
@@ -459,7 +479,6 @@
             filtroVacante.innerHTML = '<option value="TODAS">-- Todas las Vacantes --</option>';
             const vacantesSet = new Set();
 
-            // 1. Extraer vacantes desde el nodo principal 'vacantes_detalles'
             if (data.vacantes_detalles) {
                 if (empresaSel === "TODAS") {
                     Object.values(data.vacantes_detalles).forEach(empVac => {
@@ -476,7 +495,6 @@
                 }
             }
 
-            // 2. Coincidencia secundaria desde postulantes (Garantiza mapeo de vacantes huérfanas o directas)
             Object.values(todosLosPostulantes).forEach(p => {
                 const empCandidate = p.empresaId || p.empresa || p.empresa_id;
                 
@@ -484,17 +502,15 @@
                     (empCandidate === empresaSel) || 
                     (catalogoEmpresas[empresaSel] && catalogoEmpresas[empresaSel].nombre === empCandidate);
 
-                if (coincideEmpresa && p.vacante) {
+                if (coincideEmpresa && p.vacante && p.vacante !== "SIN_VACANTE") {
                     vacantesSet.add(p.vacante.trim());
                 }
             });
 
-            // Construcción visual del selector
             Array.from(vacantesSet).sort().forEach(v => {
                 filtroVacante.innerHTML += `<option value="${v}">${v}</option>`;
             });
 
-            // Reasignar la selección si aún existe en el conjunto filtrado
             if (vacantePrevio && filtroVacante.querySelector(`option[value="${vacantePrevio}"]`)) {
                 filtroVacante.value = vacantePrevio;
             }
@@ -575,9 +591,10 @@
 
                 let citaTexto = p.diaEntrevista || 'Por agendar';
                 let reclutadorDisplay = p.reclutadorNombre || (catalogoUsuarios[recId] ? catalogoUsuarios[recId].nombre : 'Sin Asignar');
-                let empresaNombreDisplay = nombreEmpresaCatalogo || empCandidateRaw || 'Empresa No Definida';
+                let empresaNombreDisplay = nombreEmpresaCatalogo || (empCandidateRaw === "SIN_EMPRESA" ? "⚠️ Sin Empresa Asignada" : empCandidateRaw) || 'Empresa No Definida';
+                let vacanteDisplay = (p.vacante === "SIN_VACANTE" || !p.vacante) ? "⚠️ Sin Vacante Asignada" : p.vacante;
 
-                let mensajeWhatsApp = `Hola *${p.nombre}*, te saludamos de Reclutamiento. Con respecto a tu postulación para *${p.vacante}* en la empresa *${empresaNombreDisplay}*, te informamos que tu estatus actual es: *${estatusActual}*.`;
+                let mensajeWhatsApp = `Hola *${p.nombre}*, te saludamos de Reclutamiento. Con respecto a tu postulación para *${vacanteDisplay}* en la empresa *${empresaNombreDisplay}*, te informamos que tu estatus actual es: *${estatusActual}*.`;
                 if(estatusActual === "En Entrevista" && p.diaEntrevista) {
                     mensajeWhatsApp += ` Recuerda que tu cita está agendada para el día y hora: *${p.diaEntrevista}*.`;
                 }
@@ -601,7 +618,7 @@
                         </td>
                         <td class="p-3">
                             <div class="text-xs font-semibold text-[#ff6600]">${empresaNombreDisplay}</div>
-                            <div class="text-xs font-bold text-slate-200">${p.vacante || 'Sin Vacante'}</div>
+                            <div class="text-xs font-bold text-slate-200">${vacanteDisplay}</div>
                         </td>
                         <td class="p-3">
                             <div class="text-xs text-amber-400 font-bold"><i class="fas fa-user-check"></i> Rec: ${reclutadorDisplay}</div>
@@ -678,6 +695,8 @@
             });
         }
 
+        // --- LÓGICA DE EDICIÓN INTEGRAL (EMPRESA, VACANTE, RECLUTADOR, CURP Y SANEAMIENTO) ---
+
         function abrirModalEditar(id) {
             const p = todosLosPostulantes[id];
             document.getElementById("editId").value = id;
@@ -689,6 +708,29 @@
             const recId = p.reclutadorId || p.agenteId || "";
             document.getElementById("editReclutador").value = recId;
             document.getElementById("originalReclutadorId").value = recId;
+
+            // Poblar selector de Empresas en el Modal
+            const editEmpresa = document.getElementById("editEmpresa");
+            editEmpresa.innerHTML = '<option value="SIN_EMPRESA">-- Sin Empresa / Empresa Removida --</option>';
+
+            const currentEmpresa = p.empresaId || p.empresa || p.empresa_id || "";
+
+            Object.entries(catalogoEmpresas).forEach(([eKey, eVal]) => {
+                const nombreEmp = eVal.nombre || eKey;
+                editEmpresa.innerHTML += `<option value="${eKey}">${nombreEmp}</option>`;
+            });
+
+            if (catalogoEmpresas[currentEmpresa]) {
+                editEmpresa.value = currentEmpresa;
+            } else if (currentEmpresa && currentEmpresa !== "SIN_EMPRESA") {
+                // Si la empresa original ya no existe en catálogo, agregarla señalada
+                editEmpresa.innerHTML += `<option value="${currentEmpresa}" selected>⚠️ [Descontinuada] ${currentEmpresa}</option>`;
+            } else {
+                editEmpresa.value = "SIN_EMPRESA";
+            }
+
+            // Refrescar selector de Vacantes en el Modal
+            poblarVacantesEnModal(p.vacante);
 
             let diaGuardado = "";
             let horaGuardada = "";
@@ -706,6 +748,36 @@
             document.getElementById("modalEditar").classList.remove("hidden");
         }
 
+        function alCambiarEmpresaEnModal() {
+            poblarVacantesEnModal("");
+        }
+
+        function poblarVacantesEnModal(vacanteActual) {
+            const empSel = document.getElementById("editEmpresa").value;
+            const editVacante = document.getElementById("editVacante");
+            
+            editVacante.innerHTML = '<option value="SIN_VACANTE">-- Sin Vacante / Vacante Removida --</option>';
+
+            if (empSel !== "SIN_EMPRESA" && catalogoVacantesDetalles[empSel]) {
+                Object.values(catalogoVacantesDetalles[empSel]).forEach(v => {
+                    if (v && v.vacanteNombre) {
+                        editVacante.innerHTML += `<option value="${v.vacanteNombre}">${v.vacanteNombre}</option>`;
+                    }
+                });
+            }
+
+            if (vacanteActual && vacanteActual !== "SIN_VACANTE") {
+                if (editVacante.querySelector(`option[value="${vacanteActual}"]`)) {
+                    editVacante.value = vacanteActual;
+                } else {
+                    // Si la vacante seleccionada originalmente no existe en la empresa elegida, agregarla señalada
+                    editVacante.innerHTML += `<option value="${vacanteActual}" selected>⚠️ [Descontinuada] ${vacanteActual}</option>`;
+                }
+            } else {
+                editVacante.value = "SIN_VACANTE";
+            }
+        }
+
         function cerrarModal() {
             document.getElementById("modalEditar").classList.add("hidden");
         }
@@ -715,6 +787,9 @@
             const curpIngresada = document.getElementById("editCurp").value.trim().toUpperCase();
             const nuevoRecId = document.getElementById("editReclutador").value;
             const originalRecId = document.getElementById("originalReclutadorId").value;
+            
+            const nuevaEmpresa = document.getElementById("editEmpresa").value;
+            const nuevaVacante = document.getElementById("editVacante").value;
 
             if (!curpIngresada) {
                 alert("⚠️ La CURP es obligatoria como campo vinculante.");
@@ -748,6 +823,9 @@
                 estatus: document.getElementById("editEstatus").value,
                 reclutadorId: nuevoRecId,
                 reclutadorNombre: nuevoRecNombre,
+                empresaId: nuevaEmpresa,
+                empresa: nuevaEmpresa,
+                vacante: nuevaVacante,
                 diaEntrevista: fechaStringConsolidada,
                 fechaActualizacionAdmin: new Date().toISOString()
             };
@@ -762,7 +840,11 @@
                             nuevoOperador: nuevoRecId
                         });
                     } else {
-                        registrarAuditoriaLog("CAMBIO_ESTATUS_POSTULANTE", id, { nuevoEstatus: updates.estatus });
+                        registrarAuditoriaLog("SANEAMIENTO_EDICION_POSTULANTE", id, { 
+                            empresa: nuevaEmpresa,
+                            vacante: nuevaVacante,
+                            estatus: updates.estatus 
+                        });
                     }
                 })
                 .catch(err => alert("Error al guardar: " + err.message));
