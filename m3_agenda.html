@@ -522,32 +522,36 @@
         function cargarPostulantes() {
             const tabla = document.getElementById("tablaPostulantes");
             if (!tabla) return;
+
+            // Uso de DocumentFragment para evitar reflujo innecesario del DOM
+            const fragment = document.createDocumentFragment();
             tabla.innerHTML = "";
 
-            const empresaFiltro = document.getElementById("filtroEmpresa") ? document.getElementById("filtroEmpresa").value : "TODAS";
-            const vacanteFiltro = document.getElementById("filtroVacante") ? document.getElementById("filtroVacante").value : "TODAS";
-            const operadorFiltro = document.getElementById("filtroOperador") ? document.getElementById("filtroOperador").value : "TODOS";
+            const empresaFiltro = document.getElementById("filtroEmpresa")?.value || "TODAS";
+            const vacanteFiltro = document.getElementById("filtroVacante")?.value || "TODAS";
+            const operadorFiltro = document.getElementById("filtroOperador")?.value || "TODOS";
 
-            let metricaSexo = { Masculino: 0, Femenino: 0, Otro: 0 };
-            let metricaEdad = { "18-25": 0, "26-35": 0, "36-45": 0, "46+": 0 };
+            const metricaSexo = { Masculino: 0, Femenino: 0, Otro: 0 };
+            const metricaEdad = { "18-25": 0, "26-35": 0, "36-45": 0, "46+": 0 };
             let totalContados = 0;
 
             if (!todosLosPostulantes || typeof todosLosPostulantes !== 'object') return;
 
-            // Datos del Operador Seleccionado en el Filtro
+            // Normalización de filtro de operador
             const objetoOpFiltro = catalogoUsuarios[operadorFiltro] || {};
             const nombreOpFiltro = (objetoOpFiltro.nombre || objetoOpFiltro.usuario || "").toLowerCase().trim();
+            const opFiltroLower = operadorFiltro.toLowerCase().trim();
 
-            const postulantesEntradas = Object.entries(todosLosPostulantes);
-
-            postulantesEntradas.forEach(([id, p]) => {
+            Object.entries(todosLosPostulantes).forEach(([id, p]) => {
                 if (!p) return;
 
+                // Normalización de Campos Primarios
                 const empCandidateRaw = p.empresaId || p.empresa_id || p.empresa || "";
+                const vacanteDisplay = p.vacante || p.vacanteInteres || "⚠️ Sin Vacante Asignada";
                 const recId = p.reclutadorId || p.agenteId || "";
                 const recNombre = (p.reclutadorNombre || p.asesor || "").toLowerCase().trim();
 
-                // 1. Permisos por Rol
+                // 1. Módulo de Seguridad y Permisos
                 if (usuarioSesion.rol === "Reclutador" || usuarioSesion.rol === "Implant") {
                     if (recId !== usuarioSesion.uid && !recNombre.includes(usuarioSesion.nombre.toLowerCase())) return;
                 } else if (usuarioSesion.rol === "Coordinador") {
@@ -556,28 +560,22 @@
                     if (!esMio && !esDeMiEquipo) return;
                 }
 
-                // 2. FILTRO DE OPERADOR/RECLUTADOR TOLERANTE A ID Y NOMBRE MULTICLAVE
+                // 2. Filtrado Avanzado por Operador
                 if (operadorFiltro !== "TODOS") {
-                    const coincidePorId = (recId === operadorFiltro);
-                    const coincidePorNombre = (nombreOpFiltro && recNombre.includes(nombreOpFiltro));
-                    const coincidePorNombreDirecto = recNombre && recNombre.includes(operadorFiltro.toLowerCase().trim());
-
-                    if (!coincidePorId && !coincidePorNombre && !coincidePorNombreDirecto) {
-                        return;
-                    }
+                    const coincide = (recId === operadorFiltro) || 
+                                     (nombreOpFiltro && recNombre.includes(nombreOpFiltro)) || 
+                                     (recNombre && recNombre.includes(opFiltroLower));
+                    if (!coincide) return;
                 }
 
-                // 3. Recuperación de Empresa
+                // 3. Resolución y Filtrado por Empresa
                 const datosEmpresaCatalogo = (catalogoEmpresas && catalogoEmpresas[empCandidateRaw]) || {};
                 const nombreEmpresaCatalogo = datosEmpresaCatalogo.nombre 
                     || (p.empresa && p.empresa !== "SIN_EMPRESA" ? p.empresa : null)
                     || (empCandidateRaw !== "SIN_EMPRESA" ? empCandidateRaw : null);
 
                 if (empresaFiltro !== "TODAS") {
-                    const filtroNombre = (catalogoEmpresas[empresaFiltro] && catalogoEmpresas[empresaFiltro].nombre) 
-                        ? catalogoEmpresas[empresaFiltro].nombre.toLowerCase() 
-                        : empresaFiltro.toLowerCase();
-                    
+                    const filtroNombre = catalogoEmpresas[empresaFiltro]?.nombre?.toLowerCase() || empresaFiltro.toLowerCase();
                     const matchesKey = empCandidateRaw.toLowerCase() === empresaFiltro.toLowerCase();
                     const matchesNombre = nombreEmpresaCatalogo ? nombreEmpresaCatalogo.toLowerCase() === filtroNombre : false;
 
@@ -588,15 +586,13 @@
                     return;
                 }
 
+                // 4. Filtrado por Vacante
                 if (vacanteFiltro !== "TODAS" && (p.vacante !== vacanteFiltro && p.vacanteInteres !== vacanteFiltro)) return;
 
+                // Métricas e Incrementos
                 totalContados++;
-
-                if (p.sexo === "Masculino" || p.sexo === "Femenino") {
-                    metricaSexo[p.sexo]++;
-                } else {
-                    metricaSexo["Otro"]++;
-                }
+                if (p.sexo === "Masculino" || p.sexo === "Femenino") metricaSexo[p.sexo]++;
+                else metricaSexo["Otro"]++;
 
                 const edadNum = parseInt(p.edad) || 0;
                 if (edadNum >= 18 && edadNum <= 25) metricaEdad["18-25"]++;
@@ -604,67 +600,47 @@
                 else if (edadNum >= 36 && edadNum <= 45) metricaEdad["36-45"]++;
                 else if (edadNum > 45) metricaEdad["46+"]++;
 
+                // Semáforo de Estatus
                 let claseSemaforo = "status-postulado";
-                let estatusActual = p.estatus || "Postulado";
-
+                const estatusActual = p.estatus || "Postulado";
                 if (estatusActual === "En Entrevista") claseSemaforo = "status-entrevista";
                 else if (estatusActual === "Inducción") claseSemaforo = "status-induccion";
                 else if (estatusActual === "Contratado") claseSemaforo = "status-contratado";
                 else if (estatusActual === "Declinante") claseSemaforo = "status-declinante";
 
-                let citaTexto = p.diaEntrevista || 'Por agendar';
-                let reclutadorDisplay = p.asesor || p.reclutadorNombre || (catalogoUsuarios[recId] ? catalogoUsuarios[recId].nombre : 'Sin Asignar');
-                
-                let empresaNombreDisplay = nombreEmpresaCatalogo || "⚠️ Sin Empresa Asignada";
-                let vacanteDisplay = p.vacante || p.vacanteInteres || "⚠️ Sin Vacante Asignada";
+                // Preparación de UI
+                const citaTexto = p.diaEntrevista || 'Por agendar';
+                const reclutadorDisplay = p.asesor || p.reclutadorNombre || (catalogoUsuarios[recId] ? catalogoUsuarios[recId].nombre : 'Sin Asignar');
+                const empresaNombreDisplay = nombreEmpresaCatalogo || "⚠️ Sin Empresa Asignada";
 
-                let mensajeWhatsApp = `Hola *${p.nombre}*, te saludamos de Reclutamiento. Con respecto a tu postulación para *${vacanteDisplay}* en la empresa *${empresaNombreDisplay}*, te informamos que tu estatus actual es: *${estatusActual}*.`;
-                if(estatusActual === "En Entrevista" && p.diaEntrevista) {
-                    mensajeWhatsApp += ` Recuerda que tu cita está agendada para: *${p.diaEntrevista}*.`;
+                let mensajeWhatsApp = `Hola *${p.nombre}*, te saludamos de Reclutamiento. Con respecto a tu postulación para *${vacanteDisplay}* en *${empresaNombreDisplay}*, tu estatus es: *${estatusActual}*.`;
+                if (estatusActual === "En Entrevista" && p.diaEntrevista) {
+                    mensajeWhatsApp += ` Cita agendada para: *${p.diaEntrevista}*.`;
                 }
 
                 const urlWhatsApp = `https://wa.me/52${p.telefono}?text=${encodeURIComponent(mensajeWhatsApp)}`;
 
-                tabla.innerHTML += `
-                    <tr class="hover:bg-[#15264a]/30 transition-colors">
-                        <td class="p-3">
-                            <span class="px-2.5 py-1 text-xs font-bold rounded shadow-sm ${claseSemaforo}">
-                                ${estatusActual}
-                            </span>
-                        </td>
-                        <td class="p-3">
-                            <div class="font-bold text-white">${p.nombre || 'Sin Nombre'}</div>
-                            <div class="text-xs text-[#94a3b8]">${p.telefono || 'Sin Teléfono'}</div>
-                        </td>
-                        <td class="p-3">
-                            <div class="font-mono text-xs text-amber-300 font-bold">${p.curp || 'SIN CURP'}</div>
-                            <div class="text-xs text-[#94a3b8]">${p.sexo || 'No definido'} • ${p.edad || 0} años</div>
-                        </td>
-                        <td class="p-3">
-                            <div class="text-xs font-semibold text-[#ff6600]">${empresaNombreDisplay}</div>
-                            <div class="text-xs font-bold text-slate-200">${vacanteDisplay}</div>
-                        </td>
-                        <td class="p-3">
-                            <div class="text-xs text-amber-400 font-bold"><i class="fas fa-user-check"></i> Rec: ${reclutadorDisplay}</div>
-                            <div class="text-xs text-slate-300">🗓️ Cita: <span class="font-semibold text-amber-300">${citaTexto}</span></div>
-                        </td>
-                        <td class="p-3 text-center">
-                            <div class="flex justify-center items-center gap-2">
-                                <a href="${urlWhatsApp}" target="_blank" title="Enviar WhatsApp Inteligente" class="bg-green-600 hover:bg-green-500 text-white p-2 rounded-xl shadow transition-all">
-                                    <i class="fab fa-whatsapp"></i>
-                                </a>
-                                <button onclick="abrirModalEditar('${id}')" title="Gestión y Reasignación" class="bg-blue-600 hover:bg-blue-500 text-white p-2 rounded-xl shadow transition-all">
-                                    <i class="fas fa-user-edit"></i>
-                                </button>
-                                <button onclick="eliminarPostulante('${id}')" title="Borrar Registro" class="bg-red-600 hover:bg-red-500 text-white p-2 rounded-xl shadow transition-all">
-                                    <i class="fas fa-trash-alt"></i>
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
+                // Construcción del Nodo
+                const tr = document.createElement("tr");
+                tr.className = "hover:bg-[#15264a]/30 transition-colors";
+                tr.innerHTML = `
+                    <td class="p-3"><span class="px-2.5 py-1 text-xs font-bold rounded shadow-sm ${claseSemaforo}">${estatusActual}</span></td>
+                    <td class="p-3"><div class="font-bold text-white">${p.nombre || 'Sin Nombre'}</div><div class="text-xs text-[#94a3b8]">${p.telefono || 'Sin Teléfono'}</div></td>
+                    <td class="p-3"><div class="font-mono text-xs text-amber-300 font-bold">${p.curp || 'SIN CURP'}</div><div class="text-xs text-[#94a3b8]">${p.sexo || 'No definido'} • ${p.edad || 0} años</div></td>
+                    <td class="p-3"><div class="text-xs font-semibold text-[#ff6600]">${empresaNombreDisplay}</div><div class="text-xs font-bold text-slate-200">${vacanteDisplay}</div></td>
+                    <td class="p-3"><div class="text-xs text-amber-400 font-bold"><i class="fas fa-user-check"></i> Rec: ${reclutadorDisplay}</div><div class="text-xs text-slate-300">🗓️ Cita: <span class="font-semibold text-amber-300">${citaTexto}</span></div></td>
+                    <td class="p-3 text-center">
+                        <div class="flex justify-center items-center gap-2">
+                            <a href="${urlWhatsApp}" target="_blank" title="Enviar WhatsApp" class="bg-green-600 hover:bg-green-500 text-white p-2 rounded-xl shadow transition-all"><i class="fab fa-whatsapp"></i></a>
+                            <button onclick="abrirModalEditar('${id}')" title="Editar" class="bg-blue-600 hover:bg-blue-500 text-white p-2 rounded-xl shadow transition-all"><i class="fas fa-user-edit"></i></button>
+                            <button onclick="eliminarPostulante('${id}')" title="Borrar" class="bg-red-600 hover:bg-red-500 text-white p-2 rounded-xl shadow transition-all"><i class="fas fa-trash-alt"></i></button>
+                        </div>
+                    </td>
                 `;
+                fragment.appendChild(tr);
             });
 
+            tabla.appendChild(fragment);
             document.getElementById("txtTotalPostulados").innerText = totalContados;
             
             if (typeof actualizarGraficosDemograficos === 'function') {
@@ -914,10 +890,6 @@
                 .catch(err => alert("Error al guardar: " + err.message));
         }
 
-        /**
-         * Depurar y Unificar Operador Máster (José Antonio Valladares Cid)
-         * Consolida candidatos dispersos y limpia el catálogo de duplicados en Firebase
-         */
         async function depurarYUnificarOperadorJoseAntonio() {
             const UID_OFICIAL = "SYS_ADMIN_01";
             const NOMBRE_OFICIAL = "Jose Antonio Valladares Cid";
