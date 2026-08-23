@@ -474,6 +474,7 @@
             });
         }
 
+        // OPTIMIZACIÓN: Lee vacantes puramente vigentes del catálogo activo para prevenir duplicados y fantasmas
         function actualizarFiltroVacantes(data) {
             const filtroVacante = document.getElementById("filtroVacante");
             const empresaSel = document.getElementById("filtroEmpresa").value;
@@ -497,24 +498,6 @@
                     });
                 }
             }
-
-            // Normalizar objeto/arreglo de postulantes
-            const postulantesEntradas = Array.isArray(todosLosPostulantes) 
-                ? todosLosPostulantes.filter(p => p)
-                : Object.values(todosLosPostulantes);
-
-            postulantesEntradas.forEach(p => {
-                if (!p) return;
-                const empCandidate = p.empresaId || p.empresa || p.empresa_id;
-                
-                const coincideEmpresa = (empresaSel === "TODAS") || 
-                    (empCandidate === empresaSel) || 
-                    (catalogoEmpresas[empresaSel] && catalogoEmpresas[empresaSel].nombre === empCandidate);
-
-                if (coincideEmpresa && p.vacante && p.vacante !== "SIN_VACANTE") {
-                    vacantesSet.add(p.vacante.trim());
-                }
-            });
 
             Array.from(vacantesSet).sort().forEach(v => {
                 filtroVacante.innerHTML += `<option value="${v}">${v}</option>`;
@@ -794,6 +777,7 @@
             document.getElementById("modalEditar").classList.add("hidden");
         }
 
+        // OPTIMIZACIÓN: Guarda cambios de forma segura en Firebase y fuerza refresco integral para preservar la lista
         function guardarCambiosAdmin() {
             const id = document.getElementById("editId").value;
             const curpIngresada = document.getElementById("editCurp").value.trim().toUpperCase();
@@ -853,10 +837,20 @@
 
             db.ref(`modulo_3_agenda/${id}`).set(updates)
                 .then(() => {
-                    todosLosPostulantes[id] = updates;
-                    cerrarModal();
-                    cargarPostulantes();
+                    if (Array.isArray(todosLosPostulantes)) {
+                        todosLosPostulantes[parseInt(id)] = updates;
+                    } else {
+                        todosLosPostulantes[id] = updates;
+                    }
                     
+                    cerrarModal();
+
+                    db.ref().once("value", (snap) => {
+                        const data = snap.val() || {};
+                        todosLosPostulantes = data.modulo_3_agenda || data.postulantes || {};
+                        cargarPostulantes();
+                    });
+
                     if (originalRecId !== nuevoRecId) {
                         registrarAuditoriaLog("REASIGNACION_OPERADOR_POSTULANTE", id, {
                             operadorAnterior: originalRecId,
