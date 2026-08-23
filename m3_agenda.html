@@ -816,7 +816,11 @@
             const reclutadorObj = catalogoUsuarios[nuevoRecId] || {};
             const nuevoRecNombre = reclutadorObj.nombre || reclutadorObj.usuario || "Sin Asignar";
 
+            // Se preserva el objeto previo para no perder campos no presentes en el modal (edad, sexo, fechaRegistro, etc.)
+            const postulantePrevio = todosLosPostulantes[id] || {};
+
             const updates = {
+                ...postulantePrevio,
                 nombre: document.getElementById("editNombre").value,
                 telefono: document.getElementById("editTelefono").value,
                 curp: curpIngresada,
@@ -825,14 +829,19 @@
                 reclutadorNombre: nuevoRecNombre,
                 empresaId: nuevaEmpresa,
                 empresa: nuevaEmpresa,
+                empresa_id: nuevaEmpresa,
                 vacante: nuevaVacante,
                 diaEntrevista: fechaStringConsolidada,
                 fechaActualizacionAdmin: new Date().toISOString()
             };
 
-            db.ref(`modulo_3_agenda/${id}`).update(updates)
+            // Actualización integral respetando la estructura completa en Firebase
+            db.ref(`modulo_3_agenda/${id}`).set(updates)
                 .then(() => {
+                    // Se actualiza el diccionario global e inmediatamente se refresca la vista
+                    todosLosPostulantes[id] = updates;
                     cerrarModal();
+                    cargarPostulantes();
                     
                     if (originalRecId !== nuevoRecId) {
                         registrarAuditoriaLog("REASIGNACION_OPERADOR_POSTULANTE", id, {
