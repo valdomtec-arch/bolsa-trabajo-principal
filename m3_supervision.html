@@ -223,63 +223,86 @@
                 }
             });
 
+            // Escuchar directamente los nodos de postulantes y usuarios para evitar pérdida de datos
             onValue(ref(db), (snapshot) => {
                 const data = snapshot.val() || {};
                 
-                // Búsqueda flexible de rutas principales en Firebase
-                const postulantesData = data.modulo_3_agenda || data.modulo3_agenda || data.postulantes || data.candidatos || {};
-                const usuariosData = data.usuarios_reclutadores || data.usuarios || {};
-                cacheUsuarios = usuariosData;
+                // Extraer usuarios
+                cacheUsuarios = data.usuarios_reclutadores || data.usuarios || {};
 
-                procesarDatosSupervision(postulantesData, usuariosData);
+                // Extraer candidatos explorando todos los nodos posibles
+                let candidatosMap = {};
+                
+                if (data.modulo_3_agenda) candidatosMap = data.modulo_3_agenda;
+                else if (data.modulo3_agenda) candidatosMap = data.modulo3_agenda;
+                else if (data.postulantes) candidatosMap = data.postulantes;
+                else if (data.candidatos) candidatosMap = data.candidatos;
+                else {
+                    // Si están en subramas, buscar cualquier rama que contenga objetos candidato
+                    Object.keys(data).forEach(k => {
+                        if (typeof data[k] === 'object' && data[k] !== null && !k.includes('usuario')) {
+                            Object.assign(candidatosMap, data[k]);
+                        }
+                    });
+                }
+
+                procesarDatosSupervision(candidatosMap, cacheUsuarios);
             });
         }
 
-        // NORMALIZACIÓN DE TEXTO Y CARACTERES
         function normalizarTexto(txt) {
             if (!txt) return "";
             return txt.toString()
                 .normalize("NFD")
                 .replace(/[\u0300-\u036f]/g, "")
                 .toLowerCase()
-                .replace(/[^a-z0-9 ]/g, "")
+                .replace(/[^a-z0-9]/g, "")
                 .trim();
         }
 
-        // VALIDACIÓN FLEXIBLE DE PERTENECE A OPERADOR (SOPORTE COMPLETO)
-        function perteneceAlOperador(p, uId, uNombre) {
-            const normNombreUser = normalizarTexto(uNombre);
-            const normUidUser = normalizarTexto(uId);
+        // BÚSQUEDA RECURSIVA EN CUALQUIER NODO DEL OBJETO DEL CANDIDATO
+        function extraerTodosLosValoresString(obj) {
+            let valores = [];
+            if (!obj) return valores;
+            if (typeof obj === 'string' || typeof obj === 'number') {
+                valores.push(obj.toString());
+            } else if (typeof obj === 'object') {
+                Object.values(obj).forEach(val => {
+                    valores = valores.concat(extraerTodosLosValoresString(val));
+                });
+            }
+            return valores;
+        }
 
-            // Búsqueda profunda de UID
-            const idCandidato = normalizarTexto(
-                p.reclutadorId || p.agenteId || p.idUsuario || p.usuarioId || 
-                p.uidReclutador || p.reclutador?.uid || p.reclutador?.id || ""
-            );
+        function perteneceAlOperador(candidatoObj, uId, uNombre) {
+            const uIdNorm = normalizarTexto(uId);
+            const uNombreNorm = normalizarTexto(uNombre);
 
-            // Búsqueda profunda de Nombre
-            const nomCandidato = normalizarTexto(
-                p.reclutadorNombre || p.atendidoPor || p.reclutador || 
-                p.asignadoA || p.creadoPor || p.usuario || p.reclutador?.nombre || ""
-            );
+            // Obtener todos los textos dentro del registro del candidato
+            const stringsEnCandidato = extraerTodosLosValoresString(candidatoObj).map(s => normalizarTexto(s));
 
-            // 1. Coincidencia de UID
-            if (idCandidato && (idCandidato === normUidUser || normUidUser.includes(idCandidato) || idCandidato.includes(normUidUser))) {
+            // 1. Verificar si el UID exacto está en alguna parte del objeto
+            if (uIdNorm && stringsEnCandidato.some(str => str === uIdNorm || str.includes(uIdNorm))) {
                 return true;
             }
 
-            // 2. Coincidencia Flexible por Nombre
-            if (nomCandidato && normNombreUser) {
-                if (nomCandidato === normNombreUser || normNombreUser.includes(nomCandidato) || nomCandidato.includes(normNombreUser)) {
-                    return true;
-                }
+            // 2. Verificar por nombre de operador (coincidencia de palabras clave)
+            if (uNombreNorm) {
+                const palabrasNombreUser = uNombreNorm.split(/(?:)/).filter(p => p.length > 2);
+                
+                // Extraer palabras de 3+ letras del nombre del usuario (ej: jose, antonio, valladares, cid)
+                const palabrasClave = uNombreNorm.match(/[a-z0-9]{3,}/g) || [];
 
-                const palabrasCandidato = nomCandidato.split(" ").filter(w => w.length > 2);
-                const palabrasUsuario = normNombreUser.split(" ").filter(w => w.length > 2);
-
-                const coincidencias = palabrasCandidato.filter(w => palabrasUsuario.includes(w));
-                if (coincidencias.length >= 2 || (palabrasCandidato.length === 1 && coincidencias.length === 1)) {
-                    return true;
+                for (let str of stringsEnCandidato) {
+                    if (str.includes(uNombreNorm) || uNombreNorm.includes(str)) {
+                        return true;
+                    }
+                    if (palabrasClave.length > 0) {
+                        const coincidencias = palabrasClave.filter(p => str.includes(p));
+                        if (coincidencias.length >= 2 || (palabrasClave.length === 1 && coincidencias.length === 1)) {
+                            return true;
+                        }
+                    }
                 }
             }
 
@@ -300,13 +323,11 @@
             tabla.innerHTML = "";
 
             let globalVerde = 0, globalAmarillo = 0, globalRojo = 0;
-            
-            // CONTEO REAL DE CARTERA TOTAL DESDE FIREBASE
-            const totalInscritosFirebase = Object.keys(postulantes).length;
+            const candidatosKeys = Object.keys(postulantes);
+            const totalInscritosFirebase = candidatosKeys.length;
 
             let labelsReclutadores = [];
             let dataVerde = [], dataAmarillo = [], dataRojo = [];
-
             const candidatosMapeadosKeys = new Set();
 
             Object.entries(usuarios).forEach(([uId, uVal]) => {
@@ -328,7 +349,7 @@
 
                         if (p.estatus === "Contratado") contratados++;
 
-                        const fechaAccion = p.ultimaActualizacion || p.fechaRegistro || p.fechaPostulacion;
+                        const fechaAccion = p.ultimaActualizacion || p.fechaRegistro || p.fechaPostulacion || p.fecha;
                         const horasDiff = calcularDiferenciaHoras(fechaAccion);
 
                         if (horasDiff <= 24) recVerde++;
@@ -377,14 +398,14 @@
                 `;
             });
 
-            // AUDITORÍA DE CANDIDATOS SIN ASIGNAR
+            // AUDITORÍA DE CANDIDATOS HUÉRFANOS
             let huérfanosVerde = 0, huérfanosAmarillo = 0, huérfanosRojo = 0;
             let totalHuerfanos = 0;
 
             Object.entries(postulantes).forEach(([candKey, p]) => {
                 if (!candidatosMapeadosKeys.has(candKey)) {
                     totalHuerfanos++;
-                    const fechaAccion = p.ultimaActualizacion || p.fechaRegistro || p.fechaPostulacion;
+                    const fechaAccion = p.ultimaActualizacion || p.fechaRegistro || p.fechaPostulacion || p.fecha;
                     const horasDiff = calcularDiferenciaHoras(fechaAccion);
 
                     if (horasDiff <= 24) huérfanosVerde++;
