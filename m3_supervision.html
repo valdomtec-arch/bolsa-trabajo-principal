@@ -145,7 +145,6 @@
         import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-analytics.js";
         import { getDatabase, ref, onValue, get, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-        // Configuración de tu aplicación Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyDxgP1YnycCEqkQ2vr3SPkwc9QMhtG8Zqw",
             authDomain: "bolsa-de-trabajo-a52e4.firebaseapp.com",
@@ -157,7 +156,6 @@
             measurementId: "G-DH2LD3BJEF"
         };
 
-        // Inicializar Firebase y Analytics
         const app = initializeApp(firebaseConfig);
         const analytics = getAnalytics(app);
         const db = getDatabase(app);
@@ -215,7 +213,6 @@
         function inicializarEscuchaSupervisionFirebase() {
             const btnStatus = document.getElementById("btnFirebaseStatusSup");
             
-            // Estado de conexión
             onValue(ref(db, ".info/connected"), (snap) => {
                 if (snap.val() === true) {
                     btnStatus.className = "bg-[#0a1426] border border-green-500 text-green-400 font-bold py-2 px-4 rounded-xl flex items-center gap-2 text-xs shadow-[0_0_10px_rgba(34,197,94,0.2)]";
@@ -226,7 +223,6 @@
                 }
             });
 
-            // Escucha en tiempo real de la base de datos completa
             onValue(ref(db), (snapshot) => {
                 const data = snapshot.val() || {};
                 const postulantesData = data.modulo_3_agenda || data.postulantes || {};
@@ -235,6 +231,38 @@
 
                 procesarDatosSupervision(postulantesData, usuariosData);
             });
+        }
+
+        // NORMALIZACIÓN DE TEXTO
+        function normalizarTexto(txt) {
+            if (!txt) return "";
+            return txt.toString()
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .toLowerCase()
+                .trim();
+        }
+
+        // VALIDACIÓN FLEXIBLE DE PERTENECE A OPERADOR
+        function perteneceAlOperador(p, uId, uNombre) {
+            const normNombreUser = normalizarTexto(uNombre);
+            const normUidUser = normalizarTexto(uId);
+
+            const idCandidato = normalizarTexto(p.reclutadorId || p.agenteId || p.idUsuario || p.usuarioId || p.uidReclutador || "");
+            const nomCandidato = normalizarTexto(p.reclutadorNombre || p.atendidoPor || p.reclutador || p.asignadoA || p.creadoPor || p.usuario || "");
+
+            const coincideId = idCandidato !== "" && (idCandidato === normUidUser || normUidUser.includes(idCandidato) || idCandidato.includes(normUidUser));
+
+            let coincideNombre = false;
+            if (nomCandidato !== "" && normNombreUser !== "") {
+                const partesNomCand = nomCandidato.split(" ").filter(part => part.length > 2);
+                const coincideExacto = nomCandidato === normNombreUser || normNombreUser.includes(nomCandidato) || nomCandidato.includes(normNombreUser);
+                const coincideSubpartes = partesNomCand.length > 0 && partesNomCand.every(part => normNombreUser.includes(part));
+                
+                coincideNombre = coincideExacto || coincideSubpartes;
+            }
+
+            return coincideId || coincideNombre;
         }
 
         function calcularDiferenciaHoras(fechaString) {
@@ -251,10 +279,15 @@
             tabla.innerHTML = "";
 
             let globalVerde = 0, globalAmarillo = 0, globalRojo = 0;
-            let totalPostuladosCount = 0;
+            
+            // CONTEO DIRECTO REAL DESDE FIREBASE DE LA CARTERA TOTAL
+            const totalInscritosFirebase = Object.keys(postulantes).length;
 
             let labelsReclutadores = [];
             let dataVerde = [], dataAmarillo = [], dataRojo = [];
+
+            // Set para auditar qué candidatos fueron mapeados a un operador
+            const candidatosMapeadosKeys = new Set();
 
             Object.entries(usuarios).forEach(([uId, uVal]) => {
                 if (usuarioSesionSup.rol === "Coordinador") {
@@ -268,17 +301,13 @@
                 let totalAsignados = 0;
                 let contratados = 0;
 
-                Object.values(postulantes).forEach(p => {
-                    const recId = p.reclutadorId || p.agenteId || "";
-                    const recNom = p.reclutadorNombre || p.atendidoPor || "";
-
-                    if (recId === uId || (recNom && recNom === uNombre)) {
+                Object.entries(postulantes).forEach(([candKey, p]) => {
+                    if (perteneceAlOperador(p, uId, uNombre)) {
+                        candidatosMapeadosKeys.add(candKey);
                         totalAsignados++;
-                        totalPostuladosCount++;
 
                         if (p.estatus === "Contratado") contratados++;
 
-                        // Medición del Semáforo de Tiempos
                         const fechaAccion = p.ultimaActualizacion || p.fechaRegistro || p.fechaPostulacion;
                         const horasDiff = calcularDiferenciaHoras(fechaAccion);
 
@@ -328,7 +357,51 @@
                 `;
             });
 
-            // Asignar listeners a los botones de reasignar
+            // AUDITORÍA DE CANDIDATOS NO ASIGNADOS (SIN OPERADOR ASIGNADO EN FIREBASE)
+            let huérfanosVerde = 0, huérfanosAmarillo = 0, huérfanosRojo = 0;
+            let totalHuerfanos = 0;
+
+            Object.entries(postulantes).forEach(([candKey, p]) => {
+                if (!candidatosMapeadosKeys.has(candKey)) {
+                    totalHuerfanos++;
+                    const fechaAccion = p.ultimaActualizacion || p.fechaRegistro || p.fechaPostulacion;
+                    const horasDiff = calcularDiferenciaHoras(fechaAccion);
+
+                    if (horasDiff <= 24) huérfanosVerde++;
+                    else if (horasDiff <= 48) huérfanosAmarillo++;
+                    else huérfanosRojo++;
+                }
+            });
+
+            if (totalHuerfanos > 0) {
+                globalVerde += huérfanosVerde;
+                globalAmarillo += huérfanosAmarillo;
+                globalRojo += huérfanosRojo;
+
+                tabla.innerHTML += `
+                    <tr class="bg-rose-950/30 border-l-4 border-rose-500 hover:bg-rose-900/40 transition-colors">
+                        <td class="p-3.5">
+                            <div class="font-bold text-rose-400 flex items-center gap-2"><i class="fas fa-user-slash"></i> SIN ASIGNAR / NUEVOS</div>
+                            <div class="text-xs text-rose-300/80">Candidatos sin reclutador asignado</div>
+                        </td>
+                        <td class="p-3.5 text-center font-bold text-rose-200">${totalHuerfanos}</td>
+                        <td class="p-3.5 text-center">
+                            <div class="inline-flex items-center gap-2 font-semibold text-xs">
+                                <span class="bg-emerald-950/80 text-emerald-400 border border-emerald-500/40 px-2 py-0.5 rounded-md">${huérfanosVerde}</span>
+                                <span class="bg-amber-950/80 text-amber-400 border border-amber-500/40 px-2 py-0.5 rounded-md">${huérfanosAmarillo}</span>
+                                <span class="bg-rose-950/80 text-rose-400 border border-rose-500/40 px-2 py-0.5 rounded-md">${huérfanosRojo}</span>
+                            </div>
+                        </td>
+                        <td class="p-3.5 text-center font-bold text-slate-400">N/A</td>
+                        <td class="p-3.5 text-center">
+                            <button data-uid="SIN_ASIGNAR" data-nombre="Sin Asignar" class="btn-reasignar bg-rose-600 hover:bg-rose-500 text-white px-3 py-1.5 rounded-xl text-xs shadow transition-all inline-flex items-center gap-1.5 font-bold">
+                                <i class="fas fa-user-plus"></i> Asignar Cartera
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }
+
             document.querySelectorAll(".btn-reasignar").forEach(btn => {
                 btn.addEventListener("click", (e) => {
                     const el = e.currentTarget;
@@ -336,7 +409,8 @@
                 });
             });
 
-            document.getElementById("txtTotalPostuladosSup").innerText = totalPostuladosCount;
+            // ACTUALIZACIÓN DIRECTA DE LA CARTERA TOTAL DESDE FIREBASE
+            document.getElementById("txtTotalPostuladosSup").innerText = totalInscritosFirebase;
             document.getElementById("txtSemaforoVerde").innerText = globalVerde;
             document.getElementById("txtSemaforoAmarillo").innerText = globalAmarillo;
             document.getElementById("txtSemaforoRojo").innerText = globalRojo;
@@ -419,7 +493,7 @@
                 const destinoUid = idsList[index];
                 const destinoNombre = cacheUsuarios[destinoUid].nombre || cacheUsuarios[destinoUid].usuario;
 
-                if (confirm(`¿Confirma transferir TODOS los candidatos de ${origenNombre} a ${destinoNombre}?`)) {
+                if (confirm(`¿Confirma transferir los candidatos (${origenNombre}) a ${destinoNombre}?`)) {
                     ejecutarReasignacion(origenUid, destinoUid, destinoNombre);
                 }
             }
@@ -434,7 +508,22 @@
                 const ahora = new Date().toISOString();
 
                 Object.entries(datos).forEach(([key, candidato]) => {
-                    if (candidato.reclutadorId === origenUid || candidato.agenteId === origenUid) {
+                    let coincide = false;
+                    
+                    if (origenUid === "SIN_ASIGNAR") {
+                        // Buscar candidatos sin asignar a ningún usuario registrado
+                        let asignado = false;
+                        Object.entries(cacheUsuarios).forEach(([uId, uVal]) => {
+                            if (perteneceAlOperador(candidato, uId, uVal.nombre || uVal.usuario)) {
+                                asignado = true;
+                            }
+                        });
+                        coincide = !asignado;
+                    } else {
+                        coincide = perteneceAlOperador(candidato, origenUid, cacheUsuarios[origenUid]?.nombre || origenUid);
+                    }
+
+                    if (coincide) {
                         updates[`modulo_3_agenda/${key}/reclutadorId`] = destinoUid;
                         updates[`modulo_3_agenda/${key}/reclutadorNombre`] = destinoNombre;
                         updates[`modulo_3_agenda/${key}/ultimaActualizacion`] = ahora;
@@ -444,9 +533,9 @@
 
                 if (contador > 0) {
                     await update(ref(db), updates);
-                    alert(`✅ Éxito: Se transfirieron ${contador} candidatos a ${destinoNombre}.`);
+                    alert(`✅ Éxito: Se asignaron/transfirieron ${contador} candidatos a ${destinoNombre}.`);
                 } else {
-                    alert("No se encontraron candidatos asociados para transferir.");
+                    alert("No se encontraron candidatos para transferir.");
                 }
             } catch (err) {
                 alert("⚠️ Error al reasignar: " + err.message);
