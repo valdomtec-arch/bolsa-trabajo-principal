@@ -52,7 +52,7 @@
         ::-webkit-scrollbar-thumb { background: var(--primary-orange); border-radius: 4px; }
     </style>
 </head>
-<body class="min-height-screen p-4 md:p-6 antialiased">
+<body class="min-h-screen p-4 md:p-6 antialiased">
 
     <div class="max-w-7xl mx-auto bg-[#0b1329] p-6 rounded-2xl shadow-2xl border border-white/5 backdrop-blur-md">
         
@@ -70,7 +70,7 @@
             
             <div class="flex flex-wrap items-center gap-3">
                 <div id="btnFirebaseStatus" class="bg-[#0a1426] border border-red-500 text-red-400 font-bold py-2 px-4 rounded-xl flex items-center gap-2 text-xs transition-all duration-300 shadow-sm">
-                    <span class="inline-block w-2 height-2 rounded-full bg-red-500 animate-pulse"></span> Desconectado
+                    <span class="inline-block w-2 h-2 rounded-full bg-red-500 animate-pulse"></span> Desconectado
                 </div>
                 <button onclick="exportarExcel()" class="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 text-white font-semibold py-2 px-4 rounded-xl shadow flex items-center gap-2 text-xs transition-all transform hover:-translate-y-0.5">
                     <i class="fas fa-file-excel"></i> Exportar Base de Datos (.xlsx)
@@ -364,10 +364,10 @@
             db.ref(".info/connected").on("value", (snap) => {
                 if (snap.val() === true) {
                     btnStatus.className = "bg-[#0a1426] border border-green-500 text-green-400 font-bold py-2 px-4 rounded-xl flex items-center gap-2 text-xs shadow-[0_0_10px_rgba(34,197,94,0.2)]";
-                    btnStatus.innerHTML = `<span class="inline-block w-2 height-2 rounded-full bg-green-500"></span> Conectado a Firebase`;
+                    btnStatus.innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-green-500"></span> Conectado a Firebase`;
                 } else {
                     btnStatus.className = "bg-[#0a1426] border border-red-500 text-red-400 font-bold py-2 px-4 rounded-xl flex items-center gap-2 text-xs shadow-[0_0_10px_rgba(239,68,68,0.2)]";
-                    btnStatus.innerHTML = `<span class="inline-block w-2 height-2 rounded-full bg-red-500 animate-pulse"></span> Desconectado`;
+                    btnStatus.innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-red-500 animate-pulse"></span> Desconectado`;
                 }
             });
 
@@ -442,21 +442,24 @@
             filtroOperador.innerHTML = '<option value="TODOS">-- Todos los Operadores --</option>';
             editReclutador.innerHTML = '<option value="">-- Seleccionar Operador --</option>';
 
-            Object.entries(catalogoUsuarios).forEach(([uUid, uVal]) => {
-                const uNombre = uVal.nombre || uVal.usuario || uUid;
-                const uRol = uVal.rol || "Reclutador";
-                const labelText = `${uNombre} (${uRol})`;
+            if (catalogoUsuarios && typeof catalogoUsuarios === 'object') {
+                Object.entries(catalogoUsuarios).forEach(([uUid, uVal]) => {
+                    if (!uVal) return;
+                    const uNombre = uVal.nombre || uVal.usuario || uUid;
+                    const uRol = uVal.rol || "Reclutador";
+                    const labelText = `${uNombre} (${uRol})`;
 
-                if (usuarioSesion.rol === "Coordinador") {
-                    if (usuarioSesion.equipoAsignadoIds.includes(uUid) || uUid === usuarioSesion.uid) {
-                        filtroOperador.innerHTML += `<option value="${uUid}">👥 ${labelText}</option>`;
+                    if (usuarioSesion.rol === "Coordinador") {
+                        if (usuarioSesion.equipoAsignadoIds.includes(uUid) || uUid === usuarioSesion.uid) {
+                            filtroOperador.innerHTML += `<option value="${uUid}">👥 ${labelText}</option>`;
+                        }
+                    } else {
+                        filtroOperador.innerHTML += `<option value="${uUid}">${labelText}</option>`;
                     }
-                } else {
-                    filtroOperador.innerHTML += `<option value="${uUid}">${labelText}</option>`;
-                }
 
-                editReclutador.innerHTML += `<option value="${uUid}">${labelText}</option>`;
-            });
+                    editReclutador.innerHTML += `<option value="${uUid}">${labelText}</option>`;
+                });
+            }
 
             if (selFiltro) filtroOperador.value = selFiltro;
             if (selEdit) editReclutador.value = selEdit;
@@ -495,7 +498,13 @@
                 }
             }
 
-            Object.values(todosLosPostulantes).forEach(p => {
+            // Normalizar objeto/arreglo de postulantes
+            const postulantesEntradas = Array.isArray(todosLosPostulantes) 
+                ? todosLosPostulantes.filter(p => p)
+                : Object.values(todosLosPostulantes);
+
+            postulantesEntradas.forEach(p => {
+                if (!p) return;
                 const empCandidate = p.empresaId || p.empresa || p.empresa_id;
                 
                 const coincideEmpresa = (empresaSel === "TODAS") || 
@@ -531,7 +540,14 @@
 
             if (!todosLosPostulantes) return;
 
-            Object.entries(todosLosPostulantes).forEach(([id, p]) => {
+            // NORMALIZACIÓN: Maneja tanto Arreglos como Objetos sin romper la ejecución
+            const postulantesEntradas = Array.isArray(todosLosPostulantes) 
+                ? todosLosPostulantes.map((item, index) => [index.toString(), item]).filter(([_, v]) => v)
+                : Object.entries(todosLosPostulantes);
+
+            postulantesEntradas.forEach(([id, p]) => {
+                if (!p) return;
+
                 const empCandidateRaw = p.empresaId || p.empresa || p.empresa_id || "";
                 const recId = p.reclutadorId || p.agenteId || "";
 
@@ -695,10 +711,10 @@
             });
         }
 
-        // --- LÓGICA DE EDICIÓN INTEGRAL (EMPRESA, VACANTE, RECLUTADOR, CURP Y SANEAMIENTO) ---
-
         function abrirModalEditar(id) {
             const p = todosLosPostulantes[id];
+            if (!p) return;
+
             document.getElementById("editId").value = id;
             document.getElementById("editNombre").value = p.nombre || "";
             document.getElementById("editTelefono").value = p.telefono || "";
@@ -709,7 +725,6 @@
             document.getElementById("editReclutador").value = recId;
             document.getElementById("originalReclutadorId").value = recId;
 
-            // Poblar selector de Empresas en el Modal
             const editEmpresa = document.getElementById("editEmpresa");
             editEmpresa.innerHTML = '<option value="SIN_EMPRESA">-- Sin Empresa / Empresa Removida --</option>';
 
@@ -723,13 +738,11 @@
             if (catalogoEmpresas[currentEmpresa]) {
                 editEmpresa.value = currentEmpresa;
             } else if (currentEmpresa && currentEmpresa !== "SIN_EMPRESA") {
-                // Si la empresa original ya no existe en catálogo, agregarla señalada
                 editEmpresa.innerHTML += `<option value="${currentEmpresa}" selected>⚠️ [Descontinuada] ${currentEmpresa}</option>`;
             } else {
                 editEmpresa.value = "SIN_EMPRESA";
             }
 
-            // Refrescar selector de Vacantes en el Modal
             poblarVacantesEnModal(p.vacante);
 
             let diaGuardado = "";
@@ -770,7 +783,6 @@
                 if (editVacante.querySelector(`option[value="${vacanteActual}"]`)) {
                     editVacante.value = vacanteActual;
                 } else {
-                    // Si la vacante seleccionada originalmente no existe en la empresa elegida, agregarla señalada
                     editVacante.innerHTML += `<option value="${vacanteActual}" selected>⚠️ [Descontinuada] ${vacanteActual}</option>`;
                 }
             } else {
@@ -797,7 +809,12 @@
             }
 
             let duplicadoEncontrado = null;
-            Object.entries(todosLosPostulantes).forEach(([candId, cand]) => {
+            
+            const postulantesEntradas = Array.isArray(todosLosPostulantes) 
+                ? todosLosPostulantes.map((item, index) => [index.toString(), item]).filter(([_, v]) => v)
+                : Object.entries(todosLosPostulantes);
+
+            postulantesEntradas.forEach(([candId, cand]) => {
                 if (candId !== id && cand.curp && cand.curp.trim().toUpperCase() === curpIngresada) {
                     duplicadoEncontrado = cand;
                 }
@@ -816,7 +833,6 @@
             const reclutadorObj = catalogoUsuarios[nuevoRecId] || {};
             const nuevoRecNombre = reclutadorObj.nombre || reclutadorObj.usuario || "Sin Asignar";
 
-            // Se preserva el objeto previo para no perder campos no presentes en el modal (edad, sexo, fechaRegistro, etc.)
             const postulantePrevio = todosLosPostulantes[id] || {};
 
             const updates = {
@@ -835,10 +851,8 @@
                 fechaActualizacionAdmin: new Date().toISOString()
             };
 
-            // Actualización integral respetando la estructura completa en Firebase
             db.ref(`modulo_3_agenda/${id}`).set(updates)
                 .then(() => {
-                    // Se actualiza el diccionario global e inmediatamente se refresca la vista
                     todosLosPostulantes[id] = updates;
                     cerrarModal();
                     cargarPostulantes();
@@ -886,7 +900,12 @@
             const vacanteFiltro = document.getElementById("filtroVacante").value;
             const operadorFiltro = document.getElementById("filtroOperador").value;
 
-            Object.entries(todosLosPostulantes).forEach(([id, p]) => {
+            const postulantesEntradas = Array.isArray(todosLosPostulantes) 
+                ? todosLosPostulantes.map((item, index) => [index.toString(), item]).filter(([_, v]) => v)
+                : Object.entries(todosLosPostulantes);
+
+            postulantesEntradas.forEach(([id, p]) => {
+                if (!p) return;
                 const empCandidateRaw = p.empresaId || p.empresa || p.empresa_id || "";
                 const recId = p.reclutadorId || p.agenteId || "";
 
