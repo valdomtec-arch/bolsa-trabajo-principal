@@ -39,14 +39,12 @@
             font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
         }
 
-        /* Definición de Colores del Semáforo */
         .status-postulado { background-color: #EF4444; color: white; } 
         .status-entrevista { background-color: #F59E0B; color: white; } 
         .status-induccion { background-color: #3B82F6; color: white; }  
         .status-contratado { background-color: #10B981; color: white; } 
         .status-declinante { background-color: #6B7280; color: white; } 
 
-        /* Custom Scrollbar */
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: var(--secondary-blue-dark); }
         ::-webkit-scrollbar-thumb { background: var(--primary-orange); border-radius: 4px; }
@@ -72,6 +70,10 @@
                 <div id="btnFirebaseStatus" class="bg-[#0a1426] border border-red-500 text-red-400 font-bold py-2 px-4 rounded-xl flex items-center gap-2 text-xs transition-all duration-300 shadow-sm">
                     <span class="inline-block w-2 h-2 rounded-full bg-red-500 animate-pulse"></span> Desconectado
                 </div>
+                <!-- BOTÓN DE UNIFICACIÓN Y DEPURACIÓN DE OPERADOR -->
+                <button onclick="depurarYUnificarOperadorJoseAntonio()" title="Unifica candidatos duplicados y elimina IDs fantasmas de José Antonio" class="bg-amber-600 hover:bg-amber-500 text-white font-semibold py-2 px-3 rounded-xl shadow flex items-center gap-1.5 text-xs transition-all">
+                    <i class="fas fa-user-check"></i> Depurar José Antonio
+                </button>
                 <button onclick="exportarExcel()" class="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 text-white font-semibold py-2 px-4 rounded-xl shadow flex items-center gap-2 text-xs transition-all transform hover:-translate-y-0.5">
                     <i class="fas fa-file-excel"></i> Exportar Base de Datos (.xlsx)
                 </button>
@@ -290,7 +292,6 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-analytics.js"></script>
 
     <script>
-        // CONFIGURACIÓN COMPLETA Y UNIFICADA DE FIREBASE
         const firebaseConfig = {
             apiKey: "AIzaSyDxgP1YnycCEqkQ2vr3SPkwc9QMhtG8Zqw",
             authDomain: "bolsa-de-trabajo-a52e4.firebaseapp.com",
@@ -307,7 +308,7 @@
             try {
                 firebase.analytics();
             } catch (e) {
-                console.log("Analytics no disponible en este entorno.");
+                console.log("Analytics no disponible.");
             }
         }
         const db = firebase.database();
@@ -321,7 +322,7 @@
 
         let usuarioSesion = {
             uid: "SYS_ADMIN_01",
-            nombre: "Administrador_Sistema",
+            nombre: "Jose Antonio Valladares Cid",
             rol: "Administrador",
             todasLasEmpresas: true,
             empresas: [],
@@ -341,9 +342,9 @@
                 if (val) {
                     usuarioSesion = {
                         uid: activeUid,
-                        nombre: val.nombre || val.usuario || "Operador_Sistema",
-                        rol: val.rol || "Reclutador",
-                        todasLasEmpresas: val.todasLasEmpresas ?? false,
+                        nombre: val.nombre || val.usuario || "Jose Antonio Valladares Cid",
+                        rol: val.rol || "Administrador",
+                        todasLasEmpresas: val.todasLasEmpresas ?? true,
                         empresas: Array.isArray(val.empresas) ? val.empresas : [],
                         equipoAsignadoIds: Array.isArray(val.equipoAsignadoIds) ? val.equipoAsignadoIds : []
                     };
@@ -533,6 +534,10 @@
 
             if (!todosLosPostulantes || typeof todosLosPostulantes !== 'object') return;
 
+            // Datos del Operador Seleccionado en el Filtro
+            const objetoOpFiltro = catalogoUsuarios[operadorFiltro] || {};
+            const nombreOpFiltro = (objetoOpFiltro.nombre || objetoOpFiltro.usuario || "").toLowerCase().trim();
+
             const postulantesEntradas = Object.entries(todosLosPostulantes);
 
             postulantesEntradas.forEach(([id, p]) => {
@@ -540,16 +545,29 @@
 
                 const empCandidateRaw = p.empresaId || p.empresa_id || p.empresa || "";
                 const recId = p.reclutadorId || p.agenteId || "";
+                const recNombre = (p.reclutadorNombre || p.asesor || "").toLowerCase().trim();
 
+                // 1. Permisos por Rol
                 if (usuarioSesion.rol === "Reclutador" || usuarioSesion.rol === "Implant") {
-                    if (recId !== usuarioSesion.uid) return;
+                    if (recId !== usuarioSesion.uid && !recNombre.includes(usuarioSesion.nombre.toLowerCase())) return;
                 } else if (usuarioSesion.rol === "Coordinador") {
                     const esMio = recId === usuarioSesion.uid;
                     const esDeMiEquipo = Array.isArray(usuarioSesion.equipoAsignadoIds) && usuarioSesion.equipoAsignadoIds.includes(recId);
                     if (!esMio && !esDeMiEquipo) return;
                 }
 
-                // Recuperación de Empresa: Prioriza el catálogo; si fue borrada, rescata el texto histórico 'p.empresa'
+                // 2. FILTRO DE OPERADOR/RECLUTADOR TOLERANTE A ID Y NOMBRE MULTICLAVE
+                if (operadorFiltro !== "TODOS") {
+                    const coincidePorId = (recId === operadorFiltro);
+                    const coincidePorNombre = (nombreOpFiltro && recNombre.includes(nombreOpFiltro));
+                    const coincidePorNombreDirecto = recNombre && recNombre.includes(operadorFiltro.toLowerCase().trim());
+
+                    if (!coincidePorId && !coincidePorNombre && !coincidePorNombreDirecto) {
+                        return;
+                    }
+                }
+
+                // 3. Recuperación de Empresa
                 const datosEmpresaCatalogo = (catalogoEmpresas && catalogoEmpresas[empCandidateRaw]) || {};
                 const nombreEmpresaCatalogo = datosEmpresaCatalogo.nombre 
                     || (p.empresa && p.empresa !== "SIN_EMPRESA" ? p.empresa : null)
@@ -571,7 +589,6 @@
                 }
 
                 if (vacanteFiltro !== "TODAS" && (p.vacante !== vacanteFiltro && p.vacanteInteres !== vacanteFiltro)) return;
-                if (operadorFiltro !== "TODOS" && recId !== operadorFiltro) return;
 
                 totalContados++;
 
@@ -785,11 +802,6 @@
             document.getElementById("modalEditar").classList.add("hidden");
         }
 
-        /**
-         * Sanear y Borrar Empresa/Vacante Fantasma
-         * Elimina las claves residuales del postulante en Firebase y lo deja libre
-         * para asignarle empresas y vacantes nuevas del catálogo activo.
-         */
         function sanearYBorrarEmpresaFantasma() {
             const id = document.getElementById("editId").value;
             if (!id) return;
@@ -801,7 +813,6 @@
                 return;
             }
 
-            // Al asignar 'null' en Firebase Realtime Database, se eliminan físicamente las claves del registro.
             const objetoSaneado = {
                 empresa: null,
                 empresaId: null,
@@ -814,10 +825,8 @@
             db.ref(`postulantes/${id}`).update(objetoSaneado)
                 .then(() => {
                     alert(`✅ Registro de ${nombreCand} saneado con éxito. Ahora está libre de referencias fantasma.`);
-                    
                     document.getElementById("editEmpresa").value = "SIN_EMPRESA";
                     alCambiarEmpresaEnModal();
-                    
                     registrarAuditoriaLog("SANEAMIENTO_BORRADO_FANTASMA", id, {
                         accion: "Limpieza de campos residuales de empresa/vacante"
                     });
@@ -903,6 +912,68 @@
                     }
                 })
                 .catch(err => alert("Error al guardar: " + err.message));
+        }
+
+        /**
+         * Depurar y Unificar Operador Máster (José Antonio Valladares Cid)
+         * Consolida candidatos dispersos y limpia el catálogo de duplicados en Firebase
+         */
+        async function depurarYUnificarOperadorJoseAntonio() {
+            const UID_OFICIAL = "SYS_ADMIN_01";
+            const NOMBRE_OFICIAL = "Jose Antonio Valladares Cid";
+
+            if (!confirm(`¿Deseas iniciar la depuración y unificación para ${NOMBRE_OFICIAL}?\n\nEsto asociará todos sus postulantes al UID oficial (${UID_OFICIAL}) y eliminará registros de usuario duplicados.`)) {
+                return;
+            }
+
+            try {
+                const snap = await db.ref().once("value");
+                const data = snap.val() || {};
+                
+                const postulantes = data.postulantes || {};
+                const usuarios = data.usuarios_reclutadores || {};
+
+                let candidatosMigrados = 0;
+                let usuariosBorrados = 0;
+
+                const updatesCandidatos = {};
+
+                // A. UNIFICAR CANDIDATOS
+                Object.entries(postulantes).forEach(([candId, p]) => {
+                    if (!p) return;
+
+                    const recId = p.reclutadorId || p.agenteId || "";
+                    const recNombre = (p.reclutadorNombre || p.asesor || "").toLowerCase();
+
+                    if (recNombre.includes("jose antonio") || recNombre.includes("valladares") || recId.includes("jose") || recId === UID_OFICIAL) {
+                        updatesCandidatos[`postulantes/${candId}/reclutadorId`] = UID_OFICIAL;
+                        updatesCandidatos[`postulantes/${candId}/reclutadorNombre`] = NOMBRE_OFICIAL;
+                        updatesCandidatos[`postulantes/${candId}/asesor`] = NOMBRE_OFICIAL;
+                        candidatosMigrados++;
+                    }
+                });
+
+                // B. LIMPIAR CATÁLOGO DE USUARIOS DUPLICADOS
+                Object.entries(usuarios).forEach(([uUid, uData]) => {
+                    if (!uData) return;
+
+                    const uNombre = (uData.nombre || uData.usuario || "").toLowerCase();
+
+                    if ((uNombre.includes("jose antonio") || uNombre.includes("valladares")) && uUid !== UID_OFICIAL) {
+                        updatesCandidatos[`usuarios_reclutadores/${uUid}`] = null;
+                        usuariosBorrados++;
+                    }
+                });
+
+                if (Object.keys(updatesCandidatos).length > 0) {
+                    await db.ref().update(updatesCandidatos);
+                    alert(`✅ Saneamiento Exitoso:\n• ${candidatosMigrados} candidatos unificados a ${NOMBRE_OFICIAL}.\n• ${usuariosBorrados} registros duplicados de usuario eliminados.`);
+                } else {
+                    alert("ℹ️ No se encontraron registros inconsistentes para depurar.");
+                }
+            } catch (err) {
+                alert("Error durante la depuración: " + err.message);
+            }
         }
 
         function registrarAuditoriaLog(evento, postulanteId, detalles = {}) {
