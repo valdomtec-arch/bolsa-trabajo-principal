@@ -223,30 +223,10 @@
                 }
             });
 
-            // Escuchar directamente los nodos de postulantes y usuarios para evitar pérdida de datos
             onValue(ref(db), (snapshot) => {
                 const data = snapshot.val() || {};
-                
-                // Extraer usuarios
                 cacheUsuarios = data.usuarios_reclutadores || data.usuarios || {};
-
-                // Extraer candidatos explorando todos los nodos posibles
-                let candidatosMap = {};
-                
-                if (data.modulo_3_agenda) candidatosMap = data.modulo_3_agenda;
-                else if (data.modulo3_agenda) candidatosMap = data.modulo3_agenda;
-                else if (data.postulantes) candidatosMap = data.postulantes;
-                else if (data.candidatos) candidatosMap = data.candidatos;
-                else {
-                    // Si están en subramas, buscar cualquier rama que contenga objetos candidato
-                    Object.keys(data).forEach(k => {
-                        if (typeof data[k] === 'object' && data[k] !== null && !k.includes('usuario')) {
-                            Object.assign(candidatosMap, data[k]);
-                        }
-                    });
-                }
-
-                procesarDatosSupervision(candidatosMap, cacheUsuarios);
+                procesarDatosSupervision(data, cacheUsuarios);
             });
         }
 
@@ -260,7 +240,6 @@
                 .trim();
         }
 
-        // BÚSQUEDA RECURSIVA EN CUALQUIER NODO DEL OBJETO DEL CANDIDATO
         function extraerTodosLosValoresString(obj) {
             let valores = [];
             if (!obj) return valores;
@@ -277,22 +256,14 @@
         function perteneceAlOperador(candidatoObj, uId, uNombre) {
             const uIdNorm = normalizarTexto(uId);
             const uNombreNorm = normalizarTexto(uNombre);
-
-            // Obtener todos los textos dentro del registro del candidato
             const stringsEnCandidato = extraerTodosLosValoresString(candidatoObj).map(s => normalizarTexto(s));
 
-            // 1. Verificar si el UID exacto está en alguna parte del objeto
             if (uIdNorm && stringsEnCandidato.some(str => str === uIdNorm || str.includes(uIdNorm))) {
                 return true;
             }
 
-            // 2. Verificar por nombre de operador (coincidencia de palabras clave)
             if (uNombreNorm) {
-                const palabrasNombreUser = uNombreNorm.split(/(?:)/).filter(p => p.length > 2);
-                
-                // Extraer palabras de 3+ letras del nombre del usuario (ej: jose, antonio, valladares, cid)
                 const palabrasClave = uNombreNorm.match(/[a-z0-9]{3,}/g) || [];
-
                 for (let str of stringsEnCandidato) {
                     if (str.includes(uNombreNorm) || uNombreNorm.includes(str)) {
                         return true;
@@ -305,7 +276,6 @@
                     }
                 }
             }
-
             return false;
         }
 
@@ -317,18 +287,37 @@
             return (ahoras - ultimaFecha) / (1000 * 60 * 60);
         }
 
-        function procesarDatosSupervision(postulantes, usuarios) {
+        function obtenerListaPlanaCandidatos(dataSnapshot) {
+            let candidatos = [];
+            let nodoFuente = dataSnapshot.modulo_3_agenda || 
+                             dataSnapshot.modulo3_agenda || 
+                             dataSnapshot.postulantes || 
+                             dataSnapshot.candidatos || 
+                             dataSnapshot;
+
+            if (typeof nodoFuente === 'object' && nodoFuente !== null) {
+                Object.entries(nodoFuente).forEach(([key, val]) => {
+                    if (val && typeof val === 'object' && !key.includes('usuario')) {
+                        candidatos.push({ idFirebase: key, ...val });
+                    }
+                });
+            }
+            return candidatos;
+        }
+
+        function procesarDatosSupervision(rawDataFirebase, usuarios) {
             const tabla = document.getElementById("tablaSupervisionEquipo");
             if (!tabla) return;
             tabla.innerHTML = "";
 
-            let globalVerde = 0, globalAmarillo = 0, globalRojo = 0;
-            const candidatosKeys = Object.keys(postulantes);
-            const totalInscritosFirebase = candidatosKeys.length;
+            const todosLosCandidatos = obtenerListaPlanaCandidatos(rawDataFirebase);
+            const totalCarteraReal = todosLosCandidatos.length;
 
+            let globalVerde = 0, globalAmarillo = 0, globalRojo = 0;
             let labelsReclutadores = [];
             let dataVerde = [], dataAmarillo = [], dataRojo = [];
-            const candidatosMapeadosKeys = new Set();
+
+            const idsCandidatosContabilizados = new Set();
 
             Object.entries(usuarios).forEach(([uId, uVal]) => {
                 if (usuarioSesionSup.rol === "Coordinador") {
@@ -342,14 +331,14 @@
                 let totalAsignados = 0;
                 let contratados = 0;
 
-                Object.entries(postulantes).forEach(([candKey, p]) => {
-                    if (perteneceAlOperador(p, uId, uNombre)) {
-                        candidatosMapeadosKeys.add(candKey);
+                todosLosCandidatos.forEach((cand) => {
+                    if (perteneceAlOperador(cand, uId, uNombre)) {
+                        idsCandidatosContabilizados.add(cand.idFirebase);
                         totalAsignados++;
 
-                        if (p.estatus === "Contratado") contratados++;
+                        if (cand.estatus === "Contratado") contratados++;
 
-                        const fechaAccion = p.ultimaActualizacion || p.fechaRegistro || p.fechaPostulacion || p.fecha;
+                        const fechaAccion = cand.ultimaActualizacion || cand.fechaRegistro || cand.fechaPostulacion || cand.fecha;
                         const horasDiff = calcularDiferenciaHoras(fechaAccion);
 
                         if (horasDiff <= 24) recVerde++;
@@ -398,39 +387,38 @@
                 `;
             });
 
-            // AUDITORÍA DE CANDIDATOS HUÉRFANOS
-            let huérfanosVerde = 0, huérfanosAmarillo = 0, huérfanosRojo = 0;
+            let huerfanosVerde = 0, huerfanosAmarillo = 0, huerfanosRojo = 0;
             let totalHuerfanos = 0;
 
-            Object.entries(postulantes).forEach(([candKey, p]) => {
-                if (!candidatosMapeadosKeys.has(candKey)) {
+            todosLosCandidatos.forEach((cand) => {
+                if (!idsCandidatosContabilizados.has(cand.idFirebase)) {
                     totalHuerfanos++;
-                    const fechaAccion = p.ultimaActualizacion || p.fechaRegistro || p.fechaPostulacion || p.fecha;
+                    const fechaAccion = cand.ultimaActualizacion || cand.fechaRegistro || cand.fechaPostulacion || cand.fecha;
                     const horasDiff = calcularDiferenciaHoras(fechaAccion);
 
-                    if (horasDiff <= 24) huérfanosVerde++;
-                    else if (horasDiff <= 48) huérfanosAmarillo++;
-                    else huérfanosRojo++;
+                    if (horasDiff <= 24) huerfanosVerde++;
+                    else if (horasDiff <= 48) huerfanosAmarillo++;
+                    else huerfanosRojo++;
                 }
             });
 
             if (totalHuerfanos > 0) {
-                globalVerde += huérfanosVerde;
-                globalAmarillo += huérfanosAmarillo;
-                globalRojo += huérfanosRojo;
+                globalVerde += huerfanosVerde;
+                globalAmarillo += huerfanosAmarillo;
+                globalRojo += huerfanosRojo;
 
                 tabla.innerHTML += `
                     <tr class="bg-rose-950/30 border-l-4 border-rose-500 hover:bg-rose-900/40 transition-colors">
                         <td class="p-3.5">
-                            <div class="font-bold text-rose-400 flex items-center gap-2"><i class="fas fa-user-slash"></i> SIN ASIGNAR / NUEVOS</div>
-                            <div class="text-xs text-rose-300/80">Candidatos sin reclutador asignado</div>
+                            <div class="font-bold text-rose-400 flex items-center gap-2"><i class="fas fa-user-slash"></i> SIN ASIGNAR / OTROS</div>
+                            <div class="text-xs text-rose-300/80">Candidatos sin vinculación a los reclutadores de la lista</div>
                         </td>
                         <td class="p-3.5 text-center font-bold text-rose-200">${totalHuerfanos}</td>
                         <td class="p-3.5 text-center">
                             <div class="inline-flex items-center gap-2 font-semibold text-xs">
-                                <span class="bg-emerald-950/80 text-emerald-400 border border-emerald-500/40 px-2 py-0.5 rounded-md">${huérfanosVerde}</span>
-                                <span class="bg-amber-950/80 text-amber-400 border border-amber-500/40 px-2 py-0.5 rounded-md">${huérfanosAmarillo}</span>
-                                <span class="bg-rose-950/80 text-rose-400 border border-rose-500/40 px-2 py-0.5 rounded-md">${huérfanosRojo}</span>
+                                <span class="bg-emerald-950/80 text-emerald-400 border border-emerald-500/40 px-2 py-0.5 rounded-md">${huerfanosVerde}</span>
+                                <span class="bg-amber-950/80 text-amber-400 border border-amber-500/40 px-2 py-0.5 rounded-md">${huerfanosAmarillo}</span>
+                                <span class="bg-rose-950/80 text-rose-400 border border-rose-500/40 px-2 py-0.5 rounded-md">${huerfanosRojo}</span>
                             </div>
                         </td>
                         <td class="p-3.5 text-center font-bold text-slate-400">N/A</td>
@@ -450,8 +438,7 @@
                 });
             });
 
-            // MOSTRAR CARTERA TOTAL
-            document.getElementById("txtTotalPostuladosSup").innerText = totalInscritosFirebase;
+            document.getElementById("txtTotalPostuladosSup").innerText = totalCarteraReal;
             document.getElementById("txtSemaforoVerde").innerText = globalVerde;
             document.getElementById("txtSemaforoAmarillo").innerText = globalAmarillo;
             document.getElementById("txtSemaforoRojo").innerText = globalRojo;
