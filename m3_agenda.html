@@ -777,7 +777,7 @@
             document.getElementById("modalEditar").classList.add("hidden");
         }
 
-        // OPTIMIZACIÓN: Guarda cambios de forma segura en Firebase y fuerza refresco integral para preservar la lista
+        // OPTIMIZACIÓN: Guarda cambios en Firebase y restablece filtros para garantizar despliegue completo
         function guardarCambiosAdmin() {
             const id = document.getElementById("editId").value;
             const curpIngresada = document.getElementById("editCurp").value.trim().toUpperCase();
@@ -848,6 +848,13 @@
                     db.ref().once("value", (snap) => {
                         const data = snap.val() || {};
                         todosLosPostulantes = data.modulo_3_agenda || data.postulantes || {};
+                        
+                        // Restablecer filtros superiores para mostrar la lista completa
+                        if (document.getElementById("filtroEmpresa")) document.getElementById("filtroEmpresa").value = "TODAS";
+                        if (document.getElementById("filtroVacante")) document.getElementById("filtroVacante").value = "TODAS";
+                        if (document.getElementById("filtroOperador")) document.getElementById("filtroOperador").value = "TODOS";
+                        
+                        actualizarFiltroVacantes(data);
                         cargarPostulantes();
                     });
 
@@ -884,6 +891,19 @@
                 db.ref(`modulo_3_agenda/${id}`).remove()
                     .then(() => {
                         registrarAuditoriaLog("ELIMINACION_POSTULANTE", id);
+                        
+                        db.ref().once("value", (snap) => {
+                            const data = snap.val() || {};
+                            todosLosPostulantes = data.modulo_3_agenda || data.postulantes || {};
+                            
+                            // Restablecer filtros al eliminar para recalcular totales
+                            if (document.getElementById("filtroEmpresa")) document.getElementById("filtroEmpresa").value = "TODAS";
+                            if (document.getElementById("filtroVacante")) document.getElementById("filtroVacante").value = "TODAS";
+                            if (document.getElementById("filtroOperador")) document.getElementById("filtroOperador").value = "TODOS";
+                            
+                            actualizarFiltroVacantes(data);
+                            cargarPostulantes();
+                        });
                     });
             }
         }
