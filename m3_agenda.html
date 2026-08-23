@@ -170,8 +170,19 @@
             <button type="button" onclick="cerrarModal()" class="absolute top-3 right-4 text-[#94a3b8] hover:text-[#ff6600] text-2xl font-bold transition-colors">&times;</button>
             
             <h2 class="text-lg font-bold text-white mb-1 flex items-center gap-2"><i class="fas fa-user-edit text-[#ff6600]"></i> Edición Integral y Saneamiento</h2>
-            <p class="text-xs text-[#94a3b8] mb-4">Ajusta o desvincula empresa/vacante para sanear la base de datos.</p>
+            <p class="text-xs text-[#94a3b8] mb-3">Ajusta o desvincula empresa/vacante para sanear la base de datos.</p>
             
+            <!-- BOTÓN DE SANEAMIENTO Y BORRADO DE DATOS FANTASMA -->
+            <div class="flex justify-between items-center bg-[#0a1426] p-3 rounded-lg border border-red-500/30 mb-4">
+                <div>
+                    <span class="block text-xs font-bold text-red-400"><i class="fas fa-broom"></i> Saneamiento de Registro</span>
+                    <span class="text-[11px] text-[#94a3b8]">Limpia campos obsoletos de empresas/vacantes eliminadas.</span>
+                </div>
+                <button type="button" onclick="sanearYBorrarEmpresaFantasma()" class="px-3 py-1.5 bg-red-600/80 hover:bg-red-600 text-white font-bold text-xs rounded-lg transition-all shadow flex items-center gap-1.5">
+                    <i class="fas fa-eraser"></i> Borrar Fantasmas
+                </button>
+            </div>
+
             <input type="hidden" id="editId">
             <input type="hidden" id="originalReclutadorId">
             
@@ -374,7 +385,7 @@
             db.ref().on("value", (snapshot) => {
                 const data = snapshot.val() || {};
                 
-                todosLosPostulantes = data.modulo_3_agenda || data.postulantes || {};
+                todosLosPostulantes = data.postulantes || data.modulo_3_agenda || {};
                 catalogoEmpresas = data.empresas || {};
                 catalogoUsuarios = data.usuarios_reclutadores || {};
                 catalogoVacantesDetalles = data.vacantes_detalles || {};
@@ -474,7 +485,6 @@
             });
         }
 
-        // OPTIMIZACIÓN: Lee vacantes puramente vigentes del catálogo activo para prevenir duplicados y fantasmas
         function actualizarFiltroVacantes(data) {
             const filtroVacante = document.getElementById("filtroVacante");
             const empresaSel = document.getElementById("filtroEmpresa").value;
@@ -521,17 +531,14 @@
             let metricaEdad = { "18-25": 0, "26-35": 0, "36-45": 0, "46+": 0 };
             let totalContados = 0;
 
-            if (!todosLosPostulantes) return;
+            if (!todosLosPostulantes || typeof todosLosPostulantes !== 'object') return;
 
-            // NORMALIZACIÓN: Maneja tanto Arreglos como Objetos sin romper la ejecución
-            const postulantesEntradas = Array.isArray(todosLosPostulantes) 
-                ? todosLosPostulantes.map((item, index) => [index.toString(), item]).filter(([_, v]) => v)
-                : Object.entries(todosLosPostulantes);
+            const postulantesEntradas = Object.entries(todosLosPostulantes);
 
             postulantesEntradas.forEach(([id, p]) => {
                 if (!p) return;
 
-                const empCandidateRaw = p.empresaId || p.empresa || p.empresa_id || "";
+                const empCandidateRaw = p.empresaId || p.empresa_id || p.empresa || "";
                 const recId = p.reclutadorId || p.agenteId || "";
 
                 if (usuarioSesion.rol === "Reclutador" || usuarioSesion.rol === "Implant") {
@@ -542,28 +549,28 @@
                     if (!esMio && !esDeMiEquipo) return;
                 }
 
+                // Recuperación de Empresa: Prioriza el catálogo; si fue borrada, rescata el texto histórico 'p.empresa'
                 const datosEmpresaCatalogo = (catalogoEmpresas && catalogoEmpresas[empCandidateRaw]) || {};
-                const nombreEmpresaCatalogo = datosEmpresaCatalogo.nombre || "";
+                const nombreEmpresaCatalogo = datosEmpresaCatalogo.nombre 
+                    || (p.empresa && p.empresa !== "SIN_EMPRESA" ? p.empresa : null)
+                    || (empCandidateRaw !== "SIN_EMPRESA" ? empCandidateRaw : null);
 
                 if (empresaFiltro !== "TODAS") {
                     const filtroNombre = (catalogoEmpresas[empresaFiltro] && catalogoEmpresas[empresaFiltro].nombre) 
                         ? catalogoEmpresas[empresaFiltro].nombre.toLowerCase() 
-                        : "";
+                        : empresaFiltro.toLowerCase();
                     
                     const matchesKey = empCandidateRaw.toLowerCase() === empresaFiltro.toLowerCase();
-                    const matchesNombre = nombreEmpresaCatalogo.toLowerCase() === filtroNombre;
-                    const matchesDirectName = empCandidateRaw.toLowerCase() === filtroNombre;
+                    const matchesNombre = nombreEmpresaCatalogo ? nombreEmpresaCatalogo.toLowerCase() === filtroNombre : false;
 
-                    if (!matchesKey && !matchesNombre && !matchesDirectName) {
-                        return;
-                    }
+                    if (!matchesKey && !matchesNombre) return;
                 }
 
                 if (!usuarioSesion.todasLasEmpresas && Array.isArray(usuarioSesion.empresas) && !usuarioSesion.empresas.includes(empCandidateRaw)) {
                     return;
                 }
 
-                if (vacanteFiltro !== "TODAS" && p.vacante !== vacanteFiltro) return;
+                if (vacanteFiltro !== "TODAS" && (p.vacante !== vacanteFiltro && p.vacanteInteres !== vacanteFiltro)) return;
                 if (operadorFiltro !== "TODOS" && recId !== operadorFiltro) return;
 
                 totalContados++;
@@ -589,13 +596,14 @@
                 else if (estatusActual === "Declinante") claseSemaforo = "status-declinante";
 
                 let citaTexto = p.diaEntrevista || 'Por agendar';
-                let reclutadorDisplay = p.reclutadorNombre || (catalogoUsuarios[recId] ? catalogoUsuarios[recId].nombre : 'Sin Asignar');
-                let empresaNombreDisplay = nombreEmpresaCatalogo || (empCandidateRaw === "SIN_EMPRESA" ? "⚠️ Sin Empresa Asignada" : empCandidateRaw) || 'Empresa No Definida';
-                let vacanteDisplay = (p.vacante === "SIN_VACANTE" || !p.vacante) ? "⚠️ Sin Vacante Asignada" : p.vacante;
+                let reclutadorDisplay = p.asesor || p.reclutadorNombre || (catalogoUsuarios[recId] ? catalogoUsuarios[recId].nombre : 'Sin Asignar');
+                
+                let empresaNombreDisplay = nombreEmpresaCatalogo || "⚠️ Sin Empresa Asignada";
+                let vacanteDisplay = p.vacante || p.vacanteInteres || "⚠️ Sin Vacante Asignada";
 
                 let mensajeWhatsApp = `Hola *${p.nombre}*, te saludamos de Reclutamiento. Con respecto a tu postulación para *${vacanteDisplay}* en la empresa *${empresaNombreDisplay}*, te informamos que tu estatus actual es: *${estatusActual}*.`;
                 if(estatusActual === "En Entrevista" && p.diaEntrevista) {
-                    mensajeWhatsApp += ` Recuerda que tu cita está agendada para el día y hora: *${p.diaEntrevista}*.`;
+                    mensajeWhatsApp += ` Recuerda que tu cita está agendada para: *${p.diaEntrevista}*.`;
                 }
 
                 const urlWhatsApp = `https://wa.me/52${p.telefono}?text=${encodeURIComponent(mensajeWhatsApp)}`;
@@ -711,7 +719,7 @@
             const editEmpresa = document.getElementById("editEmpresa");
             editEmpresa.innerHTML = '<option value="SIN_EMPRESA">-- Sin Empresa / Empresa Removida --</option>';
 
-            const currentEmpresa = p.empresaId || p.empresa || p.empresa_id || "";
+            const currentEmpresa = p.empresaId || p.empresa_id || p.empresa || "";
 
             Object.entries(catalogoEmpresas).forEach(([eKey, eVal]) => {
                 const nombreEmp = eVal.nombre || eKey;
@@ -726,7 +734,7 @@
                 editEmpresa.value = "SIN_EMPRESA";
             }
 
-            poblarVacantesEnModal(p.vacante);
+            poblarVacantesEnModal(p.vacante || p.vacanteInteres);
 
             let diaGuardado = "";
             let horaGuardada = "";
@@ -777,7 +785,46 @@
             document.getElementById("modalEditar").classList.add("hidden");
         }
 
-        // OPTIMIZACIÓN: Guarda cambios en Firebase y restablece filtros para garantizar despliegue completo
+        /**
+         * Sanear y Borrar Empresa/Vacante Fantasma
+         * Elimina las claves residuales del postulante en Firebase y lo deja libre
+         * para asignarle empresas y vacantes nuevas del catálogo activo.
+         */
+        function sanearYBorrarEmpresaFantasma() {
+            const id = document.getElementById("editId").value;
+            if (!id) return;
+
+            const candidato = todosLosPostulantes[id];
+            const nombreCand = candidato ? candidato.nombre : "este candidato";
+
+            if (!confirm(`¿Deseas sanear el registro de "${nombreCand}"?\n\nEsto eliminará permanentemente los datos antiguos/fantasmas de empresa y vacante, dejándolo listo para reasignar.`)) {
+                return;
+            }
+
+            // Al asignar 'null' en Firebase Realtime Database, se eliminan físicamente las claves del registro.
+            const objetoSaneado = {
+                empresa: null,
+                empresaId: null,
+                empresa_id: null,
+                vacante: "SIN_VACANTE",
+                vacanteInteres: null,
+                fechaActualizacionAdmin: new Date().toISOString()
+            };
+
+            db.ref(`postulantes/${id}`).update(objetoSaneado)
+                .then(() => {
+                    alert(`✅ Registro de ${nombreCand} saneado con éxito. Ahora está libre de referencias fantasma.`);
+                    
+                    document.getElementById("editEmpresa").value = "SIN_EMPRESA";
+                    alCambiarEmpresaEnModal();
+                    
+                    registrarAuditoriaLog("SANEAMIENTO_BORRADO_FANTASMA", id, {
+                        accion: "Limpieza de campos residuales de empresa/vacante"
+                    });
+                })
+                .catch(err => alert("Error al efectuar el saneamiento: " + err.message));
+        }
+
         function guardarCambiosAdmin() {
             const id = document.getElementById("editId").value;
             const curpIngresada = document.getElementById("editCurp").value.trim().toUpperCase();
@@ -793,10 +840,7 @@
             }
 
             let duplicadoEncontrado = null;
-            
-            const postulantesEntradas = Array.isArray(todosLosPostulantes) 
-                ? todosLosPostulantes.map((item, index) => [index.toString(), item]).filter(([_, v]) => v)
-                : Object.entries(todosLosPostulantes);
+            const postulantesEntradas = Object.entries(todosLosPostulantes);
 
             postulantesEntradas.forEach(([candId, cand]) => {
                 if (candId !== id && cand.curp && cand.curp.trim().toUpperCase() === curpIngresada) {
@@ -819,6 +863,11 @@
 
             const postulantePrevio = todosLosPostulantes[id] || {};
 
+            let empresaNombreTexto = "SIN_EMPRESA";
+            if (nuevaEmpresa !== "SIN_EMPRESA" && catalogoEmpresas[nuevaEmpresa]) {
+                empresaNombreTexto = catalogoEmpresas[nuevaEmpresa].nombre || nuevaEmpresa;
+            }
+
             const updates = {
                 ...postulantePrevio,
                 nombre: document.getElementById("editNombre").value,
@@ -827,36 +876,18 @@
                 estatus: document.getElementById("editEstatus").value,
                 reclutadorId: nuevoRecId,
                 reclutadorNombre: nuevoRecNombre,
-                empresaId: nuevaEmpresa,
-                empresa: nuevaEmpresa,
-                empresa_id: nuevaEmpresa,
-                vacante: nuevaVacante,
+                asesor: nuevoRecNombre,
+                empresaId: nuevaEmpresa !== "SIN_EMPRESA" ? nuevaEmpresa : null,
+                empresa: nuevaEmpresa !== "SIN_EMPRESA" ? empresaNombreTexto : null,
+                vacante: nuevaVacante !== "SIN_VACANTE" ? nuevaVacante : null,
+                vacanteInteres: nuevaVacante !== "SIN_VACANTE" ? nuevaVacante : null,
                 diaEntrevista: fechaStringConsolidada,
                 fechaActualizacionAdmin: new Date().toISOString()
             };
 
-            db.ref(`modulo_3_agenda/${id}`).set(updates)
+            db.ref(`postulantes/${id}`).update(updates)
                 .then(() => {
-                    if (Array.isArray(todosLosPostulantes)) {
-                        todosLosPostulantes[parseInt(id)] = updates;
-                    } else {
-                        todosLosPostulantes[id] = updates;
-                    }
-                    
                     cerrarModal();
-
-                    db.ref().once("value", (snap) => {
-                        const data = snap.val() || {};
-                        todosLosPostulantes = data.modulo_3_agenda || data.postulantes || {};
-                        
-                        // Restablecer filtros superiores para mostrar la lista completa
-                        if (document.getElementById("filtroEmpresa")) document.getElementById("filtroEmpresa").value = "TODAS";
-                        if (document.getElementById("filtroVacante")) document.getElementById("filtroVacante").value = "TODAS";
-                        if (document.getElementById("filtroOperador")) document.getElementById("filtroOperador").value = "TODOS";
-                        
-                        actualizarFiltroVacantes(data);
-                        cargarPostulantes();
-                    });
 
                     if (originalRecId !== nuevoRecId) {
                         registrarAuditoriaLog("REASIGNACION_OPERADOR_POSTULANTE", id, {
@@ -888,23 +919,11 @@
         function eliminarPostulante(id) {
             const post = todosLosPostulantes[id];
             if (confirm(`¿Está completamente seguro de eliminar permanentemente el registro de ${post ? post.nombre : 'este candidato'}?`)) {
-                db.ref(`modulo_3_agenda/${id}`).remove()
+                db.ref(`postulantes/${id}`).remove()
                     .then(() => {
                         registrarAuditoriaLog("ELIMINACION_POSTULANTE", id);
-                        
-                        db.ref().once("value", (snap) => {
-                            const data = snap.val() || {};
-                            todosLosPostulantes = data.modulo_3_agenda || data.postulantes || {};
-                            
-                            // Restablecer filtros al eliminar para recalcular totales
-                            if (document.getElementById("filtroEmpresa")) document.getElementById("filtroEmpresa").value = "TODAS";
-                            if (document.getElementById("filtroVacante")) document.getElementById("filtroVacante").value = "TODAS";
-                            if (document.getElementById("filtroOperador")) document.getElementById("filtroOperador").value = "TODOS";
-                            
-                            actualizarFiltroVacantes(data);
-                            cargarPostulantes();
-                        });
-                    });
+                    })
+                    .catch(err => alert("Error al eliminar: " + err.message));
             }
         }
 
@@ -914,32 +933,29 @@
             const vacanteFiltro = document.getElementById("filtroVacante").value;
             const operadorFiltro = document.getElementById("filtroOperador").value;
 
-            const postulantesEntradas = Array.isArray(todosLosPostulantes) 
-                ? todosLosPostulantes.map((item, index) => [index.toString(), item]).filter(([_, v]) => v)
-                : Object.entries(todosLosPostulantes);
+            const postulantesEntradas = Object.entries(todosLosPostulantes);
 
             postulantesEntradas.forEach(([id, p]) => {
                 if (!p) return;
-                const empCandidateRaw = p.empresaId || p.empresa || p.empresa_id || "";
+                const empCandidateRaw = p.empresaId || p.empresa_id || p.empresa || "";
                 const recId = p.reclutadorId || p.agenteId || "";
 
                 const datosEmpresaCatalogo = catalogoEmpresas[empCandidateRaw] || {};
-                const nombreEmpresaCatalogo = datosEmpresaCatalogo.nombre || "";
+                const nombreEmpresaCatalogo = datosEmpresaCatalogo.nombre || p.empresa || "";
 
                 if (empresaFiltro !== "TODAS") {
                     const filtroNombre = (catalogoEmpresas[empresaFiltro] && catalogoEmpresas[empresaFiltro].nombre) 
                         ? catalogoEmpresas[empresaFiltro].nombre.toLowerCase() 
-                        : "";
+                        : empresaFiltro.toLowerCase();
                     
                     const matchesKey = empCandidateRaw.toLowerCase() === empresaFiltro.toLowerCase();
                     const matchesNombre = nombreEmpresaCatalogo.toLowerCase() === filtroNombre;
-                    const matchesDirectName = empCandidateRaw.toLowerCase() === filtroNombre;
 
-                    if (!matchesKey && !matchesNombre && !matchesDirectName) return;
+                    if (!matchesKey && !matchesNombre) return;
                 }
 
                 if (!usuarioSesion.todasLasEmpresas && !usuarioSesion.empresas.includes(empCandidateRaw)) return;
-                if (vacanteFiltro !== "TODAS" && p.vacante !== vacanteFiltro) return;
+                if (vacanteFiltro !== "TODAS" && (p.vacante !== vacanteFiltro && p.vacanteInteres !== vacanteFiltro)) return;
                 if (operadorFiltro !== "TODOS" && recId !== operadorFiltro) return;
 
                 dataToExport.push({
@@ -951,9 +967,9 @@
                     "Sexo": p.sexo,
                     "ID / Clave Empresa": empCandidateRaw,
                     "Empresa": nombreEmpresaCatalogo || empCandidateRaw,
-                    "Vacante": p.vacante,
+                    "Vacante": p.vacante || p.vacanteInteres,
                     "ID Reclutador": recId || "N/A",
-                    "Reclutador Responsable": p.reclutadorNombre || "N/A",
+                    "Reclutador Responsable": p.reclutadorNombre || p.asesor || "N/A",
                     "Estatus Proceso": p.estatus,
                     "Cita Agendada": p.diaEntrevista || "Pendiente",
                     "Fecha de Registro": p.fechaRegistro || "N/A"
