@@ -463,7 +463,7 @@
             border-left: 4px solid var(--wf-accent-blue);
         }
 
-        /* Estilos del Módulo de Optimización de Mapa y GPS */
+        /* Estilos Mapa Leaflet y GPS */
         #mapaRutas {
             height: 280px;
             width: 100%;
@@ -650,7 +650,7 @@
                     <!-- Mapa Interactivo Leaflet -->
                     <div id="mapaRutas"></div>
                     
-                    <!-- Selector 1: Rutas M6 en Firebase -->
+                    <!-- Selector 1: Rutas agrupadas dinámicamente -->
                     <div class="form-group">
                         <label for="selRutaEmpresa" style="color: var(--wf-accent-blue); font-weight: bold;">
                             <i class="fa-solid fa-route"></i> 1. Selecciona tu Ruta:
@@ -1018,13 +1018,13 @@
         }
     }
 
-    /* === FUNCIONES DEL MAPA LEAFLET Y GEOLOCALIZACIÓN GPS === */
-    function inicializarMapaInteractivo(latInicial = 31.8667, lngInicial = -116.5964) {
+    /* === MAPA LEAFLET Y GEOLOCALIZACIÓN GPS === */
+    function inicializarMapaInteractivo(latInicial = 20.5284, lngInicial = -103.4116) {
         if (mapLeaflet) {
             mapLeaflet.remove();
         }
 
-        mapLeaflet = L.map('mapaRutas').setView([latInicial, lngInicial], 12);
+        mapLeaflet = L.map('mapaRutas').setView([latInicial, lngInicial], 11);
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
@@ -1133,8 +1133,8 @@
             alert(`📍 Parada más cercana: "${paradaMasCercana.nombre}" (a ${menorDistancia.toFixed(2)} km de ti). Se seleccionará automáticamente.`);
             
             const selectRuta = document.getElementById('selRutaEmpresa');
-            selectRuta.value = paradaMasCercana.keyRuta;
-            alSeleccionarRuta(paradaMasCercana.keyRuta);
+            selectRuta.value = paradaMasCercana.nombreRuta;
+            alSeleccionarRuta(paradaMasCercana.nombreRuta);
 
             setTimeout(() => {
                 const selectParada = document.getElementById('selParadaRuta');
@@ -1160,7 +1160,7 @@
         });
     }
 
-    /* === INICIALIZACIÓN DE RUTAS DESDE FIREBASE === */
+    /* === LECTURA DE FIREBASE MAPPING CORREGIDO === */
     async function inicializarBuscadorRutas() {
         const txtDetallesTrans = document.getElementById('txtDetallesTransporte');
         const selectRutas = document.getElementById('selRutaEmpresa');
@@ -1171,6 +1171,7 @@
         selectRutas.innerHTML = '<option value="">— Cargando rutas disponibles... —</option>';
         contenedorParadas.style.display = 'none';
         listaTodasLasParadasFlat = [];
+        estructuraRutasGlobal = {};
 
         let detalleDesdeVacante = "";
         if (datosVacanteGlobal) {
@@ -1186,65 +1187,77 @@
         }
 
         if (snapRuta.exists()) {
-            estructuraRutasGlobal = snapRuta.val();
+            const rawData = snapRuta.val();
             
-            const detalleM6 = estructuraRutasGlobal.detalles || estructuraRutasGlobal.details || "";
-            txtDetallesTrans.innerText = detalleDesdeVacante || detalleM6 || "La empresa cuenta con rutas de transporte privadas habilitadas.";
-
-            selectRutas.innerHTML = '<option value="">— Selecciona una ruta de transporte —</option>';
-            
-            let contadorRutas = 0;
-
-            Object.keys(estructuraRutasGlobal).forEach(key => {
-                const item = estructuraRutasGlobal[key];
-                
-                if (typeof item === 'object' && item !== null && key !== 'detalles' && key !== 'details') {
-                    const nombreRuta = item.nombreRuta || item.nombre || item.ruta || `Ruta (${key})`;
-                    const opt = document.createElement('option');
-                    opt.value = key;
-                    opt.textContent = String(nombreRuta).toUpperCase();
-                    selectRutas.appendChild(opt);
-                    contadorRutas++;
-
-                    // Aplanar paradas para GPS y Mapa
-                    let paradas = item.puntos_recoleccion || item.paradas || item.puntos || [];
-                    if (paradas && !Array.isArray(paradas) && typeof paradas === 'object') {
-                        paradas = Object.values(paradas);
+            // Procesa y agrupa dinámicamente por nombreRuta
+            Object.keys(rawData).forEach(key => {
+                const item = rawData[key];
+                if (typeof item === 'object' && item !== null) {
+                    const nombreRuta = item.nombreRuta || item.ruta || "Ruta General";
+                    
+                    if (!estructuraRutasGlobal[nombreRuta]) {
+                        estructuraRutasGlobal[nombreRuta] = [];
                     }
 
-                    if (Array.isArray(paradas)) {
-                        paradas.forEach(p => {
-                            const nombreParada = p.nombre || p.parada || p.punto || "Punto de Abordaje";
-                            const horario = p.horario || p.hora || "";
-                            const textoDetalle = horario ? `${nombreParada} (${horario})` : nombreParada;
+                    // Extraer lat/lng de coordenadasAbordaje
+                    let lat = null, lng = null;
+                    if (item.coordenadasAbordaje && typeof item.coordenadasAbordaje === 'string') {
+                        const partes = item.coordenadasAbordaje.split(',');
+                        if (partes.length === 2) {
+                            lat = parseFloat(partes[0].trim());
+                            lng = parseFloat(partes[1].trim());
+                        }
+                    } else {
+                        lat = parseFloat(item.lat || item.latitud);
+                        lng = parseFloat(item.lng || item.longitud || item.lon);
+                    }
 
-                            listaTodasLasParadasFlat.push({
-                                keyRuta: key,
-                                nombreRuta: nombreRuta,
-                                nombre: nombreParada,
-                                horario: horario,
-                                valOption: `${nombreRuta} ➔ ${textoDetalle}`,
-                                lat: p.lat || p.latitud,
-                                lng: p.lng || p.longitud || p.lon
-                            });
-                        });
+                    const nombreParada = item.puntosAbordaje || item.puntoAbordaje || item.nombre || "Punto de Abordaje";
+                    const horario = item.horarioPaso || item.horario || item.hora || "";
+                    const valOption = `${nombreRuta} ➔ ${nombreParada}${horario ? ' (' + horario + ')' : ''}`;
+
+                    const objetoParada = {
+                        id: key,
+                        nombreRuta: nombreRuta,
+                        nombre: nombreParada,
+                        horario: horario,
+                        valOption: valOption,
+                        lat: lat,
+                        lng: lng
+                    };
+
+                    estructuraRutasGlobal[nombreRuta].push(objetoParada);
+
+                    if (!isNaN(lat) && !isNaN(lng)) {
+                        listaTodasLasParadasFlat.push(objetoParada);
                     }
                 }
             });
 
-            if (contadorRutas > 0) {
+            const rutasNombradas = Object.keys(estructuraRutasGlobal);
+
+            if (rutasNombradas.length > 0) {
                 tieneRutasHabilitadas = true;
+                txtDetallesTrans.innerText = detalleDesdeVacante || "Selecciona tu ruta y punto de abordaje más cercano.";
+                selectRutas.innerHTML = '<option value="">— Selecciona una ruta de transporte —</option>';
+
+                rutasNombradas.forEach(nombreRuta => {
+                    const opt = document.createElement('option');
+                    opt.value = nombreRuta;
+                    opt.textContent = String(nombreRuta).toUpperCase();
+                    selectRutas.appendChild(opt);
+                });
             } else {
-                selectRutas.innerHTML = '<option value="">— No se encontraron rutas registradas —</option>';
+                txtDetallesTrans.innerText = detalleDesdeVacante || "No se encontraron rutas activas.";
+                selectRutas.innerHTML = '<option value="">— Sin rutas disponibles —</option>';
                 tieneRutasHabilitadas = false;
             }
         } else {
-            txtDetallesTrans.innerText = detalleDesdeVacante || "Esta empresa no cuenta con rutas de transporte privadas registradas por el momento.";
+            txtDetallesTrans.innerText = detalleDesdeVacante || "Esta empresa no cuenta con rutas privadas registradas actualmente.";
             selectRutas.innerHTML = '<option value="">— Sin transporte asignado —</option>';
             tieneRutasHabilitadas = false;
         }
 
-        // Cargar Mapa Interactivo
         setTimeout(() => {
             inicializarMapaInteractivo();
             if (listaTodasLasParadasFlat.length > 0) {
@@ -1253,7 +1266,7 @@
         }, 300);
     }
 
-    function alSeleccionarRuta(keyRuta) {
+    function alSeleccionarRuta(nombreRutaElegida) {
         const selectParadas = document.getElementById('selParadaRuta');
         const contenedorParadas = document.getElementById('contenedorParadasRuta');
         const inputOcultoPunto = document.getElementById('selPuntoRecoleccion');
@@ -1261,46 +1274,25 @@
         inputOcultoPunto.value = "";
         selectParadas.innerHTML = '<option value="">— Selecciona tu parada / horario —</option>';
 
-        if (!keyRuta || !estructuraRutasGlobal[keyRuta]) {
+        if (!nombreRutaElegida || !estructuraRutasGlobal[nombreRutaElegida]) {
             contenedorParadas.style.display = 'none';
             if (listaTodasLasParadasFlat.length > 0) renderizarParadasEnMapa(listaTodasLasParadasFlat);
             return;
         }
 
-        const rutaObjeto = estructuraRutasGlobal[keyRuta];
-        const nombreRutaLindo = rutaObjeto.nombreRuta || rutaObjeto.nombre || rutaObjeto.ruta || keyRuta;
-        
-        let paradas = rutaObjeto.puntos_recoleccion || rutaObjeto.paradas || rutaObjeto.puntos || [];
+        const paradasDeRuta = estructuraRutasGlobal[nombreRutaElegida];
 
-        if (paradas && !Array.isArray(paradas) && typeof paradas === 'object') {
-            paradas = Object.values(paradas);
-        }
+        // Filtra pines del mapa Leaflet por la ruta seleccionada
+        renderizarParadasEnMapa(paradasDeRuta.filter(p => !isNaN(p.lat) && !isNaN(p.lng)));
 
-        // Filtrar mapa por la ruta elegida
-        const paradasFiltradas = listaTodasLasParadasFlat.filter(p => p.keyRuta === keyRuta);
-        if (paradasFiltradas.length > 0) {
-            renderizarParadasEnMapa(paradasFiltradas);
-        }
-
-        if (paradas && paradas.length > 0) {
-            paradas.forEach(p => {
-                const nombreParada = p.nombre || p.parada || p.punto || "Punto de Abordaje";
-                const horario = p.horario || p.hora || "";
-                const textoDetalle = horario ? `${nombreParada} (${horario})` : nombreParada;
-
-                const opt = document.createElement('option');
-                opt.value = `${nombreRutaLindo} ➔ ${textoDetalle}`;
-                opt.textContent = textoDetalle;
-                selectParadas.appendChild(opt);
-            });
-            contenedorParadas.style.display = 'block';
-        } else {
+        paradasDeRuta.forEach(p => {
             const opt = document.createElement('option');
-            opt.value = `${nombreRutaLindo} ➔ Parada General / Recorrido Completo`;
-            opt.textContent = "Parada General / Única";
+            opt.value = p.valOption;
+            opt.textContent = `${p.nombre}${p.horario ? ' 🕒 (' + p.horario + ')' : ''}`;
             selectParadas.appendChild(opt);
-            contenedorParadas.style.display = 'block';
-        }
+        });
+
+        contenedorParadas.style.display = 'block';
     }
 
     function alSeleccionarParada(valorSeleccionado) {
