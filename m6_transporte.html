@@ -35,11 +35,14 @@
         ::-webkit-scrollbar-track { background: #0a0d14; }
         ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: #ea580c; }
-        .leaflet-container { background-color: #0a0d14 !important; }
+        
+        /* ESTILOS DE CLARIDAD PARA MAPA LEAFLET */
+        .leaflet-container { background-color: #f8fafc !important; }
         .leaflet-popup-content-wrapper, .leaflet-popup-tip {
-            background: #121824 !important;
-            color: #f8fafc !important;
-            border: 1px solid #1e293b;
+            background: #ffffff !important;
+            color: #0f172a !important;
+            border: 1px solid #cbd5e1;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
         }
     </style>
 </head>
@@ -95,7 +98,7 @@
                 <div class="text-lg font-bold text-cyber-emerald flex items-center gap-2" id="txtEstatusCatalogo">
                     <span>Modo Ligero Pro</span>
                 </div>
-                <span class="text-[11px] text-slate-400 mt-1 block">Leaflet + Subida Progresiva</span>
+                <span class="text-[11px] text-slate-400 mt-1 block">Leaflet Voyager + Subida Progresiva</span>
             </div>
         </div>
 
@@ -184,7 +187,7 @@
 
             <!-- CONTENEDOR DEL MAPA Y RESULTADOS -->
             <div id="resultadoGeolocalizador" class="hidden grid grid-cols-1 lg:grid-cols-5 gap-4 pt-2">
-                <!-- CONTENEDOR MAPA LEAFLET (3 cols) -->
+                <!-- CONTENEDOR MAPA LEAFLET CLARO (3 cols) -->
                 <div class="lg:col-span-3 bg-cyber-bg rounded-xl border border-cyber-border p-2 overflow-hidden flex flex-col h-80 lg:h-96">
                     <div id="mapaLeaflet" class="w-full h-full rounded-lg z-10"></div>
                 </div>
@@ -322,7 +325,7 @@
         let leafletMap = null;
         let leafletMarkers = [];
 
-        // EXPOSICIÓN AL ÁMBITO GLOBAL (window)
+        // EXPOSICIÓN AL ÁMBITO GLOBAL
         window.sincronizarInicialBajoDemanda = sincronizarInicialBajoDemanda;
         window.reiniciarYRenderizarTabla = reiniciarYRenderizarTabla;
         window.cargarMasRutasEnTabla = cargarMasRutasEnTabla;
@@ -348,7 +351,7 @@
             try {
                 const [snapEmpresas, snapVacantes, snapRutas] = await Promise.all([
                     get(ref(db, "empresas")),
-                    get(ref(db, "vacantes_detalles")), // 👈 Ajustado al nodo anidado
+                    get(ref(db, "vacantes_detalles")),
                     get(ref(db, "rutas"))
                 ]);
 
@@ -416,11 +419,8 @@
                 return;
             }
 
-            // Iterar nivel 1: Empresas (ej. grupo_arcoiris)
             Object.entries(vacantesNodo).forEach(([empresaKey, vacantesEmpresa]) => {
                 if (typeof vacantesEmpresa === 'object' && vacantesEmpresa !== null) {
-                    
-                    // Iterar nivel 2: Vacantes (ej. grupo_arcoiris_operador_de_produccion)
                     Object.entries(vacantesEmpresa).forEach(([idVacante, v]) => {
                         if (typeof v === 'object' && v !== null) {
                             totalVacantes++;
@@ -429,7 +429,6 @@
                             select.innerHTML += `<option value="${idVacante}">${titulo} (${empresa})</option>`;
                         }
                     });
-
                 }
             });
 
@@ -668,7 +667,6 @@ Devuelve ÚNICAMENTE un JSON con las coordenadas estimadas: {"lat": 20.6597, "ln
             let matches = [];
             let empresaFiltroNombre = null;
 
-            // Búsqueda profunda en caché anidado por idVacante
             if (idVacanteFiltro && cacheVacantes) {
                 Object.values(cacheVacantes).forEach(empresa => {
                     if (empresa && empresa[idVacanteFiltro]) {
@@ -715,7 +713,7 @@ Devuelve ÚNICAMENTE un JSON con las coordenadas estimadas: {"lat": 20.6597, "ln
             lista.innerHTML = "";
             resCaja.classList.remove("hidden");
 
-            // RENDERIZAR MAPA LEAFLET EN MODO OSCURO
+            // RENDERIZAR MAPA LEAFLET EN MODO CLARO Y LEGIBLE
             renderizarMapaLeaflet(cLat, cLng, matches);
 
             if (matches.length === 0) {
@@ -754,7 +752,8 @@ Devuelve ÚNICAMENTE un JSON con las coordenadas estimadas: {"lat": 20.6597, "ln
             setTimeout(() => {
                 if (!leafletMap) {
                     leafletMap = L.map('mapaLeaflet').setView([cLat, cLng], 12);
-                    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                    // Capa de mapa claro Voyager (CARTO) con alto contraste y nitidez
+                    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
                         maxZoom: 19,
                         attribution: '© OpenStreetMap / CARTO'
                     }).addTo(leafletMap);
@@ -764,14 +763,14 @@ Devuelve ÚNICAMENTE un JSON con las coordenadas estimadas: {"lat": 20.6597, "ln
                     leafletMarkers = [];
                 }
 
-                // Marcador Posición Candidato
+                // Marcador Posición Candidato (Naranja Neón)
                 const candMarker = L.circleMarker([cLat, cLng], {
                     radius: 9,
-                    fillColor: "#06b6d4",
+                    fillColor: "#ea580c",
                     color: "#ffffff",
                     weight: 2,
                     opacity: 1,
-                    fillOpacity: 0.9
+                    fillOpacity: 0.95
                 }).addTo(leafletMap);
                 candMarker.bindPopup("<b>📍 Posición Candidato</b>").openPopup();
                 leafletMarkers.push(candMarker);
@@ -781,8 +780,8 @@ Devuelve ÚNICAMENTE un JSON con las coordenadas estimadas: {"lat": 20.6597, "ln
                     const marker = L.marker([m.lat, m.lng]).addTo(leafletMap);
                     marker.bindPopup(`
                         <div class="text-xs">
-                            <b style="color:#a855f7;">${m.nombre}</b><br>
-                            Empresa: ${m.empresa}<br>
+                            <b style="color:#7e22ce;">${m.nombre}</b><br>
+                            Empresa: <b>${m.empresa}</b><br>
                             Distancia: ${m.distancia.toFixed(2)} km<br>
                             Score: <b>${m.score}%</b>
                         </div>
@@ -791,10 +790,10 @@ Devuelve ÚNICAMENTE un JSON con las coordenadas estimadas: {"lat": 20.6597, "ln
 
                     // Trazar línea punteada de conexión
                     const polyline = L.polyline([[cLat, cLng], [m.lat, m.lng]], {
-                        color: m.score >= 75 ? '#10b981' : '#ea580c',
-                        weight: 2,
+                        color: m.score >= 75 ? '#059669' : '#d97706',
+                        weight: 2.5,
                         dashArray: '5, 5',
-                        opacity: 0.7
+                        opacity: 0.8
                     }).addTo(leafletMap);
                     leafletMarkers.push(polyline);
                 });
