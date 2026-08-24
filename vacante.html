@@ -6,8 +6,13 @@
     <title>Bolsa de Trabajo - Portal Premium de Vacantes</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
+    <!-- Firebase JS SDK v10.8.0 -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
+    <!-- Leaflet.js (Mapa Interactivo Gratuito) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <style>
         :root {
@@ -458,83 +463,61 @@
             border-left: 4px solid var(--wf-accent-blue);
         }
 
-        .contenedor-buscador-rutas { position: relative; margin-bottom: 10px; }
-        .contenedor-buscador-rutas i {
-            position: absolute;
-            left: 14px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: var(--wf-accent-blue);
-            font-size: 1rem;
-        }
-
-        .input-busqueda-rutas {
+        /* Estilos del Módulo de Optimización de Mapa y GPS */
+        #mapaRutas {
+            height: 280px;
             width: 100%;
-            padding: 12px 12px 12px 40px !important;
-            background-color: #070f1e !important;
-            border: 2px dashed rgba(56, 189, 248, 0.4) !important;
-            color: var(--white);
-            border-radius: 10px;
-            font-size: 0.92rem;
-            transition: all 0.3s ease;
-        }
-
-        .btn-geolocalizar {
-            width: 100%;
-            background: rgba(56, 189, 248, 0.15);
+            border-radius: 12px;
+            margin-top: 10px;
+            margin-bottom: 15px;
             border: 1px solid var(--wf-accent-blue);
-            color: var(--wf-accent-blue);
-            padding: 9px 12px;
+            z-index: 1;
+        }
+
+        .btn-gps {
+            background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+            color: white;
+            border: none;
+            padding: 11px 14px;
             border-radius: 8px;
+            font-weight: bold;
+            font-size: 0.88rem;
             cursor: pointer;
-            font-size: 0.85rem;
-            font-weight: 700;
-            margin-bottom: 14px;
+            width: 100%;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
+            margin-bottom: 12px;
             transition: all 0.3s ease;
+            box-shadow: 0 0 10px rgba(14, 165, 233, 0.3);
         }
 
-        .badge-distancia {
-            background: rgba(34, 197, 94, 0.2);
-            color: #4ade80;
-            border: 1px solid rgba(34, 197, 94, 0.4);
-            font-size: 0.75rem;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-weight: bold;
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
+        .btn-gps:hover {
+            background: #38bdf8;
+            color: #070f1e;
+            box-shadow: 0 0 18px var(--wf-accent-glow);
         }
 
-        .grid-pantalla-rutas {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 8px;
-            max-height: 240px;
-            overflow-y: auto;
-            padding-right: 5px;
-            margin-top: 10px;
-        }
-
-        .item-ruta-interactivo {
-            background: rgba(20, 36, 67, 0.4);
+        .input-filtro-colonia {
+            width: 100%;
+            padding: 10px 12px;
+            background: var(--input-bg);
             border: 1px solid var(--border-color);
             border-radius: 8px;
-            padding: 10px 14px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            cursor: pointer;
-            transition: all 0.25s ease;
+            color: white;
+            font-size: 0.9rem;
+            margin-bottom: 12px;
         }
 
-        .item-ruta-interactivo.seleccionado {
-            background: linear-gradient(135deg, rgba(15, 34, 64, 0.8) 0%, rgba(20, 48, 92, 0.9) 100%);
-            border-color: var(--wf-accent-blue);
+        .leaflet-popup-content-wrapper {
+            background: #0f1a2c;
+            color: #fff;
+            border: 1px solid var(--wf-accent-blue);
+            border-radius: 8px;
+        }
+        .leaflet-popup-tip {
+            background: #0f1a2c;
         }
 
         .links-section { 
@@ -646,24 +629,47 @@
             </div>
 
             <div class="column-right sticky-side-form">
+                <!-- MÓDULO TRANSPORTE OPTIMIZADO -->
                 <div class="card-transporte" id="bloqueTransporte">
                     <h3><i class="fa-solid fa-bus-simple"></i> Rutas y Transporte Cercano</h3>
                     <p id="txtDetallesTransporte" class="transporte-detalles">—</p>
-                    
-                    <button class="btn-geolocalizar" onclick="obtenerUbicacionGPS()">
-                        <i class="fa-solid fa-crosshairs"></i> Usar mi Ubicación GPS Actual
+
+                    <!-- Botón GPS Automático -->
+                    <button type="button" class="btn-gps" onclick="obtenerUbicacionGPS()">
+                        <i class="fa-solid fa-crosshairs"></i> Usar mi ubicación actual (Parada más cercana)
                     </button>
 
-                    <div class="contenedor-buscador-rutas">
-                        <i class="fa-solid fa-magnifying-glass"></i>
-                        <input type="text" id="buscarRutaInput" class="input-busqueda-rutas" placeholder="Escribe tu Código Postal, Colonia o Dirección...">
+                    <!-- Búsqueda por Colonia / C.P. -->
+                    <div class="form-group">
+                        <label style="color: var(--text-muted); font-size: 0.78rem;">
+                            <i class="fa-solid fa-magnifying-glass"></i> Filtrar paradas por Colonia o C.P.:
+                        </label>
+                        <input type="text" id="txtFiltroColonia" class="input-filtro-colonia" placeholder="Ej: Centro, Insurgentes, 22800..." onkeyup="filtrarParadasPorTexto(this.value)">
                     </div>
 
-                    <label style="color: var(--wf-accent-blue); font-weight: bold; margin-bottom: 8px; font-size: 0.82rem; display:block;">
-                        <i class="fa-solid fa-route"></i> Paradas Cercanas (Selecciona una):
-                    </label>
+                    <!-- Mapa Interactivo Leaflet -->
+                    <div id="mapaRutas"></div>
                     
-                    <div id="gridPantallaRutasDinamicas" class="grid-pantalla-rutas"></div>
+                    <!-- Selector 1: Rutas M6 en Firebase -->
+                    <div class="form-group">
+                        <label for="selRutaEmpresa" style="color: var(--wf-accent-blue); font-weight: bold;">
+                            <i class="fa-solid fa-route"></i> 1. Selecciona tu Ruta:
+                        </label>
+                        <select id="selRutaEmpresa" onchange="alSeleccionarRuta(this.value)">
+                            <option value="">— Cargando rutas disponibles... —</option>
+                        </select>
+                    </div>
+
+                    <!-- Selector 2: Paradas de la ruta elegida -->
+                    <div class="form-group" id="contenedorParadasRuta" style="display: none; margin-bottom: 0;">
+                        <label for="selParadaRuta" style="color: var(--wf-accent-blue); font-weight: bold;">
+                            <i class="fa-solid fa-location-dot"></i> 2. Selecciona Punto / Parada de Abordaje:
+                        </label>
+                        <select id="selParadaRuta" onchange="alSeleccionarParada(this.value)">
+                            <option value="">— Selecciona una parada —</option>
+                        </select>
+                    </div>
+
                     <input type="hidden" id="selPuntoRecoleccion" value="">
                 </div>
 
@@ -757,16 +763,21 @@
     let todasLasVacantesEmpresa = {};
     let datosVacanteGlobal = null;
     let vacanteKeyDetectada = "";
-    let puntosLimpiosGlobal = []; 
+    let estructuraRutasGlobal = {}; 
+    let tieneRutasHabilitadas = false;
     let nombreEmpresaMaestro = "";
     let ubicacionEmpresaMaestro = ""; 
-    let userCoordsGlobal = null;
-    let timerBusquedaGeo = null;
     const fallbackTelefonoReclutador = "526461974763";
 
     let arrayBannersRevolver = [];
     let currentRevolverIndex = 0;
     let autoPlayInterval = null;
+
+    // Variables de Leaflet y Geolocalización
+    let mapLeaflet = null;
+    let marcadoresMapa = [];
+    let markerUsuario = null;
+    let listaTodasLasParadasFlat = []; 
 
     window.addEventListener('DOMContentLoaded', () => {
         const inputFecha = document.getElementById('postFechaEntrevista');
@@ -774,17 +785,6 @@
             inputFecha.min = new Date().toISOString().split('T')[0];
         }
     });
-
-    function calcularHaversineKm(lat1, lon1, lat2, lon2) {
-        if (!lat1 || !lon1 || !lat2 || !lon2) return null;
-        const R = 6371; 
-        const dLat = (lat2 - lat1) * Math.PI / 180;
-        const dLon = (lon2 - lon1) * Math.PI / 180;
-        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                  Math.sin(dLon/2) * Math.sin(dLon/2);
-        return parseFloat((R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)))).toFixed(2));
-    }
 
     function renderizarUbicacionEmpresa(lugar) {
         const contenedor = document.getElementById('mainEmpresaLugarContainer');
@@ -911,7 +911,7 @@
         document.getElementById('vacanteNotas').innerText = (notasTexto && notasTexto.trim().length > 0) ? notasTexto : 'Sin notas adicionales.';
 
         configurarMazorcaBanners(data);
-        inicializarBuscadorRutas();
+        await inicializarBuscadorRutas();
 
         document.getElementById('menuVacantesBox').style.display = 'none';
         document.getElementById('content').style.display = 'block';
@@ -934,7 +934,7 @@
         } else if (typeof rawBanners === 'string' && rawBanners.trim().length > 5) {
             arrayBannersRevolver.push(rawBanners.trim());
         } else if (Array.isArray(rawBanners)) {
-            arrayBannersRevolver = rawBanners.filter(u => typeof u === 'string' && u.length > 5);
+            arrayBannersRevolver = arrayBannersRevolver.filter(u => typeof u === 'string' && u.length > 5);
         }
 
         arrayBannersRevolver = arrayBannersRevolver.map(url => {
@@ -1018,17 +1018,160 @@
         }
     }
 
+    /* === FUNCIONES DEL MAPA LEAFLET Y GEOLOCALIZACIÓN GPS === */
+    function inicializarMapaInteractivo(latInicial = 31.8667, lngInicial = -116.5964) {
+        if (mapLeaflet) {
+            mapLeaflet.remove();
+        }
+
+        mapLeaflet = L.map('mapaRutas').setView([latInicial, lngInicial], 12);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap'
+        }).addTo(mapLeaflet);
+    }
+
+    function renderizarParadasEnMapa(paradas) {
+        if (!mapLeaflet) inicializarMapaInteractivo();
+
+        marcadoresMapa.forEach(m => mapLeaflet.removeLayer(m));
+        marcadoresMapa = [];
+
+        let bounds = [];
+
+        paradas.forEach(p => {
+            const lat = parseFloat(p.lat);
+            const lng = parseFloat(p.lng);
+
+            if (!isNaN(lat) && !isNaN(lng)) {
+                const marker = L.marker([lat, lng]).addTo(mapLeaflet);
+                marker.bindPopup(`<b>${p.nombre || 'Parada'}</b><br>Ruta: ${p.nombreRuta}<br>Horario: ${p.horario || 'S/H'}`);
+                marcadoresMapa.push(marker);
+                bounds.push([lat, lng]);
+            }
+        });
+
+        if (bounds.length > 0) {
+            mapLeaflet.fitBounds(bounds, { padding: [30, 30] });
+        }
+    }
+
+    function calcularDistanciaKm(lat1, lon1, lat2, lon2) {
+        const R = 6371; 
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                  Math.sin(dLon/2) * Math.sin(dLon/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        return R * c; 
+    }
+
+    function obtenerUbicacionGPS() {
+        if (!navigator.geolocation) {
+            alert("Tu navegador no soporta geolocalización.");
+            return;
+        }
+
+        const btn = document.querySelector('.btn-gps');
+        btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Localizando...`;
+
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                const latUser = pos.coords.latitude;
+                const lngUser = pos.coords.longitude;
+
+                btn.innerHTML = `<i class="fa-solid fa-location-dot"></i> Ubicación Localizada`;
+
+                if (mapLeaflet) {
+                    if (markerUsuario) mapLeaflet.removeLayer(markerUsuario);
+                    
+                    markerUsuario = L.circleMarker([latUser, lngUser], {
+                        color: '#38bdf8',
+                        fillColor: '#0ea5e9',
+                        fillOpacity: 0.8,
+                        radius: 10
+                    }).addTo(mapLeaflet).bindPopup("<b>Tu Ubicación Actual</b>").openPopup();
+
+                    mapLeaflet.setView([latUser, lngUser], 14);
+                }
+
+                encontrarParadaMasCercanaGPS(latUser, lngUser);
+            },
+            (error) => {
+                btn.innerHTML = `<i class="fa-solid fa-crosshairs"></i> Usar mi ubicación actual (Parada más cercana)`;
+                alert("No se pudo obtener tu ubicación. Verifica los permisos de GPS en tu dispositivo.");
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
+        );
+    }
+
+    function encontrarParadaMasCercanaGPS(latUser, lngUser) {
+        if (listaTodasLasParadasFlat.length === 0) {
+            alert("No hay paradas de transporte registradas para calcular.");
+            return;
+        }
+
+        let menorDistancia = Infinity;
+        let paradaMasCercana = null;
+
+        listaTodasLasParadasFlat.forEach(p => {
+            const lat = parseFloat(p.lat);
+            const lng = parseFloat(p.lng);
+
+            if (!isNaN(lat) && !isNaN(lng)) {
+                const dist = calcularDistanciaKm(latUser, lngUser, lat, lng);
+                if (dist < menorDistancia) {
+                    menorDistancia = dist;
+                    paradaMasCercana = p;
+                }
+            }
+        });
+
+        if (paradaMasCercana) {
+            alert(`📍 Parada más cercana: "${paradaMasCercana.nombre}" (a ${menorDistancia.toFixed(2)} km de ti). Se seleccionará automáticamente.`);
+            
+            const selectRuta = document.getElementById('selRutaEmpresa');
+            selectRuta.value = paradaMasCercana.keyRuta;
+            alSeleccionarRuta(paradaMasCercana.keyRuta);
+
+            setTimeout(() => {
+                const selectParada = document.getElementById('selParadaRuta');
+                selectParada.value = paradaMasCercana.valOption;
+                alSeleccionarParada(paradaMasCercana.valOption);
+            }, 200);
+        }
+    }
+
+    function filtrarParadasPorTexto(textoBusqueda) {
+        const filtro = textoBusqueda.toLowerCase().trim();
+        const selectParadas = document.getElementById('selParadaRuta');
+        const options = selectParadas.querySelectorAll('option');
+
+        options.forEach(opt => {
+            if (opt.value === "") return;
+            const txt = opt.textContent.toLowerCase();
+            if (txt.includes(filtro)) {
+                opt.style.display = "block";
+            } else {
+                opt.style.display = "none";
+            }
+        });
+    }
+
+    /* === INICIALIZACIÓN DE RUTAS DESDE FIREBASE === */
     async function inicializarBuscadorRutas() {
         const txtDetallesTrans = document.getElementById('txtDetallesTransporte');
-        const pantallaRutas = document.getElementById('gridPantallaRutasDinamicas');
+        const selectRutas = document.getElementById('selRutaEmpresa');
+        const contenedorParadas = document.getElementById('contenedorParadasRuta');
         const inputOcultoPunto = document.getElementById('selPuntoRecoleccion');
-        const buscadorInput = document.getElementById('buscarRutaInput');
         
-        pantallaRutas.innerHTML = '<div style="color:var(--wf-accent-blue); padding:10px;"><i class="fas fa-spinner fa-spin"></i> Cargando rutas...</div>';
         inputOcultoPunto.value = "";
-        buscadorInput.value = "";
+        selectRutas.innerHTML = '<option value="">— Cargando rutas disponibles... —</option>';
+        contenedorParadas.style.display = 'none';
+        listaTodasLasParadasFlat = [];
 
-        // 1. Extraer detalle configurado desde la Vacante (m2_vacante) si existe
         let detalleDesdeVacante = "";
         if (datosVacanteGlobal) {
             detalleDesdeVacante = datosVacanteGlobal.rutasTransporte || 
@@ -1037,164 +1180,131 @@
                                   datosVacanteGlobal.m2_transporte || "";
         }
 
-        // 2. Consulta en Firebase priorizando el nodo "rutas"
         let snapRuta = await db.ref(`rutas/${empresaLimpia}`).once('value');
-        if (!snapRuta.exists()) {
-            snapRuta = await db.ref(`rutas_transporte/${empresaLimpia}`).once('value');
-        }
         if (!snapRuta.exists()) {
             snapRuta = await db.ref(`m6_transporte/${empresaLimpia}`).once('value');
         }
 
-        let dataRuta = snapRuta.exists() ? snapRuta.val() : null;
-        let puntos = [];
-        let detalleTexto = detalleDesdeVacante || "La empresa ofrece circuito de transporte de personal.";
-
-        if (dataRuta) {
-            const infoTransporte = dataRuta.transporte_privado_empresa || dataRuta.transporte_privado || dataRuta;
+        if (snapRuta.exists()) {
+            estructuraRutasGlobal = snapRuta.val();
             
-            // Prioridad al texto de transporte de la vacante, luego al nodo global de la empresa
-            if (!detalleDesdeVacante) {
-                detalleTexto = infoTransporte.details || infoTransporte.detalles || detalleTexto;
-            }
+            const detalleM6 = estructuraRutasGlobal.detalles || estructuraRutasGlobal.details || "";
+            txtDetallesTrans.innerText = detalleDesdeVacante || detalleM6 || "La empresa cuenta con rutas de transporte privadas habilitadas.";
+
+            selectRutas.innerHTML = '<option value="">— Selecciona una ruta de transporte —</option>';
             
-            puntos = infoTransporte.puntos_recoleccion || infoTransporte.puntos || infoTransporte.paradas || [];
-            
-            // Si las rutas están indexadas directamente bajo la llave de empresa
-            if (puntos.length === 0 && typeof infoTransporte === 'object') {
-                const llaves = Object.keys(infoTransporte);
-                const tienePuntosDirectos = llaves.some(k => k.startsWith('-P') || infoTransporte[k].nombre || infoTransporte[k].parada);
-                if (tienePuntosDirectos) {
-                    puntos = infoTransporte;
-                }
-            }
-        }
+            let contadorRutas = 0;
 
-        if (puntos && !Array.isArray(puntos) && typeof puntos === 'object') {
-            puntos = Object.values(puntos);
-        }
+            Object.keys(estructuraRutasGlobal).forEach(key => {
+                const item = estructuraRutasGlobal[key];
+                
+                if (typeof item === 'object' && item !== null && key !== 'detalles' && key !== 'details') {
+                    const nombreRuta = item.nombreRuta || item.nombre || item.ruta || `Ruta (${key})`;
+                    const opt = document.createElement('option');
+                    opt.value = key;
+                    opt.textContent = String(nombreRuta).toUpperCase();
+                    selectRutas.appendChild(opt);
+                    contadorRutas++;
 
-        if (puntos && puntos.length > 0) {
-            txtDetallesTrans.innerText = detalleTexto;
-            puntosLimpiosGlobal = puntos.filter(p => p && (p.nombre || p.parada || p.punto));
+                    // Aplanar paradas para GPS y Mapa
+                    let paradas = item.puntos_recoleccion || item.paradas || item.puntos || [];
+                    if (paradas && !Array.isArray(paradas) && typeof paradas === 'object') {
+                        paradas = Object.values(paradas);
+                    }
 
-            puntosLimpiosGlobal = puntosLimpiosGlobal.map(p => ({
-                nombre: p.nombre || p.parada || p.punto || "Parada de Transporte",
-                horario: p.horario || p.hora || "Horario variable",
-                latitud: p.latitud || p.lat,
-                longitud: p.longitud || p.lng || p.lon
-            }));
+                    if (Array.isArray(paradas)) {
+                        paradas.forEach(p => {
+                            const nombreParada = p.nombre || p.parada || p.punto || "Punto de Abordaje";
+                            const horario = p.horario || p.hora || "";
+                            const textoDetalle = horario ? `${nombreParada} (${horario})` : nombreParada;
 
-            buscadorInput.oninput = function(e) {
-                const busqueda = e.target.value.trim();
-                if (timerBusquedaGeo) clearTimeout(timerBusquedaGeo);
-
-                if (busqueda.length > 3) {
-                    timerBusquedaGeo = setTimeout(() => geocodificarYFiltrar(busqueda), 600);
-                } else {
-                    pintarPantallaRutas(puntosLimpiosGlobal);
-                }
-            };
-
-            pintarPantallaRutas(puntosLimpiosGlobal);
-        } else {
-            txtDetallesTrans.innerText = detalleDesdeVacante || "Esta empresa no cuenta con rutas de transporte privadas registradas por el momento.";
-            pantallaRutas.innerHTML = '<div style="color:var(--text-muted); padding:10px; font-size:0.85rem;"><i class="fa-solid fa-circle-info"></i> No hay paradas interactivas registradas para esta empresa.</div>';
-        }
-    }
-
-    function pintarPantallaRutas(listaPuntos) {
-        const pantallaRutas = document.getElementById('gridPantallaRutasDinamicas');
-        const inputOcultoPunto = document.getElementById('selPuntoRecoleccion');
-        pantallaRutas.innerHTML = '';
-
-        if (!listaPuntos || listaPuntos.length === 0) {
-            pantallaRutas.innerHTML = '<div style="color:var(--text-muted); padding:10px; font-size:0.85rem;">No se encontraron paradas coincidentes.</div>';
-            return;
-        }
-
-        if (userCoordsGlobal) {
-            listaPuntos.forEach(p => {
-                if (p.latitud && p.longitud) {
-                    p.distanciaKm = calcularHaversineKm(userCoordsGlobal.lat, userCoordsGlobal.lng, parseFloat(p.latitud), parseFloat(p.longitud));
-                } else {
-                    p.distanciaKm = 9999;
+                            listaTodasLasParadasFlat.push({
+                                keyRuta: key,
+                                nombreRuta: nombreRuta,
+                                nombre: nombreParada,
+                                horario: horario,
+                                valOption: `${nombreRuta} ➔ ${textoDetalle}`,
+                                lat: p.lat || p.latitud,
+                                lng: p.lng || p.longitud || p.lon
+                            });
+                        });
+                    }
                 }
             });
-            listaPuntos.sort((a, b) => (a.distanciaKm || 9999) - (b.distanciaKm || 9999));
+
+            if (contadorRutas > 0) {
+                tieneRutasHabilitadas = true;
+            } else {
+                selectRutas.innerHTML = '<option value="">— No se encontraron rutas registradas —</option>';
+                tieneRutasHabilitadas = false;
+            }
+        } else {
+            txtDetallesTrans.innerText = detalleDesdeVacante || "Esta empresa no cuenta con rutas de transporte privadas registradas por el momento.";
+            selectRutas.innerHTML = '<option value="">— Sin transporte asignado —</option>';
+            tieneRutasHabilitadas = false;
         }
 
-        listaPuntos.forEach((punto, index) => {
-            const textoMostrar = `${punto.nombre} (${punto.horario})`;
-            const badgeDist = (punto.distanciaKm && punto.distanciaKm < 9000) 
-                ? `<span class="badge-distancia"><i class="fa-solid fa-location-arrow"></i> A ${punto.distanciaKm} km</span>` 
-                : '';
-
-            const itemCard = document.createElement('div');
-            itemCard.className = `item-ruta-interactivo ${inputOcultoPunto.value === textoMostrar ? 'seleccionado' : ''}`;
-            
-            itemCard.innerHTML = `
-                <input type="radio" name="rbRutaGrupo" id="rb_ruta_${index}" value="${punto.nombre}" ${inputOcultoPunto.value === textoMostrar ? 'checked' : ''}>
-                <div style="display: flex; flex-direction: column; gap: 2px; width: 100%;">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span style="font-size: 0.9rem; font-weight: 700; color: #fff;">${punto.nombre.toUpperCase()}</span>
-                        ${badgeDist}
-                    </div>
-                    <small style="color: var(--wf-accent-blue); font-weight: 600;"><i class="fa-regular fa-clock"></i> ${punto.horario}</small>
-                </div>
-            `;
-            
-            itemCard.onclick = function() {
-                document.querySelectorAll('.item-ruta-interactivo').forEach(c => c.classList.remove('seleccionado'));
-                itemCard.classList.add('seleccionado');
-                const radioBtn = document.getElementById(`rb_ruta_${index}`);
-                if (radioBtn) radioBtn.checked = true;
-                inputOcultoPunto.value = textoMostrar;
-            };
-            pantallaRutas.appendChild(itemCard);
-        });
+        // Cargar Mapa Interactivo
+        setTimeout(() => {
+            inicializarMapaInteractivo();
+            if (listaTodasLasParadasFlat.length > 0) {
+                renderizarParadasEnMapa(listaTodasLasParadasFlat);
+            }
+        }, 300);
     }
 
-    function obtenerUbicacionGPS() {
-        if (!navigator.geolocation) {
-            alert("❌ Tu navegador no soporta geolocalización.");
+    function alSeleccionarRuta(keyRuta) {
+        const selectParadas = document.getElementById('selParadaRuta');
+        const contenedorParadas = document.getElementById('contenedorParadasRuta');
+        const inputOcultoPunto = document.getElementById('selPuntoRecoleccion');
+        
+        inputOcultoPunto.value = "";
+        selectParadas.innerHTML = '<option value="">— Selecciona tu parada / horario —</option>';
+
+        if (!keyRuta || !estructuraRutasGlobal[keyRuta]) {
+            contenedorParadas.style.display = 'none';
+            if (listaTodasLasParadasFlat.length > 0) renderizarParadasEnMapa(listaTodasLasParadasFlat);
             return;
         }
 
-        const btn = document.querySelector('.btn-geolocalizar');
-        btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Obteniendo ubicación...`;
+        const rutaObjeto = estructuraRutasGlobal[keyRuta];
+        const nombreRutaLindo = rutaObjeto.nombreRuta || rutaObjeto.nombre || rutaObjeto.ruta || keyRuta;
+        
+        let paradas = rutaObjeto.puntos_recoleccion || rutaObjeto.paradas || rutaObjeto.puntos || [];
 
-        navigator.geolocation.getCurrentPosition(
-            (pos) => {
-                userCoordsGlobal = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-                btn.innerHTML = `<i class="fa-solid fa-check"></i> Ubicación Localizada`;
-                pintarPantallaRutas(puntosLimpiosGlobal);
-            },
-            () => {
-                btn.innerHTML = `<i class="fa-solid fa-crosshairs"></i> Usar mi Ubicación GPS Actual`;
-                alert("⚠️ No se pudo obtener la ubicación GPS.");
-            }
-        );
+        if (paradas && !Array.isArray(paradas) && typeof paradas === 'object') {
+            paradas = Object.values(paradas);
+        }
+
+        // Filtrar mapa por la ruta elegida
+        const paradasFiltradas = listaTodasLasParadasFlat.filter(p => p.keyRuta === keyRuta);
+        if (paradasFiltradas.length > 0) {
+            renderizarParadasEnMapa(paradasFiltradas);
+        }
+
+        if (paradas && paradas.length > 0) {
+            paradas.forEach(p => {
+                const nombreParada = p.nombre || p.parada || p.punto || "Punto de Abordaje";
+                const horario = p.horario || p.hora || "";
+                const textoDetalle = horario ? `${nombreParada} (${horario})` : nombreParada;
+
+                const opt = document.createElement('option');
+                opt.value = `${nombreRutaLindo} ➔ ${textoDetalle}`;
+                opt.textContent = textoDetalle;
+                selectParadas.appendChild(opt);
+            });
+            contenedorParadas.style.display = 'block';
+        } else {
+            const opt = document.createElement('option');
+            opt.value = `${nombreRutaLindo} ➔ Parada General / Recorrido Completo`;
+            opt.textContent = "Parada General / Única";
+            selectParadas.appendChild(opt);
+            contenedorParadas.style.display = 'block';
+        }
     }
 
-    async function geocodificarYFiltrar(queryText) {
-        try {
-            const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(queryText)}&countrycodes=mx&limit=1`);
-            const results = await response.json();
-
-            if (results && results.length > 0) {
-                userCoordsGlobal = { lat: parseFloat(results[0].lat), lng: parseFloat(results[0].lon) };
-                pintarPantallaRutas(puntosLimpiosGlobal);
-            } else {
-                const busqueda = queryText.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-                const filtrados = puntosLimpiosGlobal.filter(p => 
-                    p.nombre.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(busqueda)
-                );
-                pintarPantallaRutas(filtrados);
-            }
-        } catch (e) {
-            console.error("Error geocodificando:", e);
-        }
+    function alSeleccionarParada(valorSeleccionado) {
+        document.getElementById('selPuntoRecoleccion').value = valorSeleccionado;
     }
 
     window.regresarAlMenu = function() {
@@ -1261,11 +1371,10 @@
         const selectReclutador = document.getElementById("selReclutador");
         const btnSubmit = document.getElementById('btnSubmitForm');
         
-        const tieneRutasEmpresa = puntosLimpiosGlobal.length > 0;
         const puntoElegido = inputOcultoPunto.value ? inputOcultoPunto.value : "No aplica / No seleccionado";
 
-        if (tieneRutasEmpresa && !inputOcultoPunto.value) { 
-            alert("⚠️ Por favor selecciona una de las paradas de transporte en la lista."); 
+        if (tieneRutasHabilitadas && !inputOcultoPunto.value) { 
+            alert("⚠️ Por favor selecciona una Ruta y tu Parada correspondiente."); 
             return; 
         }
 
@@ -1310,7 +1419,7 @@
                                     `• *Folio:* ${timestampId}\n` +
                                     `• *Puesto:* ${payloadPostulante.vacante}\n` +
                                     `• *Empresa:* ${payloadPostulante.empresa}\n` +
-                                    `• *Ruta Conveniente:* ${puntoElegido}\n\n` +
+                                    `• *Ruta y Parada:* ${puntoElegido}\n\n` +
                                     `*📅 Cita de Entrevista Agendada:*\n` +
                                     `• *Fecha:* ${fechaEntrevista}\n` +
                                     `• *Horario:* ${horaEntrevista}\n\n` +
