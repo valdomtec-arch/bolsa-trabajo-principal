@@ -13,7 +13,6 @@
 
     <style>
         :root {
-            /* Paleta de Colores de la Empresa */
             --wf-accent-blue: #38bdf8;         
             --wf-accent-hover: #0ea5e9;        
             --wf-accent-glow: rgba(56, 189, 248, 0.35); 
@@ -170,27 +169,115 @@
         .chevron-icon { color: var(--wf-accent-blue); font-size: 1.2rem; transition: transform 0.3s ease; }
         .vacante-item-card:hover .chevron-icon { transform: translateX(5px); }
         
-        /* Banner Integrado Estilo Hero */
-        .banner-container { 
-            width: 100%; 
-            margin-bottom: 25px; 
-            border-radius: var(--radius-md); 
-            overflow: hidden; 
-            border: 1px solid var(--border-color); 
-            display: none; 
+        /* CARRUSEL MAZORCA REVÓLVER DE BANNERS (3D / 10 RANURAS) */
+        .revolver-carousel-container {
             position: relative;
+            width: 100%;
+            height: 280px;
+            margin-bottom: 25px;
+            perspective: 1000px;
+            display: none;
+            overflow: hidden;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
             background: #000;
             box-shadow: var(--shadow-md);
         }
 
-        .banner-container img { 
-            width: 100%; 
-            height: auto; 
-            max-height: 260px; 
-            object-fit: cover; 
-            display: block; 
-            mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
-            -webkit-mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
+        .revolver-stage {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.8s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        .revolver-slide {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            opacity: 0;
+            transition: all 0.6s ease;
+            pointer-events: none;
+        }
+
+        .revolver-slide.active {
+            opacity: 1;
+            transform: rotateY(0deg) translateZ(0);
+            pointer-events: auto;
+        }
+
+        .revolver-slide.prev-slide {
+            opacity: 0.3;
+            transform: rotateY(-35deg) translateZ(-150px) translateX(-50%);
+        }
+
+        .revolver-slide.next-slide {
+            opacity: 0.3;
+            transform: rotateY(35deg) translateZ(-150px) translateX(50%);
+        }
+
+        .revolver-slide img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            mask-image: linear-gradient(to bottom, black 75%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to bottom, black 75%, transparent 100%);
+        }
+
+        .revolver-nav {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(4, 8, 20, 0.7);
+            color: var(--wf-accent-blue);
+            border: 1px solid var(--border-color);
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 10;
+            transition: all 0.3s ease;
+        }
+
+        .revolver-nav:hover {
+            background: var(--wf-accent-blue);
+            color: var(--secondary-blue-dark);
+            box-shadow: 0 0 15px var(--wf-accent-glow);
+        }
+
+        .revolver-prev { left: 15px; }
+        .revolver-next { right: 15px; }
+
+        .revolver-indicators {
+            position: absolute;
+            bottom: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 8px;
+            z-index: 10;
+        }
+
+        .revolver-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .revolver-dot.active {
+            background: var(--wf-accent-blue);
+            width: 24px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px var(--wf-accent-glow);
         }
 
         /* GRID LAYOUT ERGONÓMICO EN 2 COLUMNAS */
@@ -281,7 +368,7 @@
         
         .texto-bloque { white-space: pre-wrap; font-size: 0.95rem; line-height: 1.6; color: #cbd5e1; }
 
-        /* MÓDULO INTELIGENTE DE TRANSPORTE */
+        /* MÓDULO INTELIGENTE DE TRANSPORTE CON CÁLCULO HAVERSINE */
         .card-transporte {
             background: linear-gradient(135deg, rgba(14, 30, 54, 0.9) 0%, rgba(7, 15, 30, 0.95) 100%);
             border: 2px solid var(--wf-accent-blue);
@@ -312,7 +399,7 @@
             border-left: 4px solid var(--wf-accent-blue);
         }
 
-        .contenedor-buscador-rutas { position: relative; margin-bottom: 14px; }
+        .contenedor-buscador-rutas { position: relative; margin-bottom: 10px; }
         .contenedor-buscador-rutas i {
             position: absolute;
             left: 14px;
@@ -339,11 +426,48 @@
             box-shadow: 0 0 15px var(--wf-accent-glow);
         }
 
+        .btn-geolocalizar {
+            width: 100%;
+            background: rgba(56, 189, 248, 0.15);
+            border: 1px solid var(--wf-accent-blue);
+            color: var(--wf-accent-blue);
+            padding: 9px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 700;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-geolocalizar:hover {
+            background: var(--wf-accent-blue);
+            color: var(--secondary-blue-dark);
+            box-shadow: 0 0 12px var(--wf-accent-glow);
+        }
+
+        .badge-distancia {
+            background: rgba(34, 197, 94, 0.2);
+            color: #4ade80;
+            border: 1px solid rgba(34, 197, 94, 0.4);
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-weight: bold;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
         .grid-pantalla-rutas {
             display: grid;
             grid-template-columns: 1fr;
             gap: 8px;
-            max-height: 220px;
+            max-height: 240px;
             overflow-y: auto;
             padding-right: 5px;
             margin-top: 10px;
@@ -467,9 +591,12 @@
             <i class="fas fa-arrow-left"></i> Volver a la Lista de Vacantes
         </button>
 
-        <!-- Banner Publicitario Corporativo Integrado -->
-        <div class="banner-container" id="vacanteBannerBox">
-            <img id="vacanteBanner" src="" alt="Banner Publicitario Corporativo">
+        <!-- Carrusel Revólver de Banners (10 Ranuras) -->
+        <div class="revolver-carousel-container" id="revolverCarouselBox">
+            <div class="revolver-stage" id="revolverStage"></div>
+            <button class="revolver-nav revolver-prev" onclick="moverRevolver(-1)"><i class="fa-solid fa-chevron-left"></i></button>
+            <button class="revolver-nav revolver-next" onclick="moverRevolver(1)"><i class="fa-solid fa-chevron-right"></i></button>
+            <div class="revolver-indicators" id="revolverDots"></div>
         </div>
 
         <div class="vacante-layout-grid">
@@ -506,7 +633,7 @@
                     <p class="texto-bloque" id="vacanteBeneficios">No especificados.</p>
                 </div>
 
-                <!-- ALIMENTADO DESDE LA PROPIEDAD informacionGeneral DE M2_VACANTE -->
+                <!-- ALIMENTADO DESDE LA PROPIEDAD informacionGeneral DE M2_VACANTES -->
                 <div class="card">
                     <h3><i class="fa-solid fa-note-sticky"></i> Notas Adicionales</h3>
                     <p class="texto-bloque" id="vacanteNotas">Sin notas adicionales.</p>
@@ -515,18 +642,22 @@
 
             <!-- COLUMNA DERECHA: TRANSPORTE + FORMULARIO STICKY -->
             <div class="column-right sticky-side-form">
-                <!-- MÓDULO DE TRANSPORTE DE PERSONAL -->
+                <!-- MÓDULO INTELIGENTE DE TRANSPORTE CON HAVERSINE -->
                 <div class="card-transporte" id="bloqueTransporte" style="display: none;">
-                    <h3><i class="fa-solid fa-bus-simple"></i> Rutas y Transporte de Personal</h3>
+                    <h3><i class="fa-solid fa-bus-simple"></i> Rutas y Transporte Cercano</h3>
                     <p id="txtDetallesTransporte" class="transporte-detalles">—</p>
                     
+                    <button class="btn-geolocalizar" onclick="obtenerUbicacionGPS()">
+                        <i class="fa-solid fa-crosshairs"></i> Usar mi Ubicación GPS Actual
+                    </button>
+
                     <div class="contenedor-buscador-rutas">
                         <i class="fa-solid fa-magnifying-glass"></i>
-                        <input type="text" id="buscarRutaInput" class="input-busqueda-rutas" placeholder="Ubique su dirección, colonia o paradero...">
+                        <input type="text" id="buscarRutaInput" class="input-busqueda-rutas" placeholder="Escribe tu Código Postal, Colonia o Dirección...">
                     </div>
 
-                    <label style="color: var(--wf-accent-blue); font-weight: bold; margin-bottom: 8px; font-size: 0.82rem;">
-                        <i class="fa-solid fa-route"></i> Paradas Disponibles (Selecciona una):
+                    <label style="color: var(--wf-accent-blue); font-weight: bold; margin-bottom: 8px; font-size: 0.82rem; display:block;">
+                        <i class="fa-solid fa-route"></i> Paradas Cercanas (Selecciona una):
                     </label>
                     
                     <div id="gridPantallaRutasDinamicas" class="grid-pantalla-rutas"></div>
@@ -605,7 +736,7 @@
 </div>
 
 <script>
-    // Configuración Completa de Firebase de tu Proyecto
+    // Configuración Completa de Firebase
     const firebaseConfig = {
         apiKey: "AIzaSyDxgP1YnycCEqkQ2vr3SPkwc9QMhtG8Zqw",
         authDomain: "bolsa-de-trabajo-a52e4.firebaseapp.com",
@@ -617,26 +748,29 @@
         measurementId: "G-DH2LD3BJEF"
     };
 
-    // Inicialización de Firebase + Analytics
     firebase.initializeApp(firebaseConfig);
-    const analytics = firebase.analytics(); // Activa Google Analytics
+    const analytics = firebase.analytics();
     const db = firebase.database();
 
-    // Captura de Parámetros URL
     const urlParams = new URLSearchParams(window.location.search);
     const empresaId = urlParams.get('empresa');
     const empresaLimpia = empresaId ? empresaId.toLowerCase().trim() : "";
 
-    // Variables de Estado Global
     let todasLasVacantesEmpresa = {};
     let datosVacanteGlobal = null;
     let vacanteKeyDetectada = "";
     let puntosLimpiosGlobal = []; 
     let nombreEmpresaMaestro = "";
     let ubicacionEmpresaMaestro = ""; 
+    let userCoordsGlobal = null; // Guardará {lat, lng} del usuario
+    let timerBusquedaGeo = null;
     const fallbackTelefonoReclutador = "526461974763";
 
-    // Establecer fecha mínima para la cita (Hoy)
+    // Variables Carrusel Revólver
+    let arrayBannersRevolver = [];
+    let currentRevolverIndex = 0;
+    let autoPlayInterval = null;
+
     window.addEventListener('DOMContentLoaded', () => {
         const inputFecha = document.getElementById('postFechaEntrevista');
         if (inputFecha) {
@@ -644,6 +778,21 @@
             inputFecha.min = hoy;
         }
     });
+
+    // -------------------------------------------------------------
+    // FÓRMULA HAVERSINE (CÁLCULO DE DISTANCIA GEOGRÁFICA EN KM)
+    // -------------------------------------------------------------
+    function calcularHaversineKm(lat1, lon1, lat2, lon2) {
+        if (!lat1 || !lon1 || !lat2 || !lon2) return null;
+        const R = 6371; // Radio de la Tierra en Km
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                  Math.sin(dLon/2) * Math.sin(dLon/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        return parseFloat((R * c).toFixed(2));
+    }
 
     // 1. CARGA INICIAL Y MONTAJE DEL CATÁLOGO
     async function cargarDetallesVacante() {
@@ -653,7 +802,6 @@
         }
 
         try {
-            // Lectura Paralela del Nodo Maestro de Empresas
             const snapEmpresaMaestra = await db.ref(`empresas/${empresaLimpia}`).once('value');
             if (snapEmpresaMaestra.exists()) {
                 const infoMaestra = snapEmpresaMaestra.val();
@@ -680,8 +828,6 @@
                     }
 
                     const primerVacante = todasLasVacantesEmpresa[keys[0]];
-
-                    // Fallback para Nombre y Ubicación
                     const nombreHeader = nombreEmpresaMaestro || primerVacante.nombreComercial || primerVacante.empresaNombre || empresaLimpia.toUpperCase();
                     const lugarHeader = ubicacionEmpresaMaestro || primerVacante.lugarOrigen || 'México';
                     
@@ -721,9 +867,6 @@
                         </div>
                     `;
                 }
-            }, function(error) {
-                console.error("Error de Firebase:", error);
-                document.getElementById('loading').innerHTML = "❌ Error de conexión al servidor de base de datos.";
             });
         } catch (error) {
             console.error("Error crítico:", error);
@@ -731,7 +874,7 @@
         }
     }
 
-    // 2. DESPLIEGUE DEL PUESTO SELECCIONADO
+    // 2. DESPLIEGUE DEL PUESTO SELECCIONADO Y CONFIGURACIÓN MAZORCA/HAVERSINE
     async function renderizarPuestoEspecifico(key) {
         vacanteKeyDetectada = key;
         const data = todasLasVacantesEmpresa[key];
@@ -761,105 +904,253 @@
         document.getElementById('vacanteActividades').innerText = data.actividades || 'No especificadas.';
         document.getElementById('vacanteBeneficios').innerText = data.beneficios || 'No especificados.';
         
-        // MAPEADO DIRECTO DE INFORMACIÓN GENERAL / EXTRA DE M2_VACANTE
-        document.getElementById('vacanteNotas').innerText = data.informacionGeneral || 'Sin notas adicionales.';
+        // REQUERIMIENTO 3: NOTAS ADICIONALES DESDE "informacionGeneral" DE M2_VACANTES
+        document.getElementById('vacanteNotas').innerText = data.informacionGeneral || data.notas || 'Sin notas adicionales.';
 
-        // Renderizado del Banner Corporativo
-        let imagenFinalBanner = data.bannerUrl && data.bannerUrl.trim() !== "" ? data.bannerUrl.trim() : `https://valdomtec-arch.github.io/bolsa-trabajo-principal/imagen-${empresaLimpia}.jpg`;
-        const imgElement = document.getElementById('vacanteBanner');
-        imgElement.src = imagenFinalBanner;
-        imgElement.onerror = function() {
-            imgElement.src = "https://valdomtec-arch.github.io/bolsa-trabajo-principal/imagen-logo.jpg";
-            imgElement.onerror = null;
-        };
+        // REQUERIMIENTO 1: MONTAR CARRUSEL MAZORCA REVÓLVER (HASTA 10 BANNERS)
+        configurarMazorcaBanners(data);
 
-        // 3. BUSCADOR INTERACTIVO DE RUTAS Y PARADAS
+        // REQUERIMIENTO 2: BUSCADOR DE RUTAS CON CÁLCULO HAVERSINE
+        inicializarBuscadorRutas();
+
+        document.getElementById('menuVacantesBox').style.display = 'none';
+        document.getElementById('content').style.display = 'block';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // -------------------------------------------------------------
+    // MAZORCA REVÓLVER DE BANNERS (10 RANURAS DELIMITADAS POR ';')
+    // -------------------------------------------------------------
+    function configurarMazorcaBanners(data) {
+        arrayBannersRevolver = [];
+        const container = document.getElementById('revolverCarouselBox');
+        const stage = document.getElementById('revolverStage');
+        const dots = document.getElementById('revolverDots');
+
+        stage.innerHTML = '';
+        dots.innerHTML = '';
+
+        // Extraer lista de URLs desde la cadena concatenada o bannerUrl individual
+        let rawBanners = data.bannerUrl || "";
+        if (rawBanners.includes(';')) {
+            arrayBannersRevolver = rawBanners.split(';').map(u => u.trim()).filter(u => u.length > 5);
+        } else if (rawBanners.trim().length > 5) {
+            arrayBannersRevolver.push(rawBanners.trim());
+        }
+
+        // Si no hay banners, agregar imagen corporativa de respaldo
+        if (arrayBannersRevolver.length === 0) {
+            arrayBannersRevolver.push(`https://valdomtec-arch.github.io/bolsa-trabajo-principal/imagen-${empresaLimpia}.jpg`);
+        }
+
+        container.style.display = 'block';
+        currentRevolverIndex = 0;
+
+        arrayBannersRevolver.forEach((url, idx) => {
+            const slide = document.createElement('div');
+            slide.className = `revolver-slide ${idx === 0 ? 'active' : ''}`;
+            slide.id = `slide_rev_${idx}`;
+
+            const img = document.createElement('img');
+            img.src = url;
+            img.onerror = function() {
+                this.src = "https://valdomtec-arch.github.io/bolsa-trabajo-principal/imagen-logo.jpg";
+            };
+
+            slide.appendChild(img);
+            stage.appendChild(slide);
+
+            const dot = document.createElement('div');
+            dot.className = `revolver-dot ${idx === 0 ? 'active' : ''}`;
+            dot.onclick = () => irASlideRevolver(idx);
+            dots.appendChild(dot);
+        });
+
+        actualizarEfectoRevolver();
+
+        if (autoPlayInterval) clearInterval(autoPlayInterval);
+        if (arrayBannersRevolver.length > 1) {
+            autoPlayInterval = setInterval(() => moverRevolver(1), 5000);
+        }
+    }
+
+    function moverRevolver(direccion) {
+        if (arrayBannersRevolver.length <= 1) return;
+        currentRevolverIndex = (currentRevolverIndex + direccion + arrayBannersRevolver.length) % arrayBannersRevolver.length;
+        actualizarEfectoRevolver();
+    }
+
+    function irASlideRevolver(index) {
+        currentRevolverIndex = index;
+        actualizarEfectoRevolver();
+    }
+
+    function actualizarEfectoRevolver() {
+        const total = arrayBannersRevolver.length;
+        for (let i = 0; i < total; i++) {
+            const slide = document.getElementById(`slide_rev_${i}`);
+            const dot = document.querySelectorAll('.revolver-dot')[i];
+            
+            if (!slide) continue;
+            slide.classList.remove('active', 'prev-slide', 'next-slide');
+            if (dot) dot.classList.remove('active');
+
+            if (i === currentRevolverIndex) {
+                slide.classList.add('active');
+                if (dot) dot.classList.add('active');
+            } else if (i === (currentRevolverIndex - 1 + total) % total) {
+                slide.classList.add('prev-slide');
+            } else if (i === (currentRevolverIndex + 1) % total) {
+                slide.classList.add('next-slide');
+            }
+        }
+    }
+
+    // -------------------------------------------------------------
+    // BUSCADOR DE RUTAS CON GEOLOCALIZACIÓN Y HAVERSINE
+    // -------------------------------------------------------------
+    function inicializarBuscadorRutas() {
         const bloqueTrans = document.getElementById('bloqueTransporte');
         const txtDetallesTrans = document.getElementById('txtDetallesTransporte');
         const pantallaRutas = document.getElementById('gridPantallaRutasDinamicas');
         const inputOcultoPunto = document.getElementById('selPuntoRecoleccion');
         const buscadorInput = document.getElementById('buscarRutaInput');
         
-        if (bloqueTrans && txtDetallesTrans && pantallaRutas) {
-            pantallaRutas.innerHTML = '<div style="color:var(--wf-accent-blue); padding:10px;"><i class="fas fa-spinner fa-spin"></i> Cargando rutas...</div>';
-            bloqueTrans.style.display = 'none';
-            inputOcultoPunto.value = "";
-            buscadorInput.value = "";
+        if (!bloqueTrans || !pantallaRutas) return;
 
-            db.ref(`rutas_transporte/${empresaLimpia}`).once('value', function(snapRuta) {
-                if (snapRuta.exists()) {
-                    const dataRuta = snapRuta.val();
-                    const infoTransporte = dataRuta.transporte_privado_empresa || dataRuta.transporte_privado;
+        pantallaRutas.innerHTML = '<div style="color:var(--wf-accent-blue); padding:10px;"><i class="fas fa-spinner fa-spin"></i> Cargando rutas...</div>';
+        bloqueTrans.style.display = 'none';
+        inputOcultoPunto.value = "";
+        buscadorInput.value = "";
+
+        db.ref(`rutas_transporte/${empresaLimpia}`).once('value', function(snapRuta) {
+            if (snapRuta.exists()) {
+                const dataRuta = snapRuta.val();
+                const infoTransporte = dataRuta.transporte_privado_empresa || dataRuta.transporte_privado;
+                
+                if (infoTransporte && infoTransporte.ofrece === true) {
+                    txtDetallesTrans.innerText = infoTransporte.details || infoTransporte.detalles || "La empresa ofrece circuito de transporte de personal.";
                     
-                    if (infoTransporte && infoTransporte.ofrece === true) {
-                        txtDetallesTrans.innerText = infoTransporte.details || infoTransporte.detalles || "La empresa ofrece circuito de transporte de personal.";
-                        
-                        const puntos = infoTransporte.puntos_recoleccion;
-                        if (puntos && Array.isArray(puntos)) {
-                            puntosLimpiosGlobal = puntos.filter(p => p && p.nombre);
+                    const puntos = infoTransporte.puntos_recoleccion;
+                    if (puntos && Array.isArray(puntos)) {
+                        puntosLimpiosGlobal = puntos.filter(p => p && p.nombre);
 
-                            function pintarPantallaRutas(listaFiltrada) {
-                                pantallaRutas.innerHTML = '';
-                                if(listaFiltrada.length === 0){
-                                    pantallaRutas.innerHTML = '<div style="color:var(--text-muted); padding:10px; font-size:0.85rem;">No se encontraron paradas con ese término.</div>';
-                                    return;
-                                }
+                        // Escuchar búsquedas por texto/dirección con Geocoding
+                        buscadorInput.oninput = function(e) {
+                            const busqueda = e.target.value.trim();
+                            if (timerBusquedaGeo) clearTimeout(timerBusquedaGeo);
 
-                                listaFiltrada.forEach((punto, index) => {
-                                    const textoMostrar = `${punto.nombre} (${punto.horario || 'Sin horario'})`;
-                                    const itemCard = document.createElement('div');
-                                    itemCard.className = `item-ruta-interactivo ${inputOcultoPunto.value === textoMostrar ? 'seleccionado' : ''}`;
-                                    
-                                    itemCard.innerHTML = `
-                                        <input type="radio" name="rbRutaGrupo" id="rb_ruta_${index}" value="${punto.nombre}" ${inputOcultoPunto.value === textoMostrar ? 'checked' : ''}>
-                                        <div style="display: flex; flex-direction: column; gap: 2px;">
-                                            <span style="font-size: 0.9rem; font-weight: 700; color: #fff;">${punto.nombre.toUpperCase()}</span>
-                                            <small style="color: var(--wf-accent-blue); font-weight: 600;"><i class="fa-regular fa-clock"></i> ${punto.horario || 'Horario no especificado'}</small>
-                                        </div>
-                                    `;
-                                    
-                                    itemCard.onclick = function() {
-                                        document.querySelectorAll('.item-ruta-interactivo').forEach(c => c.classList.remove('seleccionado'));
-                                        itemCard.classList.add('seleccionado');
-                                        const radioBtn = document.getElementById(`rb_ruta_${index}`);
-                                        if(radioBtn) radioBtn.checked = true;
-                                        inputOcultoPunto.value = textoMostrar;
-                                    };
-                                    pantallaRutas.appendChild(itemCard);
-                                });
+                            if (busqueda.length > 3) {
+                                timerBusquedaGeo = setTimeout(() => geocodificarYFiltrar(busqueda), 600);
+                            } else {
+                                pintarPantallaRutas(puntosLimpiosGlobal);
                             }
+                        };
 
-                            buscadorInput.oninput = function(e) {
-                                const busqueda = e.target.value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-                                const filtrados = puntosLimpiosGlobal.filter(p => 
-                                    p.nombre.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(busqueda)
-                                );
-                                pintarPantallaRutas(filtrados);
-                                
-                                // Auto-selección si la búsqueda arroja un solo resultado
-                                if(filtrados.length === 1) {
-                                    inputOcultoPunto.value = `${filtrados[0].nombre} (${filtrados[0].horario || ''})`;
-                                    setTimeout(() => {
-                                        const unicaCard = pantallaRutas.querySelector('.item-ruta-interactivo');
-                                        if(unicaCard) unicaCard.classList.add('seleccionado');
-                                        const unicoRadio = pantallaRutas.querySelector('input[type="radio"]');
-                                        if(unicoRadio) unicoRadio.checked = true;
-                                    }, 50);
-                                }
-                            };
-
-                            pintarPantallaRutas(puntosLimpiosGlobal);
-                            bloqueTrans.style.display = 'block';
-                        }
+                        pintarPantallaRutas(puntosLimpiosGlobal);
+                        bloqueTrans.style.display = 'block';
                     }
                 }
-            });
+            }
+        });
+    }
+
+    function pintarPantallaRutas(listaPuntos) {
+        const pantallaRutas = document.getElementById('gridPantallaRutasDinamicas');
+        const inputOcultoPunto = document.getElementById('selPuntoRecoleccion');
+        pantallaRutas.innerHTML = '';
+
+        if (!listaPuntos || listaPuntos.length === 0) {
+            pantallaRutas.innerHTML = '<div style="color:var(--text-muted); padding:10px; font-size:0.85rem;">No se encontraron paradas disponibles.</div>';
+            return;
         }
 
-        document.getElementById('vacanteBannerBox').style.display = 'block';
-        document.getElementById('menuVacantesBox').style.display = 'none';
-        document.getElementById('content').style.display = 'block';
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        // Si tenemos coordenadas del usuario, calcular distancias Haversine y ordenar
+        if (userCoordsGlobal) {
+            listaPuntos.forEach(p => {
+                if (p.latitud && p.longitud) {
+                    p.distanciaKm = calcularHaversineKm(userCoordsGlobal.lat, userCoordsGlobal.lng, parseFloat(p.latitud), parseFloat(p.longitud));
+                } else {
+                    p.distanciaKm = 9999;
+                }
+            });
+            listaPuntos.sort((a, b) => (a.distanciaKm || 9999) - (b.distanciaKm || 9999));
+        }
+
+        listaPuntos.forEach((punto, index) => {
+            const textoMostrar = `${punto.nombre} (${punto.horario || 'Sin horario'})`;
+            const badgeDist = (punto.distanciaKm && punto.distanciaKm < 9000) 
+                ? `<span class="badge-distancia"><i class="fa-solid fa-location-arrow"></i> A ${punto.distanciaKm} km</span>` 
+                : '';
+
+            const itemCard = document.createElement('div');
+            itemCard.className = `item-ruta-interactivo ${inputOcultoPunto.value === textoMostrar ? 'seleccionado' : ''}`;
+            
+            itemCard.innerHTML = `
+                <input type="radio" name="rbRutaGrupo" id="rb_ruta_${index}" value="${punto.nombre}" ${inputOcultoPunto.value === textoMostrar ? 'checked' : ''}>
+                <div style="display: flex; flex-direction: column; gap: 2px; width: 100%;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 0.9rem; font-weight: 700; color: #fff;">${punto.nombre.toUpperCase()}</span>
+                        ${badgeDist}
+                    </div>
+                    <small style="color: var(--wf-accent-blue); font-weight: 600;"><i class="fa-regular fa-clock"></i> ${punto.horario || 'Horario no especificado'}</small>
+                </div>
+            `;
+            
+            itemCard.onclick = function() {
+                document.querySelectorAll('.item-ruta-interactivo').forEach(c => c.classList.remove('seleccionado'));
+                itemCard.classList.add('seleccionado');
+                const radioBtn = document.getElementById(`rb_ruta_${index}`);
+                if (radioBtn) radioBtn.checked = true;
+                inputOcultoPunto.value = textoMostrar;
+            };
+            pantallaRutas.appendChild(itemCard);
+        });
+    }
+
+    // Obtener coordenadas desde GPS del navegador
+    function obtenerUbicacionGPS() {
+        if (!navigator.geolocation) {
+            alert("❌ Tu navegador no soporta geolocalización.");
+            return;
+        }
+
+        const btn = document.querySelector('.btn-geolocalizar');
+        btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Obteniendo ubicación...`;
+
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                userCoordsGlobal = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                btn.innerHTML = `<i class="fa-solid fa-check"></i> Ubicación Localizada`;
+                pintarPantallaRutas(puntosLimpiosGlobal);
+            },
+            (err) => {
+                btn.innerHTML = `<i class="fa-solid fa-crosshairs"></i> Usar mi Ubicación GPS Actual`;
+                alert("⚠️ No se pudo obtener la ubicación. Asegúrate de otorgar los permisos de GPS.");
+            }
+        );
+    }
+
+    // Geocodificación por Dirección / Colonia / C.P. mediante OpenStreetMap (Nominatim)
+    async function geocodificarYFiltrar(queryText) {
+        try {
+            const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(queryText)}&countrycodes=mx&limit=1`);
+            const results = await response.json();
+
+            if (results && results.length > 0) {
+                userCoordsGlobal = { lat: parseFloat(results[0].lat), lng: parseFloat(results[0].lon) };
+                pintarPantallaRutas(puntosLimpiosGlobal);
+            } else {
+                // Fallback: filtrado simple por nombre de la ruta
+                const busqueda = queryText.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                const filtrados = puntosLimpiosGlobal.filter(p => 
+                    p.nombre.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(busqueda)
+                );
+                pintarPantallaRutas(filtrados);
+            }
+        } catch (e) {
+            console.error("Error geocodificando:", e);
+        }
     }
 
     window.regresarAlMenu = function() {
@@ -919,7 +1210,6 @@
         let sexo = letraSexo === 'H' ? "Masculino" : (letraSexo === 'M' ? "Femenino" : "Indistinto");
         let anio = parseInt(curp.substr(4, 2), 10);
         
-        // Ajuste de siglo (Corte 2030)
         anio += (anio > 30) ? 1900 : 2000; 
         let edadCalculada = new Date().getFullYear() - anio;
         return { edad: isNaN(edadCalculada) ? "Indistinto" : String(edadCalculada), sexo: sexo };
@@ -963,7 +1253,6 @@
             const fechaYHoraActual = new Date().toLocaleString();
             
             const urlAcuseDigital = `https://valdomtec-arch.github.io/bolsa-trabajo-principal/acuse.html?folio=${timestampId}`;
-
             const empresaNombreFinal = nombreEmpresaMaestro || (datosVacanteGlobal ? (datosVacanteGlobal.nombreComercial || datosVacanteGlobal.empresaNombre) : empresaLimpia.toUpperCase());
 
             const payloadPostulante = {
