@@ -165,7 +165,6 @@
 
         .vacantes-lista { display: flex; flex-direction: column; gap: 15px; }
 
-        /* AJUSTE RESPONSIVO MOBILE / TABLETS CATÁLOGO */
         .vacante-item-card {
             background: linear-gradient(135deg, rgba(22, 36, 59, 0.4) 0%, rgba(13, 26, 48, 0.7) 100%);
             border: 1px solid var(--border-color);
@@ -188,7 +187,7 @@
 
         .vacante-item-info {
             flex: 1;
-            min-width: 0; /* Previene desbordamiento CSS Flexbox */
+            min-width: 0;
         }
 
         .vacante-item-info h2 {
@@ -402,7 +401,6 @@
             border-left: 4px solid var(--wf-accent-blue);
         }
 
-        /* GRUPO BÚSQUEDA ORIGEN C.P. / COLONIA / CALLE */
         .cp-search-group {
             display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px;
         }
@@ -520,7 +518,7 @@
         <div class="vacante-layout-grid">
             <div class="column-left">
                 <div class="card">
-                    <!-- REQUERIMIENTO 2 SOLUCIONADO: Concatenación estricta "PUESTO - [Nombre de Vacante]" -->
+                    <!-- ENCABEZADO CORREGIDO CON ESTRUCTURA "PUESTO - [nombreVacante]" -->
                     <h3 class="vacante-titulo-principal">
                         <i class="fas fa-briefcase"></i> PUESTO - <span id="vacanteTitulo">—</span>
                     </h3>
@@ -566,7 +564,6 @@
                         <i class="fa-solid fa-crosshairs"></i> Usar mi ubicación GPS actual (Parada más cercana)
                     </button>
 
-                    <!-- REQUERIMIENTO 1 SOLUCIONADO: Búsqueda Origen (CP / Colonia / Calle) vs Destino (Paradas) con Haversine -->
                     <div class="form-group">
                         <label style="color: var(--text-muted); font-size: 0.78rem;">
                             <i class="fa-solid fa-magnifying-glass"></i> Ingresa tu C.P., Colonia o Calle (Origen):
@@ -758,9 +755,10 @@
                 if (snapshot.exists()) {
                     const dataRaw = snapshot.val();
                     
-                    if (dataRaw.vacanteNombre || dataRaw.puesto || dataRaw.salario) {
+                    // EVALUACIÓN DE PROPIEDADES INCLUYENDO nombreVacante
+                    if (dataRaw.nombreVacante || dataRaw.vacanteNombre || dataRaw.puesto || dataRaw.salario) {
                         todasLasVacantesEmpresa = {};
-                        const llaveUnica = (dataRaw.vacanteNombre || dataRaw.puesto || "puesto_unico").replace(/\s+/g, '_').toLowerCase();
+                        const llaveUnica = (dataRaw.nombreVacante || dataRaw.vacanteNombre || dataRaw.puesto || "puesto_unico").replace(/\s+/g, '_').toLowerCase();
                         todasLasVacantesEmpresa[llaveUnica] = dataRaw;
                     } else {
                         todasLasVacantesEmpresa = dataRaw;
@@ -785,10 +783,10 @@
                     const listaContenedor = document.getElementById('listaVacantesDinamica');
                     listaContenedor.innerHTML = ''; 
                     
-                    // REQUERIMIENTO 3 SOLUCIONADO: Muestra estrictamente el nombre comercial del puesto en el catálogo
+                    // CORRECCIÓN CATÁLOGO: Lee estrictamente nombreVacante primero
                     keys.forEach(key => {
                         const vac = todasLasVacantesEmpresa[key];
-                        const nombreMostrarPuesto = vac.vacanteNombre || vac.puesto || vac.nombreComercial || "Puesto Vacante";
+                        const nombreMostrarPuesto = vac.nombreVacante || vac.vacanteNombre || vac.puesto || vac.nombreComercial || "Puesto Vacante";
                         
                         const cardItem = document.createElement('div');
                         cardItem.className = 'vacante-item-card';
@@ -825,8 +823,8 @@
         const data = todasLasVacantesEmpresa[key];
         datosVacanteGlobal = data;
         
-        // Asignación explícita del nombre del puesto comercial
-        const nombrePuestoReal = data.vacanteNombre || data.puesto || data.nombreComercial || 'Puesto Vacante';
+        // CORRECCIÓN VISTA DETALLE: Lee directamente nombreVacante para concatenar con PUESTO - 
+        const nombrePuestoReal = data.nombreVacante || data.vacanteNombre || data.puesto || data.nombreComercial || 'Puesto Vacante';
         document.getElementById('vacanteTitulo').innerText = nombrePuestoReal;
         
         document.getElementById('vacanteEmpresa').innerText = nombreEmpresaMaestro || data.nombreComercial || empresaLimpia.toUpperCase();
@@ -946,7 +944,6 @@
         }
     }
 
-    /* === MAPA LEAFLET Y MOTOR HAVERSINE ORIGEN - DESTINO === */
     function inicializarMapaInteractivo(latInicial = 20.5284, lngInicial = -103.4116) {
         if (mapLeaflet) mapLeaflet.remove();
 
@@ -983,9 +980,8 @@
         }
     }
 
-    // FÓRMULA MATEMÁTICA DE HAVERSINE PARA CÁLCULO DE DISTANCIA
     function calcularDistanciaKm(lat1, lon1, lat2, lon2) {
-        const R = 6371; // Radio terrestre en Kilómetros
+        const R = 6371;
         const dLat = (lat2 - lat1) * Math.PI / 180;
         const dLon = (lon2 - lon1) * Math.PI / 180;
         const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
@@ -1021,7 +1017,6 @@
         );
     }
 
-    // REQUERIMIENTO 1 SOLUCIONADO: CÁLCULO Y VINCULACIÓN ORIGEN - DESTINO CON HAVERSINE
     async function ejecutarFiltroColoniaCP() {
         const busqueda = document.getElementById('txtFiltroColonia').value.trim();
         const btn = document.getElementById('btnBuscarOrigen');
@@ -1040,7 +1035,6 @@
         btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Geocodificando...`;
 
         try {
-            // Geocodificación del Origen mediante API OpenStreetMap Nominatim
             const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(busqueda + ', Mexico')}`);
             const data = await response.json();
 
@@ -1068,7 +1062,6 @@
         let menorDistancia = Infinity;
         let paradaMasCercana = null;
 
-        // Evaluación del Arreglo de Destinos mediante la Fórmula Haversine
         listaTodasLasParadasFlat.forEach(p => {
             const latDestino = parseFloat(p.lat);
             const lngDestino = parseFloat(p.lng);
@@ -1085,11 +1078,9 @@
         if (paradaMasCercana) {
             if (!mapLeaflet) inicializarMapaInteractivo(latOrigen, lngOrigen);
 
-            // Limpieza de capas anteriores
             if (markerUsuario) mapLeaflet.removeLayer(markerUsuario);
             if (lineaRutaMapa) mapLeaflet.removeLayer(lineaRutaMapa);
 
-            // Marcador de Origen
             markerUsuario = L.circleMarker([latOrigen, lngOrigen], {
                 color: '#f97316',
                 fillColor: '#ea580c',
@@ -1097,7 +1088,6 @@
                 radius: 9
             }).addTo(mapLeaflet).bindPopup(`<b>Origen:</b> ${etiquetteOrigen || 'Tu Ubicación'}`).openPopup();
 
-            // Línea visual de enlace entre Origen y Destino
             const latDest = parseFloat(paradaMasCercana.lat);
             const lngDest = parseFloat(paradaMasCercana.lng);
 
@@ -1106,13 +1096,11 @@
                 [latDest, lngDest]
             ], { color: '#38bdf8', weight: 4, dashArray: '6, 8' }).addTo(mapLeaflet);
 
-            // Ajuste de zoom automático
             mapLeaflet.fitBounds([
                 [latOrigen, lngOrigen],
                 [latDest, lngDest]
             ], { padding: [40, 40] });
 
-            // Enlace y Autoselección en el formulario
             const selectRuta = document.getElementById('selRutaEmpresa');
             selectRuta.value = paradaMasCercana.nombreRuta;
             alSeleccionarRuta(paradaMasCercana.nombreRuta);
@@ -1344,7 +1332,8 @@
             const timestampId = "WF-" + Math.floor(100000 + Math.random() * 900000);
             const fechaYHoraActual = new Date().toLocaleString();
             
-            const vacanteNombreFinal = datosVacanteGlobal ? (datosVacanteGlobal.vacanteNombre || datosVacanteGlobal.puesto || "Desconocida") : "Desconocida";
+            // CORRECCIÓN FORMULARIO / WHATSAPP: Lectura de nombreVacante
+            const vacanteNombreFinal = datosVacanteGlobal ? (datosVacanteGlobal.nombreVacante || datosVacanteGlobal.vacanteNombre || datosVacanteGlobal.puesto || "Desconocida") : "Desconocida";
             const empresaNombreFinal = nombreEmpresaMaestro || (datosVacanteGlobal ? datosVacanteGlobal.nombreComercial : empresaLimpia.toUpperCase());
 
             const urlAcuseDigital = `https://valdomtec-arch.github.io/bolsa-trabajo-principal/acuse.html?folio=${timestampId}&vacante=${encodeURIComponent(vacanteNombreFinal)}&empresa=${encodeURIComponent(empresaNombreFinal)}`;
