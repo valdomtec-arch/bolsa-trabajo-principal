@@ -348,7 +348,7 @@
             try {
                 const [snapEmpresas, snapVacantes, snapRutas] = await Promise.all([
                     get(ref(db, "empresas")),
-                    get(ref(db, "vacantes")),
+                    get(ref(db, "vacantes_detalles")), // 👈 Ajustado al nodo anidado
                     get(ref(db, "rutas"))
                 ]);
 
@@ -411,14 +411,29 @@
             select.innerHTML = '<option value="">-- Buscar en Todas las Empresas --</option>';
             let totalVacantes = 0;
 
-            Object.entries(vacantesNodo).forEach(([idVacante, v]) => {
-                totalVacantes++;
-                const titulo = v.tituloVacante || v.puesto || 'Vacante Sin Título';
-                const empresa = v.empresa || 'General';
-                select.innerHTML += `<option value="${idVacante}">${titulo} (${empresa})</option>`;
+            if (!vacantesNodo || typeof vacantesNodo !== 'object') {
+                document.getElementById("txtVacantesConectadas").innerText = "0 Disponibles";
+                return;
+            }
+
+            // Iterar nivel 1: Empresas (ej. grupo_arcoiris)
+            Object.entries(vacantesNodo).forEach(([empresaKey, vacantesEmpresa]) => {
+                if (typeof vacantesEmpresa === 'object' && vacantesEmpresa !== null) {
+                    
+                    // Iterar nivel 2: Vacantes (ej. grupo_arcoiris_operador_de_produccion)
+                    Object.entries(vacantesEmpresa).forEach(([idVacante, v]) => {
+                        if (typeof v === 'object' && v !== null) {
+                            totalVacantes++;
+                            const titulo = v.puesto || v.tituloVacante || v.nombreVacante || idVacante.replace(/_/g, ' ').toUpperCase();
+                            const empresa = v.empresa || empresaKey.replace(/_/g, ' ').toUpperCase();
+                            select.innerHTML += `<option value="${idVacante}">${titulo} (${empresa})</option>`;
+                        }
+                    });
+
+                }
             });
 
-            document.getElementById("txtVacantesConectadas").innerText = `${totalVacantes} Conectadas`;
+            document.getElementById("txtVacantesConectadas").innerText = `${totalVacantes} Disponibles`;
         }
 
         // 2. PAGINACIÓN Y RENDERIZADO
@@ -653,8 +668,13 @@ Devuelve ÚNICAMENTE un JSON con las coordenadas estimadas: {"lat": 20.6597, "ln
             let matches = [];
             let empresaFiltroNombre = null;
 
-            if (idVacanteFiltro && cacheVacantes[idVacanteFiltro]) {
-                empresaFiltroNombre = cacheVacantes[idVacanteFiltro].empresa;
+            // Búsqueda profunda en caché anidado por idVacante
+            if (idVacanteFiltro && cacheVacantes) {
+                Object.values(cacheVacantes).forEach(empresa => {
+                    if (empresa && empresa[idVacanteFiltro]) {
+                        empresaFiltroNombre = empresa[idVacanteFiltro].empresa || empresa[idVacanteFiltro].empresaDestino;
+                    }
+                });
             }
 
             cacheTodasLasRutas.forEach(r => {
@@ -876,7 +896,7 @@ Devuelve ÚNICAMENTE un JSON con las coordenadas estimadas: {"lat": 20.6597, "ln
             document.getElementById("txtEmpresasConRuta").innerText = cacheEmpresas.length;
         }
 
-        // PROCESAMIENTO DOCUMENTOS/IMÁGENES IA MULTIMODAL CON GEMINI (CON DEDUCCIÓN Y FALLBACK DE COORDENADAS)
+        // PROCESAMIENTO DOCUMENTOS/IMÁGENES IA MULTIMODAL CON GEMINI
         async function procesarDocumentoConIA() {
             const apiKey = document.getElementById("apiKeyGemini").value.trim();
             const empresaSeleccionada = document.getElementById("empresaValidacionIA").value.trim();
@@ -937,11 +957,10 @@ Devuelve ÚNICAMENTE un JSON con las coordenadas estimadas: {"lat": 20.6597, "ln
                 let textoIA = jsonRes.candidates[0].content.parts[0].text;
                 textoIA = textoIA.replace(/```json/gi, "").replace(/```/g, "").trim();
 
-                // VALIDACIÓN SECUNDARIA AUTOMÁTICA EN JS
                 let rutasProcesadas = JSON.parse(textoIA);
                 rutasProcesadas = rutasProcesadas.map(r => {
                     if (!r.coordenadasAbordaje || r.coordenadasAbordaje.toLowerCase().includes("sin")) {
-                        r.coordenadasAbordaje = "20.6597, -103.3496"; // Coordenadas estándar de respaldo
+                        r.coordenadasAbordaje = "20.6597, -103.3496";
                     }
                     return r;
                 });
