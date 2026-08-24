@@ -118,7 +118,6 @@
             gap: 6px;
         }
 
-        /* BOTÓN INTERACTIVO PARA MAPAS EN EL HEADER */
         .btn-mapa-header {
             display: inline-flex;
             align-items: center;
@@ -192,7 +191,6 @@
         .chevron-icon { color: var(--wf-accent-blue); font-size: 1.2rem; transition: transform 0.3s ease; }
         .vacante-item-card:hover .chevron-icon { transform: translateX(5px); }
         
-        /* CONTENEDOR DE BANNERS CON FONDO DINÁMICO Y SWEEP FLASH */
         .revolver-carousel-container {
             position: relative;
             width: 100%;
@@ -231,7 +229,6 @@
             z-index: 2;
         }
 
-        /* FONDO DINÁMICO CON DESENFOQUE Y PULSO */
         .revolver-bg-blur {
             position: absolute;
             top: -10%;
@@ -251,7 +248,6 @@
             100% { transform: scale(1.12); filter: blur(28px) brightness(0.55); }
         }
 
-        /* IMAGEN PRINCIPAL EN PRIMER PLANO */
         .revolver-slide img.main-banner-img {
             position: relative;
             z-index: 2;
@@ -261,7 +257,6 @@
             filter: drop-shadow(0 10px 20px rgba(0,0,0,0.7));
         }
 
-        /* EFECTO DE CORDÓN DE LUZ / SWEEP FLASH */
         .revolver-carousel-container::after {
             content: '';
             position: absolute;
@@ -791,7 +786,6 @@
         return parseFloat((R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)))).toFixed(2));
     }
 
-    // MANEJADOR INTELIGENTE DE UBICACIÓN / URL DE GOOGLE MAPS
     function renderizarUbicacionEmpresa(lugar) {
         const contenedor = document.getElementById('mainEmpresaLugarContainer');
         if (!lugar) {
@@ -943,7 +937,6 @@
             arrayBannersRevolver = rawBanners.filter(u => typeof u === 'string' && u.length > 5);
         }
 
-        // CONVERSIÓN DE URLS DE GITHUB BLOB A RAW
         arrayBannersRevolver = arrayBannersRevolver.map(url => {
             return url.replace('github.com/', 'raw.githubusercontent.com/').replace('/blob/', '/');
         });
@@ -960,12 +953,10 @@
             slide.className = `revolver-slide ${idx === 0 ? 'active' : ''}`;
             slide.id = `slide_rev_${idx}`;
 
-            // 1. Capa de Fondo Dinámico (Blur)
             const bgBlur = document.createElement('div');
             bgBlur.className = 'revolver-bg-blur';
             bgBlur.style.backgroundImage = `url('${url}')`;
 
-            // 2. Imagen Principal Enfocada
             const imgMain = document.createElement('img');
             imgMain.className = 'main-banner-img';
             imgMain.src = url;
@@ -991,7 +982,7 @@
     function dispararEfectoFlash() {
         const container = document.getElementById('revolverCarouselBox');
         container.classList.remove('flash-active');
-        void container.offsetWidth; // Forzar reflow en el DOM
+        void container.offsetWidth;
         container.classList.add('flash-active');
     }
 
@@ -1037,19 +1028,46 @@
         inputOcultoPunto.value = "";
         buscadorInput.value = "";
 
-        let snapRuta = await db.ref(`rutas_transporte/${empresaLimpia}`).once('value');
+        // 1. Extraer detalle configurado desde la Vacante (m2_vacante) si existe
+        let detalleDesdeVacante = "";
+        if (datosVacanteGlobal) {
+            detalleDesdeVacante = datosVacanteGlobal.rutasTransporte || 
+                                  datosVacanteGlobal.rutaTransporte || 
+                                  datosVacanteGlobal.transporte || 
+                                  datosVacanteGlobal.m2_transporte || "";
+        }
+
+        // 2. Consulta en Firebase priorizando el nodo "rutas"
+        let snapRuta = await db.ref(`rutas/${empresaLimpia}`).once('value');
+        if (!snapRuta.exists()) {
+            snapRuta = await db.ref(`rutas_transporte/${empresaLimpia}`).once('value');
+        }
         if (!snapRuta.exists()) {
             snapRuta = await db.ref(`m6_transporte/${empresaLimpia}`).once('value');
         }
 
         let dataRuta = snapRuta.exists() ? snapRuta.val() : null;
         let puntos = [];
-        let detalleTexto = "La empresa ofrece circuito de transporte de personal.";
+        let detalleTexto = detalleDesdeVacante || "La empresa ofrece circuito de transporte de personal.";
 
         if (dataRuta) {
             const infoTransporte = dataRuta.transporte_privado_empresa || dataRuta.transporte_privado || dataRuta;
-            detalleTexto = infoTransporte.details || infoTransporte.detalles || detalleTexto;
+            
+            // Prioridad al texto de transporte de la vacante, luego al nodo global de la empresa
+            if (!detalleDesdeVacante) {
+                detalleTexto = infoTransporte.details || infoTransporte.detalles || detalleTexto;
+            }
+            
             puntos = infoTransporte.puntos_recoleccion || infoTransporte.puntos || infoTransporte.paradas || [];
+            
+            // Si las rutas están indexadas directamente bajo la llave de empresa
+            if (puntos.length === 0 && typeof infoTransporte === 'object') {
+                const llaves = Object.keys(infoTransporte);
+                const tienePuntosDirectos = llaves.some(k => k.startsWith('-P') || infoTransporte[k].nombre || infoTransporte[k].parada);
+                if (tienePuntosDirectos) {
+                    puntos = infoTransporte;
+                }
+            }
         }
 
         if (puntos && !Array.isArray(puntos) && typeof puntos === 'object') {
@@ -1080,8 +1098,8 @@
 
             pintarPantallaRutas(puntosLimpiosGlobal);
         } else {
-            txtDetallesTrans.innerText = "Esta empresa no cuenta con rutas de transporte privadas registradas por el momento.";
-            pantallaRutas.innerHTML = '<div style="color:var(--text-muted); padding:10px; font-size:0.85rem;"><i class="fa-solid fa-circle-info"></i> No hay paradas registradas para esta empresa.</div>';
+            txtDetallesTrans.innerText = detalleDesdeVacante || "Esta empresa no cuenta con rutas de transporte privadas registradas por el momento.";
+            pantallaRutas.innerHTML = '<div style="color:var(--text-muted); padding:10px; font-size:0.85rem;"><i class="fa-solid fa-circle-info"></i> No hay paradas interactivas registradas para esta empresa.</div>';
         }
     }
 
