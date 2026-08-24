@@ -584,7 +584,10 @@ function cargarObjetoEnFormulario(d) {
   document.getElementById('experiencia').value = d.experiencia || ""; 
   document.getElementById('salario').value = d.salario || ""; 
   
+  // Fallbacks desde la empresa para Dirección y URL del Mapa
   const direccionFallback = (cacheEmpresaActual && (cacheEmpresaActual.direccion || cacheEmpresaActual.direcciones || cacheEmpresaActual.tag || cacheEmpresaActual.nombre)) || "";
+  const mapaFallback = (cacheEmpresaActual && (cacheEmpresaActual.ubicacion || cacheEmpresaActual.mapaUrl || cacheEmpresaActual.url_map || cacheEmpresaActual.url_google_maps)) || "";
+
   let lugar = d.lugarOrigen || "";
   let mapa = d.mapaUrl || "";
 
@@ -594,7 +597,9 @@ function cargarObjetoEnFormulario(d) {
   }
 
   document.getElementById('lugarOrigen').value = lugar || direccionFallback; 
-  document.getElementById('mapaUrl').value = mapa; 
+  // Asigna el mapa de la vacante, y si viene vacío usa el mapa base de la empresa
+  document.getElementById('mapaUrl').value = mapa || mapaFallback; 
+  
   document.getElementById('turnos').value = d.turnos || "";
   document.getElementById('rutasTransporte').value = d.rutasTransporte || "";
   document.getElementById('infoGeneral').value = d.infoGeneral || "";
@@ -720,6 +725,7 @@ document.getElementById('btnExtract').addEventListener('click', async () => {
     if (!Array.isArray(parsedArray)) parsedArray = [parsedArray];
 
     const direccionFallback = (cacheEmpresaActual && (cacheEmpresaActual.direccion || cacheEmpresaActual.direcciones || cacheEmpresaActual.tag || cacheEmpresaActual.nombre)) || "";
+    const mapaFallback = (cacheEmpresaActual && (cacheEmpresaActual.ubicacion || cacheEmpresaActual.mapaUrl || cacheEmpresaActual.url_map || cacheEmpresaActual.url_google_maps)) || "";
     
     tempVacantesExtraidas = parsedArray.map(item => {
       let l = item.lugarOrigen || "";
@@ -732,7 +738,7 @@ document.getElementById('btnExtract').addEventListener('click', async () => {
         l = direccionFallback;
       }
 
-      return { ...item, lugarOrigen: l, mapaUrl: m };
+      return { ...item, lugarOrigen: l, mapaUrl: m || mapaFallback };
     });
 
     abrirModalMultivacantes(emp, tempVacantesExtraidas);
@@ -811,6 +817,7 @@ document.getElementById('btnSaveAllModal').addEventListener('click', async () =>
 
   let guardadas = 0;
   const direccionFallback = (cacheEmpresaActual && (cacheEmpresaActual.direccion || cacheEmpresaActual.direcciones || cacheEmpresaActual.tag || cacheEmpresaActual.nombre)) || "";
+  const mapaFallback = (cacheEmpresaActual && (cacheEmpresaActual.ubicacion || cacheEmpresaActual.mapaUrl || cacheEmpresaActual.url_map || cacheEmpresaActual.url_google_maps)) || "";
 
   for (let item of tempVacantesExtraidas) {
     const baseSlug = generarPuestoIdEstructurado(emp, item.nombreVacante || "vacante");
@@ -837,7 +844,7 @@ document.getElementById('btnSaveAllModal').addEventListener('click', async () =>
       experiencia: item.experiencia || "",
       salario: item.salario || "",
       lugarOrigen: l,
-      mapaUrl: m,
+      mapaUrl: m || mapaFallback,
       turnos: item.turnos || "",
       rutasTransporte: item.rutasTransporte || "",
       infoGeneral: item.infoGeneral || "",
@@ -890,6 +897,7 @@ function guardar() {
   let lugarInput = document.getElementById('lugarOrigen').value.trim();
   let mapaInput = document.getElementById('mapaUrl').value.trim();
   const direccionFallback = (cacheEmpresaActual && (cacheEmpresaActual.direccion || cacheEmpresaActual.direcciones || cacheEmpresaActual.tag || cacheEmpresaActual.nombre)) || "";
+  const mapaFallback = (cacheEmpresaActual && (cacheEmpresaActual.ubicacion || cacheEmpresaActual.mapaUrl || cacheEmpresaActual.url_map || cacheEmpresaActual.url_google_maps)) || "";
 
   if (lugarInput.startsWith('http')) {
     mapaInput = lugarInput;
@@ -910,7 +918,7 @@ function guardar() {
     experiencia: document.getElementById('experiencia').value, 
     salario: document.getElementById('salario').value, 
     lugarOrigen: lugarInput || direccionFallback, 
-    mapaUrl: mapaInput, 
+    mapaUrl: mapaInput || mapaFallback, 
     turnos: document.getElementById('turnos').value, 
     rutasTransporte: document.getElementById('rutasTransporte').value, 
     infoGeneral: document.getElementById('infoGeneral').value, 
