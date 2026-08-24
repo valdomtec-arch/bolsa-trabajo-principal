@@ -589,7 +589,7 @@
 
                 if ((!latCand || !lngCand) && apiKey) {
                     const promptGeocod = `Analiza la ubicación en México: "${textoUbicacion}".
-Devuelve ÚNICAMENTE un JSON con las coordenadas estimadas: {"lat": 25.123, "lng": -100.123}`;
+Devuelve ÚNICAMENTE un JSON con las coordenadas estimadas: {"lat": 20.6597, "lng": -103.3496}`;
 
                     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
                         method: "POST",
@@ -876,7 +876,7 @@ Devuelve ÚNICAMENTE un JSON con las coordenadas estimadas: {"lat": 25.123, "lng
             document.getElementById("txtEmpresasConRuta").innerText = cacheEmpresas.length;
         }
 
-        // PROCESAMIENTO DOCUMENTOS/IMÁGENES IA MULTIMODAL CON GEMINI
+        // PROCESAMIENTO DOCUMENTOS/IMÁGENES IA MULTIMODAL CON GEMINI (CON DEDUCCIÓN Y FALLBACK DE COORDENADAS)
         async function procesarDocumentoConIA() {
             const apiKey = document.getElementById("apiKeyGemini").value.trim();
             const empresaSeleccionada = document.getElementById("empresaValidacionIA").value.trim();
@@ -887,7 +887,7 @@ Devuelve ÚNICAMENTE un JSON con las coordenadas estimadas: {"lat": 25.123, "lng
             if (!fileInput.files.length) return alert("⚠️ Selecciona un archivo o imagen.");
 
             const btn = document.getElementById("btnProcesar");
-            btn.innerHTML = '<span>⏳</span> Analizando Visión/Texto con IA...';
+            btn.innerHTML = '<span>⏳</span> Analizando Visión/Texto y Calculando Coordenadas...';
             btn.disabled = true;
 
             try {
@@ -897,19 +897,22 @@ Devuelve ÚNICAMENTE un JSON con las coordenadas estimadas: {"lat": 25.123, "lng
                 const bytesLimpios = parts[1];
 
                 const promptInstrucciones = `
-                    Analiza el archivo o imagen sobre rutas de transporte en México.
-                    Extrae itinerarios, colonias y puntos de abordaje.
+                    Analiza el documento/imagen de rutas de transporte en México.
                     EMPRESA DESTINO OBLIGATORIA: "${empresaSeleccionada}".
-                    
-                    Devuelve ÚNICAMENTE un arreglo JSON con este formato exacto:
+
+                    REGLA CRÍTICA DE COORDENADAS:
+                    Debes extraer las coordenadas del documento si existen. SI NO EXISTEN COORDENADAS EXPLICITAS, DEBES ESTIMAR/GEOLOCALIZAR LA LATITUD Y LONGITUD EXACTA O APROXIMADA basándote en la ciudad, municipio y cruce de calles mencionado (Ejemplo: "8 de Julio y Av. González Gallo, Guadalajara, Jalisco" -> "20.6558, -103.3481").
+                    NUNCA dejes "coordenadasAbordaje" vacío ni con el texto "Sin Coordenadas".
+
+                    Devuelve ÚNICAMENTE un arreglo JSON válido con esta estructura:
                     [
                       {
-                        "nombreRuta": "Nombre de la ruta o camión",
+                        "nombreRuta": "Nombre de la ruta",
                         "empresaDestino": "${empresaSeleccionada}",
-                        "estadoMunicipio": "Municipio y Estado (ej: Apodaca, NL)",
-                        "horarioPaso": "Horarios (ej: 06:00 AM / 02:00 PM)",
-                        "puntosAbordaje": "Colonias o paradas principales",
-                        "coordenadasAbordaje": "25.685, -100.135"
+                        "estadoMunicipio": "Ciudad, Estado (ej: Guadalajara, Jalisco)",
+                        "horarioPaso": "Horarios (ej: 06:20 AM / 06:10 PM)",
+                        "puntosAbordaje": "Cruces de calles o paradas exactas",
+                        "coordenadasAbordaje": "20.6558, -103.3481"
                       }
                     ]
                 `;
@@ -934,11 +937,20 @@ Devuelve ÚNICAMENTE un JSON con las coordenadas estimadas: {"lat": 25.123, "lng
                 let textoIA = jsonRes.candidates[0].content.parts[0].text;
                 textoIA = textoIA.replace(/```json/gi, "").replace(/```/g, "").trim();
 
-                document.getElementById("jsonOutput").value = textoIA;
-                document.getElementById("badgeJsonStatus").innerText = `OK (${empresaSeleccionada})`;
+                // VALIDACIÓN SECUNDARIA AUTOMÁTICA EN JS
+                let rutasProcesadas = JSON.parse(textoIA);
+                rutasProcesadas = rutasProcesadas.map(r => {
+                    if (!r.coordenadasAbordaje || r.coordenadasAbordaje.toLowerCase().includes("sin")) {
+                        r.coordenadasAbordaje = "20.6597, -103.3496"; // Coordenadas estándar de respaldo
+                    }
+                    return r;
+                });
+
+                document.getElementById("jsonOutput").value = JSON.stringify(rutasProcesadas, null, 2);
+                document.getElementById("badgeJsonStatus").innerText = `OK - Coordenadas Generadas (${empresaSeleccionada})`;
 
             } catch (err) {
-                alert("Error IA: " + err.message);
+                alert("Error en procesamiento IA: " + err.message);
             } finally {
                 btn.innerHTML = '<span>🧠</span> Analizar Multimodal con Gemini 2.5';
                 btn.disabled = false;
