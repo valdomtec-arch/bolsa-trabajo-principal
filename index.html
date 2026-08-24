@@ -355,6 +355,12 @@
             justify-content: space-between;
             align-items: center;
             border-left: 3px solid #22c55e;
+            transition: transform 0.2s ease, background 0.2s ease;
+        }
+
+        .haversine-card:hover {
+            transform: translateX(4px);
+            background: rgba(26, 45, 82, 0.95);
         }
 
         .haversine-card-info strong {
@@ -366,6 +372,8 @@
         .haversine-card-info span {
             color: var(--text-muted);
             font-size: 0.8rem;
+            display: block;
+            margin-top: 2px;
         }
 
         .haversine-dist-badge {
@@ -376,6 +384,7 @@
             border-radius: 20px;
             font-size: 0.85rem;
             border: 1px solid rgba(34, 197, 94, 0.3);
+            white-space: nowrap;
         }
 
         section h2 {
@@ -1192,7 +1201,7 @@
         }
 
         contenedorResultados.style.display = 'flex';
-        contenedorResultados.innerHTML = `<p style="color: var(--text-muted); font-size: 0.85rem;"><i class="fas fa-spinner fa-spin me-2"></i> Buscando la mejor ruta para ti...</p>`;
+        contenedorResultados.innerHTML = `<p style="color: var(--text-muted); font-size: 0.85rem;"><i class="fas fa-spinner fa-spin me-2"></i> Localizando rutas cerca de tu ubicación...</p>`;
 
         try {
             // Geocodificación pública gratuita vía Nominatim OpenStreetMap
@@ -1200,52 +1209,64 @@
             const data = await response.json();
 
             if (!data || data.length === 0) {
-                contenedorResultados.innerHTML = `<p style="color: #ef4444; font-size: 0.85rem;"><i class="fas fa-exclamation-triangle"></i> No pudimos ubicar la zona especificada. Intente ser más específico (ej: "Colonia Centro, Ensenada").</p>`;
+                contenedorResultados.innerHTML = `<p style="color: #ef4444; font-size: 0.85rem;"><i class="fas fa-exclamation-triangle"></i> No pudimos ubicar la zona especificada. Intente ser más específico (ej: "Colonia Centro, Tlajomulco").</p>`;
                 return;
             }
 
             const latCandidato = parseFloat(data[0].lat);
             const lonCandidato = parseFloat(data[0].lon);
-
-            // Calcular distancia a cada empresa registrada
             const calculos = [];
-            Object.keys(todasLasEmpresas).forEach(id => {
-                const emp = todasLasEmpresas[id];
-                if (emp.latitud && emp.longitud) {
-                    const distKm = calcularHaversineKm(latCandidato, lonCandidato, emp.latitud, emp.longitud);
-                    
-                    // Buscar si Módulo 6 tiene rutas ligadas a esta empresa
-                    let nombreRuta = "Transporte no especificado";
-                    Object.keys(todasLasRutas).forEach(rKey => {
-                        if (todasLasRutas[rKey].empresaId === id || rKey.includes(id)) {
-                            nombreRuta = todasLasRutas[rKey].nombreRuta || "Ruta de Personal Asignada";
-                        }
-                    });
 
-                    if (distKm !== null) {
-                        calculos.push({
-                            nombreEmpresa: emp.nombre,
-                            distancia: distKm,
-                            ruta: nombreRuta
-                        });
+            // RECORRIDO DE ESTRUCTURA REALTIME DATABASE: rutas -> {empresaKey} -> {pushId}
+            Object.keys(todasLasRutas).forEach(empresaKey => {
+                const rutasEmpresa = todasLasRutas[empresaKey] || {};
+                const datosEmpresa = todasLasEmpresas[empresaKey] || {};
+                const nombreEmpresa = datosEmpresa.nombre || empresaKey.replace(/_/g, ' ').toUpperCase();
+
+                Object.keys(rutasEmpresa).forEach(pushId => {
+                    const ruta = rutasEmpresa[pushId];
+                    
+                    if (ruta && ruta.coordenadasAbordaje) {
+                        const coords = ruta.coordenadasAbordaje.split(',');
+                        if (coords.length === 2) {
+                            const latRuta = parseFloat(coords[0].trim());
+                            const lonRuta = parseFloat(coords[1].trim());
+
+                            if (!isNaN(latRuta) && !isNaN(lonRuta)) {
+                                const distKm = calcularHaversineKm(latCandidato, lonCandidato, latRuta, lonRuta);
+
+                                if (distKm !== null) {
+                                    calculos.push({
+                                        empresaKey: empresaKey,
+                                        nombreEmpresa: nombreEmpresa,
+                                        nombreRuta: ruta.nombreRuta || "Ruta de Personal",
+                                        puntoAbordaje: ruta.puntosAbordaje || "Punto de abordaje",
+                                        horario: ruta.horarioPaso || "Sin horario registrado",
+                                        municipio: ruta.estadoMunicipio || "",
+                                        distancia: distKm
+                                    });
+                                }
+                            }
+                        }
                     }
-                }
+                });
             });
 
             calculos.sort((a, b) => a.distancia - b.distancia);
 
             if (calculos.length === 0) {
-                contenedorResultados.innerHTML = `<p style="color: var(--text-muted); font-size: 0.85rem;">No hay coordenadas base registradas en Módulo 1 para calcular distancias exactas.</p>`;
+                contenedorResultados.innerHTML = `<p style="color: var(--text-muted); font-size: 0.85rem;">No se encontraron rutas registradas cerca de esta ubicación.</p>`;
                 return;
             }
 
             contenedorResultados.innerHTML = '';
             calculos.forEach(item => {
                 contenedorResultados.innerHTML += `
-                    <div class="haversine-card">
+                    <div class="haversine-card" style="cursor: pointer;" onclick="window.location.href='vacante.html?empresa=${item.empresaKey}'">
                         <div class="haversine-card-info">
-                            <strong>${item.nombreEmpresa}</strong>
-                            <span><i class="fas fa-bus"></i> Ruta disponible: ${item.ruta}</span>
+                            <strong>${item.nombreEmpresa} — ${item.nombreRuta}</strong>
+                            <span><i class="fas fa-map-marker-alt"></i> Parada: ${item.puntoAbordaje} ${item.municipio ? '(' + item.municipio + ')' : ''}</span>
+                            <span><i class="fas fa-clock"></i> Paso: ${item.horario}</span>
                         </div>
                         <div class="haversine-dist-badge">
                             <i class="fas fa-location-arrow me-1"></i> A ${item.distancia} km
@@ -1265,14 +1286,14 @@
         const data = snapshot.val() || {};
         todasLasEmpresas = data.empresas || {}; 
         todasLasVacantes = data.vacantes_detalles || {};
-        todasLasRutas = data.rutas_transporte || {};
+        todasLasRutas = data.rutas || {}; // LECTURA DIRECTA DE LA RAMA 'rutas'
         
         // Llenar combo de Selección de Empresa para Postulación
         const selectEmpresa = document.getElementById('empresa');
         selectEmpresa.innerHTML = '<option value="" disabled selected hidden></option>';
         
         Object.keys(todasLasEmpresas).forEach((id) => {
-            selectEmpresa.innerHTML += `<option value="${id}">${todasLasEmpresas[id].nombre}</option>`;
+            selectEmpresa.innerHTML += `<option value="${id}">${todasLasEmpresas[id].nombre || id}</option>`;
         });
 
         window.ejecutarBusqueda(document.getElementById('mainSearch').value);
