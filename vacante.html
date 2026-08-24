@@ -518,7 +518,6 @@
         <div class="vacante-layout-grid">
             <div class="column-left">
                 <div class="card">
-                    <!-- ENCABEZADO CORREGIDO CON ESTRUCTURA "PUESTO - [nombreVacante]" -->
                     <h3 class="vacante-titulo-principal">
                         <i class="fas fa-briefcase"></i> PUESTO - <span id="vacanteTitulo">—</span>
                     </h3>
@@ -755,7 +754,6 @@
                 if (snapshot.exists()) {
                     const dataRaw = snapshot.val();
                     
-                    // EVALUACIÓN DE PROPIEDADES INCLUYENDO nombreVacante
                     if (dataRaw.nombreVacante || dataRaw.vacanteNombre || dataRaw.puesto || dataRaw.salario) {
                         todasLasVacantesEmpresa = {};
                         const llaveUnica = (dataRaw.nombreVacante || dataRaw.vacanteNombre || dataRaw.puesto || "puesto_unico").replace(/\s+/g, '_').toLowerCase();
@@ -783,7 +781,6 @@
                     const listaContenedor = document.getElementById('listaVacantesDinamica');
                     listaContenedor.innerHTML = ''; 
                     
-                    // CORRECCIÓN CATÁLOGO: Lee estrictamente nombreVacante primero
                     keys.forEach(key => {
                         const vac = todasLasVacantesEmpresa[key];
                         const nombreMostrarPuesto = vac.nombreVacante || vac.vacanteNombre || vac.puesto || vac.nombreComercial || "Puesto Vacante";
@@ -823,7 +820,6 @@
         const data = todasLasVacantesEmpresa[key];
         datosVacanteGlobal = data;
         
-        // CORRECCIÓN VISTA DETALLE: Lee directamente nombreVacante para concatenar con PUESTO - 
         const nombrePuestoReal = data.nombreVacante || data.vacanteNombre || data.puesto || data.nombreComercial || 'Puesto Vacante';
         document.getElementById('vacanteTitulo').innerText = nombrePuestoReal;
         
@@ -1017,6 +1013,7 @@
         );
     }
 
+    // FUNCIÓN ACTUALIZADA CON HEADERS Y MANEJO DE ERRORES HTTP DE NOMINATIM
     async function ejecutarFiltroColoniaCP() {
         const busqueda = document.getElementById('txtFiltroColonia').value.trim();
         const btn = document.getElementById('btnBuscarOrigen');
@@ -1035,7 +1032,20 @@
         btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Geocodificando...`;
 
         try {
-            const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(busqueda + ', Mexico')}`);
+            // Se añade User-Agent y Accept-Language para evitar bloqueos 403 de Nominatim
+            const urlGeo = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(busqueda + ', Mexico')}&limit=1`;
+            
+            const response = await fetch(urlGeo, {
+                headers: {
+                    'Accept-Language': 'es',
+                    'User-Agent': 'BolsaDeTrabajoApp/1.0'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Error HTTP: ${response.status}`);
+            }
+
             const data = await response.json();
 
             if (data && data.length > 0) {
@@ -1043,13 +1053,14 @@
                 const lngOrigen = parseFloat(data[0].lon);
                 const nombreLugar = data[0].display_name.split(',')[0];
 
+                // Ejecuta el cálculo Haversine con las coordenadas obtenidas
                 vincularOrigenConDestinoHaversine(latOrigen, lngOrigen, nombreLugar);
             } else {
-                alert("No se encontraron coordenadas GPS para el C.P. o Colonia ingresada. Intenta con un término más específico.");
+                alert("No se encontraron coordenadas GPS para el C.P. o Colonia ingresada. Intenta con un término más específico (ej: 22800 Ensenada).");
             }
         } catch (error) {
             console.error("Error geocodificando origen:", error);
-            alert("Ocurrió un error al consultar el origen. Intenta de nuevo.");
+            alert("No se pudo conectar con el servicio de mapas. Verifica tu conexión o intenta usando el botón 'Usar mi ubicación GPS'.");
         } finally {
             btn.disabled = false;
             btn.innerHTML = `<i class="fas fa-route"></i> Calcular Ruta`;
@@ -1086,7 +1097,7 @@
                 fillColor: '#ea580c',
                 fillOpacity: 0.9,
                 radius: 9
-            }).addTo(mapLeaflet).bindPopup(`<b>Origen:</b> ${etiquetteOrigen || 'Tu Ubicación'}`).openPopup();
+            }).addTo(mapLeaflet).bindPopup(`<b>Origen:</b> ${etiquetaOrigen || 'Tu Ubicación'}`).openPopup();
 
             const latDest = parseFloat(paradaMasCercana.lat);
             const lngDest = parseFloat(paradaMasCercana.lng);
@@ -1332,7 +1343,6 @@
             const timestampId = "WF-" + Math.floor(100000 + Math.random() * 900000);
             const fechaYHoraActual = new Date().toLocaleString();
             
-            // CORRECCIÓN FORMULARIO / WHATSAPP: Lectura de nombreVacante
             const vacanteNombreFinal = datosVacanteGlobal ? (datosVacanteGlobal.nombreVacante || datosVacanteGlobal.vacanteNombre || datosVacanteGlobal.puesto || "Desconocida") : "Desconocida";
             const empresaNombreFinal = nombreEmpresaMaestro || (datosVacanteGlobal ? datosVacanteGlobal.nombreComercial : empresaLimpia.toUpperCase());
 
