@@ -102,7 +102,7 @@
         .empresa-header h1 {
             color: var(--white);
             font-size: 2rem;
-            margin-bottom: 6px;
+            margin-bottom: 8px;
             text-transform: uppercase;
             font-weight: 800;
             letter-spacing: 0.5px;
@@ -114,7 +114,32 @@
             font-weight: 600;
             display: inline-flex;
             align-items: center;
+            justify-content: center;
             gap: 6px;
+        }
+
+        /* BOTÓN INTERACTIVO PARA MAPAS EN EL HEADER */
+        .btn-mapa-header {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(56, 189, 248, 0.12);
+            border: 1px solid var(--wf-accent-blue);
+            color: var(--wf-accent-blue);
+            padding: 6px 16px;
+            border-radius: 20px;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 0.88rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.15);
+        }
+
+        .btn-mapa-header:hover {
+            background: var(--wf-accent-blue);
+            color: var(--secondary-blue-dark);
+            box-shadow: 0 0 20px var(--wf-accent-glow);
+            transform: translateY(-2px);
         }
 
         .menu-titulo {
@@ -167,17 +192,18 @@
         .chevron-icon { color: var(--wf-accent-blue); font-size: 1.2rem; transition: transform 0.3s ease; }
         .vacante-item-card:hover .chevron-icon { transform: translateX(5px); }
         
+        /* CONTENEDOR DE BANNERS CON FONDO DINÁMICO Y SWEEP FLASH */
         .revolver-carousel-container {
             position: relative;
             width: 100%;
-            height: 280px;
+            height: 290px;
             margin-bottom: 25px;
             display: none;
             overflow: hidden;
             border-radius: var(--radius-md);
             border: 1px solid var(--border-color);
-            background: #000;
             box-shadow: var(--shadow-md);
+            background: #000;
         }
 
         .revolver-stage {
@@ -193,10 +219,11 @@
             top: 0;
             left: 0;
             opacity: 0;
-            transition: opacity 0.5s ease-in-out;
+            transition: opacity 0.6s ease-in-out;
             display: flex;
             align-items: center;
             justify-content: center;
+            overflow: hidden;
         }
 
         .revolver-slide.active {
@@ -204,18 +231,72 @@
             z-index: 2;
         }
 
-        .revolver-slide img {
+        /* FONDO DINÁMICO CON DESENFOQUE Y PULSO */
+        .revolver-bg-blur {
+            position: absolute;
+            top: -10%;
+            left: -10%;
+            width: 120%;
+            height: 120%;
+            background-size: cover;
+            background-position: center;
+            filter: blur(22px) brightness(0.45) saturate(1.4);
+            transform: scale(1.05);
+            animation: bgRespiracion 10s infinite alternate ease-in-out;
+            z-index: 1;
+        }
+
+        @keyframes bgRespiracion {
+            0% { transform: scale(1.02); filter: blur(20px) brightness(0.4); }
+            100% { transform: scale(1.12); filter: blur(28px) brightness(0.55); }
+        }
+
+        /* IMAGEN PRINCIPAL EN PRIMER PLANO */
+        .revolver-slide img.main-banner-img {
+            position: relative;
+            z-index: 2;
             width: 100%;
             height: 100%;
             object-fit: contain;
-            background-color: #070f1e;
+            filter: drop-shadow(0 10px 20px rgba(0,0,0,0.7));
+        }
+
+        /* EFECTO DE CORDÓN DE LUZ / SWEEP FLASH */
+        .revolver-carousel-container::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -150%;
+            width: 60%;
+            height: 200%;
+            background: linear-gradient(
+                90deg, 
+                transparent 0%, 
+                rgba(255, 255, 255, 0.0) 20%, 
+                rgba(56, 189, 248, 0.35) 50%, 
+                rgba(255, 255, 255, 0.6) 52%, 
+                rgba(56, 189, 248, 0.35) 54%, 
+                transparent 100%
+            );
+            transform: rotate(25deg);
+            z-index: 8;
+            pointer-events: none;
+        }
+
+        .revolver-carousel-container.flash-active::after {
+            animation: sweepFlashEffect 0.75s ease-in-out forwards;
+        }
+
+        @keyframes sweepFlashEffect {
+            0% { left: -120%; }
+            100% { left: 180%; }
         }
 
         .revolver-nav {
             position: absolute;
             top: 50%;
             transform: translateY(-50%);
-            background: rgba(4, 8, 20, 0.7);
+            background: rgba(4, 8, 20, 0.75);
             color: var(--wf-accent-blue);
             border: 1px solid var(--border-color);
             width: 42px;
@@ -227,6 +308,7 @@
             cursor: pointer;
             z-index: 10;
             transition: all 0.3s ease;
+            backdrop-filter: blur(4px);
         }
 
         .revolver-nav:hover {
@@ -252,7 +334,7 @@
             width: 10px;
             height: 10px;
             border-radius: 50%;
-            background: rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.35);
             cursor: pointer;
             transition: all 0.3s ease;
         }
@@ -507,7 +589,7 @@
 
     <div id="empresaHeaderBox" class="empresa-header" style="display: none;">
         <h1 id="mainEmpresaNombre">—</h1>
-        <div class="location">
+        <div class="location" id="mainEmpresaLugarContainer">
             <i class="fa-solid fa-location-dot"></i> <span id="mainEmpresaLugar">—</span>
         </div>
     </div>
@@ -569,7 +651,6 @@
             </div>
 
             <div class="column-right sticky-side-form">
-                <!-- SIEMPRE VISIBLE: MÓDULO BUSCADOR DE RUTAS -->
                 <div class="card-transporte" id="bloqueTransporte">
                     <h3><i class="fa-solid fa-bus-simple"></i> Rutas y Transporte Cercano</h3>
                     <p id="txtDetallesTransporte" class="transporte-detalles">—</p>
@@ -710,6 +791,27 @@
         return parseFloat((R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)))).toFixed(2));
     }
 
+    // MANEJADOR INTELIGENTE DE UBICACIÓN / URL DE GOOGLE MAPS
+    function renderizarUbicacionEmpresa(lugar) {
+        const contenedor = document.getElementById('mainEmpresaLugarContainer');
+        if (!lugar) {
+            contenedor.innerHTML = `<i class="fa-solid fa-location-dot"></i> <span>Ubicación no disponible</span>`;
+            return;
+        }
+
+        const esUrl = lugar.startsWith('http://') || lugar.startsWith('https://') || lugar.includes('maps.app.goo.gl') || lugar.includes('google.com/maps');
+
+        if (esUrl) {
+            contenedor.innerHTML = `
+                <a href="${lugar}" target="_blank" class="btn-mapa-header">
+                    <i class="fa-solid fa-map-location-dot"></i> Ver Ubicación en Google Maps
+                </a>
+            `;
+        } else {
+            contenedor.innerHTML = `<i class="fa-solid fa-location-dot"></i> <span>${lugar}</span>`;
+        }
+    }
+
     async function cargarDetallesVacante() {
         if (!empresaLimpia) {
             document.getElementById('loading').innerHTML = "❌ Enlace no válido.<br><small>Falta parámetro ?empresa=ID</small>";
@@ -721,7 +823,7 @@
             if (snapEmpresaMaestra.exists()) {
                 const infoMaestra = snapEmpresaMaestra.val();
                 nombreEmpresaMaestro = infoMaestra.nombre || infoMaestra.nombreComercial || "";
-                ubicacionEmpresaMaestro = infoMaestra.ubicacion || infoMaestra.lugarOrigen || "";
+                ubicacionEmpresaMaestro = infoMaestra.ubicacion || infoMaestra.lugarOrigen || infoMaestra.mapa || infoMaestra.direccion || "";
             }
 
             db.ref(`vacantes_detalles/${empresaLimpia}`).once('value', async function(snapshot) {
@@ -749,7 +851,8 @@
                     nombreEmpresaMaestro = nombreHeader;
 
                     document.getElementById('mainEmpresaNombre').innerText = nombreHeader;
-                    document.getElementById('mainEmpresaLugar').innerText = lugarHeader;
+                    renderizarUbicacionEmpresa(lugarHeader);
+                    
                     document.getElementById('empresaHeaderBox').style.display = 'block';
 
                     const listaContenedor = document.getElementById('listaVacantesDinamica');
@@ -797,7 +900,10 @@
         document.getElementById('vacanteVisitas').innerText = data.visitas ? (data.visitas + 1) : 1;
         
         document.getElementById('detSalario').innerText = data.salario || 'No especificado';
-        document.getElementById('detLugar').innerText = data.lugarOrigen || ubicacionEmpresaMaestro || 'No especificado';
+        
+        const zonaTexto = data.lugarOrigen || ubicacionEmpresaMaestro || 'No especificado';
+        document.getElementById('detLugar').innerText = zonaTexto.includes('http') ? 'Ver en mapa arriba' : zonaTexto;
+
         document.getElementById('detTurnos').innerText = data.turnos || 'No especificado';
         document.getElementById('detEdad').innerText = data.edad || 'Indistinto';
         document.getElementById('detSexo').innerText = data.sexo || 'Indistinto';
@@ -837,7 +943,7 @@
             arrayBannersRevolver = rawBanners.filter(u => typeof u === 'string' && u.length > 5);
         }
 
-        // CONVERSIÓN AUTOMÁTICA: Convertir enlaces web de GitHub Blob a enlaces de imagen directa (RAW)
+        // CONVERSIÓN DE URLS DE GITHUB BLOB A RAW
         arrayBannersRevolver = arrayBannersRevolver.map(url => {
             return url.replace('github.com/', 'raw.githubusercontent.com/').replace('/blob/', '/');
         });
@@ -854,10 +960,18 @@
             slide.className = `revolver-slide ${idx === 0 ? 'active' : ''}`;
             slide.id = `slide_rev_${idx}`;
 
-            const img = document.createElement('img');
-            img.src = url;
+            // 1. Capa de Fondo Dinámico (Blur)
+            const bgBlur = document.createElement('div');
+            bgBlur.className = 'revolver-bg-blur';
+            bgBlur.style.backgroundImage = `url('${url}')`;
 
-            slide.appendChild(img);
+            // 2. Imagen Principal Enfocada
+            const imgMain = document.createElement('img');
+            imgMain.className = 'main-banner-img';
+            imgMain.src = url;
+
+            slide.appendChild(bgBlur);
+            slide.appendChild(imgMain);
             stage.appendChild(slide);
 
             const dot = document.createElement('div');
@@ -866,7 +980,7 @@
             dots.appendChild(dot);
         });
 
-        actualizarEfectoRevolver();
+        actualizarEfectoRevolver(true);
 
         if (autoPlayInterval) clearInterval(autoPlayInterval);
         if (arrayBannersRevolver.length > 1) {
@@ -874,18 +988,25 @@
         }
     }
 
+    function dispararEfectoFlash() {
+        const container = document.getElementById('revolverCarouselBox');
+        container.classList.remove('flash-active');
+        void container.offsetWidth; // Forzar reflow en el DOM
+        container.classList.add('flash-active');
+    }
+
     function moverRevolver(direccion) {
         if (arrayBannersRevolver.length <= 1) return;
         currentRevolverIndex = (currentRevolverIndex + direccion + arrayBannersRevolver.length) % arrayBannersRevolver.length;
-        actualizarEfectoRevolver();
+        actualizarEfectoRevolver(true);
     }
 
     function irASlideRevolver(index) {
         currentRevolverIndex = index;
-        actualizarEfectoRevolver();
+        actualizarEfectoRevolver(true);
     }
 
-    function actualizarEfectoRevolver() {
+    function actualizarEfectoRevolver(ejecutarFlash = false) {
         const total = arrayBannersRevolver.length;
         for (let i = 0; i < total; i++) {
             const slide = document.getElementById(`slide_rev_${i}`);
@@ -900,9 +1021,12 @@
                 if (dot) dot.classList.add('active');
             }
         }
+
+        if (ejecutarFlash) {
+            dispararEfectoFlash();
+        }
     }
 
-    // BUSCADOR SIEMPRE ACTIVO Y COMPATIBLE
     async function inicializarBuscadorRutas() {
         const txtDetallesTrans = document.getElementById('txtDetallesTransporte');
         const pantallaRutas = document.getElementById('gridPantallaRutasDinamicas');
