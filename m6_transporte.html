@@ -343,6 +343,47 @@
             sincronizarInicialBajoDemanda();
         });
 
+        // =========================================================================
+        // MOTOR RESILIENTE CON RETARDO EXPONENCIAL (EXPONENTIAL BACKOFF FOR GEMINI)
+        // =========================================================================
+        async function fetchGeminiConRetry(url, options, maxRetries = 5, baseDelayMs = 2000, onRetryCallback = null) {
+            for (let intento = 0; intento <= maxRetries; intento++) {
+                const response = await fetch(url, options);
+                
+                // Si la respuesta es exitosa (200 OK), la devolvemos de inmediato
+                if (response.ok) return response;
+
+                // Si recibimos un Error 429 (Too Many Requests / Quota Exceeded)
+                if (response.status === 429 && intento < maxRetries) {
+                    let tiempoEspera = baseDelayMs * Math.pow(2, intento); // Retardo Exponencial (2s, 4s, 8s, 16s...)
+
+                    try {
+                        const errorData = await response.clone().json();
+                        const mensaje = errorData?.error?.message || "";
+                        
+                        // Si la API indica explícitamente cuántos segundos esperar (ej. "Please retry in 16.85s")
+                        const matchMatch = mensaje.match(/retry in ([0-9.]+)s/i);
+                        if (matchMatch && matchMatch[1]) {
+                            tiempoEspera = (parseFloat(matchMatch[1]) + 1.5) * 1000; // Agregar un margen de seguridad de 1.5s
+                        }
+                    } catch (e) {
+                        // Continuar con el tiempo de espera calculado por backoff en caso de falla al parsear JSON
+                    }
+
+                    if (onRetryCallback) {
+                        onRetryCallback(intento + 1, maxRetries, Math.ceil(tiempoEspera / 1000));
+                    }
+
+                    console.warn(`[Gemini API] Cuota excedida (429). Esperando ${Math.ceil(tiempoEspera / 1000)}s antes del reintento ${intento + 1}/${maxRetries}...`);
+                    await new Promise(resolve => setTimeout(resolve, tiempoEspera));
+                } else {
+                    // Si es otro tipo de error HTTP (400, 403, 500), devolvemos para manejo normal
+                    return response;
+                }
+            }
+            throw new Error("Límite de reintentos alcanzado por restricciones de cuota en Gemini API.");
+        }
+
         // 1. CONSULTA LIGERA Y BAJO DEMANDA
         async function sincronizarInicialBajoDemanda() {
             const badge = document.getElementById("badgeEstadoServer");
@@ -601,13 +642,14 @@
                     lngCand = parseFloat(partesCoords[1]);
                 }
 
-                // GEOCODIFICACIÓN DE ALTA PRECISIÓN CON GEMINI 2.5 FLASH (temperature = 0.0)
+                // GEOCODIFICACIÓN DE ALTA PRECISIÓN CON GEMINI 2.5 FLASH (MECANISMO CON RETREAT Y RETRY)
                 if ((!latCand || !lngCand) && apiKey) {
                     const promptGeocod = `Analiza detalladamente la dirección o ubicación en México: "${textoUbicacion}".
                     INSTRUCCIÓN GEOESPACIAL: Determina las coordenadas geográficas exactas del inmueble, calle o cruce mencionado manteniendo HASTA 6 DECIMALES.
                     Devuelve ÚNICAMENTE un JSON sin Markdown: {"lat": 20.659712, "lng": -103.349605}`;
 
-                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+                    const urlApi = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+                    const payload = {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
@@ -617,7 +659,12 @@
                                 responseMimeType: "application/json" 
                             }
                         })
+                    };
+
+                    const res = await fetchGeminiConRetry(urlApi, payload, 5, 2000, (intento, max, segs) => {
+                        btn.innerHTML = `<span>⏳</span> Ajuste de Cuota API (Reintento ${intento}/${max} en ${segs}s)...`;
                     });
+
                     const data = await res.json();
                     if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
                         const coords = JSON.parse(data.candidates[0].content.parts[0].text);
@@ -626,6 +673,7 @@
                     }
                 }
 
+                // FALLBACK SECUNDARIO HÍBRIDO (Nominatim OpenStreetMap)
                 if (!latCand || !lngCand) {
                     const resOsm = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(textoUbicacion + ", Mexico")}`);
                     const dataOsm = await resOsm.json();
@@ -900,7 +948,7 @@
             document.getElementById("txtEmpresasConRuta").innerText = cacheEmpresas.length;
         }
 
-        // PROCESAMIENTO DOCUMENTOS/IMÁGENES IA MULTIMODAL CON GEMINI (ALTA PRECISIÓN RESTRINGIDA)
+        // PROCESAMIENTO DOCUMENTOS/IMÁGENES IA MULTIMODAL CON GEMINI Y RETARDO EXPONENCIAL
         async function procesarDocumentoConIA() {
             const apiKey = document.getElementById("apiKeyGemini").value.trim();
             const empresaSeleccionada = document.getElementById("empresaValidacionIA").value.trim();
@@ -942,7 +990,8 @@
                     ]
                 `;
 
-                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+                const urlApi = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+                const payload = {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
@@ -957,6 +1006,11 @@
                             responseMimeType: "application/json" 
                         }
                     })
+                };
+
+                // Uso de la función con reintento automático si hay un error 429
+                const res = await fetchGeminiConRetry(urlApi, payload, 5, 2000, (intento, max, segs) => {
+                    btn.innerHTML = `<span>⏳</span> Cuota saturada. Pausa táctica (${segs}s) - Reintento ${intento}/${max}...`;
                 });
 
                 const jsonRes = await res.json();
