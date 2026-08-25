@@ -32,8 +32,9 @@
   var database = firebase.database();
 </script>
 
-<!-- Lectura de archivos --> 
+<!-- Lectura de archivos (PDF, DOCX) --> 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script> 
+<script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script> 
 
 <style> 
@@ -63,7 +64,7 @@
       </div>
       <div>
         <h1 class="text-xl font-bold text-white tracking-wide">Gestión de Vacantes Dinámico</h1> 
-        <p class="text-xs text-slate-400">Módulo 2 • Control de Captura Manual e Inteligente</p>
+        <p class="text-xs text-slate-400">Módulo 2 • Extractor Premium IA + Formulario Firebase</p>
       </div>
     </div> 
     <span id="serverStatus" class="text-xs text-slate-400 font-mono bg-[#1a293b] px-3.5 py-1.5 rounded-full border border-[#2e445e] transition-all duration-300">
@@ -118,27 +119,27 @@
         </div> 
       </div> 
 
-      <!-- Extractor IA (Gemini) -->
+      <!-- Extractor IA (Gemini 2.5 Flash Ultra Motor) -->
       <div class="card-panel p-5 border-l-4 border-l-indigo-500 bg-[#12182b] space-y-4"> 
         <div class="flex items-center justify-between border-b border-[#233446] pb-3"> 
           <div class="flex items-center gap-2 text-indigo-300 font-bold text-xs uppercase tracking-wider"> 
             <i data-lucide="sparkles" class="w-4 h-4"></i> 
-            <span>Extractor Inteligente</span> 
+            <span>Extractor Premium IA</span> 
           </div>
           <span class="text-[10px] bg-indigo-950 text-indigo-300 font-mono px-2 py-0.5 rounded border border-indigo-700">Gemini 2.5</span>
         </div>
 
         <div> 
-          <label class="block text-xs text-slate-300 mb-1 font-medium">Texto de la Vacante / WhatsApp</label> 
-          <textarea id="rawText" rows="4" placeholder="Pega aquí el texto borrador o informal..." class="w-full p-2.5 rounded-lg input-dark text-slate-100 placeholder-slate-500 text-xs"></textarea> 
+          <label class="block text-xs text-slate-300 mb-1 font-medium">Texto de la Vacante / WhatsApp / Notas</label> 
+          <textarea id="rawText" rows="4" placeholder="Pega aquí cualquier texto desordenado o borrador..." class="w-full p-2.5 rounded-lg input-dark text-slate-100 placeholder-slate-500 text-xs"></textarea> 
         </div> 
 
         <div> 
-          <label class="block text-xs text-slate-300 mb-1 font-medium">Adjuntar Documento o Imagen</label> 
+          <label class="block text-xs text-slate-300 mb-1 font-medium">Adjuntar Documento o Imagen (PNG, JPG, PDF, DOCX, TXT)</label> 
           <label class="flex flex-col items-center justify-center w-full h-20 border border-indigo-500/40 border-dashed rounded-lg cursor-pointer bg-[#182035] hover:bg-[#1f2a45] transition"> 
             <div class="flex flex-col items-center justify-center text-center p-2"> 
               <i data-lucide="upload-cloud" class="w-5 h-5 text-indigo-400 mb-1"></i> 
-              <p class="text-xs text-slate-300"><span class="font-semibold">Subir PDF, Word e Imagen</span></p> 
+              <p class="text-xs text-slate-300"><span class="font-semibold">Subir Archivo o Imagen</span></p> 
             </div> 
             <input id="fileInput" type="file" accept=".txt,.pdf,.docx,.png,.jpg,.jpeg" class="hidden" /> 
           </label> 
@@ -148,17 +149,17 @@
         </div> 
 
         <button id="btnExtract" type="button" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg shadow-md transition flex items-center justify-center gap-2 text-xs uppercase tracking-wider cursor-pointer"> 
-          <i data-lucide="cpu" class="w-4 h-4"></i> Procesar Documento con IA
+          <i data-lucide="cpu" class="w-4 h-4"></i> Extraer Información con IA
         </button> 
       </div> 
 
-      <!-- Configuración API Key -->
+      <!-- Configuración API Key (Soporta llaves con prefijo AQ o AIza) -->
       <div class="card-panel p-4 space-y-2"> 
         <div class="flex items-center gap-2 text-slate-400 font-bold text-xs uppercase tracking-wider"> 
           <i data-lucide="key" class="w-4 h-4 text-orange-400"></i> 
-          <span>API Key Gemini</span> 
+          <span>API Key Gemini (Soporta claves AQ...)</span> 
         </div> 
-        <input type="password" id="apiKeyInput" class="w-full p-2 rounded-lg input-dark text-xs font-mono tracking-widest" placeholder="••••••••••••••••••••••••••••••••"> 
+        <input type="password" id="apiKeyInput" class="w-full p-2 rounded-lg input-dark text-xs font-mono tracking-widest" placeholder="Ingresa tu API Key de Gemini"> 
       </div> 
 
     </div> 
@@ -329,8 +330,8 @@
               <input type="text" id="rutasTransporte" class="w-full p-2.5 rounded-lg input-dark text-xs"> 
             </div>
             <div>
-              <label class="block text-xs text-slate-400 mb-1">Información General Extra (Notas)</label> 
-              <textarea id="infoGeneral" rows="2" class="w-full p-2.5 rounded-lg input-dark text-xs" placeholder="Se volcarán aquí notas, residuos y observaciones..."></textarea> 
+              <label class="block text-xs text-slate-400 mb-1">Información General Extra (Notas y Observaciones)</label> 
+              <textarea id="infoGeneral" rows="2" class="w-full p-2.5 rounded-lg input-dark text-xs" placeholder="Información extra o sobrante extraída..."></textarea> 
             </div>
           </div>
         </div> 
@@ -414,7 +415,7 @@ lucide.createIcons();
 // Variable global para almacenar los datos de la empresa actual
 let cacheEmpresaActual = null;
 
-// Funciones auxiliares para la Mazorca de Banners (10 Ranuras)
+// Manejo de la Mazorca de Banners (10 Ranuras)
 function obtenerCadenaBannersFormulario() {
   const banners = [];
   for (let i = 1; i <= 10; i++) {
@@ -508,19 +509,13 @@ document.getElementById('selectEmpresa').addEventListener('change', e => {
 
   if (!emp) return; 
 
-  // 1. Consulta Ubicación, Direcciones, Mapa URL desde Módulo 1 (nodo 'empresas')
   database.ref(`empresas/${emp}`).once('value', snap => {
     const empData = snap.val();
     if (empData) {
       cacheEmpresaActual = empData;
-      
-      // Extrae la dirección física corta
       const direccionFisica = empData.direccion || empData.direcciones || empData.tag || empData.nombre || "";
-      
-      // Extrae la URL de Google Maps (Priorizando la propiedad 'ubicacion' proveniente de Firebase)
       let mapaUrlRaw = empData.ubicacion || empData.mapaUrl || empData.url_map || empData.url_google_maps || "";
       
-      // Si la dirección vino como un enlace http, intercambia los valores
       if (direccionFisica.startsWith('http')) {
         mapaUrlRaw = direccionFisica;
         document.getElementById('lugarOrigen').value = empData.direccion || empData.direcciones || "";
@@ -532,7 +527,6 @@ document.getElementById('selectEmpresa').addEventListener('change', e => {
     }
   });
 
-  // 2. Consulta Rutas desde Módulo 4
   database.ref(`rutas/${emp}`).once('value', snap => {
     const rutasData = snap.val();
     if (rutasData) {
@@ -548,7 +542,6 @@ document.getElementById('selectEmpresa').addEventListener('change', e => {
     }
   });
 
-  // 3. Consulta la lista de vacantes de la empresa
   database.ref(`vacantes_detalles/${emp}`).once('value', snap => { 
     const v = snap.val(); 
     if (!v) return; 
@@ -575,7 +568,6 @@ function cargarObjetoEnFormulario(d) {
   document.getElementById('nombreVacante').value = d.nombreVacante || ""; 
   document.getElementById('estatus').value = d.estatus || "disponible"; 
   
-  // Carga de Banners en Ranuras Mazorca
   cargarCadenaBannersEnFormulario(d.bannerUrl || "");
 
   document.getElementById('edad').value = d.edad || ""; 
@@ -584,7 +576,6 @@ function cargarObjetoEnFormulario(d) {
   document.getElementById('experiencia').value = d.experiencia || ""; 
   document.getElementById('salario').value = d.salario || ""; 
   
-  // Fallbacks desde la empresa para Dirección y URL del Mapa
   const direccionFallback = (cacheEmpresaActual && (cacheEmpresaActual.direccion || cacheEmpresaActual.direcciones || cacheEmpresaActual.tag || cacheEmpresaActual.nombre)) || "";
   const mapaFallback = (cacheEmpresaActual && (cacheEmpresaActual.ubicacion || cacheEmpresaActual.mapaUrl || cacheEmpresaActual.url_map || cacheEmpresaActual.url_google_maps)) || "";
 
@@ -597,7 +588,6 @@ function cargarObjetoEnFormulario(d) {
   }
 
   document.getElementById('lugarOrigen').value = lugar || direccionFallback; 
-  // Asigna el mapa de la vacante, y si viene vacío usa el mapa base de la empresa
   document.getElementById('mapaUrl').value = mapa || mapaFallback; 
   
   document.getElementById('turnos').value = d.turnos || "";
@@ -640,24 +630,69 @@ function resetFormFields() {
 }
 function updateJsonOutput(d) { document.getElementById('jsonOutput').innerText = JSON.stringify(d, null, 2); }
 
+// LECTURA ROBUSTA DE ARCHIVOS (TXT, PDF, DOCX, IMÁGENES)
 document.getElementById('fileInput').addEventListener('change', async e => { 
   const file = e.target.files[0]; 
   if (!file) return; 
   const status = document.getElementById('fileStatus'); 
   status.classList.remove('hidden'); 
-  extractedFileText = attachedFileBase64 = ""; attachedFileType = ""; 
-  if (file.type === "text/plain" || file.name.endsWith('.txt')) { 
-    const r = new FileReader(); r.onload = e => { extractedFileText = e.target.result; status.querySelector('span').innerText = "Texto listo ✅"; }; r.readAsText(file); 
-  } else if (file.type === "application/pdf" || file.name.endsWith('.pdf')) {
-    const r = new FileReader(); r.onload = async e => {
-      const pdf = await pdfjsLib.getDocument(new Uint8Array(e.target.result)).promise;
-      let txt = ""; for(let i=1;i<=pdf.numPages;i++){ const p = await pdf.getPage(i); txt += (await p.getTextContent()).items.map(x=>x.str).join(" ")+"\n"; }
-      extractedFileText = txt; status.querySelector('span').innerText = "PDF listo ✅";
-    }; r.readAsArrayBuffer(file);
-  } else if (file.name.endsWith('.docx')) {
-    const r = new FileReader(); r.onload = e => mammoth.extractRawText({arrayBuffer:e.target.result}).then(x=>{extractedFileText=x.value; status.querySelector('span').innerText="Word listo ✅";}); r.readAsArrayBuffer(file);
-  } else if (file.type.startsWith('image/')) {
-    const r = new FileReader(); r.onload = e => { attachedFileBase64 = e.target.result.split(',')[1]; attachedFileType = file.type; status.querySelector('span').innerText = "Imagen lista ✅"; }; r.readAsDataURL(file);
+  extractedFileText = ""; attachedFileBase64 = ""; attachedFileType = ""; 
+
+  try {
+    if (file.type === "text/plain" || file.name.endsWith('.txt')) { 
+      const r = new FileReader(); 
+      r.onload = e => { 
+        extractedFileText = e.target.result; 
+        status.querySelector('span').innerText = "Texto .txt cargado ✅"; 
+      }; 
+      r.readAsText(file); 
+    } else if (file.type === "application/pdf" || file.name.endsWith('.pdf')) {
+      status.querySelector('span').innerText = "Procesando PDF...";
+      const r = new FileReader(); 
+      r.onload = async e => {
+        try {
+          const pdf = await pdfjsLib.getDocument(new Uint8Array(e.target.result)).promise;
+          let txt = ""; 
+          for(let i=1; i<=pdf.numPages; i++){ 
+            const p = await pdf.getPage(i); 
+            const textContent = await p.getTextContent();
+            txt += textContent.items.map(x => x.str).join(" ") + "\n"; 
+          }
+          extractedFileText = txt; 
+          status.querySelector('span').innerText = "PDF procesado ✅";
+        } catch (pdfErr) {
+          console.error("Error al extraer PDF:", pdfErr);
+          alert("No se pudo extraer el texto del PDF. Intenta convertilo a imagen PNG/JPG o TXT.");
+        }
+      }; 
+      r.readAsArrayBuffer(file);
+    } else if (file.name.endsWith('.docx')) {
+      status.querySelector('span').innerText = "Procesando Word...";
+      const r = new FileReader(); 
+      r.onload = e => {
+        mammoth.extractRawText({arrayBuffer: e.target.result})
+          .then(x => {
+            extractedFileText = x.value; 
+            status.querySelector('span').innerText = "Word .docx listo ✅";
+          })
+          .catch(docErr => {
+            console.error("Error DOCX:", docErr);
+            alert("Error al leer documento Word.");
+          });
+      }; 
+      r.readAsArrayBuffer(file);
+    } else if (file.type.startsWith('image/')) {
+      const r = new FileReader(); 
+      r.onload = e => { 
+        attachedFileBase64 = e.target.result.split(',')[1]; 
+        attachedFileType = file.type; 
+        status.querySelector('span').innerText = "Imagen cargada (Visión IA) ✅"; 
+      }; 
+      r.readAsDataURL(file);
+    }
+  } catch (err) {
+    console.error("Error procesando archivo:", err);
+    alert("Ocurrió un error al leer el archivo.");
   }
 }); 
 
@@ -674,6 +709,7 @@ document.getElementById('nombreVacante').addEventListener('input', e => {
   document.getElementById('puestoId').value = generarPuestoIdEstructurado(emp, e.target.value);
 }); 
 
+// MOTOR DE EXTRACCIÓN CON GEMINI IA
 document.getElementById('btnExtract').addEventListener('click', async () => { 
   const emp = document.getElementById('selectEmpresa').value.trim();
   if (!emp) return alert("⚠️ Selecciona una Empresa Destino antes de procesar.");
@@ -682,42 +718,66 @@ document.getElementById('btnExtract').addEventListener('click', async () => {
   if (!key) return alert("Ingresa tu API Key de Gemini"); 
   
   const txt = document.getElementById('rawText').value.trim(); 
-  if (!txt && !extractedFileText && !attachedFileBase64) return alert("Agrega texto o un archivo para procesar."); 
+  if (!txt && !extractedFileText && !attachedFileBase64) return alert("Agrega texto o adjunta un archivo/imagen para procesar."); 
 
-  const btn = document.getElementById('btnExtract'); btn.disabled = true; btn.innerHTML = "Analizando Multivacantes...";
+  const btn = document.getElementById('btnExtract'); 
+  btn.disabled = true; 
+  btn.innerHTML = `<span class="animate-pulse">Analizando con IA...</span>`;
   
-  const systemPrompt = `Eres un extractor experto de vacantes de empleo.
-  INSTRUCCIÓN CLAVE:
-  Analiza el texto o imagen y extrae la información en los campos definidos.
-  CUALQUIER INFORMACIÓN SOBRANTE, notas adicionales, requisitos no clasificados, instrucciones de contacto o texto que quede fuera de la estructura estándar DEBES CONCATENARLA Y VOLCARLA DENTRO DEL CAMPO 'infoGeneral'.
+  const systemPrompt = `Eres un motor extractor inteligente especializado en ofertas de trabajo.
+INSTRUCCIONES DE EXTRACCIÓN:
+1. Analiza con precisión el contenido (texto plano o imagen).
+2. Extrae todas las vacantes que encuentres en una lista/arreglo JSON.
+3. Si la información viene informal, desordenada o sin etiquetas, interpreta los datos lógicamente.
+4. CUALQUIER INFORMACIÓN EXTRA O SOBRANTE (requisitos no clasificados, observaciones, teléfonos, correos o notas) DEBES VOLCARLA COMPLETA EN EL CAMPO 'infoGeneral'.
 
-  Estructura de salida (Arreglo JSON):
-  [
-    {
-      "nombreVacante": "Nombre del puesto",
-      "edad": "", "sexo": "", "escolaridad": "", "experiencia": "",
-      "salario": "", "lugarOrigen": "Texto de dirección física", "mapaUrl": "URL de Google Maps si la hay",
-      "turnos": "", "actividades": "", "beneficios": "", "rutasTransporte": "",
-      "infoGeneral": "TODA LA INFORMACIÓN EXTRA O SUELTA DEL PROCESO VA AQUÍ CON FORMATO DE PUNTOS O LISTA"
-    }
-  ]`;
+ESQUEMA OBLIGATORIO DE SALIDA (Arreglo JSON puro):
+[
+  {
+    "nombreVacante": "Título comercial de la vacante",
+    "edad": "Rango de edad o N/A",
+    "sexo": "Masculino / Femenino / Indistinto",
+    "escolaridad": "Nivel escolar mínimo",
+    "experiencia": "Años o tipo de experiencia requerida",
+    "salario": "Sueldo ofrecido y periodicidad",
+    "lugarOrigen": "Dirección física, zona o colonia descriptiva",
+    "mapaUrl": "URL de Google Maps si la incluye el texto",
+    "turnos": "Horarios y turnos de trabajo",
+    "actividades": "Responsabilidades y tareas clave",
+    "beneficios": "Prestaciones de ley o superiores",
+    "rutasTransporte": "Rutas de transporte mencianadas",
+    "infoGeneral": "Toda la información extra o notas sueltas aquí"
+  }
+]`;
 
   try { 
+    // Llamada directa utilizando la API Key proporcionada (Soporta llaves con prefijo AQ)
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`, { 
-      method: 'POST', headers: {'Content-Type':'application/json'}, 
+      method: 'POST', 
+      headers: {'Content-Type': 'application/json'}, 
       body: JSON.stringify({ 
         contents: [{ 
           parts: [ 
-            { text: `${systemPrompt}\n\nDATOS A PROCESAR:\n${txt}\n${extractedFileText}` }, 
+            { text: `${systemPrompt}\n\n[CONTENIDO A EXTRAER]:\n${txt}\n${extractedFileText}` }, 
             ...(attachedFileBase64 ? [{ inlineData: { mimeType: attachedFileType, data: attachedFileBase64 } }] : []) 
           ] 
         }], 
-        generationConfig: { responseMimeType: "application/json" } 
+        generationConfig: { 
+          responseMimeType: "application/json",
+          temperature: 0.1
+        } 
       }) 
     });
     
+    if (!res.ok) {
+      const errData = await res.json();
+      throw new Error(errData.error?.message || `Error en la API (${res.status})`);
+    }
+
     const data = await res.json(); 
-    if (!data.candidates) throw new Error("Sin respuesta de Gemini");
+    if (!data.candidates || !data.candidates[0].content.parts[0].text) {
+      throw new Error("Respuesta vacía o formato no reconocido por el modelo.");
+    }
     
     let rawTextResponse = data.candidates[0].content.parts[0].text.replace(/```json|```/g,"").trim();
     let parsedArray = JSON.parse(rawTextResponse);
@@ -745,10 +805,10 @@ document.getElementById('btnExtract').addEventListener('click', async () => {
 
   } catch (err) { 
     console.error(err); 
-    alert("Error al procesar con Gemini: Revisa tu API Key o el formato."); 
+    alert("⚠️ Error en el Extractor IA:\n" + err.message); 
   } finally { 
     btn.disabled = false; 
-    btn.innerHTML = `<i data-lucide="cpu" class="w-4 h-4"></i> Procesar Documento con IA`; 
+    btn.innerHTML = `<i data-lucide="cpu" class="w-4 h-4"></i> Extraer Información con IA`; 
     lucide.createIcons(); 
   }
 }); 
@@ -773,7 +833,7 @@ function abrirModalMultivacantes(empresaKey, vacantes) {
         <p class="text-xs text-slate-400"><strong>Ubicación:</strong> ${v.lugarOrigen || 'N/A'} | <strong>Salario:</strong> ${v.salario || 'N/A'}</p>
       </div>
       <button onclick="cargarUnaSolaVacante(${idx})" class="w-full md:w-auto px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white font-semibold rounded-lg text-xs transition flex items-center justify-center gap-1 cursor-pointer">
-        <i data-lucide="arrow-right-circle" class="w-3.5 h-3.5"></i> Cargar
+        <i data-lucide="arrow-right-circle" class="w-3.5 h-3.5"></i> Cargar al Formulario
       </button>
     `;
     container.appendChild(card);
