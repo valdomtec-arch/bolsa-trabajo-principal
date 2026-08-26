@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Motor IA Pro: Extracción de Rutas y Coordenadas</title>
+    <title>Motor IA Pro Ultra: Extractor Milimétrico de Rutas & MGRS</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -35,23 +35,23 @@
 </head>
 <body class="bg-cyber-bg text-slate-200 font-sans min-h-screen antialiased p-4 md:p-8">
 
-    <div class="max-w-4xl mx-auto space-y-6">
+    <div class="max-w-6xl mx-auto space-y-6">
         
         <!-- HEADER DEL MOTOR -->
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-cyber-border pb-5 gap-4">
             <div>
                 <div class="flex items-center gap-2 mb-1">
                     <span class="bg-cyber-accent/10 text-cyber-accent text-xs px-2.5 py-0.5 rounded-full font-mono font-bold tracking-wider uppercase border border-cyber-accent/20">
-                        Servidor de Procesamiento Aislado
+                        Servidor de Extracción Aislado • Modo Ultra-Precisión
                     </span>
                     <span id="badgeStatusMotor" class="bg-emerald-500/10 text-emerald-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-emerald-500/20">
-                        ● Listo
+                        ● Listo para Carga Asíncrona
                     </span>
                 </div>
                 <h1 class="text-2xl font-black text-white tracking-tight flex items-center gap-2">
-                    <span>⚡</span> Motor Gemini 2.5: Extractor de Rutas & MGRS
+                    <span>⚡</span> Motor Gemini 2.5: Extractor & Sanitizador Geoespacial
                 </h1>
-                <p class="text-slate-400 text-xs mt-1">Extrae y geolocaliza coordenadas a 6 decimales. La información procesada se deposita directamente en Firebase.</p>
+                <p class="text-slate-400 text-xs mt-1">Chunking de seguridad, validación militar a 6 decimales y prevención de duplicados en Firebase.</p>
             </div>
             
             <div class="bg-cyber-card p-2.5 rounded-lg border border-cyber-border flex flex-col gap-1 w-full sm:w-auto">
@@ -60,56 +60,99 @@
             </div>
         </div>
 
-        <!-- SECCIÓN DE EXTRACCIÓN Y COLA -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- PANEL DE INGESTA Y CONFIGURACIÓN -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
-            <!-- PANEL IZQUIERDO: CARGA DE ARCHIVO Y CONFIGURACIÓN -->
-            <div class="bg-cyber-card rounded-xl border border-cyber-border p-5 shadow-xl flex flex-col justify-between">
+            <!-- PANEL IZQUIERDO: CONFIGURACIÓN Y DROPZONE EN LOTE (1 col) -->
+            <div class="bg-cyber-card rounded-xl border border-cyber-border p-5 shadow-xl flex flex-col justify-between space-y-4">
                 <div>
                     <h2 class="text-sm font-bold text-white mb-1 flex items-center gap-2">
-                        <span>📁</span> Ingesta Multimodal (PDF, PNG, JPG, TXT)
+                        <span>📁</span> Ingesta Multimodal en Lote
                     </h2>
-                    <p class="text-slate-400 text-xs mb-4">Procesa manifiestos de ruta, mapas o tablas impresas.</p>
+                    <p class="text-slate-400 text-xs mb-3">Soporta múltiples PDFs, imágenes o listas de texto plano.</p>
 
                     <div class="mb-4 bg-cyber-bg p-3 rounded-lg border border-cyber-border">
                         <label class="block text-[10px] font-mono text-cyber-accent uppercase font-bold mb-1">
-                            ⚠️ Selecciona la Empresa Destino (Obligatoria)
+                            ⚠️ Empresa Destino (Obligatoria)
                         </label>
                         <select id="empresaValidacionIA" class="w-full bg-cyber-card border border-cyber-accent/40 rounded p-2 text-xs text-white focus:outline-none focus:border-cyber-accent font-semibold">
                             <option value="">-- Cargando Empresas... --</option>
                         </select>
                     </div>
 
-                    <div id="dropZone" class="border-2 border-dashed border-slate-700 hover:border-cyber-accent/60 bg-cyber-bg/60 rounded-xl p-6 text-center cursor-pointer transition-all flex flex-col items-center justify-center group">
-                        <span class="text-4xl group-hover:scale-110 transition-transform mb-2">🖼️</span>
-                        <p class="text-xs font-semibold text-slate-300">Arrastra o haz clic para subir archivo</p>
-                        <input type="file" id="fileInput" class="hidden" accept=".txt,.pdf,.png,.jpg,.jpeg">
+                    <!-- DROPZONE CON SOPORTE MULTIPLE -->
+                    <div id="dropZone" class="border-2 border-dashed border-slate-700 hover:border-cyber-accent/60 bg-cyber-bg/60 rounded-xl p-5 text-center cursor-pointer transition-all flex flex-col items-center justify-center group">
+                        <span class="text-3xl group-hover:scale-110 transition-transform mb-1">📦</span>
+                        <p class="text-xs font-semibold text-slate-300">Arrastra o selecciona tus archivos</p>
+                        <span class="text-[10px] text-slate-500 mt-1">Soporta selección de múltiples documentos</span>
+                        <input type="file" id="fileInput" class="hidden" accept=".txt,.pdf,.png,.jpg,.jpeg" multiple>
                     </div>
-                    <div id="fileFeedback" class="mt-2 text-xs text-cyber-cyan font-mono hidden"></div>
+                    <div id="fileFeedback" class="mt-2 text-[11px] text-cyber-cyan font-mono max-h-24 overflow-y-auto hidden"></div>
                 </div>
 
-                <div class="mt-6">
-                    <button onclick="procesarDocumentoConIA()" id="btnProcesar" class="w-full bg-gradient-to-r from-cyber-accent to-cyber-accentHover hover:from-cyber-accentHover hover:to-orange-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2">
-                        <span>🧠</span> Ejecutar Extraer con Gemini 2.5
+                <div class="pt-2">
+                    <button onclick="iniciarProcesamientoEnLote()" id="btnProcesar" class="w-full bg-gradient-to-r from-cyber-accent to-cyber-accentHover hover:from-cyber-accentHover hover:to-orange-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2">
+                        <span>🧠</span> Extraer & Sanitizar con Gemini 2.5
                     </button>
                 </div>
             </div>
 
-            <!-- PANEL DERECHO: COLA DE DEPÓSITO A FIREBASE -->
-            <div class="bg-cyber-card rounded-xl border border-cyber-border p-5 shadow-xl flex flex-col justify-between">
+            <!-- PANEL DERECHO: VISUALIZADOR MILITAR PRE-COMMIT (2 cols) -->
+            <div class="lg:col-span-2 bg-cyber-card rounded-xl border border-cyber-border p-5 shadow-xl flex flex-col justify-between space-y-4">
                 <div>
-                    <div class="flex justify-between items-center mb-2">
-                        <h2 class="text-sm font-bold text-cyber-emerald flex items-center gap-2">
-                            <span>📦</span> Depósito de Coordenadas Extraídas
-                        </h2>
-                        <span id="badgeJsonStatus" class="text-[10px] font-mono bg-slate-800 text-slate-400 px-2 py-0.5 rounded border border-slate-700">En Espera</span>
+                    <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2 mb-3">
+                        <div>
+                            <h2 class="text-sm font-bold text-cyber-emerald flex items-center gap-2">
+                                <span>🔍</span> Inspección de Coordenadas Pre-Commit
+                            </h2>
+                            <p class="text-slate-400 text-[11px]">Validación geoespacial antes de la inyección final a Firebase.</p>
+                        </div>
+                        <span id="badgeResultadoCount" class="text-[10px] font-mono bg-slate-800 text-slate-400 px-2.5 py-1 rounded border border-slate-700 self-start sm:self-auto">
+                            0 Rutas Listas
+                        </span>
                     </div>
-                    <textarea id="jsonOutput" class="w-full h-64 bg-cyber-bg border border-cyber-emerald/30 text-cyber-emerald p-3 rounded-xl font-mono text-xs focus:outline-none focus:border-cyber-emerald resize-none" placeholder="// El resultado extraído aparecerá aquí listo para guardarse en Firebase..."></textarea>
+
+                    <!-- TABLA PRE-COMMIT -->
+                    <div class="overflow-x-auto border border-cyber-border rounded-lg bg-cyber-bg max-h-72 overflow-y-auto">
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-slate-900/90 text-slate-400 font-mono text-[10px] uppercase sticky top-0 border-b border-cyber-border">
+                                <tr>
+                                    <th class="p-2.5">Ruta / Empresa</th>
+                                    <th class="p-2.5">Horarios / Paradas</th>
+                                    <th class="p-2.5">Coordenadas Lat, Lng</th>
+                                    <th class="p-2.5 text-center">Diagnóstico Geo</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaResultadosPreCommit" class="divide-y divide-cyber-border/40 font-mono text-[11px]">
+                                <tr>
+                                    <td colspan="4" class="p-8 text-center text-slate-600">
+                                        Suba un archivo y ejecute la extracción para auditar coordenadas.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- CAJA JSON RAW COMPRIMIDA (OCULTA POR DEFECTO PARA NO SATURAR VISTA) -->
+                    <div class="mt-3">
+                        <details class="text-[11px] font-mono text-slate-400">
+                            <summary class="cursor-pointer hover:text-cyber-cyan transition-colors font-bold mb-1">
+                                📄 Ver / Editar JSON Crudo de la Cola
+                            </summary>
+                            <textarea id="jsonOutput" class="w-full h-32 bg-cyber-bg border border-cyber-emerald/30 text-cyber-emerald p-2.5 rounded-lg font-mono text-xs focus:outline-none resize-none mt-1" placeholder="// JSON crudo extraído..."></textarea>
+                        </details>
+                    </div>
                 </div>
 
-                <div class="mt-4">
-                    <button onclick="iniciarSubidaProgresivaUnaPorUna()" id="btnSubidaCola" class="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-3 px-4 rounded-lg text-xs uppercase transition-all shadow-lg flex items-center justify-center gap-2">
-                        <span>⚡</span> Inyectar Rutas a Firebase
+                <div class="pt-2 border-t border-cyber-border flex flex-col sm:flex-row justify-between items-center gap-3">
+                    <div class="text-[10px] font-mono text-slate-400 flex items-center gap-3">
+                        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> Exacto 6 Dec</span>
+                        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-500"></span> Geolocalizado</span>
+                        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-red-500"></span> Invalido</span>
+                    </div>
+
+                    <button onclick="inyectarAFirebaseConFiltroAntiDuplicados()" id="btnSubidaCola" class="w-full sm:w-auto bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-2.5 px-5 rounded-lg text-xs uppercase transition-all shadow-lg flex items-center justify-center gap-2">
+                        <span>⚡</span> Inyectar a Firebase (Anti-Duplicados)
                     </button>
                 </div>
             </div>
@@ -118,7 +161,7 @@
 
     </div>
 
-    <!-- FIREBASE V10 SDK -->
+    <!-- SDK FIREBASE V10 -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, get, push } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
@@ -136,20 +179,24 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        window.procesarDocumentoConIA = procesarDocumentoConIA;
-        window.iniciarSubidaProgresivaUnaPorUna = iniciarSubidaProgresivaUnaPorUna;
+        // CACHE GLOBAL DE RUTAS EXTRAÍDAS Y SANITIZADAS
+        let colaRutasSanitizadas = [];
+
+        window.iniciarProcesamientoEnLote = iniciarProcesamientoEnLote;
+        window.inyectarAFirebaseConFiltroAntiDuplicados = inyectarAFirebaseConFiltroAntiDuplicados;
 
         document.addEventListener("DOMContentLoaded", async () => {
             const snapEmpresas = await get(ref(db, "empresas"));
             const dataEmpresas = snapEmpresas.val() || {};
             const selectValidacion = document.getElementById("empresaValidacionIA");
-            selectValidacion.innerHTML = '<option value="">-- Asignar Empresa Obligatoria --</option>';
+            selectValidacion.innerHTML = '<option value="">-- Selecciona Empresa Destino --</option>';
             Object.keys(dataEmpresas).sort().forEach(emp => {
                 selectValidacion.innerHTML += `<option value="${emp}">${emp}</option>`;
             });
         });
 
-        async function fetchGeminiConRetry(url, options, maxRetries = 5, baseDelayMs = 2000, onRetryCallback = null) {
+        // 1. CONTROL DE RATE LIMIT Y RETRY CON PAUSAS INTELIGENTES
+        async function fetchGeminiConRetry(url, options, maxRetries = 5, baseDelayMs = 2500, onRetryCallback = null) {
             for (let intento = 0; intento <= maxRetries; intento++) {
                 const response = await fetch(url, options);
                 if (response.ok) return response;
@@ -171,110 +218,274 @@
                     return response;
                 }
             }
-            throw new Error("Límite de reintentos alcanzado.");
+            throw new Error("Se superó el límite de reintentos con la API.");
         }
 
-        async function procesarDocumentoConIA() {
+        // 2. SANITIZADOR GEOESPACIAL Y VALIDADOR DE 6 DECIMALES MILITAR
+        function sanitizarYValidarCoordenada(coordenadaRaw, direccionTexto) {
+            let lat = null;
+            let lng = null;
+            let diagnostico = "ROJO"; // ROJO, AMARILLO, VERDE
+            let detalle = "No válida";
+
+            if (coordenadaRaw && typeof coordenadaRaw === 'string') {
+                const partes = coordenadaRaw.split(",");
+                if (partes.length === 2) {
+                    let val1 = parseFloat(partes[0].trim());
+                    let val2 = parseFloat(partes[1].trim());
+
+                    if (!isNaN(val1) && !isNaN(val2)) {
+                        // DETECTAR SI LA COORDENADA ESTÁ INVERTIDA (lng, lat)
+                        if ((val1 >= -118.0 && val1 <= -86.0) && (val2 >= 14.0 && val2 <= 33.0)) {
+                            // Estaba invertida, la corregimos
+                            lat = val2;
+                            lng = val1;
+                            diagnostico = "VERDE";
+                            detalle = "Corregida (lng,lat -> lat,lng)";
+                        } else if ((val1 >= 14.0 && val1 <= 33.0) && (val2 >= -118.0 && val2 <= -86.0)) {
+                            // Coordenada correcta dentro del rango de México
+                            lat = val1;
+                            lng = val2;
+                            diagnostico = "VERDE";
+                            detalle = "Exacta 6 Dec";
+                        }
+                    }
+                }
+            }
+
+            if (lat !== null && lng !== null) {
+                const latFormatted = lat.toFixed(6);
+                const lngFormatted = lng.toFixed(6);
+                return {
+                    coordenadasLimpias: `${latFormatted}, ${lngFormatted}`,
+                    diagnostico: diagnostico,
+                    detalle: detalle
+                };
+            }
+
+            return {
+                coordenadasLimpias: coordenadaRaw || "Sin Coordenadas",
+                diagnostico: "ROJO",
+                detalle: "Fuera de Rango / Requiere Geocodificación"
+            };
+        }
+
+        // 3. PROCESAMIENTO MULTI-ARCHIVO Y FRAGMENTACIÓN CHUNKING
+        async function iniciarProcesamientoEnLote() {
             const apiKey = document.getElementById("apiKeyGemini").value.trim();
             const empresaSeleccionada = document.getElementById("empresaValidacionIA").value.trim();
             const fileInput = document.getElementById("fileInput");
 
-            if (!apiKey) return alert("⚠️ Ingresa la API Key de Gemini.");
-            if (!empresaSeleccionada) return alert("⚠️ Selecciona la Empresa Destino.");
-            if (!fileInput.files.length) return alert("⚠️ Selecciona un archivo.");
+            if (!apiKey) return alert("⚠️ Ingresa tu API Key de Gemini.");
+            if (!empresaSeleccionada) return alert("⚠️ Selecciona la Empresa Destino obligatoria.");
+            if (!fileInput.files.length) return alert("⚠️ Selecciona al menos un archivo.");
 
             const btn = document.getElementById("btnProcesar");
-            btn.innerHTML = '<span>⏳</span> Extrayendo Coordenadas con Gemini 2.5...';
             btn.disabled = true;
 
-            try {
-                const base64Data = await transformarArchivoABase64(fileInput.files[0]);
-                const parts = base64Data.split(",");
-                const mimeType = parts[0].match(/:(.*?);/)[1] || "text/plain";
-                const bytesLimpios = parts[1];
+            colaRutasSanitizadas = [];
+            renderizarTablaPreCommit();
 
-                const promptInstrucciones = `
-                    Analiza minuciosamente el documento/imagen de rutas de transporte en México.
-                    EMPRESA DESTINO OBLIGATORIA: "${empresaSeleccionada}".
+            const archivos = Array.from(fileInput.files);
 
-                    REGLAS RIGUROSAS DE PRECISIÓN GEOESPACIAL:
-                    1. Si existen coordenadas numéricas o datos MGRS/UTM, extráelas MANTENIENDO HASTA 6 DECIMALES sin redondear (Ej: 20.655814, -103.348123).
-                    2. Si NO hay coordenadas explícitas, GEOLOCALIZA con exactitud la parada/cruza mencionada.
-                    3. NUNCA dejes "coordenadasAbordaje" vacío.
+            for (let i = 0; i < archivos.length; i++) {
+                const archivo = archivos[i];
+                btn.innerHTML = `<span>⏳</span> Procesando archivo ${i + 1}/${archivos.length}: ${archivo.name}...`;
 
-                    Devuelve ÚNICAMENTE un arreglo JSON válido:
-                    [
-                      {
-                        "nombreRuta": "Nombre de la ruta",
-                        "empresaDestino": "${empresaSeleccionada}",
-                        "estadoMunicipio": "Ciudad, Estado",
-                        "horarioPaso": "Horarios de paso",
-                        "puntosAbordaje": "Cruces o paradas",
-                        "coordenadasAbordaje": "20.655814, -103.348123"
-                      }
-                    ]
-                `;
+                try {
+                    const resultadosArchivo = await procesarUnicoArchivo(archivo, apiKey, empresaSeleccionada, btn);
+                    if (Array.isArray(resultadosArchivo)) {
+                        resultadosArchivo.forEach(r => {
+                            const evalGeo = sanitizarYValidarCoordenada(r.coordenadasAbordaje, r.puntosAbordaje);
+                            colaRutasSanitizadas.push({
+                                ...r,
+                                empresaDestino: empresaSeleccionada,
+                                coordenadasAbordaje: evalGeo.coordenadasLimpias,
+                                diagnosticoGeo: evalGeo.diagnostico,
+                                detalleGeo: evalGeo.detalle
+                            });
+                        });
+                    }
+                } catch (err) {
+                    console.error(`Error procesando ${archivo.name}:`, err);
+                    alert(`Ocurrió un error en el archivo ${archivo.name}: ` + err.message);
+                }
 
-                const urlApi = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-                const payload = {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        contents: [{
-                            parts: [
-                                { text: promptInstrucciones },
-                                { inlineData: { mimeType: mimeType, data: bytesLimpios } }
-                            ]
-                        }],
-                        generationConfig: { temperature: 0.0, responseMimeType: "application/json" }
-                    })
-                };
-
-                const res = await fetchGeminiConRetry(urlApi, payload, 5, 2000, (intento, max, segs) => {
-                    btn.innerHTML = `<span>⏳</span> Cuota pausada. Esperando (${segs}s) - Reintento ${intento}/${max}...`;
-                });
-
-                const jsonRes = await res.json();
-                let textoIA = jsonRes.candidates[0].content.parts[0].text;
-                textoIA = textoIA.replace(/```json/gi, "").replace(/```/g, "").trim();
-
-                let rutasProcesadas = JSON.parse(textoIA);
-                document.getElementById("jsonOutput").value = JSON.stringify(rutasProcesadas, null, 2);
-                document.getElementById("badgeJsonStatus").innerText = `OK (${empresaSeleccionada})`;
-
-            } catch (err) {
-                alert("Error en procesamiento IA: " + err.message);
-            } finally {
-                btn.innerHTML = '<span>🧠</span> Ejecutar Extraer con Gemini 2.5';
-                btn.disabled = false;
-            }
-        }
-
-        async function iniciarSubidaProgresivaUnaPorUna() {
-            const rawText = document.getElementById("jsonOutput").value.trim();
-            if (!rawText) return alert("Caja JSON vacía.");
-
-            let colaData = JSON.parse(rawText);
-            if (!Array.isArray(colaData)) colaData = [colaData];
-
-            const btn = document.getElementById("btnSubidaCola");
-            btn.disabled = true;
-            let procesados = 0;
-
-            while (colaData.length > 0) {
-                const ruta = colaData[0];
-                const empresaDest = ruta.empresaDestino || document.getElementById("empresaValidacionIA").value;
-                const empresaKey = empresaDest.toLowerCase().trim().replace(/[.#$\[\]]/g, "_");
-
-                await push(ref(db, `rutas/${empresaKey}`), ruta);
-                procesados++;
-                colaData.shift();
-                document.getElementById("jsonOutput").value = colaData.length > 0 ? JSON.stringify(colaData, null, 2) : "";
+                // Pausa prudente de 1.5s entre archivos para no saturar cuota
+                if (i < archivos.length - 1) {
+                    await new Promise(r => setTimeout(r, 1500));
+                }
             }
 
             btn.disabled = false;
-            btn.innerHTML = '<span>⚡</span> Inyectar Rutas a Firebase';
-            alert(`✅ ${procesados} rutas inyectadas a Firebase.`);
+            btn.innerHTML = '<span>🧠</span> Extraer & Sanitizar con Gemini 2.5';
+            
+            document.getElementById("jsonOutput").value = JSON.stringify(colaRutasSanitizadas, null, 2);
+            document.getElementById("badgeResultadoCount").innerText = `${colaRutasSanitizadas.length} Rutas Listas`;
+            renderizarTablaPreCommit();
+        }
+
+        async function procesarUnicoArchivo(file, apiKey, empresa, btnElement) {
+            const base64Data = await transformarArchivoABase64(file);
+            const parts = base64Data.split(",");
+            const mimeType = parts[0].match(/:(.*?);/)[1] || "text/plain";
+            const bytesLimpios = parts[1];
+
+            const promptInstrucciones = `
+                Analiza minuciosamente este manifiesto/documento de rutas de transporte industrial en México.
+                EMPRESA DESTINO OBLIGATORIA: "${empresa}".
+
+                INSTRUCCIONES MILITARES DE EXTRACCIÓN GEOESPACIAL:
+                1. Extrae cada ruta listada en el documento.
+                2. Si el documento especifica Latitud y Longitud o MGRS, extráelas manteniendo HASTA 6 DECIMALES EXACTOS.
+                3. Si NO hay lat/lng numéricas, GEOLOCALIZA con máxima exactitud las cruces o calles del punto de abordaje.
+                4. Normaliza el nombre del municipio/ciudad (Ej: "Apodaca, NL", "Guadalupe, NL").
+                5. NUNCA inventes rutas ni dejes el objeto incompleto.
+
+                Formato de respuesta estrictamente JSON Array:
+                [
+                  {
+                    "nombreRuta": "Nombre claro de la ruta",
+                    "empresaDestino": "${empresa}",
+                    "estadoMunicipio": "Municipio, Estado",
+                    "horarioPaso": "Horarios de paso",
+                    "puntosAbordaje": "Cruces de calles o paradas exactas",
+                    "coordenadasAbordaje": "25.955814, -100.166432"
+                  }
+                ]
+            `;
+
+            const urlApi = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+            const payload = {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [
+                            { text: promptInstrucciones },
+                            { inlineData: { mimeType: mimeType, data: bytesLimpios } }
+                        ]
+                    }],
+                    generationConfig: { 
+                        temperature: 0.0, 
+                        responseMimeType: "application/json"
+                    }
+                })
+            };
+
+            const res = await fetchGeminiConRetry(urlApi, payload, 5, 2000, (intento, max, segs) => {
+                btnElement.innerHTML = `<span>⏳</span> Cuota pausada. Reintentando (${intento}/${max}) en ${segs}s...`;
+            });
+
+            const jsonRes = await res.json();
+            let textoIA = jsonRes.candidates[0].content.parts[0].text;
+            textoIA = textoIA.replace(/```json/gi, "").replace(/```/g, "").trim();
+
+            return JSON.parse(textoIA);
+        }
+
+        // 4. TABLA PRE-COMMIT VISUAL PARA INSPECCIÓN HUMANA
+        function renderizarTablaPreCommit() {
+            const tbody = document.getElementById("tablaResultadosPreCommit");
+            tbody.innerHTML = "";
+
+            if (colaRutasSanitizadas.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="p-8 text-center text-slate-600">
+                            Suba un archivo y ejecute la extracción para auditar coordenadas.
+                        </td>
+                    </tr>`;
+                return;
+            }
+
+            colaRutasSanitizadas.forEach((r, idx) => {
+                let badgeClass = "bg-red-500/10 text-red-400 border-red-500/30";
+                let badgeText = "⚠️ Revisar";
+
+                if (r.diagnosticoGeo === "VERDE") {
+                    badgeClass = "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
+                    badgeText = "✅ Exacto 6 Dec";
+                } else if (r.diagnosticoGeo === "AMARILLO") {
+                    badgeClass = "bg-amber-500/10 text-amber-400 border-amber-500/30";
+                    badgeText = "⚡ Geo Estimado";
+                }
+
+                const tr = document.createElement("tr");
+                tr.className = "hover:bg-slate-800/40 border-b border-cyber-border/40 text-slate-300";
+                tr.innerHTML = `
+                    <td class="p-2.5">
+                        <div class="font-bold text-white">${r.nombreRuta || 'Sin Nombre'}</div>
+                        <div class="text-[10px] text-cyber-purple">${r.empresaDestino}</div>
+                    </td>
+                    <td class="p-2.5">
+                        <div class="text-cyber-amber">${r.horarioPaso || '--'}</div>
+                        <div class="text-[10px] text-slate-400 truncate max-w-xs" title="${r.puntosAbordaje}">${r.puntosAbordaje}</div>
+                    </td>
+                    <td class="p-2.5 font-mono text-cyber-cyan font-semibold">
+                        ${r.coordenadasAbordaje}
+                    </td>
+                    <td class="p-2.5 text-center">
+                        <span class="px-2 py-0.5 rounded border text-[10px] ${badgeClass}">
+                            ${badgeText}
+                        </span>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // 5. INYECCIÓN A FIREBASE CON PREVENCIÓN ACTIVA DE DUPLICADOS
+        async function inyectarAFirebaseConFiltroAntiDuplicados() {
+            if (colaRutasSanitizadas.length === 0) return alert("No hay rutas extraídas para inyectar.");
+
+            const btn = document.getElementById("btnSubidaCola");
+            btn.disabled = true;
+            btn.innerHTML = '<span>⏳</span> Verificando Duplicados en Firebase...';
+
+            try {
+                let guardados = 0;
+                let omitidosDuplicados = 0;
+
+                for (let i = 0; i < colaRutasSanitizadas.length; i++) {
+                    const ruta = colaRutasSanitizadas[i];
+                    const empresaKey = ruta.empresaDestino.toLowerCase().trim().replace(/[.#$\[\]]/g, "_");
+
+                    // Consultar rutas existentes en Firebase para la empresa
+                    const snapExistentes = await get(ref(db, `rutas/${empresaKey}`));
+                    const dataExistente = snapExistentes.val() || {};
+
+                    let esDuplicado = false;
+                    Object.values(dataExistente).forEach(e => {
+                        if (e.nombreRuta === ruta.nombreRuta && e.coordenadasAbordaje === ruta.coordenadasAbordaje) {
+                            esDuplicado = true;
+                        }
+                    });
+
+                    if (!esDuplicado) {
+                        delete ruta.diagnosticoGeo;
+                        delete ruta.detalleGeo;
+                        await push(ref(db, `rutas/${empresaKey}`), ruta);
+                        guardados++;
+                    } else {
+                        omitidosDuplicados++;
+                    }
+
+                    btn.innerHTML = `<span>⏳</span> Inyectando (${i + 1}/${colaRutasSanitizadas.length})...`;
+                }
+
+                alert(`✅ Procesamiento completado:\n• ${guardados} rutas inyectadas a Firebase.\n• ${omitidosDuplicados} rutas omitidas por ser duplicadas exactas.`);
+                colaRutasSanitizadas = [];
+                document.getElementById("jsonOutput").value = "";
+                document.getElementById("badgeResultadoCount").innerText = "0 Rutas Listas";
+                renderizarTablaPreCommit();
+
+            } catch (err) {
+                alert("Error al inyectar en Firebase: " + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<span>⚡</span> Inyectar a Firebase (Anti-Duplicados)';
+            }
         }
 
         function transformarArchivoABase64(file) {
@@ -293,7 +504,9 @@
         dropZone.addEventListener("click", () => fileInput.click());
         fileInput.addEventListener("change", (e) => {
             if (e.target.files.length) {
-                fileFeedback.innerText = `📄 Listo: ${e.target.files[0].name}`;
+                fileFeedback.innerHTML = Array.from(e.target.files)
+                    .map(f => `<div>📄 ${f.name}</div>`)
+                    .join('');
                 fileFeedback.classList.remove("hidden");
             }
         });
