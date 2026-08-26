@@ -40,7 +40,7 @@
             <div>
                 <div class="flex items-center gap-2 mb-1">
                     <span class="bg-cyber-accent/10 text-cyber-accent text-xs px-2.5 py-0.5 rounded-full font-mono font-bold tracking-wider uppercase border border-cyber-accent/20">
-                        Motor Premium 2-Pasos • Trazado Polyline & Geofencing
+                        Motor Ultra Premium • Resiliencia 2s & Visor JSON
                     </span>
                     <span id="badgeStatusMotor" class="bg-emerald-500/10 text-emerald-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-emerald-500/20">
                         ● Listo
@@ -49,7 +49,7 @@
                 <h1 class="text-2xl font-black text-white tracking-tight flex items-center gap-2">
                     <span>⚡</span> Extractor & Sanitizador Geoespacial Premium
                 </h1>
-                <p class="text-slate-400 text-xs mt-1">Extracción estructurada con Gemini 2.5, resolución por cruces viales y trazado de ruta interactivo.</p>
+                <p class="text-slate-400 text-xs mt-1">Extracción resiliente con reconexión automática, auditoría JSON en vivo y trazado de mapa.</p>
             </div>
             
             <div class="bg-cyber-card p-2.5 rounded-lg border border-cyber-border flex flex-col gap-1 w-full sm:w-auto">
@@ -61,15 +61,15 @@
         <!-- LAYOUT DE OPERACIÓN -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
-            <!-- PANEL IZQUIERDO: CONTROLES DE INGESTA -->
+            <!-- PANEL IZQUIERDO: CONTROLES DE INGESTA Y VISOR JSON -->
             <div class="bg-cyber-card rounded-xl border border-cyber-border p-5 shadow-xl flex flex-col justify-between space-y-4">
-                <div>
+                <div class="space-y-4">
                     <h2 class="text-sm font-bold text-white mb-1 flex items-center gap-2">
                         <span>📁</span> Ingesta de Manifiestos
                     </h2>
-                    <p class="text-slate-400 text-xs mb-3">Carga manifiestos o tablas de rutas industriales.</p>
+                    <p class="text-slate-400 text-xs">Carga manifiestos o tablas de rutas industriales.</p>
 
-                    <div class="mb-4 bg-cyber-bg p-3 rounded-lg border border-cyber-border">
+                    <div class="bg-cyber-bg p-3 rounded-lg border border-cyber-border">
                         <label class="block text-[10px] font-mono text-cyber-accent uppercase font-bold mb-1">
                             ⚠️ Empresa Destino (Obligatoria)
                         </label>
@@ -84,7 +84,20 @@
                         <span class="text-[10px] text-slate-500 mt-1">Soporta PDF, PNG, JPG o TXT</span>
                         <input type="file" id="fileInput" class="hidden" accept=".txt,.pdf,.png,.jpg,.jpeg" multiple>
                     </div>
-                    <div id="fileFeedback" class="mt-2 text-[11px] text-cyber-cyan font-mono max-h-24 overflow-y-auto hidden"></div>
+                    <div id="fileFeedback" class="text-[11px] text-cyber-cyan font-mono max-h-20 overflow-y-auto hidden"></div>
+
+                    <!-- CAJA VERDE TERMINAL JSON REINCORPORADA -->
+                    <div class="pt-2 border-t border-cyber-border/60">
+                        <div class="flex justify-between items-center mb-1.5">
+                            <label class="text-[10px] font-mono text-cyber-emerald uppercase font-bold flex items-center gap-1">
+                                <span>📄</span> Salida JSON Crudo (IA)
+                            </label>
+                            <button onclick="copiarJsonAlPortapapeles()" class="text-[10px] font-mono bg-cyber-bg hover:bg-slate-800 text-cyber-cyan px-2 py-0.5 rounded border border-slate-700 transition-colors">
+                                📋 Copiar JSON
+                            </button>
+                        </div>
+                        <textarea id="jsonOutputViewer" readonly placeholder="// El resultado JSON devuelto por Gemini aparecerá aquí en tiempo real..." class="w-full h-44 bg-slate-950 border border-emerald-900/60 rounded-lg p-2.5 font-mono text-[11px] text-emerald-400 focus:outline-none focus:border-emerald-500 resize-none shadow-inner leading-relaxed"></textarea>
+                    </div>
                 </div>
 
                 <div class="pt-2">
@@ -182,6 +195,7 @@
 
         window.iniciarProcesamientoEnLote = iniciarProcesamientoEnLote;
         window.inyectarAFirebaseConFiltroAntiDuplicados = inyectarAFirebaseConFiltroAntiDuplicados;
+        window.copiarJsonAlPortapapeles = copiarJsonAlPortapapeles;
 
         document.addEventListener("DOMContentLoaded", async () => {
             mapObj = L.map('mapaPreCommit').setView([25.6866, -100.3161], 11);
@@ -202,7 +216,7 @@
             });
         });
 
-        // PASO 1: EXTRACCIÓN CON ESTRUCTURA RIGIDA (GEMINI 2.5)
+        // PASO 1: EXTRACCIÓN RESILIENTE (REINTENTOS CADA 2s Y ALTERNANCIA AUTOMÁTICA A GEMINI 1.5 FLASH)
         async function procesarUnicoArchivo(file, apiKey, empresa, btnElement) {
             const base64Data = await transformarArchivoABase64(file);
             const parts = base64Data.split(",");
@@ -219,49 +233,86 @@
                 4. Extrae el municipio exacto (Ej: "García, NL", "Apodaca, NL").
             `;
 
-            const urlApi = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-            
-            const payload = {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    contents: [{
-                        parts: [
-                            { text: promptInstrucciones },
-                            { inlineData: { mimeType: mimeType, data: bytesLimpios } }
-                        ]
-                    }],
-                    generationConfig: { 
-                        temperature: 0.0,
-                        responseMimeType: "application/json",
-                        responseSchema: {
-                            type: "ARRAY",
-                            items: {
-                                type: "OBJECT",
-                                properties: {
-                                    nombreRuta: { type: "STRING" },
-                                    empresaDestino: { type: "STRING" },
-                                    numeroParada: { type: "STRING" },
-                                    estadoMunicipio: { type: "STRING" },
-                                    horarioPaso: { type: "STRING" },
-                                    puntosAbordaje: { type: "STRING" },
-                                    coordenadasAbordaje: { type: "STRING" }
-                                },
-                                required: ["nombreRuta", "empresaDestino", "numeroParada", "horarioPaso", "puntosAbordaje"]
-                            }
+            // Modelos para alternar dinámicamente usando la misma API Key
+            const modelos = [
+                "gemini-2.5-flash",
+                "gemini-1.5-flash"
+            ];
+
+            const payloadBase = {
+                contents: [{
+                    parts: [
+                        { text: promptInstrucciones },
+                        { inlineData: { mimeType: mimeType, data: bytesLimpios } }
+                    ]
+                }],
+                generationConfig: { 
+                    temperature: 0.0,
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "ARRAY",
+                        items: {
+                            type: "OBJECT",
+                            properties: {
+                                nombreRuta: { type: "STRING" },
+                                empresaDestino: { type: "STRING" },
+                                numeroParada: { type: "STRING" },
+                                estadoMunicipio: { type: "STRING" },
+                                horarioPaso: { type: "STRING" },
+                                puntosAbordaje: { type: "STRING" },
+                                coordenadasAbordaje: { type: "STRING" }
+                            },
+                            required: ["nombreRuta", "empresaDestino", "numeroParada", "horarioPaso", "puntosAbordaje"]
                         }
                     }
-                })
+                }
             };
 
-            const res = await fetch(urlApi, payload);
-            if(!res.ok) throw new Error(`Error API (${res.status}): Revisa tu API Key o cuotas.`);
-            
-            const jsonRes = await res.json();
-            const textoIA = jsonRes.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (!textoIA) throw new Error("La API devolvió un resultado vacío.");
+            let intentoTotal = 0;
+            const maxIntentos = 6;
 
-            return JSON.parse(textoIA);
+            while (intentoTotal < maxIntentos) {
+                intentoTotal++;
+                // Alterna de modelo si hay errores repetidos
+                const modeloActual = modelos[(intentoTotal - 1) % modelos.length];
+                const urlApi = `https://generativelanguage.googleapis.com/v1beta/models/${modeloActual}:generateContent?key=${apiKey}`;
+
+                try {
+                    const res = await fetch(urlApi, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(payloadBase)
+                    });
+
+                    if (res.status === 503 || res.status === 429) {
+                        btnElement.innerHTML = `<span>⏳</span> Servidor ocupado. Reintentando en 2s (${modeloActual})...`;
+                        await new Promise(r => setTimeout(r, 2000));
+                        continue;
+                    }
+
+                    if (!res.ok) {
+                        const errData = await res.json().catch(() => ({}));
+                        throw new Error(errData.error?.message || `Error API status ${res.status}`);
+                    }
+
+                    const jsonRes = await res.json();
+                    const textoIA = jsonRes.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (!textoIA) throw new Error("Respuesta de IA vacía.");
+
+                    // Actualizar Visor Verde de JSON
+                    const jsonViewer = document.getElementById("jsonOutputViewer");
+                    if (jsonViewer) {
+                        jsonViewer.value = textoIA;
+                    }
+
+                    return JSON.parse(textoIA);
+
+                } catch (err) {
+                    if (intentoTotal >= maxIntentos) throw err;
+                    btnElement.innerHTML = `<span>⏳</span> Reintentando (${intentoTotal}/${maxIntentos}) en 2s...`;
+                    await new Promise(r => setTimeout(r, 2000));
+                }
+            }
         }
 
         // PASO 2: GEOCODIFICACIÓN RESTRINGIDA POR CRUCES (PRECISIÓN 20-30M)
@@ -270,18 +321,16 @@
                 const r = rutas[i];
                 const municipio = r.estadoMunicipio || "Nuevo León";
                 
-                // Intento 1: Cruce exacto con municipio
                 const query1 = `${r.puntosAbordaje}, ${municipio}, Mexico`;
                 let coordsEncontradas = await buscarCoordenadaAPI(query1);
 
-                // Intento 2 Fallback: Si no halla el cruce exacto, intenta con la primera palabra de referencia + municipio
                 if (!coordsEncontradas) {
                     const cortaRef = r.puntosAbordaje.split(",")[0];
                     const query2 = `${cortaRef}, ${municipio}, Mexico`;
                     coordsEncontradas = await buscarCoordenadaAPI(query2);
                 }
 
-                r.coordenadasAbordaje = coordsEncontradas || "25.686600, -100.316100"; // Coordenada por defecto si falla
+                r.coordenadasAbordaje = coordsEncontradas || "25.686600, -100.316100";
                 await new Promise(res => setTimeout(res, 350));
             }
             return rutas;
@@ -333,7 +382,6 @@
             renderizarTablaYMapa();
         }
 
-        // RENDERIZADO VISUAL: PINES Y POLÍNEA DE RUTA SECTOREADA
         function renderizarTablaYMapa() {
             const tbody = document.getElementById("tablaResultadosPreCommit");
             tbody.innerHTML = "";
@@ -374,7 +422,6 @@
                         const inputEl = document.getElementById(`coordInput_${idx}`);
                         if (inputEl) inputEl.value = `${nLat}, ${nLng}`;
 
-                        // Redibujar la línea de la ruta al mover un pin
                         actualizarPolylineRuta();
                     });
                 }
@@ -428,6 +475,14 @@
             colaRutasSanitizadas[idx].coordenadasAbordaje = val;
             renderizarTablaYMapa();
         };
+
+        function copiarJsonAlPortapapeles() {
+            const area = document.getElementById("jsonOutputViewer");
+            if (!area.value) return alert("No hay datos JSON para copiar.");
+            area.select();
+            navigator.clipboard.writeText(area.value);
+            alert("📋 JSON copiado al portapapeles.");
+        }
 
         async function inyectarAFirebaseConFiltroAntiDuplicados() {
             if (colaRutasSanitizadas.length === 0) return alert("No hay paradas para inyectar.");
