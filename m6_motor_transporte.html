@@ -51,7 +51,7 @@
                 <h1 class="text-2xl font-black text-white tracking-tight flex items-center gap-2">
                     <span>⚡</span> Motor Gemini 2.5: Extractor & Sanitizador Geoespacial
                 </h1>
-                <p class="text-slate-400 text-xs mt-1">Chunking de seguridad, validación militar a 6 decimales y prevención de duplicados en Firebase.</p>
+                <p class="text-slate-400 text-xs mt-1">Chunking de seguridad, resolución de coordenadas en rojo y prevención de duplicados en Firebase.</p>
             </div>
             
             <div class="bg-cyber-card p-2.5 rounded-lg border border-cyber-border flex flex-col gap-1 w-full sm:w-auto">
@@ -112,7 +112,7 @@
                         </span>
                     </div>
 
-                    <!-- TABLA PRE-COMMIT -->
+                    <!-- TABLA PRE-COMMIT CON SOPORTE PARA GEOCODIFICACIÓN -->
                     <div class="overflow-x-auto border border-cyber-border rounded-lg bg-cyber-bg max-h-72 overflow-y-auto">
                         <table class="w-full text-left text-xs">
                             <thead class="bg-slate-900/90 text-slate-400 font-mono text-[10px] uppercase sticky top-0 border-b border-cyber-border">
@@ -133,7 +133,7 @@
                         </table>
                     </div>
 
-                    <!-- CAJA JSON RAW COMPRIMIDA (OCULTA POR DEFECTO PARA NO SATURAR VISTA) -->
+                    <!-- CAJA JSON RAW COMPRIMIDA -->
                     <div class="mt-3">
                         <details class="text-[11px] font-mono text-slate-400">
                             <summary class="cursor-pointer hover:text-cyber-cyan transition-colors font-bold mb-1">
@@ -148,7 +148,7 @@
                     <div class="text-[10px] font-mono text-slate-400 flex items-center gap-3">
                         <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> Exacto 6 Dec</span>
                         <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-500"></span> Geolocalizado</span>
-                        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-red-500"></span> Invalido</span>
+                        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-red-500"></span> Invalido / Acción</span>
                     </div>
 
                     <button onclick="inyectarAFirebaseConFiltroAntiDuplicados()" id="btnSubidaCola" class="w-full sm:w-auto bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-2.5 px-5 rounded-lg text-xs uppercase transition-all shadow-lg flex items-center justify-center gap-2">
@@ -225,7 +225,7 @@
         function sanitizarYValidarCoordenada(coordenadaRaw, direccionTexto) {
             let lat = null;
             let lng = null;
-            let diagnostico = "ROJO"; // ROJO, AMARILLO, VERDE
+            let diagnostico = "ROJO";
             let detalle = "No válida";
 
             if (coordenadaRaw && typeof coordenadaRaw === 'string') {
@@ -237,13 +237,11 @@
                     if (!isNaN(val1) && !isNaN(val2)) {
                         // DETECTAR SI LA COORDENADA ESTÁ INVERTIDA (lng, lat)
                         if ((val1 >= -118.0 && val1 <= -86.0) && (val2 >= 14.0 && val2 <= 33.0)) {
-                            // Estaba invertida, la corregimos
                             lat = val2;
                             lng = val1;
                             diagnostico = "VERDE";
                             detalle = "Corregida (lng,lat -> lat,lng)";
                         } else if ((val1 >= 14.0 && val1 <= 33.0) && (val2 >= -118.0 && val2 <= -86.0)) {
-                            // Coordenada correcta dentro del rango de México
                             lat = val1;
                             lng = val2;
                             diagnostico = "VERDE";
@@ -270,7 +268,62 @@
             };
         }
 
-        // 3. PROCESAMIENTO MULTI-ARCHIVO Y FRAGMENTACIÓN CHUNKING
+        // 3. GEOCODIFICACIÓN AUTOMÁTICA DE FILAS EN ROJO
+        window.geocodificarFilaRoja = async function(idx) {
+            const ruta = colaRutasSanitizadas[idx];
+            if (!ruta) return;
+
+            const btnGeo = document.getElementById(`btnGeo_${idx}`);
+            if (btnGeo) {
+                btnGeo.disabled = true;
+                btnGeo.innerText = "⏳ Buscando...";
+            }
+
+            const queryTexto = `${ruta.puntosAbordaje || ''}, ${ruta.estadoMunicipio || ''}, Mexico`.trim();
+            
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(queryTexto)}&limit=1`);
+                const data = await res.json();
+
+                if (data && data.length > 0) {
+                    const lat = parseFloat(data[0].lat).toFixed(6);
+                    const lon = parseFloat(data[0].lon).toFixed(6);
+
+                    colaRutasSanitizadas[idx].coordenadasAbordaje = `${lat}, ${lon}`;
+                    colaRutasSanitizadas[idx].diagnosticoGeo = "AMARILLO";
+                    colaRutasSanitizadas[idx].detalleGeo = "Geocodificado por Dirección";
+
+                    document.getElementById("jsonOutput").value = JSON.stringify(colaRutasSanitizadas, null, 2);
+                    renderizarTablaPreCommit();
+                } else {
+                    alert("⚠️ No se encontró la dirección exacta en el mapa. Introduce las coordenadas manualmente.");
+                    if (btnGeo) {
+                        btnGeo.disabled = false;
+                        btnGeo.innerText = "🌐 Reintentar Geo";
+                    }
+                }
+            } catch (err) {
+                alert("Error al geocodificar: " + err.message);
+                if (btnGeo) {
+                    btnGeo.disabled = false;
+                    btnGeo.innerText = "🌐 Reintentar Geo";
+                }
+            }
+        };
+
+        // 4. ACTUALIZACIÓN MANUAL DESDE LA TABLA
+        window.actualizarCoordenadaManual = function(idx, nuevoValor) {
+            colaRutasSanitizadas[idx].coordenadasAbordaje = nuevoValor;
+            const evalGeo = sanitizarYValidarCoordenada(nuevoValor, colaRutasSanitizadas[idx].puntosAbordaje);
+            
+            colaRutasSanitizadas[idx].diagnosticoGeo = evalGeo.diagnostico;
+            colaRutasSanitizadas[idx].detalleGeo = evalGeo.detalle;
+
+            document.getElementById("jsonOutput").value = JSON.stringify(colaRutasSanitizadas, null, 2);
+            renderizarTablaPreCommit();
+        };
+
+        // 5. PROCESAMIENTO MULTI-ARCHIVO Y FRAGMENTACIÓN CHUNKING
         async function iniciarProcesamientoEnLote() {
             const apiKey = document.getElementById("apiKeyGemini").value.trim();
             const empresaSeleccionada = document.getElementById("empresaValidacionIA").value.trim();
@@ -311,7 +364,6 @@
                     alert(`Ocurrió un error en el archivo ${archivo.name}: ` + err.message);
                 }
 
-                // Pausa prudente de 1.5s entre archivos para no saturar cuota
                 if (i < archivos.length - 1) {
                     await new Promise(r => setTimeout(r, 1500));
                 }
@@ -342,7 +394,7 @@
                 4. Normaliza el nombre del municipio/ciudad (Ej: "Apodaca, NL", "Guadalupe, NL").
                 5. NUNCA inventes rutas ni dejes el objeto incompleto.
 
-                Formato de respuesta estrictamente JSON Array:
+                Formato de respuesta strictly JSON Array:
                 [
                   {
                     "nombreRuta": "Nombre claro de la ruta",
@@ -384,7 +436,7 @@
             return JSON.parse(textoIA);
         }
 
-        // 4. TABLA PRE-COMMIT VISUAL PARA INSPECCIÓN HUMANA
+        // 6. TABLA PRE-COMMIT VISUAL PARA INSPECCIÓN HUMANA CON AUDITORÍA ROJA
         function renderizarTablaPreCommit() {
             const tbody = document.getElementById("tablaResultadosPreCommit");
             tbody.innerHTML = "";
@@ -401,7 +453,8 @@
 
             colaRutasSanitizadas.forEach((r, idx) => {
                 let badgeClass = "bg-red-500/10 text-red-400 border-red-500/30";
-                let badgeText = "⚠️ Revisar";
+                let badgeText = "⚠️ En Rojo";
+                let botonAccion = "";
 
                 if (r.diagnosticoGeo === "VERDE") {
                     badgeClass = "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
@@ -409,6 +462,8 @@
                 } else if (r.diagnosticoGeo === "AMARILLO") {
                     badgeClass = "bg-amber-500/10 text-amber-400 border-amber-500/30";
                     badgeText = "⚡ Geo Estimado";
+                } else {
+                    botonAccion = `<button id="btnGeo_${idx}" onclick="geocodificarFilaRoja(${idx})" class="mt-1 bg-cyber-cyan/20 hover:bg-cyber-cyan/40 text-cyber-cyan border border-cyber-cyan/40 px-2 py-0.5 rounded text-[10px] block w-full transition-colors font-sans font-bold">🌐 Geocodificar Dirección</button>`;
                 }
 
                 const tr = document.createElement("tr");
@@ -420,22 +475,23 @@
                     </td>
                     <td class="p-2.5">
                         <div class="text-cyber-amber">${r.horarioPaso || '--'}</div>
-                        <div class="text-[10px] text-slate-400 truncate max-w-xs" title="${r.puntosAbordaje}">${r.puntosAbordaje}</div>
+                        <div class="text-[10px] text-slate-400 truncate max-w-xs" title="${r.puntosAbordaje}">${r.puntosAbordaje} (${r.estadoMunicipio || ''})</div>
                     </td>
-                    <td class="p-2.5 font-mono text-cyber-cyan font-semibold">
-                        ${r.coordenadasAbordaje}
+                    <td class="p-2.5 font-mono">
+                        <input type="text" value="${r.coordenadasAbordaje}" onchange="actualizarCoordenadaManual(${idx}, this.value)" class="bg-cyber-bg border border-slate-700 rounded px-2 py-1 text-xs font-mono text-cyber-cyan w-full focus:outline-none focus:border-cyber-accent">
                     </td>
                     <td class="p-2.5 text-center">
-                        <span class="px-2 py-0.5 rounded border text-[10px] ${badgeClass}">
+                        <span class="px-2 py-0.5 rounded border text-[10px] inline-block ${badgeClass}">
                             ${badgeText}
                         </span>
+                        ${botonAccion}
                     </td>
                 `;
                 tbody.appendChild(tr);
             });
         }
 
-        // 5. INYECCIÓN A FIREBASE CON PREVENCIÓN ACTIVA DE DUPLICADOS
+        // 7. INYECCIÓN A FIREBASE CON PREVENCIÓN ACTIVA DE DUPLICADOS
         async function inyectarAFirebaseConFiltroAntiDuplicados() {
             if (colaRutasSanitizadas.length === 0) return alert("No hay rutas extraídas para inyectar.");
 
@@ -448,10 +504,9 @@
                 let omitidosDuplicados = 0;
 
                 for (let i = 0; i < colaRutasSanitizadas.length; i++) {
-                    const ruta = colaRutasSanitizadas[i];
+                    const ruta = { ...colaRutasSanitizadas[i] };
                     const empresaKey = ruta.empresaDestino.toLowerCase().trim().replace(/[.#$\[\]]/g, "_");
 
-                    // Consultar rutas existentes en Firebase para la empresa
                     const snapExistentes = await get(ref(db, `rutas/${empresaKey}`));
                     const dataExistente = snapExistentes.val() || {};
 
