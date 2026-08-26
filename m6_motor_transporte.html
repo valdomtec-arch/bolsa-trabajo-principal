@@ -233,7 +233,6 @@
                 4. Extrae el municipio exacto (Ej: "García, NL", "Apodaca, NL").
             `;
 
-            // Modelos para alternar dinámicamente usando la misma API Key
             const modelos = [
                 "gemini-2.5-flash",
                 "gemini-1.5-flash"
@@ -273,7 +272,6 @@
 
             while (intentoTotal < maxIntentos) {
                 intentoTotal++;
-                // Alterna de modelo si hay errores repetidos
                 const modeloActual = modelos[(intentoTotal - 1) % modelos.length];
                 const urlApi = `https://generativelanguage.googleapis.com/v1beta/models/${modeloActual}:generateContent?key=${apiKey}`;
 
@@ -299,7 +297,6 @@
                     const textoIA = jsonRes.candidates?.[0]?.content?.parts?.[0]?.text;
                     if (!textoIA) throw new Error("Respuesta de IA vacía.");
 
-                    // Actualizar Visor Verde de JSON
                     const jsonViewer = document.getElementById("jsonOutputViewer");
                     if (jsonViewer) {
                         jsonViewer.value = textoIA;
@@ -315,22 +312,37 @@
             }
         }
 
-        // PASO 2: GEOCODIFICACIÓN RESTRINGIDA POR CRUCES (PRECISIÓN 20-30M)
+        // PASO 2: GEOCODIFICACIÓN OPTIMIZADA POR INTERSECCIÓN Y MUNICIPIO (SOLUCIÓN INTEGRADA)
         async function geocodificarRutasExtraidas(rutas) {
             for (let i = 0; i < rutas.length; i++) {
                 const r = rutas[i];
-                const municipio = r.estadoMunicipio || "Nuevo León";
+                const municipio = r.estadoMunicipio || "García, NL";
                 
-                const query1 = `${r.puntosAbordaje}, ${municipio}, Mexico`;
+                // Limpiamos nombres de comercios para buscar la intersección vial o colonia
+                let referenciaLimpia = r.puntosAbordaje
+                    .replace(/oxxo|bodega aurrera|farmacia|super|dulceria|ferreteria/gi, '')
+                    .trim();
+
+                // Intento 1: Búsqueda directa con intersección
+                let query1 = `${referenciaLimpia}, ${municipio}, Mexico`;
                 let coordsEncontradas = await buscarCoordenadaAPI(query1);
 
+                // Intento 2: Si falla, buscar solo la calle principal + Municipio
                 if (!coordsEncontradas) {
-                    const cortaRef = r.puntosAbordaje.split(",")[0];
-                    const query2 = `${cortaRef}, ${municipio}, Mexico`;
+                    const callePrincipal = referenciaLimpia.split(/y|\/|-/)[0].trim();
+                    let query2 = `${callePrincipal}, ${municipio}, Mexico`;
                     coordsEncontradas = await buscarCoordenadaAPI(query2);
                 }
 
-                r.coordenadasAbordaje = coordsEncontradas || "25.686600, -100.316100";
+                // Asignación de coordenadas y banderas de estado de auditoría
+                if (coordsEncontradas) {
+                    r.coordenadasAbordaje = coordsEncontradas;
+                    r.estadoGeocodificacion = "Cruce Ok";
+                } else {
+                    r.coordenadasAbordaje = "25.778500, -100.476400"; // Centro por defecto García, NL
+                    r.estadoGeocodificacion = "Ajustado Manual";
+                }
+
                 await new Promise(res => setTimeout(res, 350));
             }
             return rutas;
@@ -419,12 +431,19 @@
                         const nLng = newPos.lng.toFixed(6);
                         
                         colaRutasSanitizadas[idx].coordenadasAbordaje = `${nLat}, ${nLng}`;
+                        colaRutasSanitizadas[idx].estadoGeocodificacion = "Ajustado Manual"; // Cambia estado al arrastrar pin
+                        
                         const inputEl = document.getElementById(`coordInput_${idx}`);
                         if (inputEl) inputEl.value = `${nLat}, ${nLng}`;
 
-                        actualizarPolylineRuta();
+                        renderizarTablaYMapa();
                     });
                 }
+
+                const esManual = r.estadoGeocodificacion === "Ajustado Manual";
+                const badgeEstado = esManual 
+                    ? `<span class="inline-flex items-center gap-1 text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded text-[10px] border border-amber-500/20"><span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Ajustado Manual</span>`
+                    : `<span class="inline-flex items-center gap-1 text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded text-[10px] border border-emerald-500/20"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Cruce Ok</span>`;
 
                 const tr = document.createElement("tr");
                 tr.className = "hover:bg-slate-800/40 border-b border-cyber-border/40 text-slate-300";
@@ -440,8 +459,9 @@
                     <td class="p-2.5 font-mono">
                         <input type="text" id="coordInput_${idx}" value="${r.coordenadasAbordaje}" onchange="actualizarCoordManual(${idx}, this.value)" class="bg-cyber-bg border border-slate-700 rounded px-2 py-1 text-xs font-mono text-cyber-cyan w-full focus:outline-none focus:border-cyber-accent">
                     </td>
-                    <td class="p-2.5 text-center">
-                        <button onclick="centrarEnMapa(${lat}, ${lng})" class="bg-cyber-cyan/20 hover:bg-cyber-cyan/40 text-cyber-cyan border border-cyber-cyan/40 px-2.5 py-1 rounded text-[10px] font-bold transition-colors">📍 Inspeccionar</button>
+                    <td class="p-2.5 text-center space-y-1">
+                        <div>${badgeEstado}</div>
+                        <button onclick="centrarEnMapa(${lat}, ${lng})" class="bg-cyber-cyan/20 hover:bg-cyber-cyan/40 text-cyber-cyan border border-cyber-cyan/40 px-2 py-0.5 rounded text-[10px] font-bold transition-colors">📍 Inspeccionar</button>
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -473,6 +493,7 @@
 
         window.actualizarCoordManual = function(idx, val) {
             colaRutasSanitizadas[idx].coordenadasAbordaje = val;
+            colaRutasSanitizadas[idx].estadoGeocodificacion = "Ajustado Manual";
             renderizarTablaYMapa();
         };
 
