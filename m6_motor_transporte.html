@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Motor de Transporte - Extracción Geoespacial 95% Precision</title>
+    <title>Motor de Transporte - Extracción Geoespacial Dual Engine</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -35,13 +35,15 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
     <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
 
+    <!-- Library para lectura de archivos .DOCX en el navegador -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+
     <style>
         #mapaPreCommit { min-height: 440px; width: 100%; border-radius: 0.75rem; }
         .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: #0a0d14; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #38bdf8; }
-        /* Estilos adaptados para la barra de búsqueda dentro del tema oscuro */
         .leaflet-control-geocoder { background: #121824 !important; border: 1px solid #1e293b !important; border-radius: 8px !important; color: #fff !important; }
         .leaflet-control-geocoder-icon { background-color: #121824 !important; border-radius: 6px !important; }
         .leaflet-control-geocoder-form input { background: #0a0d14 !important; color: #38bdf8 !important; border-radius: 6px !important; padding: 4px 8px !important; }
@@ -58,9 +60,9 @@
         <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-cyber-border pb-5">
             <div>
                 <h1 class="text-2xl font-extrabold text-white flex items-center gap-2">
-                    <span>⚡</span> Motor de Extracción Geoespacial v2.5
+                    <span>⚡</span> Motor de Extracción Geoespacial v2.6 (Dual Engine)
                 </h1>
-                <p class="text-xs text-slate-400 mt-1">Geolocalización automatizada para transporte industrial mediante Vision Spatial API, Fallback Tri-Nivel y Buscador OSM</p>
+                <p class="text-xs text-slate-400 mt-1">Soporte multiformato (PDF, PNG, JPG, TXT, DOCX) con fallback Gemini 2.5 / 1.5 Flash</p>
             </div>
             <div class="flex items-center gap-3">
                 <span id="badgeResultadoCount" class="bg-cyber-purple/20 border border-cyber-purple/40 text-cyber-purple text-xs font-bold px-3 py-1.5 rounded-lg">
@@ -72,7 +74,7 @@
         <!-- SECCIÓN SUPERIOR: PARÁMETROS + MAPA PRINCIPAL CON BUSCADOR -->
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
             
-            <!-- PARÁMETROS DEL SERVICIO (COLUMNA IZQUIERDA) -->
+            <!-- PARÁMETROS DEL SERVICIO -->
             <div class="lg:col-span-4 bg-cyber-card border border-cyber-border rounded-xl p-5 space-y-4">
                 <h2 class="text-sm font-bold text-cyber-accent uppercase tracking-wider flex items-center gap-2">
                     <span>⚙️</span> Parámetros del Servicio
@@ -92,22 +94,22 @@
                     </div>
 
                     <div>
-                        <label class="block text-xs font-semibold text-slate-300 mb-1">Subir Manifiesto (PDF / PNG / JPG)</label>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Subir Manifiesto (PDF / PNG / JPG / TXT / DOCX)</label>
                         <div id="dropZone" class="border-2 border-dashed border-slate-700 hover:border-cyber-accent rounded-lg p-4 text-center cursor-pointer bg-cyber-bg/50 transition-colors">
                             <span class="text-2xl">📁</span>
                             <p class="text-xs text-slate-400 mt-1">Arrastra o haz clic para adjuntar archivo</p>
-                            <input type="file" id="fileInput" accept="application/pdf,image/*" multiple class="hidden">
+                            <input type="file" id="fileInput" accept=".pdf,.png,.jpg,.jpeg,.txt,.docx" multiple class="hidden">
                         </div>
                         <div id="fileFeedback" class="mt-2 text-[11px] text-cyber-cyan font-mono hidden"></div>
                     </div>
 
                     <button id="btnProcesar" onclick="iniciarProcesamientoEnLote()" class="w-full bg-cyber-accent hover:bg-sky-400 text-slate-950 font-bold py-2.5 px-4 rounded-lg text-xs transition-all flex items-center justify-center gap-2 shadow-lg shadow-cyber-accent/10">
-                        <span>⚡</span> Ejecutar Extracción Premium
+                        <span>⚡</span> Paso 1: Extracción IA
                     </button>
                 </div>
             </div>
 
-            <!-- MAPA CON BUSCADOR INTEGRADO (AHORA OCUPA EL ESPACIO SUPERIOR DERECHO) -->
+            <!-- MAPA CON BUSCADOR INTEGRADO -->
             <div class="lg:col-span-8 bg-cyber-card border border-cyber-border rounded-xl p-5 space-y-3">
                 <h2 class="text-sm font-bold text-cyber-amber uppercase tracking-wider flex items-center gap-2">
                     <span>🗺️</span> Georreferenciación en Tiempo Real (Buscador OSM Incorporado)
@@ -120,20 +122,20 @@
         <!-- SECCIÓN INFERIOR: VISOR JSON + TABLA AUDITORÍA DE RUTAS -->
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
             
-            <!-- VISOR DEL JSON EXTRAÍDO (DEBAJO DE LOS PARÁMETROS) -->
+            <!-- VISOR DEL JSON EXTRAÍDO -->
             <div class="lg:col-span-4 bg-cyber-card border border-cyber-border rounded-xl p-5 flex flex-col space-y-3">
                 <div class="flex items-center justify-between">
                     <h2 class="text-sm font-bold text-cyber-purple uppercase tracking-wider flex items-center gap-2">
-                        <span>🤖</span> JSON Enriquecido (Vision API)
+                        <span>🤖</span> JSON Enriquecido (Paso 1 Completado)
                     </h2>
                     <button onclick="copiarJsonAlPortapapeles()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded border border-slate-700 transition-colors">
                         📋 Copiar JSON
                     </button>
                 </div>
-                <textarea id="jsonOutputViewer" readonly placeholder="Los resultados estructurados de Gemini se mostrarán aquí en tiempo real..." class="w-full h-full min-h-[350px] bg-cyber-bg border border-slate-800 rounded-lg p-3 text-xs font-mono text-emerald-400 custom-scrollbar focus:outline-none resize-none"></textarea>
+                <textarea id="jsonOutputViewer" readonly placeholder="Los resultados estructurados de Gemini se mostrarán aquí..." class="w-full h-full min-h-[350px] bg-cyber-bg border border-slate-800 rounded-lg p-3 text-xs font-mono text-emerald-400 custom-scrollbar focus:outline-none resize-none"></textarea>
             </div>
 
-            <!-- TABLA AUDITORÍA PRE-COMMIT (DEBAJO DEL MAPA) -->
+            <!-- TABLA AUDITORÍA PRE-COMMIT -->
             <div class="lg:col-span-8 bg-cyber-card border border-cyber-border rounded-xl p-5 space-y-4">
                 <div class="flex items-center justify-between">
                     <h2 class="text-sm font-bold text-cyber-cyan uppercase tracking-wider flex items-center gap-2">
@@ -169,7 +171,7 @@
 
     </div>
 
-    <!-- FIREBASE V10 Y MOTOR LOGICO INTEGRADO -->
+    <!-- FIREBASE V10 Y MOTOR LÓGICO DUAL ENGINE -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, get, push } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
@@ -197,7 +199,6 @@
         window.copiarJsonAlPortapapeles = copiarJsonAlPortapapeles;
 
         document.addEventListener("DOMContentLoaded", async () => {
-            // Inicialización de Mapa Leaflet
             mapObj = L.map('mapaPreCommit').setView([25.6866, -100.3161], 11);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 maxZoom: 19,
@@ -207,13 +208,12 @@
             markersGroup = L.featureGroup().addTo(mapObj);
             polylineGroup = L.featureGroup().addTo(mapObj);
 
-            // INTEGRACIÓN DE LA BARRA DE BÚSQUEDA INTERACTIVA (LEAFLET CONTROL GEOCODER)
             L.Control.geocoder({
                 defaultMarkGeocode: false,
                 placeholder: "🔍 Buscar calle, cruce o referencia en México...",
                 errorMessage: "No se encontraron direcciones coincidentes.",
                 geocoder: L.Control.Geocoder.nominatim({
-                    geocodingQueryParams: { countrycodes: 'mx' } // Delimita las búsquedas a México
+                    geocodingQueryParams: { countrycodes: 'mx' }
                 })
             })
             .on('markgeocode', function(e) {
@@ -247,71 +247,119 @@
             }
         });
 
-        // PASO 1: EXTRACCIÓN VISUAL-SPATIAL CON STRUCTURED OUTPUTS (API GENERATIVE)
-        async function procesarUnicoArchivo(file, apiKey, empresa, btnElement) {
+        // PARSER MULTIFORMATO (TXT, DOCX, PDF, PNG, JPG)
+        async function prepararContenidoArchivo(file) {
+            const extension = file.name.split('.').pop().toLowerCase();
+            
+            if (extension === 'txt') {
+                const texto = await file.text();
+                return { tipo: 'texto', payload: { text: texto } };
+            }
+            
+            if (extension === 'docx') {
+                const arrayBuffer = await file.arrayBuffer();
+                const result = await mammoth.extractRawText({ arrayBuffer: arrayBuffer });
+                return { tipo: 'texto', payload: { text: result.value } };
+            }
+
+            // PDF / PNG / JPG -> Base64 Inline Data
             const base64Data = await transformarArchivoABase64(file);
             const parts = base64Data.split(",");
-            const mimeType = file.name.toLowerCase().endsWith('.pdf') ? "application/pdf" : (parts[0].match(/:(.*?);/)?.[1] || "image/png");
-            const bytesLimpios = parts[1];
+            let mimeType = "application/pdf";
+            if (extension === 'png') mimeType = "image/png";
+            if (extension === 'jpg' || extension === 'jpeg') mimeType = "image/jpeg";
+            
+            return { 
+                tipo: 'media', 
+                payload: { inlineData: { mimeType: mimeType, data: parts[1] } } 
+            };
+        }
 
-            const promptInstrucciones = `
+        // PASO 1: EXTRACCIÓN CON DUAL ENGINE (GEMINI 2.5 FLASH -> FALLBACK GEMINI 1.5 FLASH)
+        async function procesarUnicoArchivo(file, apiKey, empresa) {
+            const contenido = await prepararContenidoArchivo(file);
+
+            const promptInstrucciones = {
+                text: `
                 Analiza este manifiesto de rutas de transporte industrial para la empresa "${empresa}".
 
                 REGLAS STRICTAS DE ANÁLISIS VISUAL Y TABULAR:
-                1. Lee la TABLA DE TIEMPOS y extrae el número de parada, horario y referencia.
-                2. Revisa el CROQUIS/MAPA DIBUJADO y ubica exactamente dónde está trazada cada parada.
-                3. Identifica en el croquis qué AVENIDAS, CALLES o CRUCES VIALES pasan al lado de la parada.
-                4. Construye el campo "cruceVialEnriquecido" uniendo la referencia + el cruce de avenidas visible.
-                   Ejemplo: Si la tabla dice "LOZANO" y en el mapa cruza "MORELOS" y "JUAREZ", genera "Ferretería Lozano, Av. Morelos y Juárez".
-                5. Extrae el estado de la República si aparece explícito (ej. Nuevo León, Chiapas, Jalisco, Veracruz). Si no aparece, asigna la cadena exacta "NO_DETECTADO".
-            `;
+                1. Lee la TABLA DE TIEMPOS o TEXTO y extrae el número de parada, horario y referencia.
+                2. Si hay croquis/mapa, ubica dónde está trazada cada parada y qué AVENIDAS o CALLES cruzan al lado.
+                3. Construye "cruceVialEnriquecido" uniendo la referencia + el cruce de avenidas visible (ej. "Ferretería Lozano, Av. Morelos y Juárez").
+                4. Extrae el estado de la República si aparece explícito (ej. Nuevo León, Chiapas, Jalisco). Si no, asigna exactamente "NO_DETECTADO".
+                `
+            };
 
-            const payloadBase = {
-                contents: [{
-                    parts: [
-                        { text: promptInstrucciones },
-                        { inlineData: { mimeType: mimeType, data: bytesLimpios } }
-                    ]
-                }],
-                generationConfig: { 
-                    temperature: 0.0,
-                    responseMimeType: "application/json",
-                    responseSchema: {
-                        type: "ARRAY",
-                        items: {
-                            type: "OBJECT",
-                            properties: {
-                                nombreRuta: { type: "STRING" },
-                                empresaDestino: { type: "STRING" },
-                                numeroParada: { type: "STRING" },
-                                estadoDetectado: { type: "STRING" },
-                                municipio: { type: "STRING" },
-                                horarioPaso: { type: "STRING" },
-                                referenciaOriginal: { type: "STRING" },
-                                cruceVialEnriquecido: { type: "STRING" }
-                            },
-                            required: ["nombreRuta", "empresaDestino", "numeroParada", "horarioPaso", "referenciaOriginal", "cruceVialEnriquecido", "municipio"]
-                        }
-                    }
+            const partsPayload = [promptInstrucciones];
+            if (contenido.tipo === 'texto') {
+                partsPayload.push(contenido.payload);
+            } else {
+                partsPayload.push(contenido.payload);
+            }
+
+            const schemaDefinition = {
+                type: "ARRAY",
+                items: {
+                    type: "OBJECT",
+                    properties: {
+                        nombreRuta: { type: "STRING" },
+                        empresaDestino: { type: "STRING" },
+                        numeroParada: { type: "STRING" },
+                        estadoDetectado: { type: "STRING" },
+                        municipio: { type: "STRING" },
+                        horarioPaso: { type: "STRING" },
+                        referenciaOriginal: { type: "STRING" },
+                        cruceVialEnriquecido: { type: "STRING" }
+                    },
+                    required: ["nombreRuta", "empresaDestino", "numeroParada", "horarioPaso", "referenciaOriginal", "cruceVialEnriquecido", "municipio"]
                 }
             };
 
-            const urlApi = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-            const res = await fetch(urlApi, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payloadBase)
-            });
+            const payloadBase = {
+                contents: [{ parts: partsPayload }],
+                generationConfig: { 
+                    temperature: 0.0,
+                    responseMimeType: "application/json",
+                    responseSchema: schemaDefinition
+                }
+            };
 
-            if (!res.ok) throw new Error(`Error en API Gemini: ${res.status}`);
-            const jsonRes = await res.json();
-            const textoIA = jsonRes.candidates?.[0]?.content?.parts?.[0]?.text;
-            
-            document.getElementById("jsonOutputViewer").value = textoIA;
-            return JSON.parse(textoIA);
+            // Lista de modelos con fallback automático
+            const modelos = [
+                "gemini-2.5-flash",
+                "gemini-1.5-flash"
+            ];
+
+            let ultimoError = null;
+
+            for (const modelo of modelos) {
+                try {
+                    const urlApi = `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${apiKey}`;
+                    const res = await fetch(urlApi, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(payloadBase)
+                    });
+
+                    if (res.ok) {
+                        const jsonRes = await res.json();
+                        const textoIA = jsonRes.candidates?.[0]?.content?.parts?.[0]?.text;
+                        document.getElementById("jsonOutputViewer").value = textoIA;
+                        return JSON.parse(textoIA);
+                    } else {
+                        console.warn(`Motor ${modelo} devolvió status ${res.status}. Intentando fallback...`);
+                    }
+                } catch (err) {
+                    ultimoError = err;
+                    console.warn(`Falló ${modelo}:`, err);
+                }
+            }
+
+            throw new Error(ultimoError ? ultimoError.message : "Error de comunicación con endpoints de Gemini (404/500).");
         }
 
-        // PASO 2 Y 3: FALLBACK GEOGRÁFICO RESILIENTE DE 3 NIVELES CON ESTADO DELIMITADO
+        // PASO 2: GEOLOCALIZACIÓN TRINIVEL NOMINATIM
         async function geocodificarRutasExtraidas(rutas, estadoConfirmado) {
             for (let i = 0; i < rutas.length; i++) {
                 const r = rutas[i];
@@ -322,17 +370,14 @@
                     .trim();
                 let refLimpia = (r.referenciaOriginal || "").trim();
 
-                // Intento 1: Dirección Enriquecida + Municipio + Estado
                 let query1 = `${cruceLimpio}, ${municipio}, ${estadoConfirmado}, Mexico`;
                 let coords = await buscarCoordenadaAPI(query1);
 
-                // Intento 2: Referencia Original + Municipio + Estado
                 if (!coords && refLimpia) {
                     let query2 = `${refLimpia}, ${municipio}, ${estadoConfirmado}, Mexico`;
                     coords = await buscarCoordenadaAPI(query2);
                 }
 
-                // Intento 3: Esquina pura (Sin marcas de negocios)
                 if (!coords && cruceLimpio.includes(" y ")) {
                     let soloEsquina = cruceLimpio.split(",")[0];
                     let query3 = `${soloEsquina}, ${municipio}, ${estadoConfirmado}, Mexico`;
@@ -343,14 +388,13 @@
                     r.coordenadasAbordaje = coords;
                     r.estadoGeocodificacion = "Cruce Ok";
                 } else {
-                    r.coordenadasAbordaje = "25.778500, -100.476400"; // Coordenada de respaldo
+                    r.coordenadasAbordaje = "25.778500, -100.476400";
                     r.estadoGeocodificacion = "Ajustado Manual";
                 }
 
                 r.puntosAbordaje = r.cruceVialEnriquecido;
                 r.estadoMunicipio = `${municipio}, ${estadoConfirmado}`;
 
-                // Throttle de peticiones para evitar bloqueo por tasa límite
                 await new Promise(res => setTimeout(res, 350));
             }
             return rutas;
@@ -368,7 +412,7 @@
             return null;
         }
 
-        // CONTROLADOR GLOBAL CON PAUSA DE INTERFAZ E INYECCIÓN CONSCIENTE
+        // CONTROLADOR GLOBAL EN 2 PASOS SEPARADOS
         async function iniciarProcesamientoEnLote() {
             const apiKey = document.getElementById("apiKeyGemini").value.trim();
             const empresaSeleccionada = document.getElementById("empresaValidacionIA").value.trim();
@@ -385,23 +429,24 @@
             const archivos = Array.from(fileInput.files);
 
             for (let i = 0; i < archivos.length; i++) {
-                btn.innerHTML = `<span>🧠</span> Gemini extrayendo visualmente (${i+1}/${archivos.length})...`;
+                // PASO 1: EXTRACCIÓN CON FALLBACK DUAL ENGINE
+                btn.innerHTML = `<span>🧠</span> Paso 1: Gemini Extrayendo (${i+1}/${archivos.length})...`;
                 try {
-                    let extraidos = await procesarUnicoArchivo(archivos[i], apiKey, empresaSeleccionada, btn);
+                    let extraidos = await procesarUnicoArchivo(archivos[i], apiKey, empresaSeleccionada);
                     
-                    // CONTROL DE VALIDACIÓN DEL ESTADO
+                    // PREGUNTA OBLIGATORIA / CONFIRMACIÓN DEL ESTADO
                     let estadoDetectado = extraidos[0]?.estadoDetectado;
                     let estadoFinal = "";
 
                     if (estadoDetectado && estadoDetectado !== "NO_DETECTADO") {
                         estadoFinal = estadoDetectado;
                     } else {
-                        // Pausa de interfaz para confirmación requerida
-                        estadoFinal = prompt("📍 Gemini no detectó el Estado en el PDF. Ingresa el Estado (Ej: Nuevo León, Chiapas, Jalisco, Veracruz):", "Nuevo León");
+                        estadoFinal = prompt("📍 Confirmación requerida - Ingresa el Estado (Ej: Nuevo León, Chiapas, Jalisco, Veracruz):", "Nuevo León");
                         if (!estadoFinal) estadoFinal = "Nuevo León";
                     }
 
-                    btn.innerHTML = `<span>🗺️</span> Geocodificando paradas en ${estadoFinal}...`;
+                    // PASO 2: GEOLOCALIZACIÓN Y BUSCADOR
+                    btn.innerHTML = `<span>🗺️</span> Paso 2: Geocodificando en ${estadoFinal}...`;
                     extraidos = await geocodificarRutasExtraidas(extraidos, estadoFinal);
                     colaRutasSanitizadas.push(...extraidos);
 
@@ -411,7 +456,7 @@
             }
 
             btn.disabled = false;
-            btn.innerHTML = '<span>⚡</span> Ejecutar Extracción Premium';
+            btn.innerHTML = '<span>⚡</span> Paso 1: Extracción IA';
             
             document.getElementById("badgeResultadoCount").innerText = `${colaRutasSanitizadas.length} Paradas Listas`;
             renderizarTablaYMapa();
