@@ -36,7 +36,7 @@
     <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
 
     <style>
-        #mapaPreCommit { min-height: 420px; width: 100%; border-radius: 0.75rem; }
+        #mapaPreCommit { min-height: 440px; width: 100%; border-radius: 0.75rem; }
         .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: #0a0d14; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
@@ -69,11 +69,11 @@
             </div>
         </header>
 
-        <!-- PANEL DE CONFIGURACIÓN E INGESTA -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- SECCIÓN SUPERIOR: PARÁMETROS + MAPA PRINCIPAL CON BUSCADOR -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
             
-            <!-- PARAMETROS -->
-            <div class="bg-cyber-card border border-cyber-border rounded-xl p-5 space-y-4">
+            <!-- PARÁMETROS DEL SERVICIO (COLUMNA IZQUIERDA) -->
+            <div class="lg:col-span-4 bg-cyber-card border border-cyber-border rounded-xl p-5 space-y-4">
                 <h2 class="text-sm font-bold text-cyber-accent uppercase tracking-wider flex items-center gap-2">
                     <span>⚙️</span> Parámetros del Servicio
                 </h2>
@@ -107,26 +107,34 @@
                 </div>
             </div>
 
-            <!-- VISOR DEL JSON EXTRAÍDO -->
-            <div class="lg:col-span-2 bg-cyber-card border border-cyber-border rounded-xl p-5 flex flex-col space-y-3">
-                <div class="flex items-center justify-between">
-                    <h2 class="text-sm font-bold text-cyber-purple uppercase tracking-wider flex items-center gap-2">
-                        <span>🤖</span> JSON Enriquecido (Vision Spatial Engine)
-                    </h2>
-                    <button onclick="copiarJsonAlPortapapeles()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1 rounded border border-slate-700 transition-colors">
-                        📋 Copiar JSON
-                    </button>
-                </div>
-                <textarea id="jsonOutputViewer" readonly placeholder="Los resultados estructurados de Gemini se mostrarán aquí en tiempo real..." class="w-full h-full min-h-[180px] bg-cyber-bg border border-slate-800 rounded-lg p-3 text-xs font-mono text-emerald-400 custom-scrollbar focus:outline-none resize-none"></textarea>
+            <!-- MAPA CON BUSCADOR INTEGRADO (AHORA OCUPA EL ESPACIO SUPERIOR DERECHO) -->
+            <div class="lg:col-span-8 bg-cyber-card border border-cyber-border rounded-xl p-5 space-y-3">
+                <h2 class="text-sm font-bold text-cyber-amber uppercase tracking-wider flex items-center gap-2">
+                    <span>🗺️</span> Georreferenciación en Tiempo Real (Buscador OSM Incorporado)
+                </h2>
+                <div id="mapaPreCommit"></div>
             </div>
 
         </div>
 
-        <!-- PANEL AUDITORÍA: TABLA + MAPA -->
+        <!-- SECCIÓN INFERIOR: VISOR JSON + TABLA AUDITORÍA DE RUTAS -->
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
             
-            <!-- TABLA PRE-COMMIT -->
-            <div class="lg:col-span-7 bg-cyber-card border border-cyber-border rounded-xl p-5 space-y-4">
+            <!-- VISOR DEL JSON EXTRAÍDO (DEBAJO DE LOS PARÁMETROS) -->
+            <div class="lg:col-span-4 bg-cyber-card border border-cyber-border rounded-xl p-5 flex flex-col space-y-3">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-sm font-bold text-cyber-purple uppercase tracking-wider flex items-center gap-2">
+                        <span>🤖</span> JSON Enriquecido (Vision API)
+                    </h2>
+                    <button onclick="copiarJsonAlPortapapeles()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded border border-slate-700 transition-colors">
+                        📋 Copiar JSON
+                    </button>
+                </div>
+                <textarea id="jsonOutputViewer" readonly placeholder="Los resultados estructurados de Gemini se mostrarán aquí en tiempo real..." class="w-full h-full min-h-[350px] bg-cyber-bg border border-slate-800 rounded-lg p-3 text-xs font-mono text-emerald-400 custom-scrollbar focus:outline-none resize-none"></textarea>
+            </div>
+
+            <!-- TABLA AUDITORÍA PRE-COMMIT (DEBAJO DEL MAPA) -->
+            <div class="lg:col-span-8 bg-cyber-card border border-cyber-border rounded-xl p-5 space-y-4">
                 <div class="flex items-center justify-between">
                     <h2 class="text-sm font-bold text-cyber-cyan uppercase tracking-wider flex items-center gap-2">
                         <span>📋</span> Auditoría de Paradas Extraídas
@@ -136,7 +144,7 @@
                     </button>
                 </div>
 
-                <div class="overflow-x-auto custom-scrollbar max-h-[420px]">
+                <div class="overflow-x-auto custom-scrollbar max-h-[360px]">
                     <table class="w-full text-left border-collapse text-xs">
                         <thead class="bg-cyber-bg sticky top-0 border-b border-cyber-border text-slate-400">
                             <tr>
@@ -155,14 +163,6 @@
                         </tbody>
                     </table>
                 </div>
-            </div>
-
-            <!-- MAPA PREVIEW LEAFLET CON BUSCADOR BUSCADOR NOMINATIM -->
-            <div class="lg:col-span-5 bg-cyber-card border border-cyber-border rounded-xl p-5 space-y-3">
-                <h2 class="text-sm font-bold text-cyber-amber uppercase tracking-wider flex items-center gap-2">
-                    <span>🗺️</span> Georreferenciación en Tiempo Real
-                </h2>
-                <div id="mapaPreCommit"></div>
             </div>
 
         </div>
@@ -207,7 +207,7 @@
             markersGroup = L.featureGroup().addTo(mapObj);
             polylineGroup = L.featureGroup().addTo(mapObj);
 
-            // INTEGACIÓN DE LA BARRA DE BÚSQUEDA INTERACTIVA (LEAFLET CONTROL GEOCODER)
+            // INTEGRACIÓN DE LA BARRA DE BÚSQUEDA INTERACTIVA (LEAFLET CONTROL GEOCODER)
             L.Control.geocoder({
                 defaultMarkGeocode: false,
                 placeholder: "🔍 Buscar calle, cruce o referencia en México...",
