@@ -1,1005 +1,1142 @@
-<!DOCTYPE html> 
-<html lang="es"> 
-<head> 
-<meta charset="UTF-8"> 
-<meta name="viewport" content="width=device-width, initial-scale=1.0"> 
-<title>Panel Administrativo - Módulo 2 Vacantes</title> 
-<!-- Tailwind CSS v4 --> 
-<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script> 
-<!-- Iconos Lucide --> 
-<script src="https://unpkg.com/lucide@latest"></script> 
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Módulo 2: Gestión Inteligente de Vacantes & Extractor IA Pro</title>
 
-<!-- Firebase v8 (Conexión Embebida) -->
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
 
-<script>
-  const firebaseConfig = {
-    apiKey: "AIzaSyDxgP1YnycCEqkQ2vr3SPkwc9QMhtG8Zqw",
-    authDomain: "bolsa-de-trabajo-a52e4.firebaseapp.com",
-    databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com",
-    projectId: "bolsa-de-trabajo-a52e4",
-    storageBucket: "bolsa-de-trabajo-a52e4.firebasestorage.app",
-    messagingSenderId: "592492733212",
-    appId: "1:592492733212:web:88e8ec243bd53608b6d0d9",
-    measurementId: "G-DH2LD3BJEF"
-  };
+    <!-- FontAwesome Íconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-  if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
-  }
+    <!-- Firebase v8 -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
-  var database = firebase.database();
-</script>
+    <!-- Procesamiento de archivos PDF y DOCX -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    <script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';</script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 
-<!-- Lectura de archivos (PDF, DOCX) --> 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script> 
-<script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';</script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script> 
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyDxgP1YnycCEqkQ2vr3SPkwc9QMhtG8Zqw",
+            authDomain: "bolsa-de-trabajo-a52e4.firebaseapp.com",
+            databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com",
+            projectId: "bolsa-de-trabajo-a52e4",
+            storageBucket: "bolsa-de-trabajo-a52e4.firebasestorage.app",
+            messagingSenderId: "592492733212",
+            appId: "1:592492733212:web:88e8ec243bd53608b6d0d9",
+            measurementId: "G-DH2LD3BJEF"
+        };
 
-<style> 
-  body { background-color: #0d1520; color: #e2e8f0; font-family: system-ui, -apple-system, sans-serif; } 
-  .card-panel { background-color: #14202e; border: 1px solid #233446; border-radius: 0.75rem; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3); }
-  .input-dark { 
-    background-color: #1a293b; 
-    border: 1px solid #2e445e; 
-    color: #f8fafc; 
-    transition: all 0.2s ease; 
-  }
-  .input-dark:focus { 
-    outline: none; 
-    border-color: #f97316;
-    box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.2); 
-  }
-</style> 
-</head> 
-<body class="p-4 md:p-6 min-h-screen"> 
-<div class="max-w-7xl mx-auto space-y-6"> 
-
-  <!-- Encabezado --> 
-  <header class="card-panel p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-l-4 border-l-blue-500"> 
-    <div class="flex items-center gap-3"> 
-      <div class="p-2.5 bg-blue-500/10 rounded-lg text-blue-400">
-        <i data-lucide="layout-dashboard" class="w-7 h-7"></i> 
-      </div>
-      <div>
-        <h1 class="text-xl font-bold text-white tracking-wide">Gestión de Vacantes Dinámico</h1> 
-        <p class="text-xs text-slate-400">Módulo 2 • Extractor Premium IA + Formulario Firebase</p>
-      </div>
-    </div> 
-    <span id="serverStatus" class="text-xs text-slate-400 font-mono bg-[#1a293b] px-3.5 py-1.5 rounded-full border border-[#2e445e] transition-all duration-300">
-      Verificando conexión...
-    </span> 
-  </header> 
-
-  <!-- Contenido principal --> 
-  <div class="grid grid-cols-1 lg:grid-cols-12 gap-6"> 
-    
-    <!-- Columna Izquierda: Controles & Extractor (4 columnas) -->
-    <div class="lg:col-span-4 space-y-6"> 
-      
-      <!-- Panel de Control de Empresa -->
-      <div class="card-panel p-5 space-y-4">
-        <div class="flex items-center justify-between border-b border-[#233446] pb-3"> 
-          <span class="text-xs font-bold text-orange-400 uppercase tracking-wider flex items-center gap-1.5">
-            <i data-lucide="building-2" class="w-4 h-4"></i> Destino
-          </span> 
-          <button id="btnRefreshEmpresas" class="text-xs text-slate-400 hover:text-white flex items-center gap-1 transition cursor-pointer"> 
-            <i data-lucide="refresh-cw" class="w-3 h-3"></i> Actualizar 
-          </button> 
-        </div> 
-
-        <div>
-          <label class="block text-xs text-slate-300 mb-1 font-medium">Selecciona Empresa:</label> 
-          <select id="selectEmpresa" class="w-full p-2.5 rounded-lg input-dark text-sm font-medium"> 
-            <option value="">-- Cargando empresas... --</option> 
-          </select> 
-        </div>
-
-        <!-- CRUD Vacantes Existentes -->
-        <div class="bg-[#1a1c23] border border-red-500/30 p-4 rounded-xl space-y-3"> 
-          <div class="flex items-center gap-2 text-red-400 font-bold text-xs uppercase tracking-wider"> 
-            <i data-lucide="folder-minus" class="w-4 h-4"></i> 
-            <span>Modificar / Eliminar Vacante</span> 
-          </div> 
-          <select id="selectVacante" class="w-full p-2.5 rounded-lg bg-[#241a1c] border border-red-900/60 text-red-100 text-sm focus:outline-none focus:border-red-500"> 
-            <option value="">-- Selecciona vacante --</option> 
-          </select>
-          <div class="grid grid-cols-3 gap-2 pt-1"> 
-            <button type="button" id="btnLoadVacante" class="py-2 px-2 bg-amber-600 hover:bg-amber-500 text-white font-semibold rounded-lg text-xs flex items-center justify-center gap-1 cursor-pointer transition"> 
-              <i data-lucide="edit-3" class="w-3.5 h-3.5"></i> Cargar 
-            </button> 
-            <button type="button" id="btnDeleteVacante" class="py-2 px-2 bg-rose-600 hover:bg-rose-500 text-white font-semibold rounded-lg text-xs flex items-center justify-center gap-1 cursor-pointer transition"> 
-              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Borrar 
-            </button> 
-            <button type="button" id="btnClearForm" class="py-2 px-2 bg-slate-700 hover:bg-slate-600 text-white font-semibold rounded-lg text-xs flex items-center justify-center gap-1 cursor-pointer transition"> 
-              <i data-lucide="eraser" class="w-3.5 h-3.5"></i> Limpiar 
-            </button> 
-          </div> 
-        </div> 
-      </div> 
-
-      <!-- Extractor IA (Gemini 2.5 Flash Ultra Motor) -->
-      <div class="card-panel p-5 border-l-4 border-l-indigo-500 bg-[#12182b] space-y-4"> 
-        <div class="flex items-center justify-between border-b border-[#233446] pb-3"> 
-          <div class="flex items-center gap-2 text-indigo-300 font-bold text-xs uppercase tracking-wider"> 
-            <i data-lucide="sparkles" class="w-4 h-4"></i> 
-            <span>Extractor Premium IA</span> 
-          </div>
-          <span class="text-[10px] bg-indigo-950 text-indigo-300 font-mono px-2 py-0.5 rounded border border-indigo-700">Gemini 2.5</span>
-        </div>
-
-        <div> 
-          <label class="block text-xs text-slate-300 mb-1 font-medium">Texto de la Vacante / WhatsApp / Notas</label> 
-          <textarea id="rawText" rows="4" placeholder="Pega aquí cualquier texto desordenado o borrador..." class="w-full p-2.5 rounded-lg input-dark text-slate-100 placeholder-slate-500 text-xs"></textarea> 
-        </div> 
-
-        <div> 
-          <label class="block text-xs text-slate-300 mb-1 font-medium">Adjuntar Documento o Imagen (PNG, JPG, PDF, DOCX, TXT)</label> 
-          <label class="flex flex-col items-center justify-center w-full h-20 border border-indigo-500/40 border-dashed rounded-lg cursor-pointer bg-[#182035] hover:bg-[#1f2a45] transition"> 
-            <div class="flex flex-col items-center justify-center text-center p-2"> 
-              <i data-lucide="upload-cloud" class="w-5 h-5 text-indigo-400 mb-1"></i> 
-              <p class="text-xs text-slate-300"><span class="font-semibold">Subir Archivo o Imagen</span></p> 
-            </div> 
-            <input id="fileInput" type="file" accept=".txt,.pdf,.docx,.png,.jpg,.jpeg" class="hidden" /> 
-          </label> 
-          <div id="fileStatus" class="text-xs text-emerald-400 mt-2 font-mono hidden flex items-center gap-1"> 
-            <i data-lucide="check-circle" class="w-3.5 h-3.5"></i> <span>Archivo cargado.</span> 
-          </div> 
-        </div> 
-
-        <button id="btnExtract" type="button" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg shadow-md transition flex items-center justify-center gap-2 text-xs uppercase tracking-wider cursor-pointer"> 
-          <i data-lucide="cpu" class="w-4 h-4"></i> Extraer Información con IA
-        </button> 
-      </div> 
-
-      <!-- Configuración API Key (Soporta llaves con prefijo AQ o AIza) -->
-      <div class="card-panel p-4 space-y-2"> 
-        <div class="flex items-center gap-2 text-slate-400 font-bold text-xs uppercase tracking-wider"> 
-          <i data-lucide="key" class="w-4 h-4 text-orange-400"></i> 
-          <span>API Key Gemini (Soporta claves AQ...)</span> 
-        </div> 
-        <input type="password" id="apiKeyInput" class="w-full p-2 rounded-lg input-dark text-xs font-mono tracking-widest" placeholder="Ingresa tu API Key de Gemini"> 
-      </div> 
-
-    </div> 
-
-    <!-- Columna Derecha: Formulario & JSON (8 columnas) -->
-    <div class="lg:col-span-8 space-y-6"> 
-      
-      <form id="vacanteForm" class="card-panel p-6 space-y-6"> 
-        
-        <!-- Bloque 1: Enlaces e Identificación -->
-        <div class="space-y-3"> 
-          <div class="flex items-center gap-2 text-blue-400 font-bold text-xs uppercase tracking-wider border-b border-[#233446] pb-2"> 
-            <i data-lucide="link" class="w-4 h-4"></i> 
-            <h3>1. Enlaces e Identificación</h3> 
-          </div> 
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4"> 
-            <div>
-              <label class="block text-xs text-slate-400 mb-1">ID Clave (puestoId)</label> 
-              <input type="text" id="puestoId" readonly class="w-full p-2.5 rounded-lg input-dark text-xs font-mono bg-[#111823] opacity-70 cursor-not-allowed" placeholder="auto-generado"> 
-            </div>
-            <div>
-              <label class="block text-xs text-slate-400 mb-1">Estatus de Publicación</label> 
-              <select id="estatus" class="w-full p-2.5 rounded-lg input-dark text-xs font-medium"> 
-                <option value="disponible">disponible</option> 
-                <option value="pausada">pausada</option> 
-                <option value="cerrada">cerrada</option> 
-              </select>
-            </div>
-          </div> 
-
-          <!-- ESTRUCTURA MAZORCA DE REVÓLVER (10 RANURAS DE BANNERS / FLYERS) -->
-          <div class="bg-[#111923] p-4 rounded-xl border border-orange-500/30 space-y-3">
-            <div class="flex items-center justify-between border-b border-[#203144] pb-2">
-              <span class="text-xs font-bold text-orange-400 uppercase tracking-wider flex items-center gap-1.5">
-                <i data-lucide="disc" class="w-4 h-4 text-orange-400"></i> Gestor de Banners / Flyers (Mazorca Revólver - 10 Ranuras)
-              </span>
-              <button type="button" id="btnClearBanners" class="text-[11px] text-slate-400 hover:text-rose-400 flex items-center gap-1 transition cursor-pointer">
-                <i data-lucide="trash" class="w-3 h-3"></i> Limpiar Banners
-              </button>
-            </div>
-
-            <!-- Ranura Principal (Ranura #1) -->
-            <div>
-              <label class="block text-xs text-amber-400 mb-1 font-semibold flex items-center gap-1">
-                <i data-lucide="image" class="w-3.5 h-3.5"></i> Banner Principal (Ranura #1)
-              </label>
-              <input type="url" id="bannerUrl1" class="banner-slot w-full p-2.5 rounded-lg input-dark text-xs font-mono" placeholder="https://ejemplo.com/flyer1.jpg">
-            </div>
-
-            <!-- Desplegable para Ranuras Secundarias (#2 al #10) -->
-            <details class="bg-[#182332] rounded-lg border border-[#2e445e] p-3 cursor-pointer group">
-              <summary class="text-xs font-bold text-slate-300 flex items-center justify-between select-none">
-                <span class="flex items-center gap-2">
-                  <i data-lucide="layers" class="w-4 h-4 text-orange-400"></i> Ranuras Adicionales de Banners (#2 al #10)
-                </span>
-                <span class="text-[10px] text-orange-400 bg-orange-950/80 px-2 py-0.5 rounded border border-orange-800">10 Slots Disponibles</span>
-              </summary>
-              
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-3 mt-2 border-t border-[#233446]">
-                <div>
-                  <label class="block text-[11px] text-slate-400 mb-1">Banner Ranura #2</label>
-                  <input type="url" id="bannerUrl2" class="banner-slot w-full p-2 rounded-lg input-dark text-xs font-mono" placeholder="https://...">
-                </div>
-                <div>
-                  <label class="block text-[11px] text-slate-400 mb-1">Banner Ranura #3</label>
-                  <input type="url" id="bannerUrl3" class="banner-slot w-full p-2 rounded-lg input-dark text-xs font-mono" placeholder="https://...">
-                </div>
-                <div>
-                  <label class="block text-[11px] text-slate-400 mb-1">Banner Ranura #4</label>
-                  <input type="url" id="bannerUrl4" class="banner-slot w-full p-2 rounded-lg input-dark text-xs font-mono" placeholder="https://...">
-                </div>
-                <div>
-                  <label class="block text-[11px] text-slate-400 mb-1">Banner Ranura #5</label>
-                  <input type="url" id="bannerUrl5" class="banner-slot w-full p-2 rounded-lg input-dark text-xs font-mono" placeholder="https://...">
-                </div>
-                <div>
-                  <label class="block text-[11px] text-slate-400 mb-1">Banner Ranura #6</label>
-                  <input type="url" id="bannerUrl6" class="banner-slot w-full p-2 rounded-lg input-dark text-xs font-mono" placeholder="https://...">
-                </div>
-                <div>
-                  <label class="block text-[11px] text-slate-400 mb-1">Banner Ranura #7</label>
-                  <input type="url" id="bannerUrl7" class="banner-slot w-full p-2 rounded-lg input-dark text-xs font-mono" placeholder="https://...">
-                </div>
-                <div>
-                  <label class="block text-[11px] text-slate-400 mb-1">Banner Ranura #8</label>
-                  <input type="url" id="bannerUrl8" class="banner-slot w-full p-2 rounded-lg input-dark text-xs font-mono" placeholder="https://...">
-                </div>
-                <div>
-                  <label class="block text-[11px] text-slate-400 mb-1">Banner Ranura #9</label>
-                  <input type="url" id="bannerUrl9" class="banner-slot w-full p-2 rounded-lg input-dark text-xs font-mono" placeholder="https://...">
-                </div>
-                <div class="md:col-span-2">
-                  <label class="block text-[11px] text-slate-400 mb-1">Banner Ranura #10</label>
-                  <input type="url" id="bannerUrl10" class="banner-slot w-full p-2 rounded-lg input-dark text-xs font-mono" placeholder="https://...">
-                </div>
-              </div>
-            </details>
-          </div>
-
-        </div> 
-
-        <!-- Bloque 2: Requisitos -->
-        <div class="space-y-3"> 
-          <div class="flex items-center gap-2 text-blue-400 font-bold text-xs uppercase tracking-wider border-b border-[#233446] pb-2"> 
-            <i data-lucide="graduation-cap" class="w-4 h-4"></i> 
-            <h3>2. Requisitos del Perfil</h3> 
-          </div> 
-          <div>
-            <label class="block text-xs text-slate-400 mb-1">Nombre Comercial de Vacante</label> 
-            <input type="text" id="nombreVacante" class="w-full p-2.5 rounded-lg input-dark text-xs font-semibold" placeholder="Ej: Ayudante General"> 
-          </div>
-          <div class="grid grid-cols-2 md:grid-cols-4 gap-4"> 
-            <div>
-              <label class="block text-xs text-slate-400 mb-1">Rango de Edad</label> 
-              <input type="text" id="edad" class="w-full p-2.5 rounded-lg input-dark text-xs"> 
-            </div>
-            <div>
-              <label class="block text-xs text-slate-400 mb-1">Género / Sexo</label> 
-              <input type="text" id="sexo" class="w-full p-2.5 rounded-lg input-dark text-xs"> 
-            </div> 
-            <div>
-              <label class="block text-xs text-slate-400 mb-1">Experiencia Requerida</label> 
-              <input type="text" id="experiencia" class="w-full p-2.5 rounded-lg input-dark text-xs"> 
-            </div> 
-            <div>
-              <label class="block text-xs text-slate-400 mb-1">Escolaridad Mínima</label> 
-              <input type="text" id="escolaridad" class="w-full p-2.5 rounded-lg input-dark text-xs"> 
-            </div>
-          </div> 
-        </div> 
-
-        <!-- Bloque 3: Condiciones & Ubicación -->
-        <div class="space-y-3"> 
-          <div class="flex items-center gap-2 text-blue-400 font-bold text-xs uppercase tracking-wider border-b border-[#233446] pb-2"> 
-            <i data-lucide="briefcase" class="w-4 h-4"></i> 
-            <h3>3. Condiciones de Trabajo y Ubicación</h3> 
-          </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4"> 
-            <div>
-              <label class="block text-xs text-slate-400 mb-1">Salario y Retribución</label> 
-              <input type="text" id="salario" class="w-full p-2.5 rounded-lg input-dark text-xs"> 
-            </div>
-            <div>
-              <label class="block text-xs text-slate-400 mb-1">Turnos y Horarios</label> 
-              <input type="text" id="turnos" class="w-full p-2.5 rounded-lg input-dark text-xs"> 
-            </div> 
-          </div> 
-
-          <!-- CAMPOS DE UBICACIÓN DUALES -->
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-[#111923] p-3 rounded-lg border border-[#203144]"> 
-            <div>
-              <label class="block text-xs text-orange-400 mb-1 font-semibold flex items-center gap-1">
-                <i data-lucide="map-pin" class="w-3.5 h-3.5"></i> Dirección / Zona Descriptiva
-              </label> 
-              <input type="text" id="lugarOrigen" class="w-full p-2.5 rounded-lg input-dark text-xs" placeholder="Ej: Zona Centro / Av. Central #123"> 
-            </div>
-            <div>
-              <label class="block text-xs text-blue-400 mb-1 font-semibold flex items-center gap-1">
-                <i data-lucide="map" class="w-3.5 h-3.5"></i> URL Google Maps (Enlace)
-              </label> 
-              <input type="url" id="mapaUrl" class="w-full p-2.5 rounded-lg input-dark text-xs" placeholder="https://maps.google.com/..."> 
-            </div>
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4"> 
-            <div>
-              <label class="block text-xs text-slate-400 mb-1">Rutas de Transporte Disponibles</label> 
-              <input type="text" id="rutasTransporte" class="w-full p-2.5 rounded-lg input-dark text-xs"> 
-            </div>
-            <div>
-              <label class="block text-xs text-slate-400 mb-1">Información General Extra (Notas y Observaciones)</label> 
-              <textarea id="infoGeneral" rows="2" class="w-full p-2.5 rounded-lg input-dark text-xs" placeholder="Información extra o sobrante extraída..."></textarea> 
-            </div>
-          </div>
-        </div> 
-
-        <!-- Bloque 4: Descripción -->
-        <div class="space-y-3"> 
-          <div class="flex items-center gap-2 text-blue-400 font-bold text-xs uppercase tracking-wider border-b border-[#233446] pb-2"> 
-            <i data-lucide="file-text" class="w-4 h-4"></i> 
-            <h3>4. Descripción Detallada</h3> 
-          </div> 
-          <div class="grid grid-cols-1 gap-4"> 
-            <div> 
-              <label class="block text-xs text-slate-400 mb-1">Actividades Principales</label> 
-              <textarea id="actividades" rows="2" class="w-full p-2.5 rounded-lg input-dark text-xs"></textarea> 
-            </div> 
-            <div> 
-              <label class="block text-xs text-slate-400 mb-1">Prestaciones y Beneficios</label> 
-              <textarea id="beneficios" rows="2" class="w-full p-2.5 rounded-lg input-dark text-xs"></textarea> 
-            </div> 
-          </div> 
-        </div> 
-
-        <!-- Acciones principales -->
-        <div class="flex items-center justify-end gap-3 border-t border-[#233446] pt-4"> 
-          <button type="button" id="btnSaveChange" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg text-xs transition flex items-center gap-2 cursor-pointer"> 
-            <i data-lucide="save" class="w-4 h-4"></i> Guardar Cambios 
-          </button>
-          <button type="submit" id="btnPublish" class="px-6 py-2.5 bg-orange-500 hover:bg-orange-400 text-white font-bold rounded-lg text-xs transition flex items-center gap-2 shadow-lg cursor-pointer"> 
-            <i data-lucide="globe" class="w-4 h-4"></i> Publicar Vacante 
-          </button> 
-        </div> 
-      </form> 
-
-      <!-- Salida JSON Estructurado -->
-      <div class="card-panel p-5 bg-[#0f1d18] border-emerald-900/60 space-y-3"> 
-        <div class="flex items-center gap-2 text-emerald-400 font-bold text-xs uppercase tracking-wider"> 
-          <i data-lucide="code" class="w-4 h-4"></i> 
-          <h2>Estructura JSON en Tiempo Real</h2> 
-        </div> 
-        <pre id="jsonOutput" class="w-full p-4 rounded-lg bg-[#08120e] border border-emerald-950 text-emerald-400 text-xs font-mono overflow-x-auto max-h-48">{}</pre> 
-      </div> 
-
-    </div> 
-
-  </div> 
-
-</div> 
-
-<!-- MODAL REVISIÓN MULTIVACANTES -->
-<div id="modalMultivacantes" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-  <div class="card-panel max-w-3xl w-full max-h-[85vh] flex flex-col overflow-hidden">
-    <div class="p-4 border-b border-[#233446] flex items-center justify-between bg-[#111a26]">
-      <div class="flex items-center gap-2">
-        <i data-lucide="layers" class="w-5 h-5 text-indigo-400"></i>
-        <h3 class="text-sm font-bold text-white">Vacantes Detectadas por IA (<span id="modalCount">0</span>)</h3>
-      </div>
-      <button id="btnCloseModal" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-[#1a293b] transition cursor-pointer">
-        <i data-lucide="x" class="w-5 h-5"></i>
-      </button>
-    </div>
-    
-    <div id="modalVacantesList" class="p-5 overflow-y-auto space-y-3 max-h-[60vh] bg-[#0d1520]"></div>
-    
-    <div class="p-4 border-t border-[#233446] flex items-center justify-between bg-[#111a26]">
-      <span class="text-xs text-slate-400" id="modalEmpresaTarget">Empresa asignada: </span>
-      <div class="flex items-center gap-2">
-        <button id="btnCancelModal" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold rounded-lg text-xs transition cursor-pointer">
-          Cancelar
-        </button>
-        <button id="btnSaveAllModal" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs transition flex items-center gap-1.5 cursor-pointer shadow-lg">
-          <i data-lucide="upload-cloud" class="w-4 h-4"></i> Subir Todo a Firebase
-        </button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<script> 
-lucide.createIcons(); 
-
-// Variable global para almacenar los datos de la empresa actual
-let cacheEmpresaActual = null;
-
-// Manejo de la Mazorca de Banners (10 Ranuras)
-function obtenerCadenaBannersFormulario() {
-  const banners = [];
-  for (let i = 1; i <= 10; i++) {
-    const el = document.getElementById(`bannerUrl${i}`);
-    if (el && el.value.trim() !== "") {
-      banners.push(el.value.trim());
-    }
-  }
-  return banners.join(';');
-}
-
-function cargarCadenaBannersEnFormulario(bannerString) {
-  limpiarRanurasBanners();
-  if (!bannerString) return;
-  const lista = bannerString.split(';').map(u => u.trim()).filter(Boolean);
-  lista.forEach((url, index) => {
-    if (index < 10) {
-      const el = document.getElementById(`bannerUrl${index + 1}`);
-      if (el) el.value = url;
-    }
-  });
-}
-
-function limpiarRanurasBanners() {
-  for (let i = 1; i <= 10; i++) {
-    const el = document.getElementById(`bannerUrl${i}`);
-    if (el) el.value = "";
-  }
-}
-
-document.getElementById('btnClearBanners').addEventListener('click', limpiarRanurasBanners);
-
-function registrarLog(usuarioId, moduloOrigen, operacion, detalles) {
-    if (typeof database === 'undefined' || !database) return;
-    database.ref("logs_sistema").push({
-        timestamp: new Date().toISOString(),
-        usuario_id: usuarioId || "Sistema / Anónimo",
-        modulo: moduloOrigen,
-        operacion: operacion,
-        detalles: detalles
-    }).catch(err => console.error("Error guardando log:", err));
-}
-
-const connectedRef = database.ref(".info/connected");
-connectedRef.on("value", (snap) => {
-  const statusLabel = document.getElementById('serverStatus');
-  if (!statusLabel) return;
-  if (snap.val() === true) {
-    statusLabel.className = "text-xs text-emerald-400 font-mono bg-[#0f241d] px-3.5 py-1.5 rounded-full border border-emerald-800 flex items-center gap-2";
-    statusLabel.innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> CONECTADO ✅`;
-  } else {
-    statusLabel.className = "text-xs text-rose-400 font-mono bg-[#281316] px-3.5 py-1.5 rounded-full border border-rose-900 flex items-center gap-2";
-    statusLabel.innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-rose-500"></span> DESCONECTADO ❌`;
-  }
-});
-
-let extractedFileText = "", attachedFileBase64 = "", attachedFileType = "", cacheVacantesEmpresa = {}; 
-let tempVacantesExtraidas = [];
-
-function loadEmpresasDinamicas() { 
-  const select = document.getElementById('selectEmpresa'); 
-  select.innerHTML = '<option value="">-- Selecciona una empresa --</option>'; 
-  database.ref('empresas').once('value', snap => { 
-    const data = snap.val(); 
-    if (!data) { select.innerHTML = '<option value="">-- Sin empresas --</option>'; return; }
-    Object.keys(data).forEach(key => { 
-      const opt = document.createElement('option'); 
-      opt.value = key; 
-      opt.textContent = (data[key].nombre || key).toUpperCase(); 
-      select.appendChild(opt); 
-    });
-  }, err => { 
-    console.error(err); 
-    select.innerHTML = '<option value="">-- Error al cargar --</option>'; 
-  }); 
-}
-loadEmpresasDinamicas(); 
-document.getElementById('btnRefreshEmpresas').addEventListener('click', loadEmpresasDinamicas); 
-
-document.getElementById('selectEmpresa').addEventListener('change', e => { 
-  const emp = e.target.value; 
-  const selVac = document.getElementById('selectVacante'); 
-  selVac.innerHTML = '<option value="">-- Selecciona vacante --</option>'; 
-  cacheVacantesEmpresa = {}; 
-  cacheEmpresaActual = null;
-  
-  const nombreVac = document.getElementById('nombreVacante').value;
-  if (nombreVac) {
-    document.getElementById('puestoId').value = generarPuestoIdEstructurado(emp, nombreVac);
-  }
-
-  if (!emp) return; 
-
-  database.ref(`empresas/${emp}`).once('value', snap => {
-    const empData = snap.val();
-    if (empData) {
-      cacheEmpresaActual = empData;
-      const direccionFisica = empData.direccion || empData.direcciones || empData.tag || empData.nombre || "";
-      let mapaUrlRaw = empData.ubicacion || empData.mapaUrl || empData.url_map || empData.url_google_maps || "";
-      
-      if (direccionFisica.startsWith('http')) {
-        mapaUrlRaw = direccionFisica;
-        document.getElementById('lugarOrigen').value = empData.direccion || empData.direcciones || "";
-      } else {
-        document.getElementById('lugarOrigen').value = direccionFisica;
-      }
-
-      document.getElementById('mapaUrl').value = mapaUrlRaw;
-    }
-  });
-
-  database.ref(`rutas/${emp}`).once('value', snap => {
-    const rutasData = snap.val();
-    if (rutasData) {
-      let nombresRutas = [];
-      if (typeof rutasData === 'object') {
-        nombresRutas = Object.values(rutasData)
-          .map(r => typeof r === 'object' ? (r.nombreRuta || r.nombre) : r)
-          .filter(Boolean);
-      }
-      document.getElementById('rutasTransporte').value = nombresRutas.join(', ');
-    } else {
-      document.getElementById('rutasTransporte').value = "";
-    }
-  });
-
-  database.ref(`vacantes_detalles/${emp}`).once('value', snap => { 
-    const v = snap.val(); 
-    if (!v) return; 
-    cacheVacantesEmpresa = v; 
-    Object.keys(v).forEach(k => { 
-      const opt = document.createElement('option'); 
-      opt.value = k; 
-      opt.textContent = v[k].nombreVacante || k; 
-      selVac.appendChild(opt); 
-    });
-  }); 
-}); 
-
-document.getElementById('btnLoadVacante').addEventListener('click', () => { 
-  const key = document.getElementById('selectVacante').value; 
-  if (!key || !cacheVacantesEmpresa[key]) return alert("Selecciona una vacante válida"); 
-  const d = cacheVacantesEmpresa[key]; 
-  cargarObjetoEnFormulario(d);
-  alert("Datos cargados ✅");
-});
-
-function cargarObjetoEnFormulario(d) {
-  document.getElementById('puestoId').value = d.puestoId || ""; 
-  document.getElementById('nombreVacante').value = d.nombreVacante || ""; 
-  document.getElementById('estatus').value = d.estatus || "disponible"; 
-  
-  cargarCadenaBannersEnFormulario(d.bannerUrl || "");
-
-  document.getElementById('edad').value = d.edad || ""; 
-  document.getElementById('sexo').value = d.sexo || ""; 
-  document.getElementById('escolaridad').value = d.escolaridad || ""; 
-  document.getElementById('experiencia').value = d.experiencia || ""; 
-  document.getElementById('salario').value = d.salario || ""; 
-  
-  const direccionFallback = (cacheEmpresaActual && (cacheEmpresaActual.direccion || cacheEmpresaActual.direcciones || cacheEmpresaActual.tag || cacheEmpresaActual.nombre)) || "";
-  const mapaFallback = (cacheEmpresaActual && (cacheEmpresaActual.ubicacion || cacheEmpresaActual.mapaUrl || cacheEmpresaActual.url_map || cacheEmpresaActual.url_google_maps)) || "";
-
-  let lugar = d.lugarOrigen || "";
-  let mapa = d.mapaUrl || "";
-
-  if (lugar.startsWith('http')) {
-    mapa = lugar;
-    lugar = direccionFallback;
-  }
-
-  document.getElementById('lugarOrigen').value = lugar || direccionFallback; 
-  document.getElementById('mapaUrl').value = mapa || mapaFallback; 
-  
-  document.getElementById('turnos').value = d.turnos || "";
-  document.getElementById('rutasTransporte').value = d.rutasTransporte || "";
-  document.getElementById('infoGeneral').value = d.infoGeneral || "";
-  document.getElementById('actividades').value = d.actividades || "";
-  document.getElementById('beneficios').value = d.beneficios || "";
-  
-  updateJsonOutput({
-    ...d,
-    bannerUrl: obtenerCadenaBannersFormulario(),
-    lugarOrigen: document.getElementById('lugarOrigen').value,
-    mapaUrl: document.getElementById('mapaUrl').value
-  });
-}
-
-document.getElementById('btnDeleteVacante').addEventListener('click', () => {
-  const emp = document.getElementById('selectEmpresa').value;
-  const key = document.getElementById('selectVacante').value;
-  if (!emp || !key) return alert("Selecciona empresa y vacante");
-  if (confirm(`¿Eliminar vacante: ${key}?`)) {
-    database.ref(`vacantes_detalles/${emp}/${key}`).remove()
-    .then(() => { 
-      registrarLog("Administrador", "Módulo 2: Vacantes", "ELIMINAR", `Se eliminó vacante '${key}' de '${emp.toUpperCase()}'.`);
-      alert("Eliminada ✅"); 
-      document.getElementById('selectEmpresa').dispatchEvent(new Event('change')); 
-      resetFormFields(); 
-    })
-    .catch(err => alert("Error: " + err.message));
-  }
-});
-
-document.getElementById('btnClearForm').addEventListener('click', resetFormFields); 
-function resetFormFields() { 
-  document.getElementById('vacanteForm').reset(); 
-  limpiarRanurasBanners();
-  document.getElementById('puestoId').value = ""; 
-  document.getElementById('selectVacante').value = ""; 
-  document.getElementById('jsonOutput').innerText = "{}"; 
-}
-function updateJsonOutput(d) { document.getElementById('jsonOutput').innerText = JSON.stringify(d, null, 2); }
-
-// LECTURA ROBUSTA DE ARCHIVOS (TXT, PDF, DOCX, IMÁGENES)
-document.getElementById('fileInput').addEventListener('change', async e => { 
-  const file = e.target.files[0]; 
-  if (!file) return; 
-  const status = document.getElementById('fileStatus'); 
-  status.classList.remove('hidden'); 
-  extractedFileText = ""; attachedFileBase64 = ""; attachedFileType = ""; 
-
-  try {
-    if (file.type === "text/plain" || file.name.endsWith('.txt')) { 
-      const r = new FileReader(); 
-      r.onload = e => { 
-        extractedFileText = e.target.result; 
-        status.querySelector('span').innerText = "Texto .txt cargado ✅"; 
-      }; 
-      r.readAsText(file); 
-    } else if (file.type === "application/pdf" || file.name.endsWith('.pdf')) {
-      status.querySelector('span').innerText = "Procesando PDF...";
-      const r = new FileReader(); 
-      r.onload = async e => {
-        try {
-          const pdf = await pdfjsLib.getDocument(new Uint8Array(e.target.result)).promise;
-          let txt = ""; 
-          for(let i=1; i<=pdf.numPages; i++){ 
-            const p = await pdf.getPage(i); 
-            const textContent = await p.getTextContent();
-            txt += textContent.items.map(x => x.str).join(" ") + "\n"; 
-          }
-          extractedFileText = txt; 
-          status.querySelector('span').innerText = "PDF procesado ✅";
-        } catch (pdfErr) {
-          console.error("Error al extraer PDF:", pdfErr);
-          alert("No se pudo extraer el texto del PDF. Intenta convertilo a imagen PNG/JPG o TXT.");
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
         }
-      }; 
-      r.readAsArrayBuffer(file);
-    } else if (file.name.endsWith('.docx')) {
-      status.querySelector('span').innerText = "Procesando Word...";
-      const r = new FileReader(); 
-      r.onload = e => {
-        mammoth.extractRawText({arrayBuffer: e.target.result})
-          .then(x => {
-            extractedFileText = x.value; 
-            status.querySelector('span').innerText = "Word .docx listo ✅";
-          })
-          .catch(docErr => {
-            console.error("Error DOCX:", docErr);
-            alert("Error al leer documento Word.");
-          });
-      }; 
-      r.readAsArrayBuffer(file);
-    } else if (file.type.startsWith('image/')) {
-      const r = new FileReader(); 
-      r.onload = e => { 
-        attachedFileBase64 = e.target.result.split(',')[1]; 
-        attachedFileType = file.type; 
-        status.querySelector('span').innerText = "Imagen cargada (Visión IA) ✅"; 
-      }; 
-      r.readAsDataURL(file);
-    }
-  } catch (err) {
-    console.error("Error procesando archivo:", err);
-    alert("Ocurrió un error al leer el archivo.");
-  }
-}); 
+        var database = firebase.database();
 
-function generarPuestoIdEstructurado(empresaKey, nombreVacante) {
-  if (!nombreVacante) return "";
-  const slugVacante = nombreVacante.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]/g,"_").replace(/_+/g,"_").trim();
-  if (!empresaKey) return slugVacante;
-  const slugEmpresa = empresaKey.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]/g,"_").trim();
-  return `${slugEmpresa}_${slugVacante}`;
-}
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        cyber: {
+                            bg: '#0a0d14',
+                            card: '#121824',
+                            cardAlt: '#162032',
+                            border: '#1e293b',
+                            accent: '#ea580c',
+                            accentHover: '#c2410c',
+                            cyan: '#06b6d4',
+                            purple: '#a855f7',
+                            amber: '#f59e0b',
+                            emerald: '#10b981'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
 
-document.getElementById('nombreVacante').addEventListener('input', e => { 
-  const emp = document.getElementById('selectEmpresa').value.trim();
-  document.getElementById('puestoId').value = generarPuestoIdEstructurado(emp, e.target.value);
-}); 
+    <style>
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0a0d14; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #ea580c; }
+    </style>
+</head>
+<body class="bg-cyber-bg text-slate-200 font-sans min-h-screen antialiased selection:bg-cyber-accent selection:text-white">
 
-// MOTOR DE EXTRACCIÓN CON GEMINI IA
-document.getElementById('btnExtract').addEventListener('click', async () => { 
-  const emp = document.getElementById('selectEmpresa').value.trim();
-  if (!emp) return alert("⚠️ Selecciona una Empresa Destino antes de procesar.");
+    <div class="p-3 sm:p-5 md:p-6 max-w-7xl mx-auto space-y-6">
 
-  const key = document.getElementById('apiKeyInput').value.trim(); 
-  if (!key) return alert("Ingresa tu API Key de Gemini"); 
-  
-  const txt = document.getElementById('rawText').value.trim(); 
-  if (!txt && !extractedFileText && !attachedFileBase64) return alert("Agrega texto o adjunta un archivo/imagen para procesar."); 
+        <!-- HEADER PRINCIPAL -->
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-cyber-border pb-5 gap-4">
+            <div>
+                <div class="flex items-center gap-2 mb-1 flex-wrap">
+                    <span class="bg-cyber-accent/10 text-cyber-accent text-xs px-2.5 py-0.5 rounded-full font-mono font-bold tracking-wider uppercase border border-cyber-accent/20">
+                        Módulo 2 - Gestión y Publicación de Ofertas
+                    </span>
+                    <span id="badgeEstadoServer" class="bg-emerald-500/10 text-emerald-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-emerald-500/20 flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Sincronizando...
+                    </span>
+                </div>
+                <h1 class="text-xl sm:text-2xl md:text-3xl font-extrabold text-white tracking-tight">Catálogo de Vacantes & Motor IA</h1>
+                <p class="text-slate-400 text-xs md:text-sm mt-1">Estructuración inteligente, banners corporativos centralizados y gobernanza de vacantes.</p>
+            </div>
 
-  const btn = document.getElementById('btnExtract'); 
-  btn.disabled = true; 
-  btn.innerHTML = `<span class="animate-pulse">Analizando con IA...</span>`;
-  
-  const systemPrompt = `Eres un motor extractor inteligente especializado en ofertas de trabajo.
-INSTRUCCIONES DE EXTRACCIÓN:
-1. Analiza con precisión el contenido (texto plano o imagen).
-2. Extrae todas las vacantes que encuentres en una lista/arreglo JSON.
-3. Si la información viene informal, desordenada o sin etiquetas, interpreta los datos lógicamente.
-4. CUALQUIER INFORMACIÓN EXTRA O SOBRANTE (requisitos no clasificados, observaciones, teléfonos, correos o notas) DEBES VOLCARLA COMPLETA EN EL CAMPO 'infoGeneral'.
+            <!-- COFRE DE SEGURIDAD API KEY GEMINI (PERSISTENTE) -->
+            <div class="w-full md:w-auto flex flex-col sm:flex-row gap-2 items-end sm:items-center">
+                <details id="detailsApiKey" class="bg-cyber-card border border-cyber-border rounded-xl p-2 sm:p-2.5 w-full sm:w-auto group">
+                    <summary class="text-xs font-mono text-slate-300 flex items-center justify-between gap-3 cursor-pointer select-none">
+                        <span class="flex items-center gap-2">
+                            <i class="fas fa-key text-cyber-accent"></i>
+                            <span id="txtEstadoApiKey">Cofre de API Key Gemini</span>
+                        </span>
+                        <span id="badgeKeyGuardada" class="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded border border-slate-700">No Configurada</span>
+                    </summary>
+                    <div class="pt-3 mt-2 border-t border-cyber-border flex flex-col sm:flex-row gap-2">
+                        <div class="relative flex-1">
+                            <input type="password" id="apiKeyInput" placeholder="Pega tu API Key de Gemini..." class="w-full bg-cyber-bg border border-cyber-border rounded-lg px-3 py-1.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-cyber-accent pr-8">
+                            <button type="button" onclick="toggleVisibilidadKey()" class="absolute right-2.5 top-2 text-slate-400 hover:text-white text-xs">
+                                <i id="iconoVerKey" class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                        <button type="button" onclick="guardarApiKeyPersistente()" class="bg-cyber-accent hover:bg-cyber-accentHover text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-all font-mono">
+                            Guardar Llave
+                        </button>
+                    </div>
+                </details>
 
-ESQUEMA OBLIGATORIO DE SALIDA (Arreglo JSON puro):
+                <button onclick="sincronizarTodoBajoDemanda()" class="bg-cyber-card hover:bg-slate-800 text-slate-300 border border-cyber-border font-mono text-xs px-3.5 py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all shrink-0 w-full sm:w-auto">
+                    <i class="fas fa-rotate"></i> <span>Actualizar</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- TARJETAS DE MÉTRICAS KPIS DIRECTIVAS -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-cyber-card p-4 rounded-xl border border-cyber-border shadow-lg">
+                <div class="flex justify-between items-start">
+                    <span class="text-slate-400 text-xs font-mono uppercase block mb-1">Inventario Total</span>
+                    <i class="fas fa-briefcase text-slate-500 text-sm"></i>
+                </div>
+                <div class="text-2xl font-black text-white font-mono" id="kpiTotalVacantes">0</div>
+                <span class="text-[11px] text-slate-400 mt-1 block" id="kpiDetalleEstatus">0 activas / 0 pausadas</span>
+            </div>
+
+            <div class="bg-cyber-card p-4 rounded-xl border border-cyber-border shadow-lg">
+                <div class="flex justify-between items-start">
+                    <span class="text-slate-400 text-xs font-mono uppercase block mb-1">Empresas con Ofertas</span>
+                    <i class="fas fa-building-circle-check text-cyber-accent text-sm"></i>
+                </div>
+                <div class="text-2xl font-black text-cyber-accent font-mono" id="kpiEmpresasConOfertas">0</div>
+                <span class="text-[11px] text-slate-400 mt-1 block" id="kpiPromedioVacantes">Promedio: 0 vacantes/empresa</span>
+            </div>
+
+            <div class="bg-cyber-card p-4 rounded-xl border border-cyber-border shadow-lg">
+                <div class="flex justify-between items-start">
+                    <span class="text-slate-400 text-xs font-mono uppercase block mb-1">Completitud de Perfil</span>
+                    <i class="fas fa-circle-check text-cyber-cyan text-sm"></i>
+                </div>
+                <div class="text-2xl font-black text-cyber-cyan font-mono" id="kpiCalidadPerfiles">0%</div>
+                <span class="text-[11px] text-slate-400 mt-1 block">Vacantes con banners y transporte</span>
+            </div>
+
+            <div class="bg-cyber-card p-4 rounded-xl border border-cyber-border shadow-lg">
+                <div class="flex justify-between items-start">
+                    <span class="text-slate-400 text-xs font-mono uppercase block mb-1">Líder en Volumen</span>
+                    <i class="fas fa-crown text-cyber-amber text-sm"></i>
+                </div>
+                <div class="text-lg font-black text-cyber-amber font-mono truncate" id="kpiEmpresaLider">--</div>
+                <span class="text-[11px] text-slate-400 mt-1 block" id="kpiDetalleLider">Mayor concentración de ofertas</span>
+            </div>
+        </div>
+
+        <!-- CONTENIDO PRINCIPAL: INGESTA / EXTRACTOR & FORMULARIO -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+            <!-- COLUMNA IZQUIERDA: CONTROLES DE EMPRESA & EXTRACTOR IA (5 COLS) -->
+            <div class="lg:col-span-5 space-y-6">
+
+                <!-- 1. GESTOR DE EMPRESA & EDICIÓN/BORRADO RÁPIDO -->
+                <div class="bg-cyber-card p-4 sm:p-5 rounded-xl border border-cyber-border shadow-xl space-y-4">
+                    <div class="flex items-center justify-between border-b border-cyber-border pb-3">
+                        <span class="text-xs font-bold text-cyber-accent uppercase tracking-wider flex items-center gap-2">
+                            <i class="fas fa-building"></i> 1. Empresa Destino
+                        </span>
+                        <button type="button" onclick="cargarEmpresasSelect()" class="text-xs text-slate-400 hover:text-white flex items-center gap-1 transition">
+                            <i class="fas fa-rotate"></i> Recargar
+                        </button>
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Empresa Cliente</label>
+                        <select id="selectEmpresa" onchange="alCambiarEmpresaSeleccionada()" class="w-full bg-cyber-bg border border-cyber-border rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-cyber-accent font-medium">
+                            <option value="">-- Cargando empresas... --</option>
+                        </select>
+                    </div>
+
+                    <!-- GESTIÓN DE VACANTES EXISTENTES -->
+                    <div class="bg-cyber-bg p-3.5 rounded-xl border border-cyber-border/70 space-y-2.5">
+                        <label class="block text-[10px] font-mono text-slate-400 uppercase">Vacantes Registradas de esta Empresa</label>
+                        <select id="selectVacante" class="w-full bg-slate-900 border border-cyber-border rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-cyber-cyan">
+                            <option value="">-- Selecciona vacante para editar/borrar --</option>
+                        </select>
+                        <div class="grid grid-cols-3 gap-2 pt-1">
+                            <button type="button" onclick="cargarVacanteSeleccionadaAlFormulario()" class="py-2 px-2 bg-amber-600 hover:bg-amber-500 text-white font-semibold rounded-lg text-xs flex items-center justify-center gap-1 transition">
+                                <i class="fas fa-edit"></i> Cargar
+                            </button>
+                            <button type="button" onclick="eliminarVacanteSeleccionada()" class="py-2 px-2 bg-rose-600 hover:bg-rose-500 text-white font-semibold rounded-lg text-xs flex items-center justify-center gap-1 transition">
+                                <i class="fas fa-trash"></i> Borrar
+                            </button>
+                            <button type="button" onclick="resetFormularioVacante()" class="py-2 px-2 bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold rounded-lg text-xs flex items-center justify-center gap-1 transition">
+                                <i class="fas fa-eraser"></i> Limpiar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. MOTOR EXTRACTOR INTELIGENTE IA (GEMINI 2.5 FLASH) -->
+                <div class="bg-cyber-card p-4 sm:p-5 rounded-xl border-l-4 border-l-cyber-purple border border-cyber-border shadow-xl space-y-4">
+                    <div class="flex items-center justify-between border-b border-cyber-border pb-3">
+                        <span class="text-xs font-bold text-cyber-purple uppercase tracking-wider flex items-center gap-2">
+                            <i class="fas fa-wand-magic-sparkles"></i> 2. Extractor IA Ultra
+                        </span>
+                        <span class="text-[10px] bg-purple-950/80 text-purple-300 font-mono px-2 py-0.5 rounded border border-purple-800">Gemini 2.5 Flash</span>
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Texto Desordenado, WhatsApp o Borrador</label>
+                        <textarea id="rawText" rows="4" placeholder="Pega aquí el texto, notas o mensajes de WhatsApp con los requisitos..." class="w-full bg-cyber-bg border border-cyber-border rounded-lg p-2.5 text-xs text-slate-200 focus:outline-none focus:border-cyber-purple resize-none"></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Adjuntar Archivo o Foto (PDF, DOCX, TXT, PNG, JPG)</label>
+                        <label class="flex flex-col items-center justify-center w-full h-20 border border-cyber-purple/40 border-dashed rounded-xl cursor-pointer bg-cyber-bg hover:bg-slate-900/60 transition">
+                            <div class="flex flex-col items-center justify-center p-2 text-center">
+                                <i class="fas fa-cloud-arrow-up text-cyber-purple text-base mb-1"></i>
+                                <p class="text-xs text-slate-300 font-medium">Subir archivo o flyer gráfico</p>
+                            </div>
+                            <input id="fileInput" type="file" accept=".txt,.pdf,.docx,.png,.jpg,.jpeg" class="hidden" />
+                        </label>
+                        <div id="fileStatus" class="text-xs text-emerald-400 mt-2 font-mono hidden flex items-center gap-1">
+                            <i class="fas fa-circle-check"></i> <span>Archivo procesado con éxito.</span>
+                        </div>
+                    </div>
+
+                    <button id="btnExtract" type="button" onclick="ejecutarExtraccionIA()" class="w-full py-2.5 bg-cyber-purple hover:bg-purple-600 text-white font-bold rounded-lg shadow-lg transition flex items-center justify-center gap-2 text-xs uppercase tracking-wider">
+                        <i class="fas fa-microchip"></i> Extraer y Clasificar con IA
+                    </button>
+                </div>
+
+            </div>
+
+            <!-- COLUMNA DERECHA: FORMULARIO DINÁMICO & BANNERS HEREDADOS (7 COLS) -->
+            <div class="lg:col-span-7 space-y-6">
+
+                <form id="vacanteForm" onsubmit="guardarVacanteFormulario(event)" class="bg-cyber-card p-4 sm:p-6 rounded-xl border border-cyber-border shadow-xl space-y-5">
+
+                    <!-- SECCIÓN 1: IDENTIFICACIÓN Y MAZORCA DE BANNERS -->
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between border-b border-cyber-border pb-2">
+                            <span class="text-xs font-bold text-cyber-cyan uppercase tracking-wider flex items-center gap-2">
+                                <i class="fas fa-id-card"></i> 1. Identificación y Estatus
+                            </span>
+                            <span class="text-[10px] text-slate-500 font-mono" id="txtEmpresaActivaLabel">Empresa: Ninguna</span>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                            <div>
+                                <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">ID Único (Auto-Generado)</label>
+                                <input type="text" id="puestoId" readonly class="w-full bg-cyber-bg border border-cyber-border rounded-lg p-2 text-xs font-mono text-slate-400 opacity-80 cursor-not-allowed" placeholder="auto-generado">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Estatus de Publicación</label>
+                                <select id="estatus" class="w-full bg-cyber-bg border border-cyber-border rounded-lg p-2 text-xs text-white focus:outline-none focus:border-cyber-accent">
+                                    <option value="disponible">🟢 Disponible / Publicada</option>
+                                    <option value="pausada">🟡 Pausada</option>
+                                    <option value="cerrada">🔴 Cerrada</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- GESTOR MAZORCA DE BANNERS HEREDADA -->
+                        <div class="bg-cyber-cardAlt p-4 rounded-xl border border-cyber-accent/30 space-y-3">
+                            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-cyber-border pb-2">
+                                <span class="text-xs font-bold text-cyber-accent uppercase tracking-wider flex items-center gap-2">
+                                    <i class="fas fa-layer-group"></i> Mazorca de Banners (10 Ranuras)
+                                </span>
+                                <div class="flex items-center gap-2">
+                                    <button type="button" onclick="guardarBannersComoDefectoEmpresa()" title="Fijar estos banners para todas las vacantes de esta empresa" class="text-[10px] bg-cyber-accent/20 hover:bg-cyber-accent text-cyber-accent hover:text-white border border-cyber-accent/40 px-2 py-1 rounded transition-all font-mono">
+                                        <i class="fas fa-thumbtack"></i> Fijar a Empresa
+                                    </button>
+                                    <button type="button" onclick="limpiarRanurasBanners()" class="text-[10px] text-slate-400 hover:text-red-400 font-mono">
+                                        <i class="fas fa-trash"></i> Limpiar
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-[10px] font-mono text-amber-400 uppercase mb-1 flex items-center gap-1">
+                                    <i class="fas fa-image"></i> Banner Principal (Ranura #1)
+                                </label>
+                                <input type="url" id="bannerUrl1" placeholder="https://ejemplo.com/banner-principal.jpg" class="banner-slot w-full bg-cyber-bg border border-cyber-border rounded-lg p-2 text-xs font-mono text-slate-200 focus:outline-none focus:border-cyber-accent">
+                            </div>
+
+                            <details class="bg-cyber-bg rounded-lg border border-cyber-border p-3 group">
+                                <summary class="text-xs font-bold text-slate-300 flex items-center justify-between cursor-pointer select-none">
+                                    <span class="flex items-center gap-2">
+                                        <i class="fas fa-images text-cyber-accent"></i> Ranuras Adicionales (#2 al #10)
+                                    </span>
+                                    <span class="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded border border-slate-700">9 Ranuras Extra</span>
+                                </summary>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-3 mt-2 border-t border-cyber-border">
+                                    <div>
+                                        <label class="block text-[9px] font-mono text-slate-400 uppercase mb-0.5">Banner #2</label>
+                                        <input type="url" id="bannerUrl2" class="banner-slot w-full bg-cyber-card border border-cyber-border rounded p-1.5 text-xs font-mono text-slate-200" placeholder="https://...">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[9px] font-mono text-slate-400 uppercase mb-0.5">Banner #3</label>
+                                        <input type="url" id="bannerUrl3" class="banner-slot w-full bg-cyber-card border border-cyber-border rounded p-1.5 text-xs font-mono text-slate-200" placeholder="https://...">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[9px] font-mono text-slate-400 uppercase mb-0.5">Banner #4</label>
+                                        <input type="url" id="bannerUrl4" class="banner-slot w-full bg-cyber-card border border-cyber-border rounded p-1.5 text-xs font-mono text-slate-200" placeholder="https://...">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[9px] font-mono text-slate-400 uppercase mb-0.5">Banner #5</label>
+                                        <input type="url" id="bannerUrl5" class="banner-slot w-full bg-cyber-card border border-cyber-border rounded p-1.5 text-xs font-mono text-slate-200" placeholder="https://...">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[9px] font-mono text-slate-400 uppercase mb-0.5">Banner #6</label>
+                                        <input type="url" id="bannerUrl6" class="banner-slot w-full bg-cyber-card border border-cyber-border rounded p-1.5 text-xs font-mono text-slate-200" placeholder="https://...">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[9px] font-mono text-slate-400 uppercase mb-0.5">Banner #7</label>
+                                        <input type="url" id="bannerUrl7" class="banner-slot w-full bg-cyber-card border border-cyber-border rounded p-1.5 text-xs font-mono text-slate-200" placeholder="https://...">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[9px] font-mono text-slate-400 uppercase mb-0.5">Banner #8</label>
+                                        <input type="url" id="bannerUrl8" class="banner-slot w-full bg-cyber-card border border-cyber-border rounded p-1.5 text-xs font-mono text-slate-200" placeholder="https://...">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[9px] font-mono text-slate-400 uppercase mb-0.5">Banner #9</label>
+                                        <input type="url" id="bannerUrl9" class="banner-slot w-full bg-cyber-card border border-cyber-border rounded p-1.5 text-xs font-mono text-slate-200" placeholder="https://...">
+                                    </div>
+                                    <div class="sm:col-span-2">
+                                        <label class="block text-[9px] font-mono text-slate-400 uppercase mb-0.5">Banner #10</label>
+                                        <input type="url" id="bannerUrl10" class="banner-slot w-full bg-cyber-card border border-cyber-border rounded p-1.5 text-xs font-mono text-slate-200" placeholder="https://...">
+                                    </div>
+                                </div>
+                            </details>
+                        </div>
+                    </div>
+
+                    <!-- SECCIÓN 2: PERFIL DE LA VACANTE -->
+                    <div class="space-y-4">
+                        <div class="flex items-center gap-2 text-cyber-cyan font-bold text-xs uppercase tracking-wider border-b border-cyber-border pb-2">
+                            <i class="fas fa-user-gear"></i> 2. Perfil y Requisitos
+                        </div>
+
+                        <div>
+                            <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Nombre Comercial del Puesto</label>
+                            <input type="text" id="nombreVacante" required placeholder="Ej: Operador de Ensamble General" class="w-full bg-cyber-bg border border-cyber-border rounded-lg p-2.5 text-xs font-bold text-white focus:outline-none focus:border-cyber-accent">
+                        </div>
+
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            <div>
+                                <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Rango Edad</label>
+                                <input type="text" id="edad" placeholder="18 a 55 años" class="w-full bg-cyber-bg border border-cyber-border rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-cyber-accent">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Sexo / Género</label>
+                                <input type="text" id="sexo" placeholder="Indistinto" class="w-full bg-cyber-bg border border-cyber-border rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-cyber-accent">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Escolaridad</label>
+                                <input type="text" id="escolaridad" placeholder="Secundaria" class="w-full bg-cyber-bg border border-cyber-border rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-cyber-accent">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Experiencia</label>
+                                <input type="text" id="experiencia" placeholder="Mínima / N/A" class="w-full bg-cyber-bg border border-cyber-border rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-cyber-accent">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECCIÓN 3: CONDICIONES, RUTAS Y MAPAS -->
+                    <div class="space-y-4">
+                        <div class="flex items-center gap-2 text-cyber-cyan font-bold text-xs uppercase tracking-wider border-b border-cyber-border pb-2">
+                            <i class="fas fa-money-bill-wave"></i> 3. Condiciones y Ubicación
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                            <div>
+                                <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Salario Ofrecido</label>
+                                <input type="text" id="salario" placeholder="$2,500 - $3,200 Semanal" class="w-full bg-cyber-bg border border-cyber-border rounded-lg p-2 text-xs text-cyber-amber font-mono focus:outline-none focus:border-cyber-accent">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Turnos y Horarios</label>
+                                <input type="text" id="turnos" placeholder="Rotativo (Día / Tarde / Noche)" class="w-full bg-cyber-bg border border-cyber-border rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-cyber-accent">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 bg-cyber-bg p-3 rounded-xl border border-cyber-border">
+                            <div>
+                                <label class="block text-[10px] font-mono text-cyber-accent uppercase mb-1 flex items-center gap-1">
+                                    <i class="fas fa-location-dot"></i> Dirección Física / Parque
+                                </label>
+                                <input type="text" id="lugarOrigen" placeholder="Parque Industrial Apodaca" class="w-full bg-cyber-card border border-cyber-border rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-cyber-accent">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-mono text-cyber-cyan uppercase mb-1 flex items-center gap-1">
+                                    <i class="fas fa-map"></i> Enlace Google Maps
+                                </label>
+                                <input type="url" id="mapaUrl" placeholder="https://maps.google.com/..." class="w-full bg-cyber-card border border-cyber-border rounded-lg p-2 text-xs text-cyber-cyan font-mono focus:outline-none focus:border-cyber-accent">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                            <div>
+                                <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Rutas de Transporte (M6)</label>
+                                <input type="text" id="rutasTransporte" placeholder="Ruta 1, Ruta 5, San Nicolás" class="w-full bg-cyber-bg border border-cyber-border rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-cyber-accent">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Información General Extra</label>
+                                <textarea id="infoGeneral" rows="2" placeholder="Notas, bonos o detalles extra..." class="w-full bg-cyber-bg border border-cyber-border rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-cyber-accent resize-none"></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECCIÓN 4: DESCRIPCIÓN & BENEFICIOS -->
+                    <div class="space-y-4">
+                        <div class="flex items-center gap-2 text-cyber-cyan font-bold text-xs uppercase tracking-wider border-b border-cyber-border pb-2">
+                            <i class="fas fa-list-check"></i> 4. Actividades y Beneficios
+                        </div>
+
+                        <div class="grid grid-cols-1 gap-3">
+                            <div>
+                                <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Actividades Principales</label>
+                                <textarea id="actividades" rows="2" placeholder="Ensamble, empaque, control de calidad básico..." class="w-full bg-cyber-bg border border-cyber-border rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-cyber-accent resize-none"></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Prestaciones y Beneficios</label>
+                                <textarea id="beneficios" rows="2" placeholder="IMSS, Aguinaldo, Fondo de Ahorro, Comedor subsidiado..." class="w-full bg-cyber-bg border border-cyber-border rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-cyber-accent resize-none"></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- BOTONES DE ACCIÓN -->
+                    <div class="flex flex-col sm:flex-row items-center justify-end gap-3 border-t border-cyber-border pt-4">
+                        <button type="submit" class="w-full sm:w-auto px-6 py-2.5 bg-cyber-accent hover:bg-cyber-accentHover text-white font-bold rounded-lg text-xs uppercase tracking-wider transition-all shadow-lg flex items-center justify-center gap-2">
+                            <i class="fas fa-cloud-arrow-up"></i> Publicar / Guardar Vacante
+                        </button>
+                    </div>
+                </form>
+
+                <!-- SALIDA JSON DINÁMICA -->
+                <details class="bg-cyber-card p-4 rounded-xl border border-emerald-950/60 group">
+                    <summary class="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center justify-between cursor-pointer select-none">
+                        <span class="flex items-center gap-2">
+                            <i class="fas fa-code"></i> Estructura JSON en Tiempo Real
+                        </span>
+                        <span class="text-[10px] bg-emerald-950 px-2 py-0.5 rounded border border-emerald-800 font-mono">Firebase Ready</span>
+                    </summary>
+                    <pre id="jsonOutput" class="w-full p-3 rounded-lg bg-black/60 border border-emerald-950 text-emerald-400 text-xs font-mono overflow-x-auto max-h-48 mt-3">{}</pre>
+                </details>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- MODAL REVISIÓN MULTIVACANTES DETECTADAS POR IA -->
+    <div id="modalMultivacantes" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3 sm:p-4">
+        <div class="bg-cyber-card border border-cyber-border max-w-3xl w-full max-h-[85vh] flex flex-col rounded-2xl overflow-hidden shadow-2xl">
+            <div class="p-4 border-b border-cyber-border flex items-center justify-between bg-cyber-cardAlt">
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-wand-magic-sparkles text-cyber-purple"></i>
+                    <h3 class="text-sm font-bold text-white">Vacantes Detectadas por IA (<span id="modalCount">0</span>)</h3>
+                </div>
+                <button type="button" onclick="cerrarModalMultivacantes()" class="text-slate-400 hover:text-white p-1 rounded-lg">
+                    <i class="fas fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <div id="modalVacantesList" class="p-4 sm:p-5 overflow-y-auto space-y-3 max-h-[60vh] bg-cyber-bg"></div>
+
+            <div class="p-4 border-t border-cyber-border flex flex-col sm:flex-row items-center justify-between gap-3 bg-cyber-cardAlt">
+                <span class="text-xs text-slate-400" id="modalEmpresaTarget">Empresa asignada: --</span>
+                <div class="flex items-center gap-2 w-full sm:w-auto">
+                    <button type="button" onclick="cerrarModalMultivacantes()" class="flex-1 sm:flex-initial px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold rounded-lg text-xs transition">
+                        Cancelar
+                    </button>
+                    <button type="button" id="btnSaveAllModal" onclick="guardarTodasLasVacantesLote()" class="flex-1 sm:flex-initial px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs transition flex items-center justify-center gap-1.5 shadow-lg">
+                        <i class="fas fa-upload"></i> Subir Lote Completo
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ESTADO GLOBAL LOCAL
+        let diccionarioEmpresas = {};
+        let cacheVacantesEmpresa = {};
+        let cacheEmpresaActual = null;
+        let todasLasVacantesGlobales = [];
+        let tempVacantesExtraidas = [];
+        let extractedFileText = "", attachedFileBase64 = "", attachedFileType = "";
+
+        document.addEventListener("DOMContentLoaded", () => {
+            inicializarGestionApiKey();
+            sincronizarTodoBajoDemanda();
+            escucharEstadoConexionFirebase();
+        });
+
+        // 1. GESTIÓN PERSISTENTE DE API KEY
+        function inicializarGestionApiKey() {
+            const keyGuardada = localStorage.getItem("GEMINI_API_KEY_VACANTES");
+            const badge = document.getElementById("badgeKeyGuardada");
+            const input = document.getElementById("apiKeyInput");
+
+            if (keyGuardada) {
+                input.value = keyGuardada;
+                badge.className = "text-[10px] bg-emerald-950 text-emerald-300 px-2 py-0.5 rounded border border-emerald-800";
+                badge.innerText = "Activa y Guardada";
+            }
+        }
+
+        function guardarApiKeyPersistente() {
+            const key = document.getElementById("apiKeyInput").value.trim();
+            const badge = document.getElementById("badgeKeyGuardada");
+
+            if (!key) {
+                localStorage.removeItem("GEMINI_API_KEY_VACANTES");
+                badge.className = "text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded border border-slate-700";
+                badge.innerText = "No Configurada";
+                return alert("API Key eliminada.");
+            }
+
+            localStorage.setItem("GEMINI_API_KEY_VACANTES", key);
+            badge.className = "text-[10px] bg-emerald-950 text-emerald-300 px-2 py-0.5 rounded border border-emerald-800";
+            badge.innerText = "Activa y Guardada";
+            document.getElementById("detailsApiKey").removeAttribute("open");
+            alert("¡API Key guardada de forma persistente!");
+        }
+
+        function toggleVisibilidadKey() {
+            const input = document.getElementById("apiKeyInput");
+            const icono = document.getElementById("iconoVerKey");
+            if (input.type === "password") {
+                input.type = "text";
+                icono.className = "fas fa-eye-slash";
+            } else {
+                input.type = "password";
+                icono.className = "fas fa-eye";
+            }
+        }
+
+        // 2. CONEXIÓN Y SINCRONIZACIÓN FIREBASE
+        function escucharEstadoConexionFirebase() {
+            database.ref(".info/connected").on("value", snap => {
+                const badge = document.getElementById("badgeEstadoServer");
+                if (snap.val() === true) {
+                    badge.className = "bg-emerald-500/10 text-emerald-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-emerald-500/20 flex items-center gap-1.5";
+                    badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Conectado';
+                } else {
+                    badge.className = "bg-red-500/10 text-red-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-red-500/20 flex items-center gap-1.5";
+                    badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-400"></span> Desconectado';
+                }
+            });
+        }
+
+        async function sincronizarTodoBajoDemanda() {
+            try {
+                await Promise.all([cargarEmpresasSelect(), calcularMetricasGlobalesVacantes()]);
+            } catch (e) {
+                console.error("Error sincronizando:", e);
+            }
+        }
+
+        async function cargarEmpresasSelect() {
+            const select = document.getElementById('selectEmpresa');
+            select.innerHTML = '<option value="">-- Selecciona Empresa --</option>';
+
+            const snap = await database.ref('empresas').once('value');
+            const data = snap.val() || {};
+            diccionarioEmpresas = {};
+
+            const keys = Object.keys(data);
+            if (keys.length === 0) {
+                select.innerHTML = '<option value="">-- Sin empresas en catálogo --</option>';
+                return;
+            }
+
+            keys.sort().forEach(k => {
+                const emp = data[k];
+                const nombreLimpio = (typeof emp === 'object' && emp ? (emp.nombreComercial || emp.nombre || emp.razonSocial || k) : emp).replace(/_/g, " ").trim();
+                diccionarioEmpresas[k] = nombreLimpio;
+
+                const opt = document.createElement('option');
+                opt.value = k;
+                opt.textContent = nombreLimpio;
+                select.appendChild(opt);
+            });
+        }
+
+        async function alCambiarEmpresaSeleccionada() {
+            const empKey = document.getElementById('selectEmpresa').value.trim();
+            const selVac = document.getElementById('selectVacante');
+            selVac.innerHTML = '<option value="">-- Selecciona vacante --</option>';
+            cacheVacantesEmpresa = {};
+            cacheEmpresaActual = null;
+
+            const labelEmp = document.getElementById('txtEmpresaActivaLabel');
+            labelEmp.innerText = empKey ? `Empresa: ${diccionarioEmpresas[empKey] || empKey}` : "Empresa: Ninguna";
+
+            const nombreVac = document.getElementById('nombreVacante').value;
+            if (nombreVac) {
+                document.getElementById('puestoId').value = generarPuestoIdEstructurado(empKey, nombreVac);
+            }
+
+            if (!empKey) return;
+
+            // 1. Obtener Datos Empresa y Banners Heredados
+            const snapEmp = await database.ref(`empresas/${empKey}`).once('value');
+            const empData = snapEmp.val() || {};
+            cacheEmpresaActual = empData;
+
+            // Llenar Dirección y Mapa de la Empresa
+            const direccionFisica = empData.direccion || empData.direcciones || empData.tag || empData.nombre || "";
+            let mapaUrlRaw = empData.ubicacion || empData.mapaUrl || empData.url_map || empData.url_google_maps || "";
+            document.getElementById('lugarOrigen').value = direccionFisica.startsWith('http') ? "" : direccionFisica;
+            document.getElementById('mapaUrl').value = mapaUrlRaw || (direccionFisica.startsWith('http') ? direccionFisica : "");
+
+            // 2. Cargar Mazorca de Banners Guardada en Empresa
+            if (empData.bannersCorporativos) {
+                cargarCadenaBannersEnFormulario(empData.bannersCorporativos);
+            } else {
+                limpiarRanurasBanners();
+            }
+
+            // 3. Obtener Rutas del Módulo 6 para esta Empresa
+            const snapRutas = await database.ref(`rutas/${empKey}`).once('value');
+            const rutasData = snapRutas.val();
+            if (rutasData) {
+                const nombresRutas = Object.values(rutasData)
+                    .map(r => typeof r === 'object' ? (r.nombreRuta || r.nombre) : r)
+                    .filter(Boolean);
+                document.getElementById('rutasTransporte').value = nombresRutas.join(', ');
+            } else {
+                document.getElementById('rutasTransporte').value = "";
+            }
+
+            // 4. Poblar Select de Vacantes Existentes
+            const snapVac = await database.ref(`vacantes_detalles/${empKey}`).once('value');
+            const vacData = snapVac.val();
+            if (vacData) {
+                cacheVacantesEmpresa = vacData;
+                Object.keys(vacData).forEach(k => {
+                    const opt = document.createElement('option');
+                    opt.value = k;
+                    opt.textContent = vacData[k].nombreVacante || k;
+                    selVac.appendChild(opt);
+                });
+            }
+        }
+
+        // 3. GESTIÓN DE BANNERS (MAZORCA DE 10 RANURAS)
+        function obtenerCadenaBannersFormulario() {
+            const banners = [];
+            for (let i = 1; i <= 10; i++) {
+                const el = document.getElementById(`bannerUrl${i}`);
+                if (el && el.value.trim() !== "") {
+                    banners.push(el.value.trim());
+                }
+            }
+            return banners.join(';');
+        }
+
+        function cargarCadenaBannersEnFormulario(bannerString) {
+            limpiarRanurasBanners();
+            if (!bannerString) return;
+            const lista = bannerString.split(';').map(u => u.trim()).filter(Boolean);
+            lista.forEach((url, index) => {
+                if (index < 10) {
+                    const el = document.getElementById(`bannerUrl${index + 1}`);
+                    if (el) el.value = url;
+                }
+            });
+        }
+
+        function limpiarRanurasBanners() {
+            for (let i = 1; i <= 10; i++) {
+                const el = document.getElementById(`bannerUrl${i}`);
+                if (el) el.value = "";
+            }
+        }
+
+        async function guardarBannersComoDefectoEmpresa() {
+            const empKey = document.getElementById('selectEmpresa').value.trim();
+            if (!empKey) return alert("Selecciona primero una empresa destino.");
+
+            const cadena = obtenerCadenaBannersFormulario();
+            if (!cadena) return alert("Ingresa al menos un enlace de banner en la ranura.");
+
+            try {
+                await database.ref(`empresas/${empKey}/bannersCorporativos`).set(cadena);
+                alert(`¡Banners fijados como plantilla fija para todas las vacantes de ${diccionarioEmpresas[empKey] || empKey}!`);
+            } catch (err) {
+                alert("Error al fijar banners: " + err.message);
+            }
+        }
+
+        // 4. METRICAS GERENCIALES / DIRECTIVAS
+        async function calcularMetricasGlobalesVacantes() {
+            const snap = await database.ref('vacantes_detalles').once('value');
+            const data = snap.val() || {};
+            todasLasVacantesGlobales = [];
+
+            let activas = 0, pausadas = 0, cerradas = 0;
+            let empresasConOfertaSet = new Set();
+            let perfilesCompletos = 0;
+            let conteoPorEmpresa = {};
+
+            Object.entries(data).forEach(([empKey, vacs]) => {
+                if (vacs && typeof vacs === 'object') {
+                    Object.entries(vacs).forEach(([idV, v]) => {
+                        if (v && typeof v === 'object') {
+                            todasLasVacantesGlobales.push({ empKey, idV, ...v });
+                            empresasConOfertaSet.add(empKey);
+                            conteoPorEmpresa[empKey] = (conteoPorEmpresa[empKey] || 0) + 1;
+
+                            if (v.estatus === 'disponible') activas++;
+                            else if (v.estatus === 'pausada') pausadas++;
+                            else cerradas++;
+
+                            // Criterio de Perfil Completo: salario, turnos, banners y descripción
+                            if (v.salario && v.turnos && (v.bannerUrl || v.actividades)) {
+                                perfilesCompletos++;
+                            }
+                        }
+                    });
+                }
+            });
+
+            const total = todasLasVacantesGlobales.length;
+            const totalEmpresasConOfertas = empresasConOfertaSet.size;
+            const promedio = totalEmpresasConOfertas > 0 ? (total / totalEmpresasConOfertas).toFixed(1) : 0;
+            const pctCalidad = total > 0 ? Math.round((perfilesCompletos / total) * 100) : 0;
+
+            // Encontrar Empresa Líder
+            let liderKey = "--", maxConteo = 0;
+            Object.entries(conteoPorEmpresa).forEach(([k, c]) => {
+                if (c > maxConteo) {
+                    maxConteo = c;
+                    liderKey = k;
+                }
+            });
+
+            document.getElementById('kpiTotalVacantes').innerText = total;
+            document.getElementById('kpiDetalleEstatus').innerText = `${activas} Activas • ${pausadas} Pausadas • ${cerradas} Cerradas`;
+            document.getElementById('kpiEmpresasConOfertas').innerText = totalEmpresasConOfertas;
+            document.getElementById('kpiPromedioVacantes').innerText = `Promedio: ${promedio} vacantes por cliente`;
+            document.getElementById('kpiCalidadPerfiles').innerText = `${pctCalidad}%`;
+            document.getElementById('kpiEmpresaLider').innerText = diccionarioEmpresas[liderKey] || liderKey;
+            document.getElementById('kpiDetalleLider').innerText = maxConteo > 0 ? `${maxConteo} vacantes publicadas` : "Sin vacantes";
+        }
+
+        // 5. PROCESAMIENTO DE ARCHIVOS
+        document.getElementById('fileInput').addEventListener('change', async e => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const status = document.getElementById('fileStatus');
+            status.classList.remove('hidden');
+            extractedFileText = ""; attachedFileBase64 = ""; attachedFileType = "";
+
+            try {
+                if (file.type === "text/plain" || file.name.endsWith('.txt')) {
+                    const r = new FileReader();
+                    r.onload = ev => {
+                        extractedFileText = ev.target.result;
+                        status.querySelector('span').innerText = "Texto .txt cargado con éxito.";
+                    };
+                    r.readAsText(file);
+                } else if (file.type === "application/pdf" || file.name.endsWith('.pdf')) {
+                    status.querySelector('span').innerText = "Procesando PDF...";
+                    const r = new FileReader();
+                    r.onload = async ev => {
+                        try {
+                            const pdf = await pdfjsLib.getDocument(new Uint8Array(ev.target.result)).promise;
+                            let txt = "";
+                            for(let i=1; i<=pdf.numPages; i++){
+                                const p = await pdf.getPage(i);
+                                const textContent = await p.getTextContent();
+                                txt += textContent.items.map(x => x.str).join(" ") + "\n";
+                            }
+                            extractedFileText = txt;
+                            status.querySelector('span').innerText = "Documento PDF procesado.";
+                        } catch (pdfErr) {
+                            alert("No se pudo leer el PDF. Sube una captura PNG/JPG o TXT.");
+                        }
+                    };
+                    r.readAsArrayBuffer(file);
+                } else if (file.name.endsWith('.docx')) {
+                    status.querySelector('span').innerText = "Procesando Word...";
+                    const r = new FileReader();
+                    r.onload = ev => {
+                        mammoth.extractRawText({ arrayBuffer: ev.target.result })
+                            .then(x => {
+                                extractedFileText = x.value;
+                                status.querySelector('span').innerText = "Documento Word .docx listo.";
+                            });
+                    };
+                    r.readAsArrayBuffer(file);
+                } else if (file.type.startsWith('image/')) {
+                    const r = new FileReader();
+                    r.onload = ev => {
+                        attachedFileBase64 = ev.target.result.split(',')[1];
+                        attachedFileType = file.type;
+                        status.querySelector('span').innerText = "Imagen cargada (Visión IA Gemini).";
+                    };
+                    r.readAsDataURL(file);
+                }
+            } catch (err) {
+                alert("Error al leer archivo: " + err.message);
+            }
+        });
+
+        // 6. MOTOR EXTRACTOR IA GEMINI 2.5 FLASH ULTRA SENSIBILIZADO
+        async function ejecutarExtraccionIA() {
+            const empKey = document.getElementById('selectEmpresa').value.trim();
+            if (!empKey) return alert("⚠️ Selecciona primero la Empresa Destino.");
+
+            const key = document.getElementById('apiKeyInput').value.trim() || localStorage.getItem("GEMINI_API_KEY_VACANTES");
+            if (!key) return alert("Ingresa tu API Key de Gemini en el cofre superior.");
+
+            const rawText = document.getElementById('rawText').value.trim();
+            if (!rawText && !extractedFileText && !attachedFileBase64) {
+                return alert("Pega texto o adjunta un archivo/imagen para procesar.");
+            }
+
+            const btn = document.getElementById('btnExtract');
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Extrayendo Información con IA...`;
+
+            const systemPrompt = `Eres un motor extractor inteligente de máxima precisión para ofertas de empleo.
+REGLAS DE CLASIFICACIÓN Y SANITIZACIÓN:
+1. Extrae todas las vacantes detectadas en un arreglo JSON estructurado.
+2. Si detectas un enlace de Google Maps (maps.google / goo.gl / maps.app) COLÓCALO ESTRICTAMENTE en 'mapaUrl', JAMÁS en 'lugarOrigen'.
+3. 'lugarOrigen' debe contener únicamente la dirección física, parque o zona geográfica legible.
+4. 'salario' debe contener el monto y periodicidad (ej. $2,800 semanal).
+5. Toda información extra no clasificada (teléfonos, correos, requisitos raros) debes ponerla completa en 'infoGeneral'.
+
+ESQUEMA JSON OBLIGATORIO:
 [
   {
-    "nombreVacante": "Título comercial de la vacante",
-    "edad": "Rango de edad o N/A",
+    "nombreVacante": "Nombre del puesto comercial",
+    "edad": "Rango de edad o Indistinto",
     "sexo": "Masculino / Femenino / Indistinto",
-    "escolaridad": "Nivel escolar mínimo",
-    "experiencia": "Años o tipo de experiencia requerida",
-    "salario": "Sueldo ofrecido y periodicidad",
-    "lugarOrigen": "Dirección física, zona o colonia descriptiva",
-    "mapaUrl": "URL de Google Maps si la incluye el texto",
-    "turnos": "Horarios y turnos de trabajo",
-    "actividades": "Responsabilidades y tareas clave",
-    "beneficios": "Prestaciones de ley o superiores",
-    "rutasTransporte": "Rutas de transporte mencianadas",
-    "infoGeneral": "Toda la información extra o notas sueltas aquí"
+    "escolaridad": "Nivel escolar mínimo requerido",
+    "experiencia": "Experiencia requerida",
+    "salario": "Sueldo y periodicidad",
+    "lugarOrigen": "Dirección física o parque",
+    "mapaUrl": "URL de Google Maps si existe",
+    "turnos": "Horarios y turnos",
+    "actividades": "Responsabilidades clave",
+    "beneficios": "Prestaciones y bonos",
+    "rutasTransporte": "Rutas de camión mencionadas",
+    "infoGeneral": "Información suelta o notas extra"
   }
 ]`;
 
-  try { 
-    // Llamada directa utilizando la API Key proporcionada (Soporta llaves con prefijo AQ)
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`, { 
-      method: 'POST', 
-      headers: {'Content-Type': 'application/json'}, 
-      body: JSON.stringify({ 
-        contents: [{ 
-          parts: [ 
-            { text: `${systemPrompt}\n\n[CONTENIDO A EXTRAER]:\n${txt}\n${extractedFileText}` }, 
-            ...(attachedFileBase64 ? [{ inlineData: { mimeType: attachedFileType, data: attachedFileBase64 } }] : []) 
-          ] 
-        }], 
-        generationConfig: { 
-          responseMimeType: "application/json",
-          temperature: 0.1
-        } 
-      }) 
-    });
-    
-    if (!res.ok) {
-      const errData = await res.json();
-      throw new Error(errData.error?.message || `Error en la API (${res.status})`);
-    }
+            try {
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{
+                            parts: [
+                                { text: `${systemPrompt}\n\n[CONTENIDO A PROCESAR]:\n${rawText}\n${extractedFileText}` },
+                                ...(attachedFileBase64 ? [{ inlineData: { mimeType: attachedFileType, data: attachedFileBase64 } }] : [])
+                            ]
+                        }],
+                        generationConfig: {
+                            responseMimeType: "application/json",
+                            temperature: 0.1
+                        }
+                    })
+                });
 
-    const data = await res.json(); 
-    if (!data.candidates || !data.candidates[0].content.parts[0].text) {
-      throw new Error("Respuesta vacía o formato no reconocido por el modelo.");
-    }
-    
-    let rawTextResponse = data.candidates[0].content.parts[0].text.replace(/```json|```/g,"").trim();
-    let parsedArray = JSON.parse(rawTextResponse);
-    
-    if (!Array.isArray(parsedArray)) parsedArray = [parsedArray];
+                if (!res.ok) {
+                    const errData = await res.json();
+                    throw new Error(errData.error?.message || `Error en API Gemini (${res.status})`);
+                }
 
-    const direccionFallback = (cacheEmpresaActual && (cacheEmpresaActual.direccion || cacheEmpresaActual.direcciones || cacheEmpresaActual.tag || cacheEmpresaActual.nombre)) || "";
-    const mapaFallback = (cacheEmpresaActual && (cacheEmpresaActual.ubicacion || cacheEmpresaActual.mapaUrl || cacheEmpresaActual.url_map || cacheEmpresaActual.url_google_maps)) || "";
-    
-    tempVacantesExtraidas = parsedArray.map(item => {
-      let l = item.lugarOrigen || "";
-      let m = item.mapaUrl || "";
+                const data = await res.json();
+                let rawTextResponse = data.candidates[0].content.parts[0].text.replace(/```json|```/g,"").trim();
+                let parsed = JSON.parse(rawTextResponse);
+                if (!Array.isArray(parsed)) parsed = [parsed];
 
-      if (l.startsWith('http')) {
-        m = l;
-        l = direccionFallback;
-      } else if (!l) {
-        l = direccionFallback;
-      }
+                const fallbackDireccion = (cacheEmpresaActual && (cacheEmpresaActual.direccion || cacheEmpresaActual.direcciones || cacheEmpresaActual.tag || cacheEmpresaActual.nombre)) || "";
+                const fallbackMapa = (cacheEmpresaActual && (cacheEmpresaActual.ubicacion || cacheEmpresaActual.mapaUrl || cacheEmpresaActual.url_map || cacheEmpresaActual.url_google_maps)) || "";
 
-      return { ...item, lugarOrigen: l, mapaUrl: m || mapaFallback };
-    });
+                tempVacantesExtraidas = parsed.map(item => {
+                    let dir = item.lugarOrigen || "";
+                    let mapa = item.mapaUrl || "";
 
-    abrirModalMultivacantes(emp, tempVacantesExtraidas);
+                    if (dir.startsWith("http")) {
+                        mapa = dir;
+                        dir = fallbackDireccion;
+                    }
 
-  } catch (err) { 
-    console.error(err); 
-    alert("⚠️ Error en el Extractor IA:\n" + err.message); 
-  } finally { 
-    btn.disabled = false; 
-    btn.innerHTML = `<i data-lucide="cpu" class="w-4 h-4"></i> Extraer Información con IA`; 
-    lucide.createIcons(); 
-  }
-}); 
+                    return {
+                        ...item,
+                        lugarOrigen: dir || fallbackDireccion,
+                        mapaUrl: mapa || fallbackMapa
+                    };
+                });
 
-function abrirModalMultivacantes(empresaKey, vacantes) {
-  const modal = document.getElementById('modalMultivacantes');
-  const container = document.getElementById('modalVacantesList');
-  document.getElementById('modalCount').innerText = vacantes.length;
-  document.getElementById('modalEmpresaTarget').innerText = `Empresa de Destino: ${empresaKey.toUpperCase()}`;
-  
-  container.innerHTML = "";
+                abrirModalMultivacantes(empKey, tempVacantesExtraidas);
 
-  vacantes.forEach((v, idx) => {
-    const card = document.createElement('div');
-    card.className = "bg-[#182332] border border-[#2e445e] p-4 rounded-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4";
-    card.innerHTML = `
-      <div class="flex-1 space-y-1">
-        <div class="flex items-center gap-2">
-          <span class="text-[10px] font-mono bg-indigo-900/60 text-indigo-300 px-2 py-0.5 rounded border border-indigo-700">Vacante #${idx+1}</span>
-          <h4 class="font-bold text-white text-sm">${v.nombreVacante || 'Sin Nombre'}</h4>
-        </div>
-        <p class="text-xs text-slate-400"><strong>Ubicación:</strong> ${v.lugarOrigen || 'N/A'} | <strong>Salario:</strong> ${v.salario || 'N/A'}</p>
-      </div>
-      <button onclick="cargarUnaSolaVacante(${idx})" class="w-full md:w-auto px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white font-semibold rounded-lg text-xs transition flex items-center justify-center gap-1 cursor-pointer">
-        <i data-lucide="arrow-right-circle" class="w-3.5 h-3.5"></i> Cargar al Formulario
-      </button>
-    `;
-    container.appendChild(card);
-  });
+            } catch (err) {
+                alert("Error en Extractor IA:\n" + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<i class="fas fa-microchip"></i> Extraer y Clasificar con IA`;
+            }
+        }
 
-  lucide.createIcons();
-  modal.classList.remove('hidden');
-}
+        // 7. MODAL Y CARGA INDIVIDUAL O POR LOTE
+        function abrirModalMultivacantes(empresaKey, vacantes) {
+            const modal = document.getElementById('modalMultivacantes');
+            const container = document.getElementById('modalVacantesList');
+            document.getElementById('modalCount').innerText = vacantes.length;
+            document.getElementById('modalEmpresaTarget').innerText = `Empresa Asignada: ${diccionarioEmpresas[empresaKey] || empresaKey}`;
+            container.innerHTML = "";
 
-function cerrarModal() { document.getElementById('modalMultivacantes').classList.add('hidden'); }
-document.getElementById('btnCloseModal').addEventListener('click', cerrarModal);
-document.getElementById('btnCancelModal').addEventListener('click', cerrarModal);
+            vacantes.forEach((v, idx) => {
+                const card = document.createElement('div');
+                card.className = "bg-cyber-card border border-cyber-border p-3.5 rounded-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-3";
+                card.innerHTML = `
+                    <div class="flex-1 space-y-1">
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] font-mono bg-purple-950 text-purple-300 px-2 py-0.5 rounded border border-purple-800">#${idx+1}</span>
+                            <h4 class="font-bold text-white text-sm">${v.nombreVacante || 'Sin Nombre'}</h4>
+                        </div>
+                        <p class="text-xs text-slate-400"><strong>Salario:</strong> ${v.salario || 'N/A'} • <strong>Ubicación:</strong> ${v.lugarOrigen || 'General'}</p>
+                    </div>
+                    <button onclick="cargarUnaSolaVacanteAlFormulario(${idx})" class="w-full md:w-auto px-3.5 py-1.5 bg-amber-600 hover:bg-amber-500 text-white font-semibold rounded-lg text-xs transition flex items-center justify-center gap-1">
+                        <i class="fas fa-arrow-right"></i> Cargar al Formulario
+                    </button>
+                `;
+                container.appendChild(card);
+            });
 
-window.cargarUnaSolaVacante = function(index) {
-  const item = tempVacantesExtraidas[index];
-  if (!item) return;
-  
-  const emp = document.getElementById('selectEmpresa').value.trim();
-  const baseSlug = generarPuestoIdEstructurado(emp, item.nombreVacante || "vacante");
-  item.puestoId = calcularIdUnicoConSufijo(baseSlug);
+            modal.classList.remove('hidden');
+        }
 
-  cargarObjetoEnFormulario(item);
-  cerrarModal();
-  alert(`Vacante "${item.nombreVacante}" cargada al formulario.`);
-};
+        function cerrarModalMultivacantes() {
+            document.getElementById('modalMultivacantes').classList.add('hidden');
+        }
 
-function calcularIdUnicoConSufijo(baseSlug) {
-  if (!cacheVacantesEmpresa[baseSlug]) return baseSlug;
-  let contador = 2;
-  while (cacheVacantesEmpresa[`${baseSlug}_${contador}`]) { contador++; }
-  return `${baseSlug}_${contador}`;
-}
+        function cargarUnaSolaVacanteAlFormulario(index) {
+            const item = tempVacantesExtraidas[index];
+            if (!item) return;
 
-document.getElementById('btnSaveAllModal').addEventListener('click', async () => {
-  const emp = document.getElementById('selectEmpresa').value.trim();
-  if (!emp || !tempVacantesExtraidas.length) return;
+            const empKey = document.getElementById('selectEmpresa').value.trim();
+            const baseSlug = generarPuestoIdEstructurado(empKey, item.nombreVacante || "vacante");
+            item.puestoId = calcularIdUnicoConSufijo(baseSlug);
 
-  const btn = document.getElementById('btnSaveAllModal');
-  btn.disabled = true;
-  btn.innerHTML = "Guardando Lote...";
+            cargarObjetoEnFormulario(item);
+            cerrarModalMultivacantes();
+            alert(`Vacante "${item.nombreVacante}" cargada al formulario para revisión.`);
+        }
 
-  let guardadas = 0;
-  const direccionFallback = (cacheEmpresaActual && (cacheEmpresaActual.direccion || cacheEmpresaActual.direcciones || cacheEmpresaActual.tag || cacheEmpresaActual.nombre)) || "";
-  const mapaFallback = (cacheEmpresaActual && (cacheEmpresaActual.ubicacion || cacheEmpresaActual.mapaUrl || cacheEmpresaActual.url_map || cacheEmpresaActual.url_google_maps)) || "";
+        async function guardarTodasLasVacantesLote() {
+            const empKey = document.getElementById('selectEmpresa').value.trim();
+            if (!empKey || !tempVacantesExtraidas.length) return;
 
-  for (let item of tempVacantesExtraidas) {
-    const baseSlug = generarPuestoIdEstructurado(emp, item.nombreVacante || "vacante");
-    const pid = calcularIdUnicoConSufijo(baseSlug);
+            const btn = document.getElementById('btnSaveAllModal');
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Guardando Lote...`;
 
-    let l = item.lugarOrigen || "";
-    let m = item.mapaUrl || "";
+            let guardadas = 0;
+            const bannersEmpresa = (cacheEmpresaActual && cacheEmpresaActual.bannersCorporativos) ? cacheEmpresaActual.bannersCorporativos : obtenerCadenaBannersFormulario();
 
-    if (l.startsWith('http')) {
-      m = l;
-      l = direccionFallback;
-    } else if (!l) {
-      l = direccionFallback;
-    }
+            for (let item of tempVacantesExtraidas) {
+                const baseSlug = generarPuestoIdEstructurado(empKey, item.nombreVacante || "vacante");
+                const pid = calcularIdUnicoConSufijo(baseSlug);
 
-    const datosFinales = {
-      puestoId: pid,
-      nombreVacante: item.nombreVacante || "",
-      estatus: "disponible",
-      bannerUrl: "",
-      edad: item.edad || "",
-      sexo: item.sexo || "",
-      escolaridad: item.escolaridad || "",
-      experiencia: item.experiencia || "",
-      salario: item.salario || "",
-      lugarOrigen: l,
-      mapaUrl: m || mapaFallback,
-      turnos: item.turnos || "",
-      rutasTransporte: item.rutasTransporte || "",
-      infoGeneral: item.infoGeneral || "",
-      actividades: item.actividades || "",
-      beneficios: item.beneficios || "",
-      visitas: 1
-    };
+                const datosFinales = {
+                    puestoId: pid,
+                    nombreVacante: item.nombreVacante || "",
+                    estatus: "disponible",
+                    bannerUrl: bannersEmpresa || "",
+                    edad: item.edad || "",
+                    sexo: item.sexo || "",
+                    escolaridad: item.escolaridad || "",
+                    experiencia: item.experiencia || "",
+                    salario: item.salario || "",
+                    lugarOrigen: item.lugarOrigen || "",
+                    mapaUrl: item.mapaUrl || "",
+                    turnos: item.turnos || "",
+                    rutasTransporte: item.rutasTransporte || document.getElementById('rutasTransporte').value,
+                    infoGeneral: item.infoGeneral || "",
+                    actividades: item.actividades || "",
+                    beneficios: item.beneficios || "",
+                    visitas: 1
+                };
 
-    try {
-      await database.ref(`vacantes_detalles/${emp}/${pid}`).set(datosFinales);
-      cacheVacantesEmpresa[pid] = datosFinales;
-      registrarLog("Administrador", "Módulo 2: Vacantes", "CREAR", `Lote: '${datosFinales.nombreVacante}' para '${emp.toUpperCase()}'.`);
-      guardadas++;
-    } catch (e) {
-      console.error(`Error guardando vacante ${pid}:`, e);
-    }
-  }
+                try {
+                    await database.ref(`vacantes_detalles/${empKey}/${pid}`).set(datosFinales);
+                    cacheVacantesEmpresa[pid] = datosFinales;
+                    guardadas++;
+                } catch (err) {
+                    console.error("Error guardando vacante:", err);
+                }
+            }
 
-  btn.disabled = false;
-  btn.innerHTML = `<i data-lucide="upload-cloud" class="w-4 h-4"></i> Subir Todo a Firebase`;
-  lucide.createIcons();
-  
-  cerrarModal();
-  alert(`¡Proceso finalizado! Se guardaron ${guardadas} vacantes en ${emp.toUpperCase()} ✅`);
-  document.getElementById('selectEmpresa').dispatchEvent(new Event('change'));
-});
+            btn.disabled = false;
+            btn.innerHTML = `<i class="fas fa-upload"></i> Subir Lote Completo`;
+            cerrarModalMultivacantes();
+            alert(`¡Proceso completado! Se guardaron ${guardadas} vacantes en ${diccionarioEmpresas[empKey] || empKey}.`);
+            alCambiarEmpresaSeleccionada();
+            calcularMetricasGlobalesVacantes();
+        }
 
-document.getElementById('vacanteForm').addEventListener('submit', e => { e.preventDefault(); guardar(); }); 
-document.getElementById('btnSaveChange').addEventListener('click', guardar); 
+        // 8. FORMULARIO DINÁMICO & PERSISTENCIA INDIVIDUAL
+        function generarPuestoIdEstructurado(empresaKey, nombreVacante) {
+            if (!nombreVacante) return "";
+            const slugVacante = nombreVacante.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]/g,"_").replace(/_+/g,"_").trim();
+            if (!empresaKey) return slugVacante;
+            const slugEmpresa = empresaKey.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]/g,"_").trim();
+            return `${slugEmpresa}_${slugVacante}`;
+        }
 
-function guardar() { 
-  let emp = document.getElementById('selectEmpresa').value.trim(); 
-  let pid = document.getElementById('puestoId').value.trim(); 
+        document.getElementById('nombreVacante').addEventListener('input', e => {
+            const emp = document.getElementById('selectEmpresa').value.trim();
+            document.getElementById('puestoId').value = generarPuestoIdEstructurado(emp, e.target.value);
+        });
 
-  if (!emp) { 
-    emp = prompt("Nombre de la empresa:"); 
-    if (!emp) return; 
-    emp = emp.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]/g,"").trim(); 
-  }
-  
-  const nombreVac = document.getElementById('nombreVacante').value.trim();
-  if (!nombreVac) return alert("Asigna un nombre a la vacante.");
+        function calcularIdUnicoConSufijo(baseSlug) {
+            if (!cacheVacantesEmpresa[baseSlug]) return baseSlug;
+            let contador = 2;
+            while (cacheVacantesEmpresa[`${baseSlug}_${contador}`]) { contador++; }
+            return `${baseSlug}_${contador}`;
+        }
 
-  const baseSlug = generarPuestoIdEstructurado(emp, nombreVac);
-  if (!pid) {
-    pid = calcularIdUnicoConSufijo(baseSlug);
-    document.getElementById('puestoId').value = pid;
-  }
+        function cargarObjetoEnFormulario(d) {
+            document.getElementById('puestoId').value = d.puestoId || "";
+            document.getElementById('nombreVacante').value = d.nombreVacante || "";
+            document.getElementById('estatus').value = d.estatus || "disponible";
 
-  let lugarInput = document.getElementById('lugarOrigen').value.trim();
-  let mapaInput = document.getElementById('mapaUrl').value.trim();
-  const direccionFallback = (cacheEmpresaActual && (cacheEmpresaActual.direccion || cacheEmpresaActual.direcciones || cacheEmpresaActual.tag || cacheEmpresaActual.nombre)) || "";
-  const mapaFallback = (cacheEmpresaActual && (cacheEmpresaActual.ubicacion || cacheEmpresaActual.mapaUrl || cacheEmpresaActual.url_map || cacheEmpresaActual.url_google_maps)) || "";
+            // Si la vacante no tiene banners individuales, hereda los de la empresa
+            const bannersCargar = d.bannerUrl || (cacheEmpresaActual && cacheEmpresaActual.bannersCorporativos) || "";
+            cargarCadenaBannersEnFormulario(bannersCargar);
 
-  if (lugarInput.startsWith('http')) {
-    mapaInput = lugarInput;
-    lugarInput = direccionFallback;
-    document.getElementById('mapaUrl').value = mapaInput;
-    document.getElementById('lugarOrigen').value = lugarInput;
-  }
+            document.getElementById('edad').value = d.edad || "";
+            document.getElementById('sexo').value = d.sexo || "";
+            document.getElementById('escolaridad').value = d.escolaridad || "";
+            document.getElementById('experiencia').value = d.experiencia || "";
+            document.getElementById('salario').value = d.salario || "";
+            document.getElementById('lugarOrigen').value = d.lugarOrigen || "";
+            document.getElementById('mapaUrl').value = d.mapaUrl || "";
+            document.getElementById('turnos').value = d.turnos || "";
+            document.getElementById('rutasTransporte').value = d.rutasTransporte || "";
+            document.getElementById('infoGeneral').value = d.infoGeneral || "";
+            document.getElementById('actividades').value = d.actividades || "";
+            document.getElementById('beneficios').value = d.beneficios || "";
 
-  const esEdicion = !!cacheVacantesEmpresa[pid];
-  const datos = { 
-    puestoId: pid, 
-    nombreVacante: nombreVac, 
-    estatus: document.getElementById('estatus').value, 
-    bannerUrl: obtenerCadenaBannersFormulario(), 
-    edad: document.getElementById('edad').value, 
-    sexo: document.getElementById('sexo').value, 
-    escolaridad: document.getElementById('escolaridad').value, 
-    experiencia: document.getElementById('experiencia').value, 
-    salario: document.getElementById('salario').value, 
-    lugarOrigen: lugarInput || direccionFallback, 
-    mapaUrl: mapaInput || mapaFallback, 
-    turnos: document.getElementById('turnos').value, 
-    rutasTransporte: document.getElementById('rutasTransporte').value, 
-    infoGeneral: document.getElementById('infoGeneral').value, 
-    actividades: document.getElementById('actividades').value, 
-    beneficios: document.getElementById('beneficios').value, 
-    visitas: (cacheVacantesEmpresa[pid] && cacheVacantesEmpresa[pid].visitas) ? cacheVacantesEmpresa[pid].visitas : 1 
-  };
+            actualizarVistaJSON({
+                ...d,
+                bannerUrl: obtenerCadenaBannersFormulario(),
+                lugarOrigen: document.getElementById('lugarOrigen').value,
+                mapaUrl: document.getElementById('mapaUrl').value
+            });
+        }
 
-  updateJsonOutput(datos);
-  database.ref(`vacantes_detalles/${emp}/${pid}`).set(datos, err => { 
-    if (err) {
-      alert("Error: " + err.message); 
-    } else { 
-      registrarLog("Administrador", "Módulo 2: Vacantes", esEdicion ? "MODIFICAR" : "CREAR", `Vacante '${pid}' ${esEdicion ? 'actualizada' : 'creada'} en '${emp.toUpperCase()}'.`);
-      alert(`Guardado en ${emp.toUpperCase()} con ID: ${pid} ✅`); 
-      loadEmpresasDinamicas(); 
-      document.getElementById('selectEmpresa').value = emp; 
-      document.getElementById('selectEmpresa').dispatchEvent(new Event('change')); 
-    }
-  }); 
-}
-</script> 
-</body> 
+        function cargarVacanteSeleccionadaAlFormulario() {
+            const key = document.getElementById('selectVacante').value;
+            if (!key || !cacheVacantesEmpresa[key]) return alert("Selecciona una vacante registrada.");
+            cargarObjetoEnFormulario(cacheVacantesEmpresa[key]);
+            alert("Vacante cargada al formulario ✅");
+        }
+
+        async function eliminarVacanteSeleccionada() {
+            const empKey = document.getElementById('selectEmpresa').value;
+            const key = document.getElementById('selectVacante').value;
+            if (!empKey || !key) return alert("Selecciona empresa y vacante.");
+
+            if (confirm(`¿Eliminar definitivamente la vacante '${key}'?`)) {
+                await database.ref(`vacantes_detalles/${empKey}/${key}`).remove();
+                alert("Vacante eliminada.");
+                resetFormularioVacante();
+                alCambiarEmpresaSeleccionada();
+                calcularMetricasGlobalesVacantes();
+            }
+        }
+
+        function resetFormularioVacante() {
+            document.getElementById('vacanteForm').reset();
+            limpiarRanurasBanners();
+            document.getElementById('puestoId').value = "";
+            document.getElementById('selectVacante').value = "";
+            document.getElementById('jsonOutput').innerText = "{}";
+        }
+
+        function actualizarVistaJSON(data) {
+            document.getElementById('jsonOutput').innerText = JSON.stringify(data, null, 2);
+        }
+
+        async function guardarVacanteFormulario(e) {
+            e.preventDefault();
+            const empKey = document.getElementById('selectEmpresa').value.trim();
+            if (!empKey) return alert("Selecciona la Empresa Destino.");
+
+            const nombreVac = document.getElementById('nombreVacante').value.trim();
+            if (!nombreVac) return alert("Ingresa el Nombre Comercial de la Vacante.");
+
+            let pid = document.getElementById('puestoId').value.trim();
+            if (!pid) {
+                const baseSlug = generarPuestoIdEstructurado(empKey, nombreVac);
+                pid = calcularIdUnicoConSufijo(baseSlug);
+                document.getElementById('puestoId').value = pid;
+            }
+
+            const datos = {
+                puestoId: pid,
+                nombreVacante: nombreVac,
+                estatus: document.getElementById('estatus').value,
+                bannerUrl: obtenerCadenaBannersFormulario(),
+                edad: document.getElementById('edad').value.trim(),
+                sexo: document.getElementById('sexo').value.trim(),
+                escolaridad: document.getElementById('escolaridad').value.trim(),
+                experiencia: document.getElementById('experiencia').value.trim(),
+                salario: document.getElementById('salario').value.trim(),
+                lugarOrigen: document.getElementById('lugarOrigen').value.trim(),
+                mapaUrl: document.getElementById('mapaUrl').value.trim(),
+                turnos: document.getElementById('turnos').value.trim(),
+                rutasTransporte: document.getElementById('rutasTransporte').value.trim(),
+                infoGeneral: document.getElementById('infoGeneral').value.trim(),
+                actividades: document.getElementById('actividades').value.trim(),
+                beneficios: document.getElementById('beneficios').value.trim(),
+                visitas: (cacheVacantesEmpresa[pid] && cacheVacantesEmpresa[pid].visitas) ? cacheVacantesEmpresa[pid].visitas : 1
+            };
+
+            actualizarVistaJSON(datos);
+
+            try {
+                await database.ref(`vacantes_detalles/${empKey}/${pid}`).set(datos);
+                alert(`¡Vacante guardada exitosamente en ${diccionarioEmpresas[empKey] || empKey}!`);
+                alCambiarEmpresaSeleccionada();
+                calcularMetricasGlobalesVacantes();
+            } catch (err) {
+                alert("Error al guardar vacante: " + err.message);
+            }
+        }
+    </script>
+</body>
 </html>
