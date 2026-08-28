@@ -196,12 +196,12 @@
 
             <!-- CONTENEDOR DEL MAPA Y RESULTADOS -->
             <div id="resultadoGeolocalizador" class="grid grid-cols-1 lg:grid-cols-5 gap-4 pt-2">
-                <!-- CONTENEDOR MAPA LEAFLET (3 cols en desktop) -->
+                <!-- CONTENEDOR MAPA LEAFLET -->
                 <div class="lg:col-span-3 bg-cyber-bg rounded-xl border border-cyber-border p-2 flex flex-col h-80 sm:h-96">
                     <div id="mapaLeaflet" class="w-full h-full rounded-lg z-10"></div>
                 </div>
 
-                <!-- LISTADO DE MATCHES / DETALLE DE RUTAS (2 cols en desktop) -->
+                <!-- LISTADO DE MATCHES / DETALLE DE RUTAS -->
                 <div class="lg:col-span-2 bg-cyber-bg/80 p-3 sm:p-4 rounded-xl border border-cyber-border flex flex-col justify-between h-80 sm:h-96 overflow-y-auto">
                     <div>
                         <h3 class="text-xs font-mono uppercase text-cyber-cyan mb-2.5 border-b border-cyber-border pb-2 flex justify-between items-center" id="txtEncabezadoResultados">
@@ -225,7 +225,7 @@
                     <h2 id="formTitle" class="text-xs font-bold uppercase text-cyber-purple tracking-wider flex items-center gap-2">
                         <i class="fas fa-bus-simple"></i> Registro / Edición Manual
                     </h2>
-                    <span class="text-[10px] text-slate-400 font-mono">Tip: Haz clic en el mapa para capturar coordenadas</span>
+                    <span class="text-[10px] text-slate-400 font-mono">Tip: Clic en mapa para coordenadas</span>
                 </div>
 
                 <form id="formRuta" onsubmit="guardarRutaManual(event)" class="space-y-3.5">
@@ -395,7 +395,7 @@
     <!-- FIREBASE V10 SDK (MODULAR) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, get, push, update, remove, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { getDatabase, ref, get, push, update, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDxgP1YnycCEqkQ2vr3SPkwc9QMhtG8Zqw",
@@ -411,7 +411,7 @@
         const db = getDatabase(app);
 
         // ESTADO GLOBAL LOCAL
-        let diccionarioEmpresas = {}; // keyFirebase -> { nombreComercial, id }
+        let diccionarioEmpresas = {};
         let listaEmpresasNombres = [];
         let cacheTodasLasRutas = [];
         let paginaActual = 0;
@@ -419,7 +419,6 @@
 
         let leafletMap = null;
         let leafletMarkers = [];
-        let qrInstancia = null;
 
         // EXPONER FUNCIONES AL ÁMBITO GLOBAL WINDOW
         window.sincronizarInicialBajoDemanda = sincronizarInicialBajoDemanda;
@@ -456,7 +455,6 @@
                     get(ref(db, "rutas"))
                 ]);
 
-                // Procesar Empresas y obtener únicamente nombres comerciales limpios
                 const dataEmp = snapEmpresas.val() || {};
                 diccionarioEmpresas = {};
                 listaEmpresasNombres = [];
@@ -480,7 +478,6 @@
                 listaEmpresasNombres.sort();
                 poblarSelectsEmpresas();
 
-                // Procesar Rutas
                 const dataRutas = snapRutas.val() || {};
                 aplanarRutasParaCache(dataRutas);
 
@@ -533,8 +530,6 @@
 
         function actualizarMetricasGerenciales() {
             const totalEmpresas = listaEmpresasNombres.length;
-            
-            // Empresas que tienen al menos una ruta asignada
             const empresasConRutaSet = new Set();
             let totalRutasConCoords = 0;
 
@@ -568,14 +563,14 @@
         // 2. MAPA LEAFLET & EXPLORADOR POR EMPRESA
         function inicializarMapaLeaflet() {
             if (!leafletMap) {
-                // Coordenadas iniciales (Centro de México aprox o default seguro)
                 leafletMap = L.map('mapaLeaflet').setView([25.6866, -100.3161], 11);
-                L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                
+                // Servidor libre OpenStreetMap sin requerimiento de API Key
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     maxZoom: 19,
-                    attribution: '© OpenStreetMap / CARTO'
+                    attribution: '© OpenStreetMap contributors'
                 }).addTo(leafletMap);
 
-                // Capturar clic en el mapa para auto-rellenar coordenadas en el formulario de edición
                 leafletMap.on('click', function(e) {
                     const lat = e.latlng.lat.toFixed(6);
                     const lng = e.latlng.lng.toFixed(6);
@@ -629,7 +624,6 @@
                     leafletMarkers.push(marker);
                 }
 
-                // Renderizar tarjeta en panel lateral
                 const card = document.createElement("div");
                 card.className = "flex flex-col bg-cyber-bg p-3 rounded-lg border border-cyber-border text-xs gap-1.5 hover:border-cyber-accent/40 transition-all";
                 card.innerHTML = `
@@ -745,7 +739,6 @@
             const contenedor = document.getElementById("listaMatchRutas");
             contenedor.innerHTML = "";
 
-            // Pin del Candidato
             const candMarker = L.circleMarker([cLat, cLng], {
                 radius: 9,
                 fillColor: "#ea580c",
@@ -791,7 +784,6 @@
             matches.forEach(m => {
                 boundsCoords.push([m.lat, m.lng]);
 
-                // Marker en mapa
                 const marker = L.marker([m.lat, m.lng]).addTo(leafletMap);
                 marker.bindPopup(`
                     <div style="font-size:12px;">
@@ -803,7 +795,6 @@
                 `);
                 leafletMarkers.push(marker);
 
-                // Polilínea conectora
                 const poly = L.polyline([[cLat, cLng], [m.lat, m.lng]], {
                     color: m.score >= 80 ? '#10b981' : (m.score >= 50 ? '#f59e0b' : '#ef4444'),
                     weight: 2,
@@ -811,7 +802,6 @@
                 }).addTo(leafletMap);
                 leafletMarkers.push(poly);
 
-                // Tarjeta de Match
                 const colorScore = m.score >= 80 ? 'text-emerald-400 border-emerald-500/30' : (m.score >= 50 ? 'text-amber-400 border-amber-500/30' : 'text-red-400 border-red-500/30');
                 const card = document.createElement("div");
                 card.className = "flex flex-col bg-cyber-bg p-3 rounded-lg border border-cyber-border text-xs gap-1.5";
@@ -858,7 +848,6 @@
                 urlDestino = `https://www.google.com/maps/search/?api=1&query=${parseFloat(p[0])},${parseFloat(p[1])}`;
             }
 
-            // Generar nuevo código QR dinámico
             new QRCode(contenedorQR, {
                 text: urlDestino,
                 width: 90,
