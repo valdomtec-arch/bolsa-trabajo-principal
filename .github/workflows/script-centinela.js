@@ -1,6 +1,6 @@
 const admin = require("firebase-admin");
 
-// 1. Inicializar la conexión segura con tu Realtime Database
+// 1. Inicializar la conexión segura con Realtime Database
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
@@ -11,38 +11,55 @@ const db = admin.database();
 
 async function ejecutarCentinela() {
     console.log("⏰ Iniciando el Centinela de las 9:00 PM...");
+
+    // 2. Verificar si el sistema se encuentra en Modo Mantenimiento
+    const snapMantenimiento = await db.ref("configuracion_sistema/centinela_mantenimiento").once("value");
+    if (snapMantenimiento.val() === true) {
+        console.log("⏸️ Modo MANTENIMIENTO activo desde el panel. Se pausan los envíos automáticos de hoy.");
+        process.exit(0);
+    }
     
-    // Obtener la fecha de mañana en formato local de México (YYYY-MM-DD)
+    // 3. Obtener la fecha de mañana en formato local de México (YYYY-MM-DD)
     const opciones = { timeZone: 'America/Mexico_City', year: 'numeric', month: '2-digit', day: '2-digit' };
     const hoyEnMexico = new Intl.DateTimeFormat('es-MX', opciones).format(new Date());
     
-    // Formatear la fecha de mañana para que coincida con tus registros
     const [dia, mes, anio] = hoyEnMexico.split('/');
-    const fechaMañanaObj = new Date(`${anio}-${mes}-${dia}`);
-    fechaMañanaObj.setDate(fechaMañanaObj.getDate() + 1);
+    const fechaMananaObj = new Date(`${anio}-${mes}-${dia}T00:00:00`);
+    fechaMananaObj.setDate(fechaMananaObj.getDate() + 1);
     
-    const mañanaISO = fechaMañanaObj.toISOString().split('T')[0]; // Ejemplo: "2026-07-19"
-    console.log(`🔍 Buscando entrevistas agendadas para el día (mañana): ${mañanaISO}`);
+    const anioM = fechaMananaObj.getFullYear();
+    const mesM = String(fechaMananaObj.getMonth() + 1).padStart(2, '0');
+    const diaM = String(fechaMananaObj.getDate()).padStart(2, '0');
+    const mananaISO = `${anioM}-${mesM}-${diaM}`;
 
-    // Leer el nodo de postulantes
+    console.log(`🔍 Buscando entrevistas agendadas para el día (mañana): ${mananaISO}`);
+
+    // 4. Leer el nodo de postulantes
     const snapshot = await db.ref("postulantes").once("value");
     const postulantes = snapshot.val() || {};
 
     let envios = 0;
 
     for (const [id, p] of Object.entries(postulantes)) {
-        // REGLA: Estatus "En Entrevista" y que su diaEntrevista coincida con la fecha de mañana
-        if (p.estatus === "En Entrevista" && p.diaEntrevista === mañanaISO) {
+        if (!p) continue;
+
+        const estatus = p.estatus || "";
+        const cita = p.diaEntrevista || p.fechaEntrevista || "";
+
+        // Coincide si el estatus es 'En Entrevista' y la cita inicia con la fecha de mañana (con o sin hora)
+        if (estatus === "En Entrevista" && typeof cita === "string" && cita.startsWith(mananaISO)) {
+            const vacante = p.nombreVacante || p.vacante || "la vacante solicitada";
+            const empresa = p.empresa || p.empresaId || "la empresa contratante";
+            const hora = cita.includes(" ") ? ` a las ${cita.split(" ")[1]}` : "";
+
             console.log(`📢 Disparando recordatorio para: ${p.nombre} (${p.telefono})`);
             
-            // Construcción del mensaje de texto inteligente
-            let mensaje = `Hola ${p.nombre}, te recordamos tu asistencia el día de mañana a tu entrevista para la vacante de ${p.vacante} en la empresa ${p.empresa}. Favor de presentarte con tu documentación obligatoria completa.`;
+            let mensaje = `Hola ${p.nombre}, te recordamos tu asistencia el día de mañana${hora} a tu entrevista para la vacante de ${vacante} en ${empresa}. Favor de presentarte con tu documentación completa.`;
             
-            if (p.logistica_ruta_id) {
-                mensaje += ` Tu ruta de transporte asignada es: ${p.logistica_ruta_id}.`;
+            if (p.logistica_ruta_id || p.rutasTransporte) {
+                mensaje += ` Tu ruta de transporte asignada es: ${p.logistica_ruta_id || p.rutasTransporte}.`;
             }
 
-            // Enviar vía API Gateway de WhatsApp
             await enviarMensajeGateway(p.telefono, mensaje);
             envios++;
         }
@@ -52,9 +69,8 @@ async function ejecutarCentinela() {
     process.exit(0);
 }
 
-// Conector genérico para la pasarela de envío
+// Conector para pasarela de envío (WhatsApp Gateway)
 async function enviarMensajeGateway(telefono, texto) {
-    // Aquí se conectará tu proveedor de WhatsApp masivo (como UltraMsg, Twilio, etc.)
     console.log(`📡 Mensaje enviado simulado a +52${telefono}: "${texto}"`);
     return Promise.resolve();
 }
