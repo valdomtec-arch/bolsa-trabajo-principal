@@ -61,9 +61,9 @@
         <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-cyber-border pb-5">
             <div>
                 <h1 class="text-2xl font-black text-white flex items-center gap-2">
-                    <span class="text-cyber-accent">⚡</span> Motor de Transporte <span class="text-xs bg-cyber-accent/20 text-cyber-accent px-2 py-0.5 rounded border border-cyber-accent/40 font-mono">v3.2 OSRM Enterprise</span>
+                    <span class="text-cyber-accent">⚡</span> Motor de Transporte <span class="text-xs bg-cyber-accent/20 text-cyber-accent px-2 py-0.5 rounded border border-cyber-accent/40 font-mono">v3.3 Sync Pro</span>
                 </h1>
-                <p class="text-xs text-slate-400 mt-1">Extracción dual de horarios, ruteo vial real por calles y asignación operativa de flota</p>
+                <p class="text-xs text-slate-400 mt-1">Extracción dual de horarios, ruteo vial real por calles y normalización universal para M6</p>
             </div>
             <div class="flex items-center gap-2">
                 <span id="badgeRutasCount" class="bg-cyber-purple/20 border border-cyber-purple/40 text-cyber-purple text-xs font-bold px-3 py-1.5 rounded-lg">
@@ -75,7 +75,7 @@
             </div>
         </header>
 
-        <!-- SECCIÓN SUPERIOR: PANEL DE EXTRACCIÓN + MAPA -->
+        <!-- SECCIÓN SUPERIOR: PANEL DE CONFIGURACIÓN + MAPA -->
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
             
             <!-- CONTROLES Y PARÁMETROS -->
@@ -176,26 +176,25 @@
             </div>
         </div>
 
-        <!-- SECCIÓN INFERIOR: VISOR JSON + AUDITORÍA DE PARADAS -->
+        <!-- SECCIÓN INFERIOR: VISOR JSON + TABLA DE AUDITORÍA -->
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
             
-            <!-- VISOR JSON -->
+            <!-- VISOR JSON NORMALIZADO -->
             <div class="lg:col-span-4 bg-cyber-card border border-cyber-border rounded-xl p-5 flex flex-col space-y-3">
                 <div class="flex items-center justify-between">
                     <h2 class="text-xs font-bold text-cyber-purple uppercase tracking-wider flex items-center gap-2">
-                        <span>🤖</span> Estructura JSON Normalizada
+                        <span>🤖</span> Estructura JSON Sincronizada
                     </h2>
                     <button onclick="copiarJsonAlPortapapeles()" class="text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded border border-slate-700 transition-colors">
                         📋 Copiar
                     </button>
                 </div>
-                <textarea id="jsonOutputViewer" readonly placeholder="Los esquemas JSON con horarios duales, distancias OSRM y datos operativos se mostrarán aquí..." class="w-full h-full min-h-[420px] bg-cyber-bg border border-slate-800 rounded-lg p-3 text-xs font-mono text-emerald-400 custom-scrollbar focus:outline-none resize-none"></textarea>
+                <textarea id="jsonOutputViewer" readonly placeholder="Los esquemas normalizados con multi-horarios y resumen M6 se mostrarán aquí..." class="w-full h-full min-h-[420px] bg-cyber-bg border border-slate-800 rounded-lg p-3 text-xs font-mono text-emerald-400 custom-scrollbar focus:outline-none resize-none"></textarea>
             </div>
 
             <!-- CONTROLES POR BLOQUE DE RUTA Y TABLA DETALLADA -->
             <div class="lg:col-span-8 bg-cyber-card border border-cyber-border rounded-xl p-5 space-y-4">
                 
-                <!-- HEADER DE LA TABLA Y ACCIONES -->
                 <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-cyber-border pb-3">
                     <div class="flex items-center gap-3">
                         <label class="text-xs font-bold text-cyber-cyan uppercase tracking-wider">Bloque de Ruta:</label>
@@ -323,13 +322,86 @@
                 const dataEmpresas = snapEmpresas.val() || {};
                 const selectValidacion = document.getElementById("empresaValidacionIA");
                 selectValidacion.innerHTML = '<option value="">-- Selecciona Empresa Destino --</option>';
-                Object.keys(dataEmpresas).sort().forEach(emp => {
-                    selectValidacion.innerHTML += `<option value="${emp}">${emp}</option>`;
+                Object.entries(dataEmpresas).forEach(([key, val]) => {
+                    let nombreFinal = typeof val === 'object' && val !== null ? (val.nombreComercial || val.nombre || key) : val;
+                    nombreFinal = String(nombreFinal).replace(/_/g, ' ').trim();
+                    selectValidacion.innerHTML += `<option value="${nombreFinal}">${nombreFinal}</option>`;
                 });
             } catch (e) {
                 console.error("Error al cargar empresas:", e);
             }
         });
+
+        function sanitizarKey(str) {
+            return (str || "general").toLowerCase().trim()
+                .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+                .replace(/[^a-z0-9]/g, "_")
+                .replace(/_+/g, "_")
+                .replace(/^_|_$/g, "");
+        }
+
+        function normalizarRutaParaInyeccion(r) {
+            const paradas = r.paradas || [];
+            
+            // 1. Resumen de Puntos de Abordaje para compatibilidad M6
+            const listaParadasTexto = paradas
+                .map(p => (p.referenciaOriginal || "").trim())
+                .filter(Boolean)
+                .join(", ");
+
+            // 2. Resumen de Multi-Horarios
+            const setHorarios = new Set();
+            paradas.forEach(p => {
+                (p.horarios || []).forEach(h => {
+                    if (h.formatoCivil && h.formatoMilitar) {
+                        setHorarios.add(`${h.formatoCivil} (${h.formatoMilitar})`);
+                    } else if (h.formatoCivil) {
+                        setHorarios.add(h.formatoCivil);
+                    }
+                });
+            });
+            const horarioPaso = Array.from(setHorarios).join(" / ") || (r.horarioPaso || "No especificado");
+
+            // 3. Coordenada representativa para explorador general de M6
+            const primeraParadaConGPS = paradas.find(p => p.coordenadasAbordaje && p.coordenadasAbordaje.includes(","));
+            const coordenadasAbordaje = primeraParadaConGPS ? primeraParadaConGPS.coordenadasAbordaje : (r.coordenadasAbordaje || "");
+
+            // 4. Ubicación unificada
+            const mun = r.municipio || "General";
+            const est = r.estado || "Nuevo León";
+            const estadoMunicipio = `${mun}, ${est}`;
+
+            return {
+                idRuta: sanitizarKey(r.nombreRuta),
+                nombreRuta: r.nombreRuta || "Ruta Sin Nombre",
+                empresaDestino: r.empresaDestino || "General",
+                empresaKey: sanitizarKey(r.empresaDestino),
+                municipio: mun,
+                estado: est,
+                estadoMunicipio: estadoMunicipio,
+                puntosAbordaje: listaParadasTexto || "Sin paradas definidas",
+                horarioPaso: horarioPaso,
+                coordenadasAbordaje: coordenadasAbordaje,
+                operativo: r.operativo || {
+                    tipoUnidad: "Camión Urbano (40 Pax)",
+                    capacidadMaxima: 40,
+                    choferAsignado: "Sin Asignar",
+                    turno: "Turno 1 - Matutino",
+                    distanciaTotalKm: "0.0",
+                    tiempoEstimadoMin: 0
+                },
+                paradas: paradas.map(p => ({
+                    numeroParada: p.numeroParada || 1,
+                    referenciaOriginal: p.referenciaOriginal || "",
+                    cruceVialEnriquecido: p.cruceVialEnriquecido || "",
+                    pasajerosAbordan: parseInt(p.pasajerosAbordan) || 0,
+                    coordenadasAbordaje: p.coordenadasAbordaje || "",
+                    estadoGeocodificacion: p.estadoGeocodificacion || (p.coordenadasAbordaje ? "Exacta" : "Sin Geocodificar"),
+                    horarios: p.horarios || []
+                })),
+                fechaActualizacion: new Date().toISOString()
+            };
+        }
 
         async function prepararContenidoArchivo(file) {
             const extension = file.name.split('.').pop().toLowerCase();
@@ -448,11 +520,9 @@
             throw new Error(ultimoError ? ultimoError.message : "Error al conectarse a Gemini.");
         }
 
-        // MOTOR OSRM: Ruteo Real por Carretera
         async function calcularRutaVialOSRM(coordenadasLatLng) {
             if (coordenadasLatLng.length < 2) return null;
 
-            // Formato OSRM: lng,lat;lng,lat
             const coordinatesString = coordenadasLatLng
                 .map(c => `${c[1]},${c[0]}`)
                 .join(';');
@@ -507,13 +577,13 @@
                 await new Promise(r => setTimeout(r, 300));
             }
 
-            return { coords: "25.686600, -100.316100", origen: "Pendiente / Ajuste Manual" };
+            return { coords: "", origen: "Sin Geocodificar" };
         }
 
         async function consultarNominatimAPI(query) {
             try {
                 const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=mx&limit=1`;
-                const res = await fetch(url, { headers: { "User-Agent": "ERPTransportePro/3.2" } });
+                const res = await fetch(url, { headers: { "User-Agent": "ERPTransportePro/3.3" } });
                 const data = await res.json();
                 if (data && data.length > 0) {
                     return `${parseFloat(data[0].lat).toFixed(6)}, ${parseFloat(data[0].lon).toFixed(6)}`;
@@ -542,7 +612,8 @@
                     const rutasExtraidas = await procesarArchivoPaso1(archivos[i], apiKey, empresa, estadoDefecto);
                     
                     rutasExtraidas.forEach(r => {
-                        // Asignación de metadatos operativos iniciales
+                        r.empresaDestino = empresa;
+                        r.estado = r.estado || estadoDefecto;
                         r.operativo = {
                             tipoUnidad: "Camión Urbano (40 Pax)",
                             capacidadMaxima: 40,
@@ -555,16 +626,16 @@
                         r.paradas.forEach(p => {
                             p.pasajerosAbordan = p.pasajerosAbordan || 0;
                             p.coordenadasAbordaje = p.coordenadaDetectadaDirecta || "";
-                            p.estadoGeocodificacion = p.coordenadaDetectadaDirecta ? "Exacta (Texto)" : "Sin Geocodificar";
+                            p.estadoGeocodificacion = p.coordenadasAbordaje ? "Exacta (Texto)" : "Sin Geocodificar";
                         });
-                        coleccionRutas.push(r);
+
+                        coleccionRutas.push(normalizarRutaParaInyeccion(r));
                     });
                 }
 
-                document.getElementById("jsonOutputViewer").value = JSON.stringify(coleccionRutas, null, 2);
                 actualizarSelectRutas();
-                renderizarTablaYMapa();
-                alert(`✅ Paso 1 Finalizado: Se extrajeron ${coleccionRutas.length} rutas.`);
+                await renderizarTablaYMapa();
+                alert(`✅ Paso 1 Finalizado: Se extrajeron y normalizaron ${coleccionRutas.length} rutas.`);
 
             } catch (err) {
                 alert("Error en la extracción IA: " + err.message);
@@ -583,17 +654,19 @@
 
             const estadoDefecto = document.getElementById("estadoOperacionInput").value.trim() || "Nuevo León";
 
-            for (const ruta of coleccionRutas) {
+            for (let i = 0; i < coleccionRutas.length; i++) {
+                const ruta = coleccionRutas[i];
                 const mun = ruta.municipio || "General";
                 const est = ruta.estado || estadoDefecto;
 
                 for (const parada of ruta.paradas) {
-                    if (!parada.estadoGeocodificacion.includes("Exacta")) {
+                    if (!parada.estadoGeocodificacion.includes("Exacta") && !parada.coordenadasAbordaje) {
                         const geo = await geocodificarParada(parada, mun, est);
                         parada.coordenadasAbordaje = geo.coords;
                         parada.estadoGeocodificacion = geo.origen;
                     }
                 }
+                coleccionRutas[i] = normalizarRutaParaInyeccion(ruta);
             }
 
             btn.disabled = false;
@@ -605,9 +678,10 @@
         async function geolocalizarRutaSeleccionada() {
             if (rutaSeleccionadaFiltro === "TODAS") return ejecutarPaso2GeolocalizarTodas();
 
-            const rutaObj = coleccionRutas.find(r => r.nombreRuta === rutaSeleccionadaFiltro);
-            if (!rutaObj) return;
+            const idx = coleccionRutas.findIndex(r => r.nombreRuta === rutaSeleccionadaFiltro);
+            if (idx === -1) return;
 
+            const rutaObj = coleccionRutas[idx];
             const btn = document.getElementById("btnPaso2RutaActual");
             btn.disabled = true;
             btn.innerHTML = '<span>⏳</span> Geocodificando...';
@@ -617,15 +691,19 @@
             const est = rutaObj.estado || estadoDefecto;
 
             for (const parada of rutaObj.paradas) {
-                const geo = await geocodificarParada(parada, mun, est);
-                parada.coordenadasAbordaje = geo.coords;
-                parada.estadoGeocodificacion = geo.origen;
+                if (!parada.coordenadasAbordaje) {
+                    const geo = await geocodificarParada(parada, mun, est);
+                    parada.coordenadasAbordaje = geo.coords;
+                    parada.estadoGeocodificacion = geo.origen;
+                }
             }
+
+            coleccionRutas[idx] = normalizarRutaParaInyeccion(rutaObj);
 
             btn.disabled = false;
             btn.innerHTML = '🗺️ Geocodificar Bloque';
             await renderizarTablaYMapa();
-            alert(`✅ Bloque "${rutaObj.nombreRuta}" geocodificado con OSRM.`);
+            alert(`✅ Bloque "${rutaObj.nombreRuta}" geocodificado con éxito.`);
         }
 
         function actualizarSelectRutas() {
@@ -640,7 +718,6 @@
         function cambiarRutaActiva(nombreRuta) {
             rutaSeleccionadaFiltro = nombreRuta;
             
-            // Sincronizar formulario operativo
             const panel = document.getElementById("panelAsignacionFlota");
             if (nombreRuta === "TODAS") {
                 panel.classList.add("opacity-50", "pointer-events-none");
@@ -660,22 +737,24 @@
 
         function actualizarMetadatosOperativos() {
             if (rutaSeleccionadaFiltro === "TODAS") return;
-            const r = coleccionRutas.find(x => x.nombreRuta === rutaSeleccionadaFiltro);
-            if (r) {
-                r.operativo.tipoUnidad = document.getElementById("opTipoUnidad").value;
-                r.operativo.capacidadMaxima = parseInt(document.getElementById("opCapacidadPax").value) || 40;
-                r.operativo.choferAsignado = document.getElementById("opChofer").value;
-                r.operativo.turno = document.getElementById("opTurno").value;
+            const idx = coleccionRutas.findIndex(x => x.nombreRuta === rutaSeleccionadaFiltro);
+            if (idx !== -1) {
+                coleccionRutas[idx].operativo.tipoUnidad = document.getElementById("opTipoUnidad").value;
+                coleccionRutas[idx].operativo.capacidadMaxima = parseInt(document.getElementById("opCapacidadPax").value) || 40;
+                coleccionRutas[idx].operativo.choferAsignado = document.getElementById("opChofer").value;
+                coleccionRutas[idx].operativo.turno = document.getElementById("opTurno").value;
+                coleccionRutas[idx] = normalizarRutaParaInyeccion(coleccionRutas[idx]);
                 document.getElementById("jsonOutputViewer").value = JSON.stringify(coleccionRutas, null, 2);
             }
         }
 
         function actualizarPaxParada(nombreRuta, numParada, valorPax) {
-            const ruta = coleccionRutas.find(r => r.nombreRuta === nombreRuta);
-            if (ruta) {
-                const parada = ruta.paradas.find(p => p.numeroParada === numParada);
+            const idx = coleccionRutas.findIndex(r => r.nombreRuta === nombreRuta);
+            if (idx !== -1) {
+                const parada = coleccionRutas[idx].paradas.find(p => p.numeroParada === numParada);
                 if (parada) {
                     parada.pasajerosAbordan = parseInt(valorPax) || 0;
+                    coleccionRutas[idx] = normalizarRutaParaInyeccion(coleccionRutas[idx]);
                     document.getElementById("jsonOutputViewer").value = JSON.stringify(coleccionRutas, null, 2);
                 }
             }
@@ -749,7 +828,7 @@
                             <div class="font-bold text-white">${ruta.nombreRuta}</div>
                             <div class="text-[10px] text-cyber-purple font-mono">Parada #${parada.numeroParada}</div>
                         </td>
-                        <td class="p-2.5 max-w-xs">${htmlHorarios}</td>
+                        <td class="p-2.5 max-w-xs">${htmlHorarios || '<span class="text-slate-500">Sin horario</span>'}</td>
                         <td class="p-2.5 font-mono">
                             <input type="number" min="0" value="${parada.pasajerosAbordan || 0}" 
                                 onchange="actualizarPaxParada('${ruta.nombreRuta}', ${parada.numeroParada}, this.value)" 
@@ -762,17 +841,17 @@
                         <td class="p-2.5 font-mono">
                             <input type="text" value="${parada.coordenadasAbordaje || ''}" 
                                 onchange="actualizarCoordManual('${ruta.nombreRuta}', ${parada.numeroParada}, this.value)" 
+                                placeholder="Lat, Lng"
                                 class="bg-cyber-bg border border-slate-700 rounded px-2 py-1 text-xs text-cyber-cyan w-full focus:outline-none focus:border-cyber-accent">
                         </td>
                         <td class="p-2.5 text-center space-y-1">
-                            <span class="inline-block px-2 py-0.5 rounded text-[10px] border border-slate-700">${parada.estadoGeocodificacion}</span>
+                            <span class="inline-block px-2 py-0.5 rounded text-[10px] border border-slate-700 ${valida ? 'text-emerald-400 border-emerald-500/30' : 'text-slate-400'}">${parada.estadoGeocodificacion}</span>
                             ${valida ? `<div><button onclick="centrarEnMapa(${lat}, ${lng})" class="bg-cyber-cyan/20 hover:bg-cyber-cyan/40 text-cyber-cyan px-2 py-0.5 rounded text-[10px] font-bold">📍 Ver</button></div>` : ''}
                         </td>
                     `;
                     tbody.appendChild(tr);
                 });
 
-                // RUTEO REAL POR CARRETERA (OSRM)
                 if (puntosRuta.length >= 2) {
                     const routingRes = await calcularRutaVialOSRM(puntosRuta);
                     if (routingRes) {
@@ -789,7 +868,6 @@
                             document.getElementById("lblTiempoMin").innerText = routingRes.duracionMin;
                         }
                     } else {
-                        // Fallback polilínea recta
                         L.polyline(puntosRuta, { color: '#ea580c', weight: 2, dashArray: '4,4' }).addTo(polylineGroup);
                     }
                 }
@@ -810,19 +888,20 @@
         }
 
         function actualizarCoordManual(nombreRuta, numParada, nuevaCoord) {
-            const ruta = coleccionRutas.find(r => r.nombreRuta === nombreRuta);
-            if (ruta) {
-                const parada = ruta.paradas.find(p => p.numeroParada === numParada);
+            const idx = coleccionRutas.findIndex(r => r.nombreRuta === nombreRuta);
+            if (idx !== -1) {
+                const parada = coleccionRutas[idx].paradas.find(p => p.numeroParada === numParada);
                 if (parada) {
-                    parada.coordenadasAbordaje = nuevaCoord;
-                    parada.estadoGeocodificacion = "Ajuste Manual";
+                    parada.coordenadasAbordaje = nuevaCoord.trim();
+                    parada.estadoGeocodificacion = nuevaCoord.trim() ? "Ajuste Manual" : "Sin Geocodificar";
+                    coleccionRutas[idx] = normalizarRutaParaInyeccion(coleccionRutas[idx]);
                     renderizarTablaYMapa();
                 }
             }
         }
 
         async function inyectarRutaSeleccionadaAFirebase() {
-            if (rutaSeleccionadaFiltro === "TODAS") return alert("⚠️ Selecciona una ruta específica.");
+            if (rutaSeleccionadaFiltro === "TODAS") return alert("⚠️ Selecciona una ruta específica en el selector de bloque.");
             const ruta = coleccionRutas.find(r => r.nombreRuta === rutaSeleccionadaFiltro);
             if (!ruta) return;
 
@@ -831,17 +910,11 @@
             btn.innerHTML = '<span>⏳</span> Subiendo...';
 
             try {
-                const empresaKey = (ruta.empresaDestino || "General").toLowerCase().trim().replace(/[.#$\[\]]/g, "_");
-                const rutaKey = ruta.nombreRuta.toLowerCase().trim().replace(/[.#$\[\]]/g, "_");
-
-                await set(ref(db, `rutas/${empresaKey}/${rutaKey}`), {
-                    ...ruta,
-                    fechaActualizacion: new Date().toISOString()
-                });
-
-                alert(`✅ Ruta "${ruta.nombreRuta}" y datos operativos inyectados a Firebase.`);
+                const rutaNormalizada = normalizarRutaParaInyeccion(ruta);
+                await set(ref(db, `rutas/${rutaNormalizada.empresaKey}/${rutaNormalizada.idRuta}`), rutaNormalizada);
+                alert(`✅ Ruta "${ruta.nombreRuta}" inyectada y normalizada exitosamente para M6.`);
             } catch (err) {
-                alert("Error al subir: " + err.message);
+                alert("Error al subir a Firebase: " + err.message);
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = '💾 Subir Bloque';
@@ -849,7 +922,7 @@
         }
 
         async function inyectarTodoAFirebase() {
-            if (coleccionRutas.length === 0) return alert("⚠️ No hay rutas para inyectar.");
+            if (coleccionRutas.length === 0) return alert("⚠️ No hay rutas extraídas para inyectar.");
 
             const btn = document.getElementById("btnSubirTodo");
             btn.disabled = true;
@@ -858,19 +931,14 @@
             try {
                 let contador = 0;
                 for (const ruta of coleccionRutas) {
-                    const empresaKey = (ruta.empresaDestino || "General").toLowerCase().trim().replace(/[.#$\[\]]/g, "_");
-                    const rutaKey = ruta.nombreRuta.toLowerCase().trim().replace(/[.#$\[\]]/g, "_");
-
-                    await set(ref(db, `rutas/${empresaKey}/${rutaKey}`), {
-                        ...ruta,
-                        fechaActualizacion: new Date().toISOString()
-                    });
+                    const rutaNormalizada = normalizarRutaParaInyeccion(ruta);
+                    await set(ref(db, `rutas/${rutaNormalizada.empresaKey}/${rutaNormalizada.idRuta}`), rutaNormalizada);
                     contador++;
                 }
 
-                alert(`✅ Inyección masiva completada: ${contador} rutas guardadas.`);
+                alert(`✅ Inyección masiva completada: ${contador} rutas sincronizadas.`);
             } catch (err) {
-                alert("Error en inyección: " + err.message);
+                alert("Error en inyección masiva: " + err.message);
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = '⚡ Subir Todas';
@@ -879,10 +947,10 @@
 
         function copiarJsonAlPortapapeles() {
             const area = document.getElementById("jsonOutputViewer");
-            if (!area.value) return alert("No hay datos JSON.");
+            if (!area.value) return alert("No hay datos JSON disponibles.");
             area.select();
             navigator.clipboard.writeText(area.value);
-            alert("📋 JSON copiado al portapapeles.");
+            alert("📋 JSON universal copiado al portapapeles.");
         }
 
         function transformarArchivoABase64(file) {
