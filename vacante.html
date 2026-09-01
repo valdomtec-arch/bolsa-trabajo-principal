@@ -508,6 +508,7 @@
             <i class="fas fa-arrow-left"></i> Volver a la Lista de Vacantes
         </button>
 
+        <!-- CARRUSEL TIPO MAZORCA REVOLVER CON HERENCIA CORPORATIVA -->
         <div class="revolver-carousel-container" id="revolverCarouselBox">
             <div class="revolver-stage" id="revolverStage"></div>
             <button class="revolver-nav revolver-prev" onclick="moverRevolver(-1)"><i class="fa-solid fa-chevron-left"></i></button>
@@ -568,7 +569,7 @@
                             <i class="fa-solid fa-magnifying-glass"></i> Ingresa tu C.P., Colonia o Calle (Origen):
                         </label>
                         <div class="cp-search-group">
-                            <input type="text" id="txtFiltroColonia" class="input-filtro-colonia" placeholder="Ej: 22800, Centro, Av. Reforma...">
+                            <input type="text" id="txtFiltroColonia" class="input-filtro-colonia" placeholder="Ej: Apodaca Centro, C.P. 66600, Av. Concordia...">
                             <button type="button" class="btn-filtrar-cp" id="btnBuscarOrigen" onclick="ejecutarFiltroColoniaCP()">
                                 <i class="fas fa-route"></i> Calcular Ruta
                             </button>
@@ -611,7 +612,7 @@
 
                         <div class="form-group">
                             <label for="postTelefono">Teléfono Celular (10 dígitos):</label>
-                            <input type="tel" id="postTelefono" required pattern="[0-9]{10}" maxlength="10" placeholder="Ej: 6461234567">
+                            <input type="tel" id="postTelefono" required pattern="[0-9]{10}" maxlength="10" placeholder="Ej: 8112345678">
                         </div>
 
                         <div class="form-group">
@@ -683,7 +684,7 @@
 
     const urlParams = new URLSearchParams(window.location.search);
     const empresaId = urlParams.get('empresa');
-    const empresaLimpia = empresaId ? empresaId.toLowerCase().trim() : "";
+    const empresaLimpia = empresaId ? empresaId.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "_").replace(/_+/g, "_") : "";
 
     let todasLasVacantesEmpresa = {};
     let datosVacanteGlobal = null;
@@ -692,7 +693,8 @@
     let tieneRutasHabilitadas = false;
     let nombreEmpresaMaestro = "";
     let ubicacionEmpresaMaestro = ""; 
-    const fallbackTelefonoReclutador = "526461974763";
+    let bannersCorporativosEmpresa = "";
+    const fallbackTelefonoReclutador = "528112345678";
 
     let arrayBannersRevolver = [];
     let currentRevolverIndex = 0;
@@ -716,23 +718,20 @@
         });
     });
 
-    function renderizarUbicacionEmpresa(lugar) {
+    function renderizarUbicacionEmpresa(lugar, mapaUrl) {
         const contenedor = document.getElementById('mainEmpresaLugarContainer');
-        if (!lugar) {
-            contenedor.innerHTML = `<i class="fa-solid fa-location-dot"></i> <span>Ubicación no disponible</span>`;
-            return;
-        }
+        const urlDestino = mapaUrl || (lugar && lugar.startsWith('http') ? lugar : "");
 
-        const esUrl = lugar.startsWith('http://') || lugar.startsWith('https://') || lugar.includes('maps.app.goo.gl') || lugar.includes('google.com/maps');
-
-        if (esUrl) {
+        if (urlDestino) {
             contenedor.innerHTML = `
-                <a href="${lugar}" target="_blank" class="btn-mapa-header">
+                <a href="${urlDestino}" target="_blank" class="btn-mapa-header">
                     <i class="fa-solid fa-map-location-dot"></i> Ver Ubicación en Google Maps
                 </a>
             `;
-        } else {
+        } else if (lugar) {
             contenedor.innerHTML = `<i class="fa-solid fa-location-dot"></i> <span>${lugar}</span>`;
+        } else {
+            contenedor.innerHTML = `<i class="fa-solid fa-location-dot"></i> <span>Ubicación no disponible</span>`;
         }
     }
 
@@ -743,13 +742,16 @@
         }
 
         try {
+            // 1. Obtener datos maestros de la empresa (Nombre, Ubicación y Mazorca de Banners)
             const snapEmpresaMaestra = await db.ref(`empresas/${empresaLimpia}`).once('value');
             if (snapEmpresaMaestra.exists()) {
                 const infoMaestra = snapEmpresaMaestra.val();
-                nombreEmpresaMaestro = infoMaestra.nombre || infoMaestra.nombreComercial || "";
-                ubicacionEmpresaMaestro = infoMaestra.ubicacion || infoMaestra.lugarOrigen || infoMaestra.mapa || infoMaestra.direccion || "";
+                nombreEmpresaMaestro = infoMaestra.nombreComercial || infoMaestra.nombre || infoMaestra.razonSocial || "";
+                ubicacionEmpresaMaestro = infoMaestra.direccion || infoMaestra.ubicacion || infoMaestra.lugarOrigen || "";
+                bannersCorporativosEmpresa = infoMaestra.bannersCorporativos || "";
             }
 
+            // 2. Obtener las vacantes registradas de la empresa
             db.ref(`vacantes_detalles/${empresaLimpia}`).once('value', async function(snapshot) {
                 if (snapshot.exists()) {
                     const dataRaw = snapshot.val();
@@ -771,11 +773,12 @@
                     const primerVacante = todasLasVacantesEmpresa[keys[0]];
                     const nombreHeader = nombreEmpresaMaestro || primerVacante.nombreComercial || primerVacante.empresaNombre || empresaLimpia.toUpperCase();
                     const lugarHeader = ubicacionEmpresaMaestro || primerVacante.lugarOrigen || 'México';
+                    const mapaHeader = primerVacante.mapaUrl || "";
                     
                     nombreEmpresaMaestro = nombreHeader;
 
                     document.getElementById('mainEmpresaNombre').innerText = nombreHeader;
-                    renderizarUbicacionEmpresa(lugarHeader);
+                    renderizarUbicacionEmpresa(lugarHeader, mapaHeader);
                     document.getElementById('empresaHeaderBox').style.display = 'block';
 
                     const listaContenedor = document.getElementById('listaVacantesDinamica');
@@ -805,13 +808,13 @@
                     document.getElementById('loading').innerHTML = `
                         <div style="color: #f97316; padding: 15px;">
                             <i class="fa-solid fa-circle-question" style="font-size: 2rem; margin-bottom: 10px;"></i>
-                            <p><strong>Empresa no encontrada</strong></p>
+                            <p><strong>Empresa no encontrada o sin ofertas registradas.</strong></p>
                         </div>
                     `;
                 }
             });
         } catch (error) {
-            console.error("Error crítico:", error);
+            console.error("Error crítico cargando vacante:", error);
         }
     }
 
@@ -843,6 +846,7 @@
         const notasTexto = data.informacionGeneral || data.informacion_general || data.infoGeneral || data.notas || data.observaciones;
         document.getElementById('vacanteNotas').innerText = (notasTexto && notasTexto.trim().length > 0) ? notasTexto : 'Sin notas adicionales.';
 
+        // Configuración de la Mazorca de Banners con Herencia Automática
         configurarMazorcaBanners(data);
         await inicializarBuscadorRutas();
 
@@ -851,6 +855,7 @@
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
+    // HERENCIA DINÁMICA DE LA MAZORCA DE BANNERS (RANURA 1 PROPIA + RANURAS 2-10 CORPORATIVAS)
     function configurarMazorcaBanners(data) {
         arrayBannersRevolver = [];
         const container = document.getElementById('revolverCarouselBox');
@@ -860,20 +865,53 @@
         stage.innerHTML = '';
         dots.innerHTML = '';
 
+        // 1. Obtener banners propios de la vacante
+        let bannersVacante = [];
         let rawBanners = data.bannerUrl || data.banners || data.banner || "";
-        
         if (typeof rawBanners === 'string' && rawBanners.includes(';')) {
-            arrayBannersRevolver = rawBanners.split(';').map(u => u.trim()).filter(u => u.length > 5);
+            bannersVacante = rawBanners.split(';').map(u => u.trim()).filter(u => u.length > 5);
         } else if (typeof rawBanners === 'string' && rawBanners.trim().length > 5) {
-            arrayBannersRevolver.push(rawBanners.trim());
+            bannersVacante.push(rawBanners.trim());
         } else if (Array.isArray(rawBanners)) {
-            arrayBannersRevolver = rawBanners.filter(u => typeof u === 'string' && u.length > 5);
+            bannersVacante = rawBanners.filter(u => typeof u === 'string' && u.length > 5);
         }
 
+        // 2. Obtener banners corporativos de la empresa
+        let bannersCorp = [];
+        if (bannersCorporativosEmpresa) {
+            bannersCorp = bannersCorporativosEmpresa.split(';').map(u => u.trim()).filter(u => u.length > 5);
+        }
+
+        // 3. Fusión Inteligente (Banner 1 de vacante si existe + Banners 2 al 10 corporativos)
+        if (bannersVacante.length > 0) {
+            arrayBannersRevolver.push(bannersVacante[0]); // Banner principal específico
+            
+            // Si la vacante traía más banners, los agrega
+            if (bannersVacante.length > 1) {
+                for (let i = 1; i < bannersVacante.length; i++) {
+                    if (!arrayBannersRevolver.includes(bannersVacante[i])) {
+                        arrayBannersRevolver.push(bannersVacante[i]);
+                    }
+                }
+            }
+            
+            // Heredar los banners corporativos restantes (2 al 10)
+            bannersCorp.forEach(urlCorp => {
+                if (!arrayBannersRevolver.includes(urlCorp)) {
+                    arrayBannersRevolver.push(urlCorp);
+                }
+            });
+        } else if (bannersCorp.length > 0) {
+            // Hereda toda la mazorca corporativa completa
+            arrayBannersRevolver = [...bannersCorp];
+        }
+
+        // Limpieza de URLs GitHub si aplica
         arrayBannersRevolver = arrayBannersRevolver.map(url => {
             return url.replace('github.com/', 'raw.githubusercontent.com/').replace('/blob/', '/');
         });
 
+        // Fallback en caso de no tener ningún banner registrado
         if (arrayBannersRevolver.length === 0) {
             arrayBannersRevolver.push(`https://valdomtec-arch.github.io/bolsa-trabajo-principal/imagen-${empresaLimpia}.jpg`);
         }
@@ -940,7 +978,7 @@
         }
     }
 
-    function inicializarMapaInteractivo(latInicial = 20.5284, lngInicial = -103.4116) {
+    function inicializarMapaInteractivo(latInicial = 25.6866, lngInicial = -100.3161) {
         if (mapLeaflet) mapLeaflet.remove();
 
         mapLeaflet = L.map('mapaRutas').setView([latInicial, lngInicial], 11);
@@ -964,8 +1002,21 @@
             const lng = parseFloat(p.lng);
 
             if (!isNaN(lat) && !isNaN(lng)) {
-                const marker = L.marker([lat, lng]).addTo(mapLeaflet);
-                marker.bindPopup(`<b>${p.nombre || 'Parada'}</b><br>Ruta: ${p.nombreRuta}<br>Horario: ${p.horario || 'S/H'}`);
+                const marker = L.circleMarker([lat, lng], {
+                    radius: 7,
+                    fillColor: '#38bdf8',
+                    color: '#ffffff',
+                    weight: 1.5,
+                    fillOpacity: 0.9
+                }).addTo(mapLeaflet);
+                
+                marker.bindPopup(`
+                    <div style="font-size:12px; font-family:'Segoe UI', sans-serif;">
+                        <b style="color:#0ea5e9;">${p.nombreRuta}</b><br>
+                        <b>Parada:</b> ${p.nombre}<br>
+                        <b>Horarios:</b> ${p.horario || 'S/H'}
+                    </div>
+                `);
                 marcadoresMapa.push(marker);
                 bounds.push([lat, lng]);
             }
@@ -1002,7 +1053,6 @@
                 const lngUser = pos.coords.longitude;
 
                 btn.innerHTML = `<i class="fa-solid fa-location-dot"></i> GPS Localizado Exitosamente`;
-
                 vincularOrigenConDestinoHaversine(latUser, lngUser, "Tu Ubicación GPS");
             },
             (error) => {
@@ -1013,7 +1063,6 @@
         );
     }
 
-    // FUNCIÓN ACTUALIZADA CON HEADERS Y MANEJO DE ERRORES HTTP DE NOMINATIM
     async function ejecutarFiltroColoniaCP() {
         const busqueda = document.getElementById('txtFiltroColonia').value.trim();
         const btn = document.getElementById('btnBuscarOrigen');
@@ -1032,19 +1081,16 @@
         btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Geocodificando...`;
 
         try {
-            // Se añade User-Agent y Accept-Language para evitar bloqueos 403 de Nominatim
             const urlGeo = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(busqueda + ', Mexico')}&limit=1`;
             
             const response = await fetch(urlGeo, {
                 headers: {
                     'Accept-Language': 'es',
-                    'User-Agent': 'BolsaDeTrabajoApp/1.0'
+                    'User-Agent': 'BolsaDeTrabajoApp/3.4'
                 }
             });
 
-            if (!response.ok) {
-                throw new Error(`Error HTTP: ${response.status}`);
-            }
+            if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
 
             const data = await response.json();
 
@@ -1053,14 +1099,13 @@
                 const lngOrigen = parseFloat(data[0].lon);
                 const nombreLugar = data[0].display_name.split(',')[0];
 
-                // Ejecuta el cálculo Haversine con las coordenadas obtenidas
                 vincularOrigenConDestinoHaversine(latOrigen, lngOrigen, nombreLugar);
             } else {
-                alert("No se encontraron coordenadas GPS para el C.P. o Colonia ingresada. Intenta con un término más específico (ej: 22800 Ensenada).");
+                alert("No se encontraron coordenadas GPS para el C.P. o Colonia ingresada. Intenta con un término más específico.");
             }
         } catch (error) {
             console.error("Error geocodificando origen:", error);
-            alert("No se pudo conectar con el servicio de mapas. Verifica tu conexión o intenta usando el botón 'Usar mi ubicación GPS'.");
+            alert("No se pudo conectar con el servicio de mapas. Intenta usando el botón 'Usar mi ubicación GPS'.");
         } finally {
             btn.disabled = false;
             btn.innerHTML = `<i class="fas fa-route"></i> Calcular Ruta`;
@@ -1126,6 +1171,7 @@
         }
     }
 
+    // LECTURA INTEGRADA DEL NUEVO ESQUEMA DE RUTAS (M6 MULTIPARADA)
     async function inicializarBuscadorRutas() {
         const txtDetallesTrans = document.getElementById('txtDetallesTransporte');
         const selectRutas = document.getElementById('selRutaEmpresa');
@@ -1142,14 +1188,10 @@
         if (datosVacanteGlobal) {
             detalleDesdeVacante = datosVacanteGlobal.rutasTransporte || 
                                   datosVacanteGlobal.rutaTransporte || 
-                                  datosVacanteGlobal.transporte || 
-                                  datosVacanteGlobal.m2_transporte || "";
+                                  datosVacanteGlobal.transporte || "";
         }
 
         let snapRuta = await db.ref(`rutas/${empresaLimpia}`).once('value');
-        if (!snapRuta.exists()) {
-            snapRuta = await db.ref(`m6_transporte/${empresaLimpia}`).once('value');
-        }
 
         if (snapRuta.exists()) {
             const rawData = snapRuta.val();
@@ -1157,42 +1199,68 @@
             Object.keys(rawData).forEach(key => {
                 const item = rawData[key];
                 if (typeof item === 'object' && item !== null) {
-                    const nombreRuta = item.nombreRuta || item.ruta || "Ruta General";
+                    const nombreRuta = item.nombreRuta || item.ruta || key;
                     
                     if (!estructuraRutasGlobal[nombreRuta]) {
                         estructuraRutasGlobal[nombreRuta] = [];
                     }
 
-                    let lat = null, lng = null;
-                    if (item.coordenadasAbordaje && typeof item.coordenadasAbordaje === 'string') {
-                        const partes = item.coordenadasAbordaje.split(',');
-                        if (partes.length === 2) {
-                            lat = parseFloat(partes[0].trim());
-                            lng = parseFloat(partes[1].trim());
-                        }
+                    // A) Si tiene el array estructurado de paradas del Motor M6
+                    if (Array.isArray(item.paradas) && item.paradas.length > 0) {
+                        item.paradas.forEach(p => {
+                            let lat = null, lng = null;
+                            if (p.coordenadasAbordaje && typeof p.coordenadasAbordaje === 'string') {
+                                const partes = p.coordenadasAbordaje.split(',');
+                                if (partes.length === 2) {
+                                    lat = parseFloat(partes[0].trim());
+                                    lng = parseFloat(partes[1].trim());
+                                }
+                            }
+
+                            const nombreParada = p.referenciaOriginal || p.cruceVialEnriquecido || `Parada #${p.numeroParada}`;
+                            const horariosTexto = (p.horarios || []).map(h => h.formatoCivil).join(' / ');
+                            const valOption = `${nombreRuta} ➔ ${nombreParada}${horariosTexto ? ' (' + horariosTexto + ')' : ''}`;
+
+                            const objetoParada = {
+                                id: `${key}_${p.numeroParada}`,
+                                nombreRuta: nombreRuta,
+                                nombre: nombreParada,
+                                horario: horariosTexto || item.horarioPaso || "",
+                                valOption: valOption,
+                                lat: lat,
+                                lng: lng
+                            };
+
+                            estructuraRutasGlobal[nombreRuta].push(objetoParada);
+                            if (!isNaN(lat) && !isNaN(lng)) listaTodasLasParadasFlat.push(objetoParada);
+                        });
                     } else {
-                        lat = parseFloat(item.lat || item.latitud);
-                        lng = parseFloat(item.lng || item.longitud || item.lon);
-                    }
+                        // B) Esquema plano fallback
+                        let lat = null, lng = null;
+                        if (item.coordenadasAbordaje && typeof item.coordenadasAbordaje === 'string') {
+                            const partes = item.coordenadasAbordaje.split(',');
+                            if (partes.length === 2) {
+                                lat = parseFloat(partes[0].trim());
+                                lng = parseFloat(partes[1].trim());
+                            }
+                        }
 
-                    const nombreParada = item.puntosAbordaje || item.puntoAbordaje || item.nombre || "Punto de Abordaje";
-                    const horario = item.horarioPaso || item.horario || item.hora || "";
-                    const valOption = `${nombreRuta} ➔ ${nombreParada}${horario ? ' (' + horario + ')' : ''}`;
+                        const nombreParada = item.puntosAbordaje || "Punto de Abordaje";
+                        const horario = item.horarioPaso || "";
+                        const valOption = `${nombreRuta} ➔ ${nombreParada}${horario ? ' (' + horario + ')' : ''}`;
 
-                    const objetoParada = {
-                        id: key,
-                        nombreRuta: nombreRuta,
-                        nombre: nombreParada,
-                        horario: horario,
-                        valOption: valOption,
-                        lat: lat,
-                        lng: lng
-                    };
+                        const objetoParada = {
+                            id: key,
+                            nombreRuta: nombreRuta,
+                            nombre: nombreParada,
+                            horario: horario,
+                            valOption: valOption,
+                            lat: lat,
+                            lng: lng
+                        };
 
-                    estructuraRutasGlobal[nombreRuta].push(objetoParada);
-
-                    if (!isNaN(lat) && !isNaN(lng)) {
-                        listaTodasLasParadasFlat.push(objetoParada);
+                        estructuraRutasGlobal[nombreRuta].push(objetoParada);
+                        if (!isNaN(lat) && !isNaN(lng)) listaTodasLasParadasFlat.push(objetoParada);
                     }
                 }
             });
@@ -1201,7 +1269,7 @@
 
             if (rutasNombradas.length > 0) {
                 tieneRutasHabilitadas = true;
-                txtDetallesTrans.innerText = detalleDesdeVacante || "Selecciona tu ruta o utiliza el cálculo por C.P. / GPS.";
+                txtDetallesTrans.innerText = detalleDesdeVacante || "Selecciona tu ruta o utiliza el cálculo por C.P. / GPS para ver las paradas.";
                 selectRutas.innerHTML = '<option value="">— Selecciona una ruta de transporte —</option>';
 
                 rutasNombradas.forEach(nombreRuta => {
@@ -1216,7 +1284,7 @@
                 tieneRutasHabilitadas = false;
             }
         } else {
-            txtDetallesTrans.innerText = detalleDesdeVacante || "Esta empresa no cuenta con rutas privadas registradas actualmente.";
+            txtDetallesTrans.innerText = detalleDesdeVacante || "Esta empresa no cuenta con rutas de transporte registradas actualmente.";
             selectRutas.innerHTML = '<option value="">— Sin transporte asignado —</option>';
             tieneRutasHabilitadas = false;
         }
