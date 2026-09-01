@@ -391,7 +391,7 @@
     <!-- FIREBASE V10 SDK (MODULAR) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, get, set, push, update, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { getDatabase, ref, get, set, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDxgP1YnycCEqkQ2vr3SPkwc9QMhtG8Zqw",
@@ -416,6 +416,7 @@
         let leafletMap = null;
         let leafletMarkers = [];
 
+        // EXPONER FUNCIONES AL ÁMBITO GLOBAL WINDOW
         window.sincronizarInicialBajoDemanda = sincronizarInicialBajoDemanda;
         window.reiniciarYRenderizarTabla = reiniciarYRenderizarTabla;
         window.cargarMasRutasEnTabla = cargarMasRutasEnTabla;
@@ -430,8 +431,10 @@
         window.eliminarRuta = eliminarRuta;
         window.eliminarRutasPorEmpresaSeleccionada = eliminarRutasPorEmpresaSeleccionada;
         window.purgarTodasLasRutas = purgarTodasLasRutas;
+        window.compartirWhatsAppPorId = compartirWhatsAppPorId;
         window.compartirFichaWhatsApp = compartirFichaWhatsApp;
-        window.abrirModalAcusePDF = abrirModalAcusePDF;
+        window.abrirModalAcusePorId = abrirModalAcusePorId;
+        window.abrirModalAcuseDirecto = abrirModalAcuseDirecto;
         window.cerrarModalAcuse = cerrarModalAcuse;
 
         document.addEventListener("DOMContentLoaded", () => {
@@ -447,17 +450,48 @@
                 .replace(/^_|_$/g, "");
         }
 
+        function inicializarMapaLeaflet() {
+            const contenedor = document.getElementById('mapaLeaflet');
+            if (!contenedor) return;
+
+            if (!leafletMap) {
+                leafletMap = L.map('mapaLeaflet').setView([25.6866, -100.3161], 11);
+                
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '© OpenStreetMap'
+                }).addTo(leafletMap);
+
+                leafletMap.on('click', function(e) {
+                    const lat = e.latlng.lat.toFixed(6);
+                    const lng = e.latlng.lng.toFixed(6);
+                    document.getElementById("coordenadasAbordaje").value = `${lat}, ${lng}`;
+                });
+            }
+        }
+
         async function sincronizarInicialBajoDemanda() {
             const badge = document.getElementById("badgeEstadoServer");
             badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span> Sincronizando...';
 
             try {
-                const [snapEmpresas, snapRutas] = await Promise.all([
-                    get(ref(db, "empresas")),
-                    get(ref(db, "rutas"))
-                ]);
+                let snapEmpresas = null;
+                let snapRutas = null;
 
-                const dataEmp = snapEmpresas.val() || {};
+                try {
+                    snapEmpresas = await get(ref(db, "empresas"));
+                } catch (e) {
+                    console.warn("Aviso: Nodo 'empresas' inaccesible:", e);
+                }
+
+                try {
+                    snapRutas = await get(ref(db, "rutas"));
+                } catch (e) {
+                    console.error("Error al leer 'rutas':", e);
+                    throw e;
+                }
+
+                const dataEmp = (snapEmpresas && snapEmpresas.exists()) ? snapEmpresas.val() : {};
                 diccionarioEmpresas = {};
                 listaEmpresasNombres = [];
 
@@ -478,11 +512,18 @@
                     }
                 });
 
+                const dataRutas = (snapRutas && snapRutas.exists()) ? snapRutas.val() : {};
+                aplanarRutasParaCache(dataRutas);
+
+                cacheTodasLasRutas.forEach(r => {
+                    if (r.empresaNombre && !listaEmpresasNombres.includes(r.empresaNombre)) {
+                        listaEmpresasNombres.push(r.empresaNombre);
+                        diccionarioEmpresas[sanitizarKey(r.empresaNombre)] = r.empresaNombre;
+                    }
+                });
+
                 listaEmpresasNombres.sort();
                 poblarSelectsEmpresas();
-
-                const dataRutas = snapRutas.val() || {};
-                aplanarRutasParaCache(dataRutas);
 
                 actualizarMetricasGerenciales();
                 reiniciarYRenderizarTabla();
@@ -505,7 +546,6 @@
                     Object.entries(rutasEmpresa).forEach(([idRuta, r]) => {
                         const nombreEmpresa = r.empresaDestino || diccionarioEmpresas[empresaKey] || empresaKey.replace(/_/g, ' ').toUpperCase();
                         
-                        // Sintetizar si viene de versión anterior
                         let coordenadas = r.coordenadasAbordaje || "";
                         if (!coordenadas && Array.isArray(r.paradas)) {
                             const pConGeo = r.paradas.find(p => p.coordenadasAbordaje);
@@ -590,24 +630,9 @@
             return p.length === 2 && !isNaN(parseFloat(p[0])) && !isNaN(parseFloat(p[1]));
         }
 
-        function inicializarMapaLeaflet() {
-            if (!leafletMap) {
-                leafletMap = L.map('mapaLeaflet').setView([25.6866, -100.3161], 11);
-                
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    maxZoom: 19,
-                    attribution: '© OpenStreetMap'
-                }).addTo(leafletMap);
-
-                leafletMap.on('click', function(e) {
-                    const lat = e.latlng.lat.toFixed(6);
-                    const lng = e.latlng.lng.toFixed(6);
-                    document.getElementById("coordenadasAbordaje").value = `${lat}, ${lng}`;
-                });
-            }
-        }
-
         function alSeleccionarEmpresaExplorador() {
+            if (!leafletMap) inicializarMapaLeaflet();
+            
             const empresaSeleccionada = document.getElementById("selectEmpresaExplorador").value;
             const contenedorResultados = document.getElementById("listaMatchRutas");
             const badgeConteo = document.getElementById("badgeConteoMatches");
@@ -630,48 +655,49 @@
             const boundsCoords = [];
 
             rutasFiltradas.forEach(r => {
-                // Renderizar multiparadas si existen
-                if (r.paradas && r.paradas.length > 0) {
-                    r.paradas.forEach(p => {
-                        if (tieneCoordenadasValidas(p.coordenadasAbordaje)) {
-                            const [lat, lng] = p.coordenadasAbordaje.split(",").map(Number);
-                            boundsCoords.push([lat, lng]);
+                if (leafletMap) {
+                    if (r.paradas && r.paradas.length > 0) {
+                        r.paradas.forEach(p => {
+                            if (tieneCoordenadasValidas(p.coordenadasAbordaje)) {
+                                const [lat, lng] = p.coordenadasAbordaje.split(",").map(Number);
+                                boundsCoords.push([lat, lng]);
 
-                            const m = L.circleMarker([lat, lng], {
-                                radius: 6,
-                                fillColor: "#06b6d4",
-                                color: "#fff",
-                                weight: 1.5,
-                                fillOpacity: 0.9
-                            }).addTo(leafletMap);
+                                const m = L.circleMarker([lat, lng], {
+                                    radius: 6,
+                                    fillColor: "#06b6d4",
+                                    color: "#fff",
+                                    weight: 1.5,
+                                    fillOpacity: 0.9
+                                }).addTo(leafletMap);
 
-                            const horariosTxt = (p.horarios || []).map(h => `${h.formatoCivil}`).join(" / ");
+                                const horariosTxt = (p.horarios || []).map(h => `${h.formatoCivil}`).join(" / ");
 
-                            m.bindPopup(`
-                                <div style="font-size:12px;">
-                                    <strong style="color:#06b6d4;">${r.nombreRuta} (Parada #${p.numeroParada})</strong><br>
-                                    <b>Ref:</b> ${p.referenciaOriginal}<br>
-                                    <b>Horarios:</b> ${horariosTxt || r.horarioPaso}<br>
-                                    <a href="https://www.google.com/maps/search/?api=1&query=${lat},${lng}" target="_blank" style="color:#38bdf8; font-weight:bold; display:block; margin-top:4px;">Abrir GPS ➔</a>
-                                </div>
-                            `);
-                            leafletMarkers.push(m);
-                        }
-                    });
-                } else if (tieneCoordenadasValidas(r.coordenadasAbordaje)) {
-                    const [lat, lng] = r.coordenadasAbordaje.split(",").map(Number);
-                    boundsCoords.push([lat, lng]);
+                                m.bindPopup(`
+                                    <div style="font-size:12px;">
+                                        <strong style="color:#06b6d4;">${r.nombreRuta} (Parada #${p.numeroParada})</strong><br>
+                                        <b>Ref:</b> ${p.referenciaOriginal}<br>
+                                        <b>Horarios:</b> ${horariosTxt || r.horarioPaso}<br>
+                                        <a href="https://www.google.com/maps/search/?api=1&query=${lat},${lng}" target="_blank" style="color:#38bdf8; font-weight:bold; display:block; margin-top:4px;">Abrir GPS ➔</a>
+                                    </div>
+                                `);
+                                leafletMarkers.push(m);
+                            }
+                        });
+                    } else if (tieneCoordenadasValidas(r.coordenadasAbordaje)) {
+                        const [lat, lng] = r.coordenadasAbordaje.split(",").map(Number);
+                        boundsCoords.push([lat, lng]);
 
-                    const m = L.marker([lat, lng]).addTo(leafletMap);
-                    m.bindPopup(`
-                        <div style="font-size:12px;">
-                            <strong style="color:#ea580c;">${r.nombreRuta}</strong><br>
-                            <b>Empresa:</b> ${r.empresaNombre}<br>
-                            <b>Horario:</b> ${r.horarioPaso}<br>
-                            <a href="https://www.google.com/maps/search/?api=1&query=${lat},${lng}" target="_blank" style="color:#38bdf8; font-weight:bold; display:block; margin-top:4px;">Abrir GPS ➔</a>
-                        </div>
-                    `);
-                    leafletMarkers.push(m);
+                        const m = L.marker([lat, lng]).addTo(leafletMap);
+                        m.bindPopup(`
+                            <div style="font-size:12px;">
+                                <strong style="color:#ea580c;">${r.nombreRuta}</strong><br>
+                                <b>Empresa:</b> ${r.empresaNombre}<br>
+                                <b>Horario:</b> ${r.horarioPaso}<br>
+                                <a href="https://www.google.com/maps/search/?api=1&query=${lat},${lng}" target="_blank" style="color:#38bdf8; font-weight:bold; display:block; margin-top:4px;">Abrir GPS ➔</a>
+                            </div>
+                        `);
+                        leafletMarkers.push(m);
+                    }
                 }
 
                 const card = document.createElement("div");
@@ -702,10 +728,10 @@
                 contenedorResultados.appendChild(card);
             });
 
-            if (boundsCoords.length > 0) {
+            if (leafletMap && boundsCoords.length > 0) {
                 leafletMap.fitBounds(boundsCoords, { padding: [30, 30], maxZoom: 14 });
+                setTimeout(() => leafletMap.invalidateSize(), 200);
             }
-            setTimeout(() => leafletMap.invalidateSize(), 200);
         }
 
         function verTodasLasRutasEnMapa() {
@@ -714,6 +740,7 @@
         }
 
         function limpiarMarcadoresMapa() {
+            if (!leafletMap) return;
             leafletMarkers.forEach(m => leafletMap.removeLayer(m));
             leafletMarkers = [];
         }
@@ -733,6 +760,7 @@
         }
 
         async function ejecutarTriangulacionGeografica() {
+            if (!leafletMap) inicializarMapaLeaflet();
             const ubicacionTexto = document.getElementById("ubicacionCandidatoTexto").value.trim();
             const empresaFiltro = document.getElementById("selectEmpresaExplorador").value;
 
@@ -784,22 +812,23 @@
             const contenedor = document.getElementById("listaMatchRutas");
             contenedor.innerHTML = "";
 
-            const candMarker = L.circleMarker([cLat, cLng], {
-                radius: 9,
-                fillColor: "#ea580c",
-                color: "#ffffff",
-                weight: 2,
-                fillOpacity: 0.95
-            }).addTo(leafletMap);
-            candMarker.bindPopup("<b>📍 Posición del Candidato</b>").openPopup();
-            leafletMarkers.push(candMarker);
+            if (leafletMap) {
+                const candMarker = L.circleMarker([cLat, cLng], {
+                    radius: 9,
+                    fillColor: "#ea580c",
+                    color: "#ffffff",
+                    weight: 2,
+                    fillOpacity: 0.95
+                }).addTo(leafletMap);
+                candMarker.bindPopup("<b>📍 Posición del Candidato</b>").openPopup();
+                leafletMarkers.push(candMarker);
+            }
 
             let matches = [];
 
             cacheTodasLasRutas.forEach(r => {
                 if (empresaFiltro && r.empresaNombre !== empresaFiltro) return;
 
-                // Evaluación por parada individual si existe
                 if (r.paradas && r.paradas.length > 0) {
                     r.paradas.forEach(p => {
                         if (tieneCoordenadasValidas(p.coordenadasAbordaje)) {
@@ -836,23 +865,25 @@
             matches.forEach(m => {
                 boundsCoords.push([m.lat, m.lng]);
 
-                const marker = L.marker([m.lat, m.lng]).addTo(leafletMap);
-                marker.bindPopup(`
-                    <div style="font-size:12px;">
-                        <strong style="color:#ea580c;">${m.nombreRuta}</strong><br>
-                        <b>Punto:</b> ${m.nombreParada}<br>
-                        <b>Distancia:</b> ${m.dist.toFixed(2)} km (Score: ${m.score}%)<br>
-                        <b>Horario:</b> ${m.horarioParada}
-                    </div>
-                `);
-                leafletMarkers.push(marker);
+                if (leafletMap) {
+                    const marker = L.marker([m.lat, m.lng]).addTo(leafletMap);
+                    marker.bindPopup(`
+                        <div style="font-size:12px;">
+                            <strong style="color:#ea580c;">${m.nombreRuta}</strong><br>
+                            <b>Punto:</b> ${m.nombreParada}<br>
+                            <b>Distancia:</b> ${m.dist.toFixed(2)} km (Score: ${m.score}%)<br>
+                            <b>Horario:</b> ${m.horarioParada}
+                        </div>
+                    `);
+                    leafletMarkers.push(marker);
 
-                const poly = L.polyline([[cLat, cLng], [m.lat, m.lng]], {
-                    color: m.score >= 80 ? '#10b981' : (m.score >= 50 ? '#f59e0b' : '#ef4444'),
-                    weight: 2,
-                    dashArray: '4, 4'
-                }).addTo(leafletMap);
-                leafletMarkers.push(poly);
+                    const poly = L.polyline([[cLat, cLng], [m.lat, m.lng]], {
+                        color: m.score >= 80 ? '#10b981' : (m.score >= 50 ? '#f59e0b' : '#ef4444'),
+                        weight: 2,
+                        dashArray: '4, 4'
+                    }).addTo(leafletMap);
+                    leafletMarkers.push(poly);
+                }
 
                 const colorScore = m.score >= 80 ? 'text-emerald-400 border-emerald-500/30' : (m.score >= 50 ? 'text-amber-400 border-amber-500/30' : 'text-red-400 border-red-500/30');
                 const card = document.createElement("div");
@@ -878,7 +909,7 @@
                 contenedor.appendChild(card);
             });
 
-            leafletMap.fitBounds(boundsCoords, { padding: [30, 30] });
+            if (leafletMap) leafletMap.fitBounds(boundsCoords, { padding: [30, 30] });
         }
 
         function abrirModalAcusePorId(empresaKey, idRuta) {
@@ -888,20 +919,22 @@
 
         function compartirWhatsAppPorId(empresaKey, idRuta) {
             const r = cacheTodasLasRutas.find(x => x.empresaKey === empresaKey && x.idRuta === idRuta);
-            if (!r) return;
+            if (r) compartirFichaWhatsApp(r.nombreRuta, r.empresaNombre, r.estadoMunicipio, r.puntosAbordaje, r.horarioPaso, r.coordenadasAbordaje);
+        }
 
+        function compartirFichaWhatsApp(nombre, empresa, ubicacion, paradas, horario, coords) {
             let linkMaps = "https://maps.google.com";
-            if (tieneCoordenadasValidas(r.coordenadasAbordaje)) {
-                const [lat, lng] = r.coordenadasAbordaje.split(",");
+            if (tieneCoordenadasValidas(coords)) {
+                const [lat, lng] = coords.split(",");
                 linkMaps = `https://www.google.com/maps/search/?api=1&query=${lat.trim()},${lng.trim()}`;
             }
 
             const msj = `🚌 *FICHA OFICIAL DE TRANSPORTE* 🚌\n\n` +
-                        `*Empresa:* ${r.empresaNombre}\n` +
-                        `*Ruta:* ${r.nombreRuta}\n` +
-                        `*Zona:* ${r.estadoMunicipio}\n` +
-                        `*Horario:* ${r.horarioPaso}\n` +
-                        `*Paradas Principales:* ${r.puntosAbordaje}\n\n` +
+                        `*Empresa:* ${empresa}\n` +
+                        `*Ruta:* ${nombre}\n` +
+                        `*Zona:* ${ubicacion || 'General'}\n` +
+                        `*Horario:* ${horario}\n` +
+                        `*Paradas Principales:* ${paradas}\n\n` +
                         `📍 *Ubicación GPS Satelital:* ${linkMaps}\n\n` +
                         `_Preséntate con 10 minutos de anticipación._`;
 
@@ -975,7 +1008,6 @@
             const nombreRuta = document.getElementById("nombreRuta").value.trim();
             const targetIdRuta = idRuta || sanitizarKey(nombreRuta);
 
-            // Preservar estructura existente si viene del motor
             const rutaExistente = cacheTodasLasRutas.find(r => r.idRuta === idRuta && r.empresaKey === (empresaAnterior || empresaKey)) || {};
 
             const rutaData = {
