@@ -274,7 +274,7 @@
             color: var(--primary-orange);
         }
 
-        /* SECCIÓN BUSCADOR INTELIGENTE DE RUTAS PREMIUM (FILTRADO Y SENSIBILIDAD) */
+        /* SECCIÓN RADAR DE TRANSPORTE Y RUTAS M6 */
         .location-search-section {
             background: linear-gradient(135deg, rgba(15, 27, 54, 0.9) 0%, rgba(9, 18, 38, 0.95) 100%);
             border: 1px solid rgba(255, 102, 0, 0.35);
@@ -547,7 +547,7 @@
             box-shadow: 0 0 12px var(--primary-orange);
         }
 
-        /* GALERÍA DE EMPRESAS */
+        /* GALERÍA DE EMPRESAS CON HERENCIA CORPORATIVA */
         .gallery-section {
             min-height: 460px; 
         }
@@ -1025,17 +1025,17 @@
         </div>
     </header>
 
-    <!-- SEGUNDO BUSCADOR: CÁLCULO DE CERCANÍA Y RUTAS PREMIUM CON GPS Y FILTRADO CONVENIENTE -->
+    <!-- SEGUNDO BUSCADOR: RADAR DE EMPLEOS Y RUTAS M6 MULTIPARADA -->
     <section class="location-search-section">
         <div class="location-search-header">
             <div class="location-search-title">
                 <i class="fas fa-route"></i> Radar de Empleos y Transporte Cercano
             </div>
-            <span class="location-badge-tag"><i class="fas fa-satellite"></i> Precisión GPS</span>
+            <span class="location-badge-tag"><i class="fas fa-satellite"></i> Precisión GPS Multi-Parada</span>
         </div>
         
         <p class="location-search-desc">
-            Calcula automáticamente qué rutas de personal y empresas te quedan más cerca para ahorrar tiempo de traslado.
+            Calcula automáticamente qué rutas de personal y paradas te quedan más cerca para ahorrar tiempo de traslado.
         </p>
 
         <div class="location-input-group">
@@ -1053,7 +1053,7 @@
         </div>
     </section>
 
-    <!-- GALERÍA DINÁMICA DE EMPRESAS -->
+    <!-- GALERÍA DINÁMICA DE EMPRESAS CON HERENCIA CORPORATIVA -->
     <section class="gallery-section">
         <h2>Ofertas de Empleo Disponibles</h2>
         <div class="gallery-container" id="galleryContainer">
@@ -1204,6 +1204,32 @@
     let startX = 0;
     let isDragging = false;
 
+    function sanitizarKey(str) {
+        return (str || "general").toLowerCase().trim()
+            .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+            .replace(/[^a-z0-9]/g, "_")
+            .replace(/_+/g, "_")
+            .replace(/^_|_$/g, "");
+    }
+
+    function esIdTecnico(str) {
+        if (!str || typeof str !== "string") return true;
+        const limpio = str.trim();
+        return limpio.startsWith("-") || /^[a-z0-9_]{16,}$/i.test(limpio);
+    }
+
+    function obtenerNombreComercialReal(emp, fallbackKey = "") {
+        if (typeof emp === "object" && emp !== null) {
+            const nombre = emp.nombreComercial || emp.nombre || emp.razonSocial || "";
+            if (nombre && !esIdTecnico(nombre)) {
+                return String(nombre).replace(/_/g, " ").trim();
+            }
+        } else if (typeof emp === "string" && !esIdTecnico(emp)) {
+            return emp.replace(/_/g, " ").trim();
+        }
+        return fallbackKey ? fallbackKey.replace(/_/g, " ").toUpperCase() : "";
+    }
+
     function limpiaTexto(texto) {
         return texto ? texto.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim() : "";
     }
@@ -1211,7 +1237,7 @@
     // FÓRMULA HAVERSINE (CALCULA DISTANCIA EN KM ENTRE DOS COORDENADAS)
     function calcularHaversineKm(lat1, lon1, lat2, lon2) {
         if (!lat1 || !lon1 || !lat2 || !lon2) return null;
-        const R = 6371; // Radio de la Tierra en Km
+        const R = 6371;
         const dLat = (lat2 - lat1) * Math.PI / 180;
         const dLon = (lon2 - lon1) * Math.PI / 180;
         const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
@@ -1262,7 +1288,7 @@
         if (currentPage > 0) { currentPage--; window.updateGallery(); }
     };
 
-    // RENDERS DE ACCESOS Y TARJETAS CON MÁSCARA ESTILIZADA DE UBICACIÓN
+    // RENDERS DE ACCESOS Y TARJETAS CON HERENCIA DE BANNERS CORPORATIVOS
     function renderizarGalleryYLinks() {
         const wrapper = document.getElementById('galleryWrapper');
         const linksGroup = document.getElementById('linksGroup');
@@ -1276,11 +1302,19 @@
         }
 
         empresasFiltradas.forEach((emp) => {
-            const nombreEmpresa = emp.nombreComercial || emp.nombre || "Empresa";
+            const nombreEmpresa = obtenerNombreComercialReal(emp, emp.id);
             const urlUbicacionMaps = emp.ubicacion || emp.mapaUrl || "#";
-            const imagenEmpresa = emp.imagen || "imagen-logo.jpg";
-            const enlaceEmpresa = emp.link || `vacante.html?empresa=${emp.id}`;
+            
+            // Si la empresa tiene banners corporativos guardados en M2, usar la primera ranura como imagen
+            let imagenEmpresa = emp.imagen;
+            if (!imagenEmpresa && emp.bannersCorporativos) {
+                imagenEmpresa = emp.bannersCorporativos.split(';')[0].trim();
+            }
+            if (!imagenEmpresa) {
+                imagenEmpresa = `imagen-${sanitizarKey(emp.id)}.jpg`;
+            }
 
+            const enlaceEmpresa = emp.link || `vacante.html?empresa=${sanitizarKey(emp.id)}`;
             const textoMascaraUbicacion = `Ubicación · ${nombreEmpresa}`;
 
             wrapper.innerHTML += `
@@ -1308,14 +1342,14 @@
 
         empresasFiltradas = Object.keys(todasLasEmpresas).map(id => ({ id, ...todasLasEmpresas[id] }))
             .filter(emp => {
-                const nombre = limpiaTexto(emp.nombreComercial || emp.nombre);
-                const ubicacion = limpiaTexto(emp.ubicacion || emp.direccion);
+                const nombre = limpiaTexto(obtenerNombreComercialReal(emp, emp.id));
+                const ubicacion = limpiaTexto(emp.ubicacion || emp.direccion || emp.lugarOrigen);
                 const tags = limpiaTexto(emp.tags);
 
                 const matchEmpresa = nombre.includes(term) || ubicacion.includes(term) || tags.includes(term);
 
                 let matchVacante = false;
-                const listaPuestos = todasLasVacantes[emp.id] || {};
+                const listaPuestos = todasLasVacantes[sanitizarKey(emp.id)] || todasLasVacantes[emp.id] || {};
                 
                 Object.keys(listaPuestos).forEach(keyPuesto => {
                     const vac = listaPuestos[keyPuesto];
@@ -1336,7 +1370,6 @@
         window.updateGallery();
     };
 
-    // OBTENER GPS DIRECTO DEL CANDIDATO
     window.obtenerUbicacionGPSCandidato = function() {
         const input = document.getElementById('userLocationInput');
         if (!navigator.geolocation) {
@@ -1360,7 +1393,7 @@
         );
     };
 
-    // FUNCIÓN DE GEOCODIFICACIÓN Y CÁLCULO DE CERCANÍA SENSIBILIZADO Y FILTRADO
+    // RADAR DE TRANSPORTE MULTIPARADA COMPATIBLE CON M6
     window.calcularCercaniaCandidato = async function() {
         const direccionTexto = document.getElementById('userLocationInput').value.trim();
         const contenedorResultados = document.getElementById('haversineResults');
@@ -1371,19 +1404,17 @@
         }
 
         contenedorResultados.style.display = 'flex';
-        contenedorResultados.innerHTML = `<p style="color: var(--text-muted); font-size: 0.85rem;"><i class="fas fa-spinner fa-spin me-2"></i> Calculando rutas más convenientes para ti...</p>`;
+        contenedorResultados.innerHTML = `<p style="color: var(--text-muted); font-size: 0.85rem;"><i class="fas fa-spinner fa-spin me-2"></i> Calculando rutas y paradas más convenientes para ti...</p>`;
 
         try {
             let latCandidato = null;
             let lonCandidato = null;
 
-            // 1. Evaluar si ingresó coordenadas directas (ej: "25.778120, -100.189420")
             const partes = direccionTexto.split(',');
             if (partes.length === 2 && !isNaN(parseFloat(partes[0])) && !isNaN(parseFloat(partes[1]))) {
                 latCandidato = parseFloat(partes[0]);
                 lonCandidato = parseFloat(partes[1]);
             } else {
-                // 2. Geocodificación asistida vía Nominatim OpenStreetMap (Forzada a México)
                 const queryFinal = `${direccionTexto}, Mexico`;
                 const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(queryFinal)}`);
                 const data = await response.json();
@@ -1400,18 +1431,49 @@
             }
 
             const calculos = [];
-            const RADIO_MAXIMO_KM = 12.0; // UMBRAL DE CONVENIENCIA: Descartar rutas lejanas
+            const RADIO_MAXIMO_KM = 15.0;
 
-            // RECORRER TODAS LAS RUTAS
+            // RECORRER TODAS LAS RUTAS Y SUS PARADAS INDIVIDUALES (M6)
             Object.keys(todasLasRutas).forEach(empresaKey => {
                 const rutasEmpresa = todasLasRutas[empresaKey] || {};
                 const datosEmpresa = todasLasEmpresas[empresaKey] || {};
-                const nombreEmpresa = datosEmpresa.nombreComercial || datosEmpresa.nombre || empresaKey.replace(/_/g, ' ').toUpperCase();
+                const nombreEmpresa = obtenerNombreComercialReal(datosEmpresa, empresaKey);
 
-                Object.keys(rutasEmpresa).forEach(pushId => {
-                    const ruta = rutasEmpresa[pushId];
-                    
-                    if (ruta && ruta.coordenadasAbordaje) {
+                Object.keys(rutasEmpresa).forEach(idRuta => {
+                    const ruta = rutasEmpresa[idRuta];
+                    if (!ruta || typeof ruta !== 'object') return;
+
+                    // A) Si tiene array estructurado de paradas (M6 Pro)
+                    if (Array.isArray(ruta.paradas) && ruta.paradas.length > 0) {
+                        ruta.paradas.forEach(p => {
+                            if (p.coordenadasAbordaje) {
+                                const cCoords = p.coordenadasAbordaje.split(',');
+                                if (cCoords.length === 2) {
+                                    const latP = parseFloat(cCoords[0].trim());
+                                    const lonP = parseFloat(cCoords[1].trim());
+
+                                    if (!isNaN(latP) && !isNaN(lonP)) {
+                                        const distKm = calcularHaversineKm(latCandidato, lonCandidato, latP, lonP);
+                                        if (distKm !== null && distKm <= RADIO_MAXIMO_KM) {
+                                            const horarioTexto = (p.horarios || []).map(h => h.formatoCivil).join(' / ') || ruta.horarioPaso || "Turno disponible";
+                                            calculos.push({
+                                                empresaKey: empresaKey,
+                                                nombreEmpresa: nombreEmpresa,
+                                                nombreRuta: ruta.nombreRuta || "Ruta de Personal",
+                                                puntoAbordaje: p.referenciaOriginal || p.cruceVialEnriquecido || `Parada #${p.numeroParada}`,
+                                                horario: horarioTexto,
+                                                municipio: ruta.estadoMunicipio || "",
+                                                distancia: distKm,
+                                                latRuta: latP,
+                                                lonRuta: lonP
+                                            });
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    } else if (ruta.coordenadasAbordaje) {
+                        // B) Fallback a coordenada general de la ruta
                         const coords = ruta.coordenadasAbordaje.split(',');
                         if (coords.length === 2) {
                             const latRuta = parseFloat(coords[0].trim());
@@ -1419,8 +1481,6 @@
 
                             if (!isNaN(latRuta) && !isNaN(lonRuta)) {
                                 const distKm = calcularHaversineKm(latCandidato, lonCandidato, latRuta, lonRuta);
-
-                                // FILTRAR SOLO LAS RUTAS DENTRO DEL RADIO CONVENIENTE
                                 if (distKm !== null && distKm <= RADIO_MAXIMO_KM) {
                                     calculos.push({
                                         empresaKey: empresaKey,
@@ -1440,10 +1500,7 @@
                 });
             });
 
-            // ORDENAR POR MENOR DISTANCIA
             calculos.sort((a, b) => a.distancia - b.distancia);
-
-            // LIMITAR AL TOP 4 DE RUTAS REALMENTE CONVENIENTES
             const mejoresRutas = calculos.slice(0, 4);
 
             if (mejoresRutas.length === 0) {
@@ -1462,7 +1519,7 @@
 
             contenedorResultados.innerHTML = `
                 <div class="haversine-results-header">
-                    <span><i class="fas fa-check-circle"></i> ${mejoresRutas.length} Rutas más convenientes encontradas:</span>
+                    <span><i class="fas fa-check-circle"></i> ${mejoresRutas.length} Paradas más convenientes encontradas:</span>
                     <span style="color: var(--text-muted); font-size: 0.75rem; text-transform: none;">Ordenadas por cercanía</span>
                 </div>
             `;
@@ -1471,7 +1528,7 @@
                 const esMasCercana = index === 0;
                 const linkMaps = `https://www.google.com/maps/search/?api=1&query=${item.latRuta},${item.lonRuta}`;
                 
-                let etiquetaScore = item.distancia <= 2.0 
+                let etiquetaScore = item.distancia <= 1.5 
                     ? `<span style="color: #22c55e; font-size: 0.75rem; font-weight: 800;"><i class="fas fa-person-walking"></i> Caminando (~${Math.round(item.distancia * 12)} min)</span>`
                     : `<span style="color: var(--primary-orange); font-size: 0.75rem; font-weight: 700;"><i class="fas fa-car-side"></i> Traslado corto</span>`;
 
@@ -1510,7 +1567,6 @@
         }
     };
 
-    // VINCULACIÓN DIRECTA AL FORMULARIO AL ELEGIR UNA RUTA
     window.seleccionarEmpresaParaPostulacion = function(empresaKey) {
         const selectEmpresa = document.getElementById('empresa');
         if (selectEmpresa) {
@@ -1520,19 +1576,18 @@
         }
     };
 
-    // ESCUCHADOR PRINCIPAL DE BASE DE DATOS FIREBASE
+    // ESCUCHADOR PRINCIPAL DE BASE DE DATOS FIREBASE V10
     onValue(rootRef, (snapshot) => {
         const data = snapshot.val() || {};
         todasLasEmpresas = data.empresas || {}; 
         todasLasVacantes = data.vacantes_detalles || {};
         todasLasRutas = data.rutas || {};
         
-        // Llenar combo de Selección de Empresa para Postulación
         const selectEmpresa = document.getElementById('empresa');
         selectEmpresa.innerHTML = '<option value="" disabled selected hidden></option>';
         
         Object.keys(todasLasEmpresas).forEach((id) => {
-            const nombre = todasLasEmpresas[id].nombreComercial || todasLasEmpresas[id].nombre || id;
+            const nombre = obtenerNombreComercialReal(todasLasEmpresas[id], id);
             selectEmpresa.innerHTML += `<option value="${id}">${nombre}</option>`;
         });
 
@@ -1544,7 +1599,7 @@
         window.ejecutarBusqueda(e.target.value);
     });
 
-    // EVENTO DE CAMBIO DE EMPRESA -> CARGA VACANTES
+    // CARGA DINÁMICA DE VACANTES SEGÚN LA EMPRESA SELECCIONADA
     document.getElementById('empresa').addEventListener('change', function(e) {
         const selectVacante = document.getElementById('vacante');
         const idEmpresa = e.target.value; 
@@ -1552,7 +1607,7 @@
         selectVacante.innerHTML = '<option value="" disabled selected hidden></option>';
         selectVacante.disabled = false;
 
-        const puestosData = todasLasVacantes[idEmpresa];
+        const puestosData = todasLasVacantes[sanitizarKey(idEmpresa)] || todasLasVacantes[idEmpresa];
 
         if (puestosData) {
             let agregadas = 0;
@@ -1645,7 +1700,7 @@
         input.addEventListener('blur', () => window.validarCampo(input));
     });
 
-    // ENVÍO INTEGRADO DE POSTULACIÓN A FIREBASE + WHATSAPP
+    // ENVÍO DE POSTULACIÓN
     window.enviarWhatsApp = function() {
         let formularioCorrecto = true;
 
@@ -1674,7 +1729,7 @@
             telefono: telefono,
             edad: edad,
             empresa: empresaTexto,
-            empresaId: comboEmpresa.value,
+            empresaId: sanitizarKey(comboEmpresa.value),
             nombreVacante: vacante,
             vacante: vacante,
             estatus: "Postulado",
