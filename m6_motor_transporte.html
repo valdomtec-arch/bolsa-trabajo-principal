@@ -33,10 +33,6 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-    <!-- Leaflet Control Geocoder -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
-    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
-
     <!-- Mammoth para archivos DOCX -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 
@@ -46,11 +42,12 @@
         .custom-scrollbar::-webkit-scrollbar-track { background: #0a0d14; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #38bdf8; }
-        .leaflet-control-geocoder { background: #121824 !important; border: 1px solid #1e293b !important; border-radius: 8px !important; color: #fff !important; }
-        .leaflet-control-geocoder-icon { background-color: #121824 !important; border-radius: 6px !important; }
-        .leaflet-control-geocoder-form input { background: #0a0d14 !important; color: #38bdf8 !important; border-radius: 6px !important; padding: 6px 10px !important; font-size: 12px !important; }
-        .leaflet-control-geocoder-alternatives { background: #121824 !important; color: #cbd5e1 !important; border-top: 1px solid #1e293b !important; }
-        .leaflet-control-geocoder-alternatives a:hover { background: #1e293b !important; color: #38bdf8 !important; }
+        .leaflet-popup-content-wrapper, .leaflet-popup-tip {
+            background: #121824 !important;
+            color: #e2e8f0 !important;
+            border: 1px solid #1e293b;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+        }
     </style>
 </head>
 <body class="bg-cyber-bg text-slate-200 font-sans min-h-screen p-4 md:p-6 space-y-6">
@@ -61,9 +58,9 @@
         <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-cyber-border pb-5">
             <div>
                 <h1 class="text-2xl font-black text-white flex items-center gap-2">
-                    <span class="text-cyber-accent">⚡</span> Motor de Transporte <span class="text-xs bg-cyber-accent/20 text-cyber-accent px-2 py-0.5 rounded border border-cyber-accent/40 font-mono">v3.3 Sync Pro</span>
+                    <span class="text-cyber-accent">⚡</span> Motor de Transporte <span class="text-xs bg-cyber-accent/20 text-cyber-accent px-2 py-0.5 rounded border border-cyber-accent/40 font-mono">v3.4 GeoPro</span>
                 </h1>
-                <p class="text-xs text-slate-400 mt-1">Extracción dual de horarios, ruteo vial real por calles y normalización universal para M6</p>
+                <p class="text-xs text-slate-400 mt-1">Extracción dual de horarios, buscador universal de coordenadas y ruteo vial OSRM</p>
             </div>
             <div class="flex items-center gap-2">
                 <span id="badgeRutasCount" class="bg-cyber-purple/20 border border-cyber-purple/40 text-cyber-purple text-xs font-bold px-3 py-1.5 rounded-lg">
@@ -75,7 +72,7 @@
             </div>
         </header>
 
-        <!-- SECCIÓN SUPERIOR: PANEL DE CONFIGURACIÓN + MAPA -->
+        <!-- SECCIÓN SUPERIOR: PANEL DE CONFIGURACIÓN + MAPA CON BUSCADOR UNIVERSAL -->
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
             
             <!-- CONTROLES Y PARÁMETROS -->
@@ -125,7 +122,7 @@
                 </div>
             </div>
 
-            <!-- MAPA CON RUTA VIAL REAL (OSRM) -->
+            <!-- MAPA CON ASISTENTE DE BÚSQUEDA UNIVERSAL -->
             <div class="lg:col-span-8 bg-cyber-card border border-cyber-border rounded-xl p-5 space-y-3 flex flex-col">
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <h2 class="text-xs font-bold text-cyber-amber uppercase tracking-wider flex items-center gap-2">
@@ -136,6 +133,18 @@
                         <span class="text-cyber-emerald">⏱️ Tiempo: <b id="lblTiempoMin">0</b> min</span>
                     </div>
                 </div>
+
+                <!-- BARRA DE BÚSQUEDA UNIVERSAL DE COORDENADAS / DESTINOS -->
+                <div class="flex gap-2">
+                    <input type="text" id="inputBusquedaMapaUniversal" 
+                        onkeydown="if(event.key==='Enter') buscarEnMapaUniversal()" 
+                        placeholder="🔍 Buscar: 'Planta FIMEX Nuevo León', '25.6997, -100.3250' o pega URL de Google Maps..." 
+                        class="flex-1 bg-cyber-bg border border-slate-700 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyber-accent font-mono">
+                    <button onclick="buscarEnMapaUniversal()" id="btnBuscarMapaUniversal" class="bg-cyber-cyan hover:bg-cyan-500 text-slate-950 font-bold px-4 py-2 rounded-lg text-xs transition-all flex items-center gap-1">
+                        <span>🔍</span> Buscar
+                    </button>
+                </div>
+
                 <div id="mapaPreCommit" class="flex-1"></div>
             </div>
 
@@ -268,6 +277,7 @@
         let mapObj = null;
         let markersGroup = null;
         let polylineGroup = null;
+        let pinBuscadorManual = null;
 
         window.ejecutarPaso1Extraccion = ejecutarPaso1Extraccion;
         window.ejecutarPaso2GeolocalizarTodas = ejecutarPaso2GeolocalizarTodas;
@@ -280,6 +290,8 @@
         window.copiarJsonAlPortapapeles = copiarJsonAlPortapapeles;
         window.centrarEnMapa = centrarEnMapa;
         window.actualizarCoordManual = actualizarCoordManual;
+        window.buscarEnMapaUniversal = buscarEnMapaUniversal;
+        window.asignarCoordenadaBuscadorAParada = asignarCoordenadaBuscadorAParada;
 
         document.addEventListener("DOMContentLoaded", async () => {
             mapObj = L.map('mapaPreCommit').setView([25.6866, -100.3161], 11);
@@ -291,41 +303,30 @@
             markersGroup = L.featureGroup().addTo(mapObj);
             polylineGroup = L.featureGroup().addTo(mapObj);
 
-            L.Control.geocoder({
-                defaultMarkGeocode: false,
-                placeholder: "🔍 Buscar cruce o coordenada...",
-                errorMessage: "No se encontraron coincidencias.",
-                geocoder: L.Control.Geocoder.nominatim({
-                    geocodingQueryParams: { countrycodes: 'mx', limit: 3 }
-                })
-            })
-            .on('markgeocode', function(e) {
-                const center = e.geocode.center;
-                const lat = center.lat.toFixed(6);
-                const lng = center.lng.toFixed(6);
-                const name = e.geocode.name;
-
-                mapObj.setView(center, 17);
-
-                const searchMarker = L.marker(center, { draggable: true }).addTo(markersGroup);
-                searchMarker.bindPopup(`
-                    <div class="font-sans text-xs">
-                        <b class="text-cyber-accent">Ubicación Localizada:</b><br>${name}<br>
-                        <span class="font-mono text-emerald-400 font-bold">${lat}, ${lng}</span>
-                    </div>
-                `).openPopup();
-            })
-            .addTo(mapObj);
+            // Clic directo en el mapa para capturar coordenadas
+            mapObj.on('click', function(e) {
+                const lat = e.latlng.lat.toFixed(6);
+                const lng = e.latlng.lng.toFixed(6);
+                colocarPinManualEnMapa(lat, lng, "Punto marcado en el mapa");
+            });
 
             try {
                 const snapEmpresas = await get(ref(db, "empresas"));
                 const dataEmpresas = snapEmpresas.val() || {};
                 const selectValidacion = document.getElementById("empresaValidacionIA");
                 selectValidacion.innerHTML = '<option value="">-- Selecciona Empresa Destino --</option>';
+                
+                const listaNombres = [];
                 Object.entries(dataEmpresas).forEach(([key, val]) => {
-                    let nombreFinal = typeof val === 'object' && val !== null ? (val.nombreComercial || val.nombre || key) : val;
-                    nombreFinal = String(nombreFinal).replace(/_/g, ' ').trim();
-                    selectValidacion.innerHTML += `<option value="${nombreFinal}">${nombreFinal}</option>`;
+                    let nombreFinal = typeof val === 'object' && val !== null ? (val.nombreComercial || val.nombre || val.razonSocial || "") : val;
+                    if (nombreFinal && !nombreFinal.startsWith("-") && !/^[a-z0-9_]{16,}$/i.test(nombreFinal.trim())) {
+                        nombreFinal = String(nombreFinal).replace(/_/g, ' ').trim();
+                        if (!listaNombres.includes(nombreFinal)) listaNombres.push(nombreFinal);
+                    }
+                });
+                
+                listaNombres.sort().forEach(nom => {
+                    selectValidacion.innerHTML += `<option value="${nom}">${nom}</option>`;
                 });
             } catch (e) {
                 console.error("Error al cargar empresas:", e);
@@ -340,16 +341,130 @@
                 .replace(/^_|_$/g, "");
         }
 
+        // BUSCADOR UNIVERSAL INTELIGENTE
+        async function buscarEnMapaUniversal() {
+            const query = document.getElementById("inputBusquedaMapaUniversal").value.trim();
+            const estadoDefecto = document.getElementById("estadoOperacionInput").value.trim() || "Nuevo León";
+            const btn = document.getElementById("btnBuscarMapaUniversal");
+
+            if (!query) return alert("Ingresa un destino, planta, coordenadas o enlace de Google Maps.");
+
+            btn.disabled = true;
+            btn.innerHTML = "<span>⏳</span> Buscando...";
+
+            try {
+                // 1. Detectar si es URL de Google Maps
+                const regexMapsUrl = /@(-?\d+\.\d+),(-?\d+\.\d+)|q=(-?\d+\.\d+),(-?\d+\.\d+)|destination=(-?\d+\.\d+),(-?\d+\.\d+)/;
+                const matchUrl = query.match(regexMapsUrl);
+                if (matchUrl) {
+                    const lat = parseFloat(matchUrl[1] || matchUrl[3] || matchUrl[5]).toFixed(6);
+                    const lng = parseFloat(matchUrl[2] || matchUrl[4] || matchUrl[6]).toFixed(6);
+                    colocarPinManualEnMapa(lat, lng, "Ubicación extraída de enlace Maps");
+                    return;
+                }
+
+                // 2. Detectar si son coordenadas directas (Lat, Lng)
+                const partes = query.split(",");
+                if (partes.length === 2 && !isNaN(parseFloat(partes[0])) && !isNaN(parseFloat(partes[1]))) {
+                    const lat = parseFloat(partes[0]).toFixed(6);
+                    const lng = parseFloat(partes[1]).toFixed(6);
+                    colocarPinManualEnMapa(lat, lng, "Coordenadas directas ingresadas");
+                    return;
+                }
+
+                // 3. Búsqueda semántica textual
+                const consultas = [
+                    `${query}, ${estadoDefecto}, Mexico`,
+                    `${query}, Mexico`,
+                    query
+                ];
+
+                let localizado = false;
+                for (const q of consultas) {
+                    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&countrycodes=mx&limit=1`, {
+                        headers: { "User-Agent": "ERPTransportePro/3.4" }
+                    });
+                    const data = await res.json();
+                    if (data && data.length > 0) {
+                        const lat = parseFloat(data[0].lat).toFixed(6);
+                        const lng = parseFloat(data[0].lon).toFixed(6);
+                        const nombreLugar = data[0].display_name;
+                        colocarPinManualEnMapa(lat, lng, nombreLugar);
+                        localizado = true;
+                        break;
+                    }
+                }
+
+                if (!localizado) {
+                    alert("No se localizó el lugar exacto. Intenta con un cruce cercano o haz clic directo sobre el mapa para fijar el punto.");
+                }
+
+            } catch (err) {
+                alert("Error al buscar en el mapa: " + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = "<span>🔍</span> Buscar";
+            }
+        }
+
+        function colocarPinManualEnMapa(lat, lng, descripcion) {
+            if (pinBuscadorManual && mapObj.hasLayer(pinBuscadorManual)) {
+                mapObj.removeLayer(pinBuscadorManual);
+            }
+
+            mapObj.flyTo([lat, lng], 17, { duration: 1.2 });
+
+            let opcionesSelectRutas = "";
+            coleccionRutas.forEach(r => {
+                r.paradas.forEach(p => {
+                    opcionesSelectRutas += `<option value="${r.nombreRuta}||${p.numeroParada}">${r.nombreRuta} - Parada #${p.numeroParada} (${p.referenciaOriginal})</option>`;
+                });
+            });
+
+            pinBuscadorManual = L.marker([lat, lng], { draggable: true }).addTo(mapObj);
+            
+            const popupContent = `
+                <div class="font-sans text-xs space-y-2 p-1" style="min-width: 220px;">
+                    <b class="text-cyber-accent">📍 Punto Localizado</b>
+                    <p class="text-slate-300 text-[11px] leading-tight">${descripcion}</p>
+                    <div class="font-mono text-emerald-400 font-bold bg-slate-900 px-2 py-1 rounded border border-slate-800 text-center">${lat}, ${lng}</div>
+                    ${coleccionRutas.length > 0 ? `
+                        <div class="pt-2 border-t border-slate-700 space-y-1">
+                            <label class="block text-[10px] text-slate-400 font-semibold uppercase">Asignar a parada:</label>
+                            <select id="selectParadaAsignar" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-[11px] text-white focus:outline-none">
+                                ${opcionesSelectRutas}
+                            </select>
+                            <button onclick="asignarCoordenadaBuscadorAParada('${lat}', '${lng}')" class="w-full bg-cyber-emerald hover:bg-emerald-400 text-slate-950 font-bold py-1 px-2 rounded text-xs mt-1 transition-all">
+                                ✅ Asignar a esta Parada
+                            </button>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+
+            pinBuscadorManual.bindPopup(popupContent).openPopup();
+        }
+
+        function asignarCoordenadaBuscadorAParada(lat, lng) {
+            const select = document.getElementById("selectParadaAsignar");
+            if (!select) return;
+
+            const [nombreRuta, numParadaStr] = select.value.split("||");
+            const numParada = parseInt(numParadaStr);
+
+            actualizarCoordManual(nombreRuta, numParada, `${lat}, ${lng}`);
+            if (pinBuscadorManual) mapObj.removeLayer(pinBuscadorManual);
+            alert(`✅ Coordenadas asignadas a la Parada #${numParada} de la ruta "${nombreRuta}".`);
+        }
+
         function normalizarRutaParaInyeccion(r) {
             const paradas = r.paradas || [];
             
-            // 1. Resumen de Puntos de Abordaje para compatibilidad M6
             const listaParadasTexto = paradas
                 .map(p => (p.referenciaOriginal || "").trim())
                 .filter(Boolean)
                 .join(", ");
 
-            // 2. Resumen de Multi-Horarios
             const setHorarios = new Set();
             paradas.forEach(p => {
                 (p.horarios || []).forEach(h => {
@@ -362,11 +477,9 @@
             });
             const horarioPaso = Array.from(setHorarios).join(" / ") || (r.horarioPaso || "No especificado");
 
-            // 3. Coordenada representativa para explorador general de M6
             const primeraParadaConGPS = paradas.find(p => p.coordenadasAbordaje && p.coordenadasAbordaje.includes(","));
             const coordenadasAbordaje = primeraParadaConGPS ? primeraParadaConGPS.coordenadasAbordaje : (r.coordenadasAbordaje || "");
 
-            // 4. Ubicación unificada
             const mun = r.municipio || "General";
             const est = r.estado || "Nuevo León";
             const estadoMunicipio = `${mun}, ${est}`;
@@ -552,11 +665,11 @@
             }
 
             if (parada.urlGoogleMaps) {
-                const regexCoordsUrl = /@(-?\d+\.\d+),(-?\d+\.\d+)|q=(-?\d+\.\d+),(-?\d+\.\d+)/;
+                const regexCoordsUrl = /@(-?\d+\.\d+),(-?\d+\.\d+)|q=(-?\d+\.\d+),(-?\d+\.\d+)|destination=(-?\d+\.\d+),(-?\d+\.\d+)/;
                 const match = parada.urlGoogleMaps.match(regexCoordsUrl);
                 if (match) {
-                    const lat = match[1] || match[3];
-                    const lng = match[2] || match[4];
+                    const lat = match[1] || match[3] || match[5];
+                    const lng = match[2] || match[4] || match[6];
                     return { coords: `${lat}, ${lng}`, origen: "Exacta (URL Maps)" };
                 }
             }
@@ -583,7 +696,7 @@
         async function consultarNominatimAPI(query) {
             try {
                 const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=mx&limit=1`;
-                const res = await fetch(url, { headers: { "User-Agent": "ERPTransportePro/3.3" } });
+                const res = await fetch(url, { headers: { "User-Agent": "ERPTransportePro/3.4" } });
                 const data = await res.json();
                 if (data && data.length > 0) {
                     return `${parseFloat(data[0].lat).toFixed(6)}, ${parseFloat(data[0].lon).toFixed(6)}`;
@@ -810,7 +923,8 @@
                                 <b class="text-cyber-accent">${ruta.nombreRuta}</b><br>
                                 <b>Parada #${parada.numeroParada}:</b> ${parada.referenciaOriginal}<br>
                                 <b class="text-cyber-cyan">Pax Abordan:</b> ${parada.pasajerosAbordan || 0}<br>
-                                <b class="text-cyber-amber">Cruce:</b> ${parada.cruceVialEnriquecido}
+                                <b class="text-cyber-amber">Cruce:</b> ${parada.cruceVialEnriquecido}<br>
+                                <span class="font-mono text-emerald-400 font-bold">${lat.toFixed(6)}, ${lng.toFixed(6)}</span>
                             </div>
                         `);
                     }
@@ -846,7 +960,7 @@
                         </td>
                         <td class="p-2.5 text-center space-y-1">
                             <span class="inline-block px-2 py-0.5 rounded text-[10px] border border-slate-700 ${valida ? 'text-emerald-400 border-emerald-500/30' : 'text-slate-400'}">${parada.estadoGeocodificacion}</span>
-                            ${valida ? `<div><button onclick="centrarEnMapa(${lat}, ${lng})" class="bg-cyber-cyan/20 hover:bg-cyber-cyan/40 text-cyber-cyan px-2 py-0.5 rounded text-[10px] font-bold">📍 Ver</button></div>` : ''}
+                            ${valida ? `<div><button type="button" onclick="centrarEnMapa(${lat}, ${lng}, '${ruta.nombreRuta}', ${parada.numeroParada})" class="bg-cyber-cyan/20 hover:bg-cyber-cyan/40 text-cyber-cyan px-2.5 py-1 rounded text-[10px] font-bold transition-colors">📍 Ver</button></div>` : ''}
                         </td>
                     `;
                     tbody.appendChild(tr);
@@ -881,9 +995,16 @@
             }
         }
 
-        function centrarEnMapa(lat, lng) {
+        function centrarEnMapa(lat, lng, nombreRuta, numParada) {
             if (mapObj && !isNaN(lat) && !isNaN(lng)) {
-                mapObj.setView([lat, lng], 17);
+                mapObj.flyTo([lat, lng], 17, { duration: 1.0 });
+
+                markersGroup.eachLayer(layer => {
+                    const pos = layer.getLatLng();
+                    if (pos && Math.abs(pos.lat - lat) < 0.00001 && Math.abs(pos.lng - lng) < 0.00001) {
+                        layer.openPopup();
+                    }
+                });
             }
         }
 
