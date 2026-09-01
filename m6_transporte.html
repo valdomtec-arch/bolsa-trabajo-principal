@@ -450,6 +450,24 @@
                 .replace(/^_|_$/g, "");
         }
 
+        function esIdInvalidoOKey(texto) {
+            if (!texto || typeof texto !== "string") return true;
+            const limpio = texto.trim();
+            return limpio.startsWith("-") || /^[a-z0-9_]{16,}$/i.test(limpio);
+        }
+
+        function extraerNombreLimpioEmpresa(emp) {
+            if (typeof emp === "object" && emp !== null) {
+                const candidato = emp.nombreComercial || emp.nombre || emp.razonSocial || emp.nombreEmpresa || emp.empresaDestino || "";
+                if (candidato && !esIdInvalidoOKey(candidato)) {
+                    return String(candidato).replace(/_/g, " ").trim();
+                }
+            } else if (typeof emp === "string" && !esIdInvalidoOKey(emp)) {
+                return emp.replace(/_/g, " ").trim();
+            }
+            return "";
+        }
+
         function inicializarMapaLeaflet() {
             const contenedor = document.getElementById('mapaLeaflet');
             if (!contenedor) return;
@@ -495,34 +513,34 @@
                 diccionarioEmpresas = {};
                 listaEmpresasNombres = [];
 
+                // 1. Extraer empresas limpias exclusivamente de su nombre real
                 Object.entries(dataEmp).forEach(([key, emp]) => {
-                    let nombreFinal = "";
-                    if (typeof emp === "object" && emp !== null) {
-                        nombreFinal = emp.nombreComercial || emp.nombre || emp.razonSocial || key;
-                    } else if (typeof emp === "string") {
-                        nombreFinal = emp;
-                    } else {
-                        nombreFinal = key;
-                    }
-                    nombreFinal = String(nombreFinal).replace(/_/g, " ").trim();
-                    const keyNormal = sanitizarKey(nombreFinal);
-                    diccionarioEmpresas[keyNormal] = nombreFinal;
-                    if (!listaEmpresasNombres.includes(nombreFinal)) {
-                        listaEmpresasNombres.push(nombreFinal);
+                    const nombreFinal = extraerNombreLimpioEmpresa(emp);
+                    if (nombreFinal) {
+                        const keyNormal = sanitizarKey(nombreFinal);
+                        diccionarioEmpresas[keyNormal] = nombreFinal;
+                        diccionarioEmpresas[key] = nombreFinal;
+                        if (!listaEmpresasNombres.includes(nombreFinal)) {
+                            listaEmpresasNombres.push(nombreFinal);
+                        }
                     }
                 });
 
+                // 2. Procesar catálogo de rutas
                 const dataRutas = (snapRutas && snapRutas.exists()) ? snapRutas.val() : {};
                 aplanarRutasParaCache(dataRutas);
 
+                // 3. Incluir nombres limpios de rutas si no están en catálogo (sin incluir IDs)
                 cacheTodasLasRutas.forEach(r => {
-                    if (r.empresaNombre && !listaEmpresasNombres.includes(r.empresaNombre)) {
-                        listaEmpresasNombres.push(r.empresaNombre);
-                        diccionarioEmpresas[sanitizarKey(r.empresaNombre)] = r.empresaNombre;
+                    if (r.empresaNombre && !esIdInvalidoOKey(r.empresaNombre)) {
+                        if (!listaEmpresasNombres.includes(r.empresaNombre)) {
+                            listaEmpresasNombres.push(r.empresaNombre);
+                            diccionarioEmpresas[sanitizarKey(r.empresaNombre)] = r.empresaNombre;
+                        }
                     }
                 });
 
-                listaEmpresasNombres.sort();
+                listaEmpresasNombres.sort((a, b) => a.localeCompare(b));
                 poblarSelectsEmpresas();
 
                 actualizarMetricasGerenciales();
@@ -544,7 +562,10 @@
             Object.entries(rutasNodo).forEach(([empresaKey, rutasEmpresa]) => {
                 if (typeof rutasEmpresa === 'object' && rutasEmpresa) {
                     Object.entries(rutasEmpresa).forEach(([idRuta, r]) => {
-                        const nombreEmpresa = r.empresaDestino || diccionarioEmpresas[empresaKey] || empresaKey.replace(/_/g, ' ').toUpperCase();
+                        let nombreEmpresa = r.empresaDestino || diccionarioEmpresas[empresaKey] || "";
+                        if (esIdInvalidoOKey(nombreEmpresa)) {
+                            nombreEmpresa = empresaKey.replace(/_/g, ' ').toUpperCase();
+                        }
                         
                         let coordenadas = r.coordenadasAbordaje || "";
                         if (!coordenadas && Array.isArray(r.paradas)) {
