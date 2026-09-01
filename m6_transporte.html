@@ -450,19 +450,20 @@
                 .replace(/^_|_$/g, "");
         }
 
-        function esIdInvalidoOKey(texto) {
-            if (!texto || typeof texto !== "string") return true;
-            const limpio = texto.trim();
+        function esIdTecnico(str) {
+            if (!str || typeof str !== "string") return true;
+            const limpio = str.trim();
+            // Identifica IDs automáticos de Firebase (-O8X...) o slugs puros
             return limpio.startsWith("-") || /^[a-z0-9_]{16,}$/i.test(limpio);
         }
 
-        function extraerNombreLimpioEmpresa(emp) {
+        function obtenerNombreComercialReal(emp) {
             if (typeof emp === "object" && emp !== null) {
-                const candidato = emp.nombreComercial || emp.nombre || emp.razonSocial || emp.nombreEmpresa || emp.empresaDestino || "";
-                if (candidato && !esIdInvalidoOKey(candidato)) {
-                    return String(candidato).replace(/_/g, " ").trim();
+                const nombre = emp.nombreComercial || emp.nombre || emp.razonSocial || "";
+                if (nombre && !esIdTecnico(nombre)) {
+                    return String(nombre).replace(/_/g, " ").trim();
                 }
-            } else if (typeof emp === "string" && !esIdInvalidoOKey(emp)) {
+            } else if (typeof emp === "string" && !esIdTecnico(emp)) {
                 return emp.replace(/_/g, " ").trim();
             }
             return "";
@@ -513,35 +514,26 @@
                 diccionarioEmpresas = {};
                 listaEmpresasNombres = [];
 
-                // 1. Extraer empresas limpias exclusivamente de su nombre real
+                // 1. CARGA ESTRICTA DEL CATÁLOGO OFICIAL DE EMPRESAS (Solo nombres comerciales)
                 Object.entries(dataEmp).forEach(([key, emp]) => {
-                    const nombreFinal = extraerNombreLimpioEmpresa(emp);
-                    if (nombreFinal) {
-                        const keyNormal = sanitizarKey(nombreFinal);
-                        diccionarioEmpresas[keyNormal] = nombreFinal;
-                        diccionarioEmpresas[key] = nombreFinal;
-                        if (!listaEmpresasNombres.includes(nombreFinal)) {
-                            listaEmpresasNombres.push(nombreFinal);
-                        }
-                    }
-                });
-
-                // 2. Procesar catálogo de rutas
-                const dataRutas = (snapRutas && snapRutas.exists()) ? snapRutas.val() : {};
-                aplanarRutasParaCache(dataRutas);
-
-                // 3. Incluir nombres limpios de rutas si no están en catálogo (sin incluir IDs)
-                cacheTodasLasRutas.forEach(r => {
-                    if (r.empresaNombre && !esIdInvalidoOKey(r.empresaNombre)) {
-                        if (!listaEmpresasNombres.includes(r.empresaNombre)) {
-                            listaEmpresasNombres.push(r.empresaNombre);
-                            diccionarioEmpresas[sanitizarKey(r.empresaNombre)] = r.empresaNombre;
+                    const nombreComercial = obtenerNombreComercialReal(emp);
+                    if (nombreComercial) {
+                        const keyNormal = sanitizarKey(nombreComercial);
+                        diccionarioEmpresas[keyNormal] = nombreComercial;
+                        diccionarioEmpresas[key] = nombreComercial; // Relacionar ID de nodo con nombre comercial
+                        
+                        if (!listaEmpresasNombres.includes(nombreComercial)) {
+                            listaEmpresasNombres.push(nombreComercial);
                         }
                     }
                 });
 
                 listaEmpresasNombres.sort((a, b) => a.localeCompare(b));
                 poblarSelectsEmpresas();
+
+                // 2. Procesar catálogo de rutas vinculando los nombres oficiales
+                const dataRutas = (snapRutas && snapRutas.exists()) ? snapRutas.val() : {};
+                aplanarRutasParaCache(dataRutas);
 
                 actualizarMetricasGerenciales();
                 reiniciarYRenderizarTabla();
@@ -562,8 +554,9 @@
             Object.entries(rutasNodo).forEach(([empresaKey, rutasEmpresa]) => {
                 if (typeof rutasEmpresa === 'object' && rutasEmpresa) {
                     Object.entries(rutasEmpresa).forEach(([idRuta, r]) => {
-                        let nombreEmpresa = r.empresaDestino || diccionarioEmpresas[empresaKey] || "";
-                        if (esIdInvalidoOKey(nombreEmpresa)) {
+                        // Resolver siempre al nombre comercial limpio registrado
+                        let nombreEmpresa = diccionarioEmpresas[empresaKey] || diccionarioEmpresas[sanitizarKey(r.empresaDestino)] || r.empresaDestino || "";
+                        if (esIdTecnico(nombreEmpresa)) {
                             nombreEmpresa = empresaKey.replace(/_/g, ' ').toUpperCase();
                         }
                         
