@@ -337,6 +337,12 @@
                 <li class="nav-item" data-module="m3_agenda" data-permiso="m3_agenda">
                     <button onclick="window.location.href='m3_agenda.html'"><i class="fas fa-address-book"></i> Registro de Candidatos</button>
                 </li>
+                
+                <!-- SUBMÓDULO 3.2 SUPERVISIÓN (EXCLUSIVO NIVEL >= 3) -->
+                <li class="nav-item hidden" data-module="m3_supervision" data-nivel-min="3">
+                    <button onclick="window.location.href='m3_supervision.html'"><i class="fas fa-tower-broadcast text-amber-400"></i> Supervisión & SLA (M3.2)</button>
+                </li>
+
                 <li class="nav-item" data-module="m4_metricas" data-permiso="m4_metricas">
                     <button onclick="window.location.href='m4_metricas.html'"><i class="fas fa-chart-line"></i> Gerencia y Administración</button>
                 </li>
@@ -390,6 +396,13 @@
                     <i class="fas fa-address-book"></i>
                     <h3>3. Registro de Candidatos</h3>
                     <p>Seguimiento de postulantes, agendas y estatus de reclutamiento.</p>
+                </a>
+
+                <!-- TARJETA M3.2 SUPERVISIÓN (EXCLUSIVA NIVEL >= 3) -->
+                <a href="m3_supervision.html" class="dash-card hidden" data-card-nivel-min="3">
+                    <i class="fas fa-tower-broadcast text-amber-500"></i>
+                    <h3 class="text-amber-400">3.2 Supervisión & SLA</h3>
+                    <p>Torre de control, balanceo de equipo y rescate quirúrgico de cartera.</p>
                 </a>
                 
                 <a href="m4_metricas.html" class="dash-card" data-card-permiso="m4_metricas">
@@ -512,17 +525,25 @@
                     return;
                 }
 
+                const userNivel = parseInt(u.nivel) || 1;
+
                 // Renderizar perfil en la barra lateral
                 document.getElementById('userName').textContent = u.nombre || user.email;
-                document.getElementById('userRole').textContent = `${u.nombreRol || 'Colaborador'} (Nivel ${u.nivel || 1})`;
+                document.getElementById('userRole').textContent = `${u.nombreRol || 'Colaborador'} (Nivel ${userNivel})`;
                 document.getElementById('userInitial').textContent = (u.nombre || "U").charAt(0).toUpperCase();
 
-                // 2. Si es SuperAdmin Master (Nivel 5), tiene acceso absoluto
-                if (u.nivel >= 5) {
-                    return; // No se oculta ningún módulo
+                // 2. Control jerárquico para M3.2 Supervisión (Nivel >= 3)
+                if (userNivel >= 3) {
+                    document.querySelectorAll('[data-nivel-min="3"]').forEach(el => el.classList.remove('hidden'));
+                    document.querySelectorAll('[data-card-nivel-min="3"]').forEach(el => el.classList.remove('hidden'));
                 }
 
-                // 3. Consultar la matriz canónica del rol asignado en roles_dinamicos
+                // 3. Si es SuperAdmin Master (Nivel 5), tiene acceso total a todos los módulos
+                if (userNivel >= 5) {
+                    return;
+                }
+
+                // 4. Consultar la matriz canónica del rol asignado en roles_dinamicos
                 if (u.rolId) {
                     const snapRol = await get(ref(db, `roles_dinamicos/${u.rolId}`));
                     if (snapRol.exists()) {
@@ -563,7 +584,7 @@
                 const mod = sec.getAttribute('data-permiso-sec');
                 const tienePermiso = permisos[mod] && permisos[mod].ver === true;
                 if (!tienePermiso) {
-                    sec.remove(); // Eliminado del DOM para que no pueda forzarse
+                    sec.remove();
                 }
             });
         }
