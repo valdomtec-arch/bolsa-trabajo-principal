@@ -62,27 +62,32 @@
                     <span id="badgeFirebaseStatus" class="bg-emerald-500/10 text-emerald-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-emerald-500/20 flex items-center gap-1.5">
                         <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Sincronizando...
                     </span>
+                    <span id="badgeScopeStatus" class="bg-cyber-cardAlt text-cyber-cyan text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-cyber-border">
+                        Scope: Evaluando...
+                    </span>
                 </div>
                 <h1 class="text-xl sm:text-2xl md:text-3xl font-extrabold text-white tracking-tight">Gestión de Postulantes y Entrevistas</h1>
                 <div id="userInfo" class="text-xs text-cyber-amber font-mono font-medium mt-1">
-                    <i class="fas fa-user-shield"></i> Cargando operador...
+                    <i class="fas fa-user-shield"></i> Validando credenciales de acceso...
                 </div>
             </div>
             
             <!-- ACCIONES GLOBALES REORGANIZADAS -->
             <div class="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
-                <!-- BOTÓN CONEXIÓN M3_SUPERVISION -->
-                <a id="btnSupervisionLink" href="m3_supervision.html" class="flex-1 sm:flex-initial bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-bold py-2 px-3.5 rounded-xl shadow flex items-center justify-center gap-2 text-xs transition-all">
+                <a href="admin.html" class="flex-1 sm:flex-initial bg-cyber-bg hover:bg-slate-900 border border-cyber-border text-slate-300 font-mono text-xs px-3.5 py-2 rounded-xl flex items-center justify-center gap-2 transition-all">
+                    <i class="fas fa-arrow-left"></i> Panel Global
+                </a>
+
+                <a id="btnSupervisionLink" href="m3_supervision.html" class="flex-1 sm:flex-initial bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-bold py-2 px-3.5 rounded-xl shadow flex items-center justify-center gap-2 text-xs transition-all hidden">
                     <i class="fas fa-users-viewfinder"></i> Supervisión de Equipo
                 </a>
 
-                <!-- SWITCH CENTINELA / MANTENIMIENTO -->
                 <button id="btnCentinelaToggle" onclick="alternarEstadoCentinela()" class="flex-1 sm:flex-initial bg-cyber-bg hover:bg-slate-900 border border-cyber-border text-slate-300 font-mono text-xs px-3.5 py-2 rounded-xl flex items-center justify-center gap-2 transition-all">
                     <span class="w-2.5 h-2.5 rounded-full bg-emerald-400" id="bulletCentinela"></span>
                     <span id="txtCentinela">Centinela: Activo</span>
                 </button>
 
-                <button onclick="depurarYUnificarOperadorSeleccionado()" title="Unifica candidatos duplicados y limpia IDs del operador" class="flex-1 sm:flex-initial bg-amber-600/20 hover:bg-amber-600 text-amber-300 hover:text-white border border-amber-500/30 font-semibold py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 text-xs transition-all">
+                <button id="btnDepurarOp" onclick="depurarYUnificarOperadorSeleccionado()" title="Unifica candidatos duplicados y limpia IDs del operador" class="flex-1 sm:flex-initial bg-amber-600/20 hover:bg-amber-600 text-amber-300 hover:text-white border border-amber-500/30 font-semibold py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 text-xs transition-all hidden">
                     <i class="fas fa-user-check"></i> Depurar Operador
                 </button>
 
@@ -216,7 +221,7 @@
                 <h2 class="text-base font-bold text-white flex items-center gap-2">
                     <i class="fas fa-user-edit text-cyber-accent"></i> Expediente del Postulante
                 </h2>
-                <p class="text-[11px] text-slate-400">Edición integral de datos, cita de entrevista y reasignación.</p>
+                <p class="text-[11px] text-slate-400">Edición integral de datos, cita de entrevista y reasignación autorizada.</p>
             </div>
 
             <input type="hidden" id="editId">
@@ -298,8 +303,9 @@
         </div>
     </div>
 
-    <!-- SDK FIREBASE V8 -->
+    <!-- SDK FIREBASE V8 (COMPATIBLE CON AUTH & REALTIME) -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
     <script>
@@ -317,6 +323,7 @@
         if (!firebase.apps.length) {
             firebase.initializeApp(firebaseConfig);
         }
+        const auth = firebase.auth();
         const db = firebase.database();
 
         let todosLosPostulantes = {};
@@ -327,51 +334,102 @@
         let chartEdadInstance = null;
         let centinelaActivo = true;
 
+        // Estructura de gobernanza reactiva
         let usuarioSesion = {
-            uid: "SYS_ADMIN_01",
-            nombre: "Jose Antonio Valladares Cid",
-            rol: "Administrador",
-            todasLasEmpresas: true,
+            uid: null,
+            nombre: "Cargando...",
+            rol: "Operativo",
+            nivel: 1,
+            scope: "personal",
+            todasLasEmpresas: false,
             empresas: [],
-            equipoAsignadoIds: []
+            equipoAsignadoIds: [] // Reclutadores bajo su coordinación
         };
 
         document.addEventListener("DOMContentLoaded", () => {
-            inicializarPerfilUsuario();
+            inicializarPerfilSeguridad();
             escucharEstadoCentinela();
         });
 
-        function inicializarPerfilUsuario() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const activeUid = urlParams.get('uid') || usuarioSesion.uid;
+        // 1. RESOLUCIÓN DE IDENTIDAD AUTÉNTICA DESDE AUTH + NODO M5
+        function inicializarPerfilSeguridad() {
+            auth.onAuthStateChanged(user => {
+                if (!user) {
+                    window.location.href = "acceso.html";
+                    return;
+                }
 
-            db.ref(`usuarios_reclutadores/${activeUid}`).once('value', (snap) => {
-                const val = snap.val();
-                if (val) {
+                db.ref(`usuarios_reclutadores/${user.uid}`).once('value', snap => {
+                    if (!snap.exists()) {
+                        alert("No tienes perfil asignado en el sistema.");
+                        auth.signOut().then(() => window.location.href = "acceso.html");
+                        return;
+                    }
+
+                    const val = snap.val();
+                    if (val.estatus !== 'Activo') {
+                        alert("Tu cuenta se encuentra inactiva o suspendida.");
+                        auth.signOut().then(() => window.location.href = "acceso.html");
+                        return;
+                    }
+
                     usuarioSesion = {
-                        uid: activeUid,
-                        nombre: val.nombre || val.usuario || "Jose Antonio Valladares Cid",
-                        rol: val.rol || "Administrador",
-                        todasLasEmpresas: val.todasLasEmpresas ?? true,
+                        uid: user.uid,
+                        nombre: val.nombre || user.email,
+                        rol: val.nombreRol || "Colaborador",
+                        nivel: parseInt(val.nivel) || 2,
+                        scope: val.scope || "personal",
+                        todasLasEmpresas: val.scope === 'global' || (Array.isArray(val.empresas) && val.empresas.includes("TODAS")),
                         empresas: Array.isArray(val.empresas) ? val.empresas : [],
-                        equipoAsignadoIds: Array.isArray(val.equipoAsignadoIds) ? val.equipoAsignadoIds : []
+                        equipoAsignadoIds: [user.uid] // Incluye siempre su propio UID
                     };
-                }
 
-                document.getElementById("userInfo").innerHTML = `
-                    <i class="fas fa-user-shield"></i> Operador Activo: <b>${usuarioSesion.nombre}</b> (${usuarioSesion.rol})
-                `;
+                    // Resolver jerarquía de equipo en tiempo real si es Coordinador o Superior
+                    db.ref("usuarios_reclutadores").once('value', staffSnap => {
+                        const todos = staffSnap.val() || {};
+                        
+                        if (usuarioSesion.nivel >= 3) {
+                            Object.entries(todos).forEach(([subUid, subVal]) => {
+                                if (subVal && subVal.coordinadorPadreId === usuarioSesion.uid) {
+                                    if (!usuarioSesion.equipoAsignadoIds.includes(subUid)) {
+                                        usuarioSesion.equipoAsignadoIds.push(subUid);
+                                    }
+                                }
+                            });
+                        }
 
-                // Actualizar enlace dinámico para supervisión con UID
-                const btnSupervision = document.getElementById("btnSupervisionLink");
-                if (btnSupervision) {
-                    btnSupervision.href = `m3_supervision.html?uid=${usuarioSesion.uid}`;
-                }
-
-                inicializarEscuchaFirebase();
-            }, () => {
-                inicializarEscuchaFirebase();
+                        aplicarReglasInterfaz();
+                        inicializarEscuchaFirebase();
+                    });
+                });
             });
+        }
+
+        // 2. ADAPTAR LA INTERFAZ SEGÚN EL NIVEL JERÁRQUICO
+        function aplicarReglasInterfaz() {
+            document.getElementById("userInfo").innerHTML = `
+                <i class="fas fa-user-shield"></i> Operador: <b>${usuarioSesion.nombre}</b> | Rol: <b>${usuarioSesion.rol}</b> (Nivel ${usuarioSesion.nivel})
+            `;
+
+            const badgeScope = document.getElementById("badgeScopeStatus");
+            if (usuarioSesion.nivel >= 4 || usuarioSesion.scope === 'global') {
+                badgeScope.className = "bg-emerald-500/10 text-emerald-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-emerald-500/20";
+                badgeScope.textContent = "Scope: Global Corporativo";
+                document.getElementById("btnDepurarOp").classList.remove("hidden");
+                document.getElementById("btnSupervisionLink").classList.remove("hidden");
+            } else if (usuarioSesion.nivel === 3) {
+                badgeScope.className = "bg-amber-500/10 text-amber-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-amber-500/20";
+                badgeScope.textContent = `Scope: Equipo (${usuarioSesion.equipoAsignadoIds.length} Reclutadores)`;
+                document.getElementById("btnSupervisionLink").classList.remove("hidden");
+            } else {
+                badgeScope.className = "bg-cyber-cardAlt text-slate-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-cyber-border";
+                badgeScope.textContent = "Scope: Operativo Personal";
+            }
+
+            const btnSupervision = document.getElementById("btnSupervisionLink");
+            if (btnSupervision) {
+                btnSupervision.href = `m3_supervision.html?uid=${usuarioSesion.uid}`;
+            }
         }
 
         function escucharEstadoCentinela() {
@@ -396,12 +454,15 @@
         }
 
         function alternarEstadoCentinela() {
+            if (usuarioSesion.nivel < 4) {
+                return alert("Acción restringida. Solo dirección o gerencia pueden alternar el modo centinela.");
+            }
             const nuevoEstadoMantenimiento = centinelaActivo;
             db.ref("configuracion_sistema/centinela_mantenimiento").set(nuevoEstadoMantenimiento)
                 .then(() => {
                     alert(nuevoEstadoMantenimiento 
-                        ? "⏸️ Sistema puesto en MANTENIMIENTO. Se han pausado los envíos automáticos." 
-                        : "▶️ Centinela REACTIVADO. Operaciones regulares en marcha.");
+                        ? "⏸️ Sistema puesto en MANTENIMIENTO." 
+                        : "▶️ Centinela REACTIVADO.");
                 });
         }
 
@@ -456,6 +517,7 @@
             }
         }
 
+        // Filtro restrictivo de operadores según el equipo permitido
         function actualizarFiltroOperadores() {
             const filtroOperador = document.getElementById("filtroOperador");
             const editReclutador = document.getElementById("editReclutador");
@@ -463,16 +525,23 @@
             const selFiltro = filtroOperador.value;
             const selEdit = editReclutador.value;
 
-            filtroOperador.innerHTML = '<option value="TODOS">-- Todos los Operadores --</option>';
+            filtroOperador.innerHTML = '<option value="TODOS">-- Todos los Autorizados --</option>';
             editReclutador.innerHTML = '<option value="">-- Seleccionar Operador --</option>';
 
             Object.entries(catalogoUsuarios).forEach(([uUid, uVal]) => {
                 if (!uVal) return;
-                const uNombre = uVal.nombre || uVal.usuario || uUid;
-                const labelText = `${uNombre} (${uVal.rol || 'Reclutador'})`;
 
-                filtroOperador.innerHTML += `<option value="${uUid}">${labelText}</option>`;
-                editReclutador.innerHTML += `<option value="${uUid}">${labelText}</option>`;
+                // Restricción: SuperAdmin ve todos; Coordinador ve su equipo; Reclutador solo a sí mismo
+                const esVisible = (usuarioSesion.nivel >= 4 || usuarioSesion.scope === 'global') ||
+                                  (usuarioSesion.equipoAsignadoIds.includes(uUid));
+
+                if (esVisible) {
+                    const uNombre = uVal.nombre || uVal.usuario || uUid;
+                    const labelText = `${uNombre} (${uVal.nombreRol || uVal.rol || 'Reclutador'})`;
+
+                    filtroOperador.innerHTML += `<option value="${uUid}">${labelText}</option>`;
+                    editReclutador.innerHTML += `<option value="${uUid}">${labelText}</option>`;
+                }
             });
 
             if (selFiltro) filtroOperador.value = selFiltro;
@@ -520,6 +589,33 @@
             }
         }
 
+        // 3. REGLA MAESTRA DE FILTRADO JERÁRQUICO
+        function puedeVerCandidato(p) {
+            // Dirección / Master / Alcance Global: Acceso a todo el universo
+            if (usuarioSesion.nivel >= 4 || usuarioSesion.scope === 'global' || usuarioSesion.todasLasEmpresas) {
+                return true;
+            }
+
+            const recId = p.reclutadorId || p.agenteId;
+
+            // Nivel 3 (Coordinación): Ve sus propios registros + los de su equipo a cargo
+            if (usuarioSesion.nivel === 3) {
+                if (recId && usuarioSesion.equipoAsignadoIds.includes(recId)) {
+                    return true;
+                }
+                // Si el candidato pertenece a una de sus empresas asignadas
+                const empKey = p.empresaId || p.empresa_id || p.empresa;
+                return usuarioSesion.empresas.includes(empKey);
+            }
+
+            // Nivel 2 o menor (Reclutador Operativo): Estricto registro propio
+            if (recId === usuarioSesion.uid) {
+                return true;
+            }
+
+            return false;
+        }
+
         function cargarPostulantes() {
             const tabla = document.getElementById("tablaPostulantes");
             if (!tabla) return;
@@ -540,6 +636,9 @@
 
             postulantesEntradas.forEach(([id, p]) => {
                 if (!p) return;
+
+                // Candado de Jerarquía y Scope
+                if (!puedeVerCandidato(p)) return;
 
                 const empKey = p.empresaId || p.empresa_id || p.empresa || "";
                 const recId = p.reclutadorId || p.agenteId || "";
@@ -626,9 +725,10 @@
                                 <button onclick="abrirModalEditar('${id}')" title="Editar Expediente" class="bg-cyber-cyan/20 hover:bg-cyber-cyan text-cyber-cyan hover:text-slate-950 border border-cyber-cyan/30 p-2.5 rounded-xl transition-all flex items-center justify-center shadow">
                                     <i class="fas fa-pen text-sm"></i>
                                 </button>
+                                ${usuarioSesion.nivel >= 3 ? `
                                 <button onclick="eliminarPostulante('${id}')" title="Eliminar" class="bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white border border-red-500/30 p-2.5 rounded-xl transition-all flex items-center justify-center shadow">
                                     <i class="fas fa-trash text-sm"></i>
-                                </button>
+                                </button>` : ''}
                             </div>
                         </td>
                     </tr>
@@ -641,7 +741,7 @@
             document.getElementById("kpiContratados").innerText = cContratados;
             const tasaCierre = totalContados > 0 ? Math.round((cContratados / totalContados) * 100) : 0;
             document.getElementById("kpiEfectividad").innerText = `${tasaCierre}%`;
-            document.getElementById("txtTotalPostuladosLabel").innerText = `Mostrando ${totalContados} candidatos en lista`;
+            document.getElementById("txtTotalPostuladosLabel").innerText = `Mostrando ${totalContados} candidatos autorizados`;
 
             actualizarGraficosDemograficos(metricaSexo, metricaEdad);
         }
@@ -711,14 +811,24 @@
             document.getElementById("editReclutador").value = recId;
             document.getElementById("originalReclutadorId").value = recId;
 
+            // Bloquear reasignación a reclutadores operativos
+            const selectRec = document.getElementById("editReclutador");
+            if (usuarioSesion.nivel < 3) {
+                selectRec.classList.add("opacity-50", "pointer-events-none");
+            } else {
+                selectRec.classList.remove("opacity-50", "pointer-events-none");
+            }
+
             const editEmpresa = document.getElementById("editEmpresa");
             editEmpresa.innerHTML = '<option value="SIN_EMPRESA">-- Sin Empresa --</option>';
 
             const currentEmpresa = p.empresaId || p.empresa_id || p.empresa || "";
 
             Object.entries(catalogoEmpresas).forEach(([eKey, eVal]) => {
-                const nombreEmp = eVal.nombreComercial || eVal.nombre || eKey;
-                editEmpresa.innerHTML += `<option value="${eKey}">${nombreEmp}</option>`;
+                if (usuarioSesion.todasLasEmpresas || usuarioSesion.empresas.includes(eKey)) {
+                    const nombreEmp = eVal.nombreComercial || eVal.nombre || eKey;
+                    editEmpresa.innerHTML += `<option value="${eKey}">${nombreEmp}</option>`;
+                }
             });
 
             editEmpresa.value = catalogoEmpresas[currentEmpresa] ? currentEmpresa : "SIN_EMPRESA";
@@ -765,7 +875,7 @@
         async function guardarCambiosAdmin() {
             const id = document.getElementById("editId").value;
             const curp = document.getElementById("editCurp").value.trim().toUpperCase();
-            const recId = document.getElementById("editReclutador").value;
+            const recId = document.getElementById("editReclutador").value || usuarioSesion.uid;
             const fechaCita = document.getElementById("editAgendaFecha").value;
             const horaCita = document.getElementById("editAgendaHora").value;
 
@@ -780,7 +890,7 @@
                 nombreVacante: document.getElementById("editVacante").value,
                 vacante: document.getElementById("editVacante").value,
                 reclutadorId: recId,
-                reclutadorNombre: catalogoUsuarios[recId]?.nombre || "Sin Asignar",
+                reclutadorNombre: catalogoUsuarios[recId]?.nombre || usuarioSesion.nombre,
                 diaEntrevista: diaEntrevistaConsolidado
             };
 
@@ -794,6 +904,10 @@
         }
 
         async function depurarYUnificarOperadorSeleccionado() {
+            if (usuarioSesion.nivel < 4) {
+                return alert("Acción restringida exclusivamente a directores o SuperAdmin.");
+            }
+
             const opId = document.getElementById("filtroOperador").value;
             if (opId === "TODOS" || !opId) {
                 return alert("Selecciona primero un Operador específico en el filtro superior.");
@@ -814,6 +928,9 @@
         }
 
         async function eliminarPostulante(id) {
+            if (usuarioSesion.nivel < 3) {
+                return alert("No tienes permisos para eliminar postulantes. Contacta a tu coordinador.");
+            }
             if (confirm("¿Eliminar definitivamente este candidato?")) {
                 await db.ref(`postulantes/${id}`).remove();
             }
@@ -822,19 +939,21 @@
         function exportarExcel() {
             const dataExport = [];
             Object.entries(todosLosPostulantes).forEach(([id, p]) => {
-                dataExport.push({
-                    "ID": id,
-                    "Nombre": p.nombre,
-                    "Teléfono": p.telefono,
-                    "CURP": p.curp,
-                    "Edad": p.edad,
-                    "Sexo": p.sexo,
-                    "Empresa": p.empresa || p.empresaId,
-                    "Vacante": p.nombreVacante || p.vacante,
-                    "Estatus": p.estatus,
-                    "Cita": p.diaEntrevista || "Sin Cita",
-                    "Reclutador": p.reclutadorNombre || "Sin Asignar"
-                });
+                if (puedeVerCandidato(p)) {
+                    dataExport.push({
+                        "ID": id,
+                        "Nombre": p.nombre,
+                        "Teléfono": p.telefono,
+                        "CURP": p.curp,
+                        "Edad": p.edad,
+                        "Sexo": p.sexo,
+                        "Empresa": p.empresa || p.empresaId,
+                        "Vacante": p.nombreVacante || p.vacante,
+                        "Estatus": p.estatus,
+                        "Cita": p.diaEntrevista || "Sin Cita",
+                        "Reclutador": p.reclutadorNombre || "Sin Asignar"
+                    });
+                }
             });
 
             const wb = XLSX.utils.book_new();
