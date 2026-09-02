@@ -46,6 +46,10 @@
         .status-induccion { background-color: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }  
         .status-contratado { background-color: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); } 
         .status-declinante { background-color: rgba(107, 114, 128, 0.15); color: #9ca3af; border: 1px solid rgba(107, 114, 128, 0.3); } 
+
+        .sla-tag-green { background: rgba(16, 185, 129, 0.12); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+        .sla-tag-amber { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); }
+        .sla-tag-red { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.5); }
     </style>
 </head>
 <body class="bg-cyber-bg text-slate-200 font-sans min-h-screen antialiased selection:bg-cyber-accent selection:text-white p-3 sm:p-5 md:p-6">
@@ -97,6 +101,26 @@
             </div>
         </header>
 
+        <!-- BANNER DE ALERTA REACTIVA SLA PARA RECLUTADORES -->
+        <div id="bannerAlertaSla" class="hidden bg-gradient-to-r from-rose-950/80 via-rose-900/40 to-cyber-card border border-rose-500/50 p-4 rounded-xl shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-fade-in">
+            <div class="flex items-center gap-3">
+                <div class="p-2.5 bg-rose-500/20 border border-rose-500/40 rounded-xl text-rose-400 text-lg flex-shrink-0">
+                    <i class="fas fa-triangle-exclamation animate-pulse"></i>
+                </div>
+                <div>
+                    <h4 class="text-xs font-bold text-rose-300 uppercase tracking-wider font-mono flex items-center gap-2">
+                        Atención Prioritaria de Candidatos
+                    </h4>
+                    <p class="text-xs text-slate-300 mt-0.5" id="txtAlertaSlaDetalle">
+                        Tienes prospectos que han superado los tiempos de contacto autorizados.
+                    </p>
+                </div>
+            </div>
+            <button onclick="alternarFiltroDesfasados()" id="btnFiltroRapidoDesfasados" class="w-full sm:w-auto bg-rose-600 hover:bg-rose-500 text-white font-mono font-bold text-xs px-3.5 py-2 rounded-xl transition flex items-center justify-center gap-1.5 shadow-lg">
+                <i class="fas fa-filter"></i> Ver Desfasados
+            </button>
+        </div>
+
         <!-- EMBUDO DE CONVERSIÓN DE RECLUTAMIENTO (KPIS FUNNEL) -->
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             <div class="bg-cyber-card p-3.5 rounded-xl border border-red-500/20 shadow">
@@ -128,10 +152,16 @@
 
         <!-- FILTROS MAESTROS Y BUSCADOR EN VIVO -->
         <div class="bg-cyber-card p-4 rounded-xl border border-cyber-border space-y-3 shadow-xl">
-            <!-- BARRA DE BÚSQUEDA INSTANTÁNEA -->
-            <div class="relative">
-                <i class="fas fa-magnifying-glass absolute left-3 top-2.5 text-slate-500 text-xs"></i>
-                <input type="text" id="buscadorVivo" oninput="cargarPostulantes()" placeholder="Buscar instantáneo por Nombre, CURP, Teléfono o Vacante..." class="w-full bg-cyber-bg border border-cyber-border rounded-lg pl-8 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyber-accent font-medium">
+            <!-- BARRA DE BÚSQUEDA INSTANTÁNEA Y BOTÓN DE DESAHOGO RÁPIDO -->
+            <div class="flex flex-col sm:flex-row items-center gap-2">
+                <div class="relative flex-1 w-full">
+                    <i class="fas fa-magnifying-glass absolute left-3 top-2.5 text-slate-500 text-xs"></i>
+                    <input type="text" id="buscadorVivo" oninput="cargarPostulantes()" placeholder="Buscar instantáneo por Nombre, CURP, Teléfono o Vacante..." class="w-full bg-cyber-bg border border-cyber-border rounded-lg pl-8 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyber-accent font-medium">
+                </div>
+                <button type="button" id="btnToggleDesfasadosInline" onclick="alternarFiltroDesfasados()" class="w-full sm:w-auto bg-cyber-bg hover:bg-slate-800 border border-cyber-border text-slate-300 px-3 py-2 rounded-lg text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition whitespace-nowrap">
+                    <i class="fas fa-clock-rotate-left text-amber-400"></i>
+                    <span id="txtBtnDesfasadosInline">Solo Desfasados (>24h)</span>
+                </button>
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -197,6 +227,7 @@
                         <tr class="bg-cyber-bg text-slate-400 uppercase font-mono text-xs border-b border-cyber-border">
                             <th class="p-3.5">Estatus</th>
                             <th class="p-3.5">Postulado & Cita Agendada</th>
+                            <th class="p-3.5">SLA / Inactividad</th>
                             <th class="p-3.5">CURP & Demografía</th>
                             <th class="p-3.5">Empresa y Puesto</th>
                             <th class="p-3.5">Operador</th>
@@ -333,6 +364,7 @@
         let chartSexoInstance = null;
         let chartEdadInstance = null;
         let centinelaActivo = true;
+        let filtroSoloDesfasadosActivo = false;
 
         // Estructura de gobernanza reactiva
         let usuarioSesion = {
@@ -616,6 +648,31 @@
             return false;
         }
 
+        // CÁLCULO PRECISO DE HORAS DE INACTIVIDAD
+        function calcularHorasInactividad(p) {
+            const fechaRef = p.ultimaActualizacion || p.diaEntrevista || p.fechaRegistro || p.fechaPostulacion || p.fecha;
+            if (!fechaRef) return 999;
+            const diff = new Date() - new Date(fechaRef);
+            return isNaN(diff) ? 999 : Math.max(0, diff / (1000 * 60 * 60));
+        }
+
+        // TOGGLE DEL FILTRO DE DESAHOGO RÁPIDO
+        function alternarFiltroDesfasados() {
+            filtroSoloDesfasadosActivo = !filtroSoloDesfasadosActivo;
+            const btnInline = document.getElementById("btnToggleDesfasadosInline");
+            const txtInline = document.getElementById("txtBtnDesfasadosInline");
+
+            if (filtroSoloDesfasadosActivo) {
+                btnInline.className = "w-full sm:w-auto bg-rose-600 text-white border border-rose-500 px-3 py-2 rounded-lg text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition shadow-lg";
+                txtInline.textContent = "Mostrando Solo Desfasados (Quitar)";
+            } else {
+                btnInline.className = "w-full sm:w-auto bg-cyber-bg hover:bg-slate-800 border border-cyber-border text-slate-300 px-3 py-2 rounded-lg text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition whitespace-nowrap";
+                txtInline.textContent = "Solo Desfasados (>24h)";
+            }
+
+            cargarPostulantes();
+        }
+
         function cargarPostulantes() {
             const tabla = document.getElementById("tablaPostulantes");
             if (!tabla) return;
@@ -631,6 +688,8 @@
             
             let cPostulados = 0, cEntrevistas = 0, cInduccion = 0, cContratados = 0;
             let totalContados = 0;
+            let totalDesfasadosPropios = 0;
+            let totalCriticosPropios = 0;
 
             const postulantesEntradas = Object.entries(todosLosPostulantes);
 
@@ -643,6 +702,25 @@
                 const empKey = p.empresaId || p.empresa_id || p.empresa || "";
                 const recId = p.reclutadorId || p.agenteId || "";
                 const vacanteNombre = p.nombreVacante || p.vacante || p.vacanteInteres || "Sin Vacante";
+                const estatusActual = p.estatus || "Postulado";
+
+                // Cálculo SLA
+                const horasInactividad = calcularHorasInactividad(p);
+                const esActivoSinCerrar = estatusActual !== "Contratado" && estatusActual !== "Declinante";
+
+                if (esActivoSinCerrar) {
+                    if (horasInactividad > 48) {
+                        totalCriticosPropios++;
+                        totalDesfasadosPropios++;
+                    } else if (horasInactividad > 24) {
+                        totalDesfasadosPropios++;
+                    }
+                }
+
+                // Filtro rápido de desahogo
+                if (filtroSoloDesfasadosActivo) {
+                    if (!esActivoSinCerrar || horasInactividad <= 24) return;
+                }
 
                 if (busquedaTexto) {
                     const matchNombre = (p.nombre || "").toLowerCase().includes(busquedaTexto);
@@ -658,7 +736,6 @@
 
                 totalContados++;
 
-                const estatusActual = p.estatus || "Postulado";
                 if (estatusActual === "Postulado") cPostulados++;
                 else if (estatusActual === "En Entrevista") cEntrevistas++;
                 else if (estatusActual === "Inducción") cInduccion++;
@@ -678,6 +755,24 @@
                 else if (estatusActual === "Inducción") claseSemaforo = "status-induccion";
                 else if (estatusActual === "Contratado") claseSemaforo = "status-contratado";
                 else if (estatusActual === "Declinante") claseSemaforo = "status-declinante";
+
+                // Renderizado de la Insignia SLA
+                let badgeSlaHtml = '';
+                if (!esActivoSinCerrar) {
+                    badgeSlaHtml = `<span class="text-[10px] font-mono text-slate-500 font-medium"><i class="fas fa-check-double"></i> Concluido</span>`;
+                } else if (horasInactividad > 48) {
+                    badgeSlaHtml = `<div class="inline-flex items-center gap-1 text-[11px] font-mono font-bold sla-tag-red px-2 py-0.5 rounded-lg animate-pulse" title="Sin avance por más de 48 horas">
+                        <i class="fas fa-fire"></i> Desfasado (${Math.floor(horasInactividad)}h)
+                    </div>`;
+                } else if (horasInactividad > 24) {
+                    badgeSlaHtml = `<div class="inline-flex items-center gap-1 text-[11px] font-mono font-bold sla-tag-amber px-2 py-0.5 rounded-lg" title="Requiere contacto en las próximas horas">
+                        <i class="fas fa-hourglass-half"></i> Atención (${Math.floor(horasInactividad)}h)
+                    </div>`;
+                } else {
+                    badgeSlaHtml = `<div class="inline-flex items-center gap-1 text-[11px] font-mono font-semibold sla-tag-green px-2 py-0.5 rounded-lg" title="Dentro del tiempo límite">
+                        <i class="fas fa-bolt"></i> En SLA (${Math.floor(horasInactividad)}h)
+                    </div>`;
+                }
 
                 const tieneCita = p.diaEntrevista || p.fechaEntrevista || p.citaEntrevista;
                 const citaDisplay = tieneCita 
@@ -705,6 +800,9 @@
                             <div class="font-bold text-white text-sm">${p.nombre || 'Sin Nombre'}</div>
                             <div class="text-slate-400 text-xs font-mono mt-0.5">${p.telefono || 'Sin Teléfono'}</div>
                             ${citaDisplay}
+                        </td>
+                        <td class="p-4">
+                            ${badgeSlaHtml}
                         </td>
                         <td class="p-4">
                             <div class="font-mono text-amber-300 font-bold text-xs">${p.curp || 'SIN CURP'}</div>
@@ -735,6 +833,18 @@
                 `;
             });
 
+            // Actualización del Banner de Alerta Preventiva
+            const bannerSla = document.getElementById("bannerAlertaSla");
+            if (totalDesfasadosPropios > 0) {
+                bannerSla.classList.remove("hidden");
+                document.getElementById("txtAlertaSlaDetalle").innerHTML = `
+                    Tienes <b>${totalDesfasadosPropios}</b> postulante(s) con retraso de atención (<b>${totalCriticosPropios}</b> en riesgo crítico &gt;48h). 
+                    Atiéndelos pronto para evitar transferencias automáticas en la Torre de Supervisión.
+                `;
+            } else {
+                bannerSla.classList.add("hidden");
+            }
+
             document.getElementById("kpiPostulados").innerText = cPostulados;
             document.getElementById("kpiEntrevistas").innerText = cEntrevistas;
             document.getElementById("kpiInduccion").innerText = cInduccion;
@@ -748,7 +858,10 @@
 
         async function cambioRapidoEstatus(id, nuevoEstatus) {
             try {
-                await db.ref(`postulantes/${id}/estatus`).set(nuevoEstatus);
+                await db.ref(`postulantes/${id}`).update({
+                    estatus: nuevoEstatus,
+                    ultimaActualizacion: new Date().toISOString()
+                });
             } catch (err) {
                 alert("Error al actualizar estatus: " + err.message);
             }
@@ -891,7 +1004,8 @@
                 vacante: document.getElementById("editVacante").value,
                 reclutadorId: recId,
                 reclutadorNombre: catalogoUsuarios[recId]?.nombre || usuarioSesion.nombre,
-                diaEntrevista: diaEntrevistaConsolidado
+                diaEntrevista: diaEntrevistaConsolidado,
+                ultimaActualizacion: new Date().toISOString()
             };
 
             try {
@@ -920,6 +1034,7 @@
                     if (p.reclutadorId === opId || (p.reclutadorNombre && p.reclutadorNombre.toLowerCase().includes(opNombre.toLowerCase()))) {
                         updates[`postulantes/${cId}/reclutadorId`] = opId;
                         updates[`postulantes/${cId}/reclutadorNombre`] = opNombre;
+                        updates[`postulantes/${cId}/ultimaActualizacion`] = new Date().toISOString();
                     }
                 });
                 await db.ref().update(updates);
@@ -951,7 +1066,8 @@
                         "Vacante": p.nombreVacante || p.vacante,
                         "Estatus": p.estatus,
                         "Cita": p.diaEntrevista || "Sin Cita",
-                        "Reclutador": p.reclutadorNombre || "Sin Asignar"
+                        "Reclutador": p.reclutadorNombre || "Sin Asignar",
+                        "Inactividad_Horas": Math.floor(calcularHorasInactividad(p))
                     });
                 }
             });
