@@ -86,7 +86,7 @@
                     </span>
                 </div>
                 <h1 class="text-xl sm:text-2xl md:text-3xl font-extrabold text-white tracking-tight">Logística de Transporte Empresarial</h1>
-                <p class="text-slate-400 text-xs md:text-sm mt-1">Gestión por empresa, geolocalización satelital multi-parada y generación de acuses con QR.</p>
+                <p class="text-slate-400 text-xs md:text-sm mt-1">Inspección granular de rutas, parada por parada con coordenadas y acuses QR satelitales.</p>
             </div>
             
             <div class="w-full md:w-auto flex flex-wrap sm:flex-nowrap gap-2 sm:gap-3 items-center">
@@ -130,7 +130,7 @@
                     <span class="text-slate-600">/</span>
                     <span class="text-red-400 text-base" id="txtEmpresasSinRuta">0 Sin Ruta</span>
                 </div>
-                <span class="text-[11px] text-slate-400 mt-1 block">Disponibilidad de movilidad</span>
+                <span class="text-[11px] text-slate-400 mt-1 block">Disponibilidad de transporte</span>
             </div>
 
             <div class="bg-cyber-card p-4 rounded-xl border border-cyber-border shadow-lg">
@@ -159,7 +159,7 @@
                     <h2 class="text-base sm:text-lg font-bold text-white flex items-center gap-2">
                         <i class="fas fa-map-location-dot text-cyber-accent"></i> Visualizador de Rutas y Triangulación Geográfica
                     </h2>
-                    <p class="text-slate-400 text-xs mt-0.5">Inspecciona todas las paradas y turnos o triangula cercanía con un candidato.</p>
+                    <p class="text-slate-400 text-xs mt-0.5">Inspecciona todas las paradas en el mapa o calcula la parada más cercana a un postulante.</p>
                 </div>
                 <div class="flex items-center gap-2">
                     <button onclick="verTodasLasRutasEnMapa()" class="bg-cyber-bg hover:bg-slate-800 text-xs text-cyber-cyan border border-cyber-border px-3 py-1.5 rounded-lg font-mono transition-all">
@@ -193,7 +193,7 @@
                 </div>
             </div>
 
-            <!-- CONTENEDOR DEL MAPA Y RESULTADOS -->
+            <!-- MAPA Y LISTADO DE COINCIDENCIAS -->
             <div id="resultadoGeolocalizador" class="grid grid-cols-1 lg:grid-cols-5 gap-4 pt-2">
                 <div class="lg:col-span-3 bg-cyber-bg rounded-xl border border-cyber-border p-2 flex flex-col h-80 sm:h-96">
                     <div id="mapaLeaflet" class="w-full h-full rounded-lg z-10"></div>
@@ -213,19 +213,19 @@
             </div>
         </div>
 
-        <!-- SECCIÓN DE REGISTRO MANUAL + TABLA -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- FORMULARIO GRANULAR Y CATÁLOGO HOMOLOGADO -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
             
-            <!-- FORMULARIO DE REGISTRO / EDICIÓN -->
-            <div class="bg-cyber-card p-4 sm:p-5 rounded-xl border border-cyber-border shadow-xl h-fit">
-                <div class="flex justify-between items-center mb-4">
+            <!-- FORMULARIO DINÁMICO DE RUTA & PARADAS -->
+            <div class="lg:col-span-4 bg-cyber-card p-4 sm:p-5 rounded-xl border border-cyber-border shadow-xl h-fit space-y-4">
+                <div class="flex justify-between items-center border-b border-cyber-border pb-2">
                     <h2 id="formTitle" class="text-xs font-bold uppercase text-cyber-purple tracking-wider flex items-center gap-2">
-                        <i class="fas fa-bus-simple"></i> Registro / Edición Manual
+                        <i class="fas fa-route"></i> Ficha de Ruta & Paradas
                     </h2>
-                    <span class="text-[10px] text-slate-400 font-mono">Tip: Clic en mapa para coordenadas</span>
+                    <span class="text-[10px] text-slate-400 font-mono">Edición Granular</span>
                 </div>
 
-                <form id="formRuta" onsubmit="guardarRutaManual(event)" class="space-y-3.5">
+                <form id="formRuta" onsubmit="guardarRutaCompletaForm(event)" class="space-y-3">
                     <input type="hidden" id="editRutaId">
                     <input type="hidden" id="editEmpresaAnterior">
 
@@ -243,32 +243,25 @@
 
                     <div>
                         <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Municipio / Zona</label>
-                        <input type="text" id="estadoMunicipio" required placeholder="Ej: Apodaca, NL" class="w-full bg-cyber-bg border border-cyber-border rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-cyber-accent">
+                        <input type="text" id="estadoMunicipio" required placeholder="Ej: Apodaca, Nuevo León" class="w-full bg-cyber-bg border border-cyber-border rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-cyber-accent">
                     </div>
 
-                    <div>
-                        <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Horarios de Paso</label>
-                        <input type="text" id="horarioPaso" required placeholder="Ej: 06:15 AM (06:15) / 02:15 PM (14:15)" class="w-full bg-cyber-bg border border-cyber-border rounded-lg p-2 text-xs text-cyber-amber font-mono focus:outline-none focus:border-cyber-accent">
-                    </div>
-
-                    <div>
-                        <div class="flex justify-between items-center mb-1">
-                            <label class="block text-[10px] font-mono text-slate-400 uppercase">Coordenadas Principales (Lat, Lng)</label>
-                            <button type="button" onclick="autodetectarCoordenadasFormulario()" class="text-[10px] text-cyber-cyan hover:underline font-mono">
-                                🔍 Auto-Detectar
+                    <!-- GESTOR DINÁMICO DE PARADAS INDIVIDUALES -->
+                    <div class="border border-cyber-border rounded-lg p-3 bg-cyber-bg/50 space-y-2.5">
+                        <div class="flex justify-between items-center">
+                            <span class="text-[11px] font-bold text-cyber-cyan font-mono uppercase">Paradas Configuradas</span>
+                            <button type="button" onclick="agregarFilaParadaFormulario()" class="bg-cyber-cyan/20 hover:bg-cyber-cyan text-cyber-cyan hover:text-slate-950 font-bold px-2 py-0.5 rounded text-[10px] transition">
+                                + Agregar Parada
                             </button>
                         </div>
-                        <input type="text" id="coordenadasAbordaje" placeholder="25.778120, -100.189420" class="w-full bg-cyber-bg border border-cyber-border rounded-lg p-2 text-xs text-cyber-cyan font-mono focus:outline-none focus:border-cyber-accent">
-                    </div>
-
-                    <div>
-                        <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Paradas Principales</label>
-                        <textarea id="puntosAbordaje" required placeholder="Ej: Soriana La Fe, Clínica 67, Parque Industrial..." rows="2" class="w-full bg-cyber-bg border border-cyber-border rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-cyber-accent resize-none"></textarea>
+                        <div id="contenedorParadasDinamicasForm" class="space-y-2 max-h-48 overflow-y-auto pr-1">
+                            <!-- Paradas agregadas dinámicamente -->
+                        </div>
                     </div>
 
                     <div class="flex gap-2 pt-2">
                         <button type="submit" id="btnSubmitForm" class="flex-1 bg-cyber-purple hover:bg-purple-600 text-white font-bold py-2 px-3 rounded-lg text-xs uppercase tracking-wider transition-all">
-                            Guardar Ruta
+                            Guardar Ruta Completa
                         </button>
                         <button type="button" id="btnCancelarEdicion" onclick="cancelarEdicion()" class="hidden bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2 px-3 rounded-lg text-xs">
                             ✕ Cancelar
@@ -277,57 +270,86 @@
                 </form>
             </div>
 
-            <!-- CATÁLOGO DE RUTAS Y GESTIÓN -->
-            <div class="bg-cyber-card p-4 sm:p-5 rounded-xl border border-cyber-border shadow-xl lg:col-span-2 flex flex-col justify-between">
+            <!-- CATÁLOGO TABULAR DESPLEGABLE PARADA POR PARADA -->
+            <div class="lg:col-span-8 bg-cyber-card p-4 sm:p-5 rounded-xl border border-cyber-border shadow-xl flex flex-col justify-between space-y-4">
                 <div>
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3 border-b border-cyber-border pb-3">
                         <div>
                             <h2 class="text-xs font-bold uppercase text-slate-300 tracking-wider flex items-center gap-2">
-                                <i class="fas fa-list-check"></i> Catálogo de Rutas Sincronizadas
+                                <i class="fas fa-list-check"></i> Catálogo de Rutas con Paradas Granulares
                             </h2>
-                            <p class="text-[11px] text-slate-400">Administración general y auditoría de rutas.</p>
+                            <p class="text-[11px] text-slate-400">Despliega cualquier ruta para ver, centrar o editar sus paradas una por una.</p>
                         </div>
                         
                         <div class="flex flex-wrap items-center gap-2">
-                            <select id="filtroEmpresaTabla" onchange="reiniciarYRenderizarTabla()" class="bg-cyber-bg border border-cyber-border text-xs rounded-lg px-2.5 py-1.5 text-slate-300 focus:outline-none focus:border-cyber-accent">
+                            <select id="filtroEmpresaTabla" onchange="renderizarCatalogoRutasGranular()" class="bg-cyber-bg border border-cyber-border text-xs rounded-lg px-2.5 py-1.5 text-slate-300 focus:outline-none focus:border-cyber-accent">
                                 <option value="TODAS">-- Todas las Empresas --</option>
                             </select>
 
                             <button onclick="eliminarRutasPorEmpresaSeleccionada()" title="Borrar rutas de la empresa seleccionada" class="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 text-xs px-2.5 py-1.5 rounded-lg font-mono transition-all">
                                 <i class="fas fa-trash-can"></i> Borrar Empresa
                             </button>
-                            
-                            <button onclick="purgarTodasLasRutas()" title="Borrar TODAS las rutas del sistema" class="bg-red-600 hover:bg-red-700 text-white text-xs px-2.5 py-1.5 rounded-lg font-mono font-bold transition-all">
-                                <i class="fas fa-triangle-exclamation"></i> Borrado Total
-                            </button>
                         </div>
                     </div>
 
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left text-xs border-collapse">
-                            <thead>
-                                <tr class="bg-cyber-bg text-slate-400 uppercase font-mono border-b border-cyber-border">
-                                    <th class="p-3">Empresa / Ruta</th>
-                                    <th class="p-3">Ubicación y Paradas</th>
-                                    <th class="p-3">Itinerario y Coordenadas</th>
-                                    <th class="p-3 text-center">Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tablaRutas" class="divide-y divide-cyber-border/50">
-                            </tbody>
-                        </table>
+                    <!-- CONTENEDOR DESPLEGABLE DE RUTAS -->
+                    <div id="contenedorRutasAcordeon" class="space-y-3 max-h-[550px] overflow-y-auto pr-1">
+                        <!-- Inyección dinámica de acordeón de rutas -->
                     </div>
                 </div>
 
-                <div class="mt-4 pt-3 border-t border-cyber-border flex flex-col sm:flex-row items-center justify-between gap-3">
-                    <span id="txtPaginacionInfo" class="text-xs font-mono text-slate-400">Mostrando 0 rutas</span>
-                    <button id="btnCargarMas" onclick="cargarMasRutasEnTabla()" class="hidden bg-cyber-bg hover:bg-slate-800 text-cyber-cyan border border-cyber-cyan/40 font-mono text-xs px-4 py-2 rounded-lg transition-all">
-                        <i class="fas fa-plus"></i> Cargar Más Rutas...
-                    </button>
+                <div class="pt-2 border-t border-cyber-border flex items-center justify-between text-xs font-mono text-slate-400">
+                    <span id="txtTotalRutasEnLista">0 rutas registradas</span>
+                    <span class="text-cyber-cyan"><i class="fas fa-circle-info me-1"></i>Sincronizado con M6 Motor</span>
                 </div>
             </div>
         </div>
 
+    </div>
+
+    <!-- MODAL: EDICIÓN RÁPIDA DE PARADA INDIVIDUAL -->
+    <div id="modalEdicionParadaIndividual" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3 sm:p-4">
+        <div class="bg-cyber-card border border-cyber-cyan text-slate-200 rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4">
+            <div class="flex justify-between items-center border-b border-cyber-border pb-2">
+                <h3 class="text-sm font-bold text-cyber-cyan uppercase font-mono flex items-center gap-1.5">
+                    <i class="fas fa-location-dot"></i> Editar Parada Específica
+                </h3>
+                <button onclick="cerrarModalEdicionParada()" class="text-slate-400 hover:text-white text-lg font-bold">&times;</button>
+            </div>
+
+            <input type="hidden" id="modalParadaEmpresaKey">
+            <input type="hidden" id="modalParadaRutaId">
+            <input type="hidden" id="modalParadaIndex">
+
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Referencia / Nombre de la Parada</label>
+                    <input type="text" id="modalParadaReferencia" class="w-full bg-cyber-bg border border-slate-700 rounded p-2 text-white focus:outline-none focus:border-cyber-cyan">
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Cruce Vial o Esquina</label>
+                    <input type="text" id="modalParadaCruce" class="w-full bg-cyber-bg border border-slate-700 rounded p-2 text-slate-300 focus:outline-none focus:border-cyber-cyan">
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Horarios (Ej: 06:30 AM / 06:30 PM)</label>
+                    <input type="text" id="modalParadaHorarios" class="w-full bg-cyber-bg border border-slate-700 rounded p-2 text-amber-400 font-mono focus:outline-none focus:border-cyber-cyan">
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Coordenadas Satelitales (Lat, Lng)</label>
+                    <input type="text" id="modalParadaCoords" class="w-full bg-cyber-bg border border-slate-700 rounded p-2 text-cyber-cyan font-mono focus:outline-none focus:border-cyber-cyan">
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2 border-t border-cyber-border">
+                <button type="button" onclick="cerrarModalEdicionParada()" class="px-3 py-1.5 border border-cyber-border rounded text-slate-400 hover:bg-slate-800 text-xs font-semibold">Cancelar</button>
+                <button type="button" onclick="guardarParadaIndividualDesdeModal()" class="px-4 py-1.5 bg-cyber-cyan hover:bg-cyan-500 text-slate-950 font-bold rounded text-xs">
+                    Guardar en Firebase
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- MODAL / ACUSE DE TRANSPORTE CON QR -->
@@ -360,7 +382,7 @@
                 </div>
 
                 <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                    <p class="text-slate-500 text-[10px] uppercase font-bold font-mono">Paradas & Puntos de Abordaje</p>
+                    <p class="text-slate-500 text-[10px] uppercase font-bold font-mono">Parada / Punto de Abordaje</p>
                     <p class="font-medium text-slate-700" id="pdfParadas">--</p>
                 </div>
 
@@ -368,7 +390,7 @@
                     <div id="contenedorQRCode" class="bg-white p-2 rounded-lg shadow shrink-0 border border-slate-200"></div>
                     <div>
                         <h4 class="font-bold text-slate-900 text-xs sm:text-sm">Escanear para GPS Satelital</h4>
-                        <p class="text-[11px] text-slate-600 mt-0.5">Abre Google Maps en tiempo real directamente en la coordenada del punto de abordaje.</p>
+                        <p class="text-[11px] text-slate-600 mt-0.5">Abre Google Maps directamente en la coordenada del punto de abordaje.</p>
                         <span class="text-[10px] font-mono text-orange-700 font-bold block mt-1" id="pdfCoordenadasTexto">--</span>
                     </div>
                 </div>
@@ -391,7 +413,7 @@
     <!-- FIREBASE V10 SDK (MODULAR) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, get, set, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { getDatabase, ref, get, set, remove, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDxgP1YnycCEqkQ2vr3SPkwc9QMhtG8Zqw",
@@ -406,36 +428,35 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        // ESTADO GLOBAL LOCAL
         let diccionarioEmpresas = {};
         let listaEmpresasNombres = [];
         let cacheTodasLasRutas = [];
-        let paginaActual = 0;
-        const RUTAS_POR_PAGINA = 6;
 
         let leafletMap = null;
         let leafletMarkers = [];
 
-        // EXPONER FUNCIONES AL ÁMBITO GLOBAL WINDOW
+        // Exponer funciones al scope global
         window.sincronizarInicialBajoDemanda = sincronizarInicialBajoDemanda;
-        window.reiniciarYRenderizarTabla = reiniciarYRenderizarTabla;
-        window.cargarMasRutasEnTabla = cargarMasRutasEnTabla;
         window.alSeleccionarEmpresaExplorador = alSeleccionarEmpresaExplorador;
         window.verTodasLasRutasEnMapa = verTodasLasRutasEnMapa;
         window.obtenerUbicacionGPS = obtenerUbicacionGPS;
         window.ejecutarTriangulacionGeografica = ejecutarTriangulacionGeografica;
-        window.guardarRutaManual = guardarRutaManual;
+        window.renderizarCatalogoRutasGranular = renderizarCatalogoRutasGranular;
+        window.agregarFilaParadaFormulario = agregarFilaParadaFormulario;
+        window.removerFilaParadaFormulario = removerFilaParadaFormulario;
+        window.guardarRutaCompletaForm = guardarRutaCompletaForm;
         window.cargarRutaEnFormulario = cargarRutaEnFormulario;
         window.cancelarEdicion = cancelarEdicion;
-        window.autodetectarCoordenadasFormulario = autodetectarCoordenadasFormulario;
         window.eliminarRuta = eliminarRuta;
         window.eliminarRutasPorEmpresaSeleccionada = eliminarRutasPorEmpresaSeleccionada;
-        window.purgarTodasLasRutas = purgarTodasLasRutas;
-        window.compartirWhatsAppPorId = compartirWhatsAppPorId;
-        window.compartirFichaWhatsApp = compartirFichaWhatsApp;
+        window.abrirModalEdicionParada = abrirModalEdicionParada;
+        window.cerrarModalEdicionParada = cerrarModalEdicionParada;
+        window.guardarParadaIndividualDesdeModal = guardarParadaIndividualDesdeModal;
+        window.centrarParadaEnMapa = centrarParadaEnMapa;
         window.abrirModalAcusePorId = abrirModalAcusePorId;
         window.abrirModalAcuseDirecto = abrirModalAcuseDirecto;
         window.cerrarModalAcuse = cerrarModalAcuse;
+        window.compartirWhatsAppPorId = compartirWhatsAppPorId;
 
         document.addEventListener("DOMContentLoaded", () => {
             inicializarMapaLeaflet();
@@ -453,20 +474,7 @@
         function esIdTecnico(str) {
             if (!str || typeof str !== "string") return true;
             const limpio = str.trim();
-            // Identifica IDs automáticos de Firebase (-O8X...) o slugs puros
             return limpio.startsWith("-") || /^[a-z0-9_]{16,}$/i.test(limpio);
-        }
-
-        function obtenerNombreComercialReal(emp) {
-            if (typeof emp === "object" && emp !== null) {
-                const nombre = emp.nombreComercial || emp.nombre || emp.razonSocial || "";
-                if (nombre && !esIdTecnico(nombre)) {
-                    return String(nombre).replace(/_/g, " ").trim();
-                }
-            } else if (typeof emp === "string" && !esIdTecnico(emp)) {
-                return emp.replace(/_/g, " ").trim();
-            }
-            return "";
         }
 
         function inicializarMapaLeaflet() {
@@ -475,17 +483,10 @@
 
             if (!leafletMap) {
                 leafletMap = L.map('mapaLeaflet').setView([25.6866, -100.3161], 11);
-                
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     maxZoom: 19,
                     attribution: '© OpenStreetMap'
                 }).addTo(leafletMap);
-
-                leafletMap.on('click', function(e) {
-                    const lat = e.latlng.lat.toFixed(6);
-                    const lng = e.latlng.lng.toFixed(6);
-                    document.getElementById("coordenadasAbordaje").value = `${lat}, ${lng}`;
-                });
             }
         }
 
@@ -494,56 +495,38 @@
             badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span> Sincronizando...';
 
             try {
-                let snapEmpresas = null;
-                let snapRutas = null;
+                const snapEmpresas = await get(ref(db, "empresas"));
+                const snapRutas = await get(ref(db, "rutas"));
 
-                try {
-                    snapEmpresas = await get(ref(db, "empresas"));
-                } catch (e) {
-                    console.warn("Aviso: Nodo 'empresas' inaccesible:", e);
-                }
-
-                try {
-                    snapRutas = await get(ref(db, "rutas"));
-                } catch (e) {
-                    console.error("Error al leer 'rutas':", e);
-                    throw e;
-                }
-
-                const dataEmp = (snapEmpresas && snapEmpresas.exists()) ? snapEmpresas.val() : {};
+                const dataEmp = snapEmpresas.exists() ? snapEmpresas.val() : {};
                 diccionarioEmpresas = {};
                 listaEmpresasNombres = [];
 
-                // 1. CARGA ESTRICTA DEL CATÁLOGO OFICIAL DE EMPRESAS (Solo nombres comerciales)
                 Object.entries(dataEmp).forEach(([key, emp]) => {
-                    const nombreComercial = obtenerNombreComercialReal(emp);
-                    if (nombreComercial) {
-                        const keyNormal = sanitizarKey(nombreComercial);
-                        diccionarioEmpresas[keyNormal] = nombreComercial;
-                        diccionarioEmpresas[key] = nombreComercial; // Relacionar ID de nodo con nombre comercial
-                        
-                        if (!listaEmpresasNombres.includes(nombreComercial)) {
-                            listaEmpresasNombres.push(nombreComercial);
-                        }
+                    let nombreComercial = typeof emp === "object" && emp !== null ? (emp.nombreComercial || emp.nombre || emp.razonSocial || "") : emp;
+                    if (nombreComercial && !esIdTecnico(nombreComercial)) {
+                        nombreComercial = String(nombreComercial).replace(/_/g, " ").trim();
+                        diccionarioEmpresas[sanitizarKey(nombreComercial)] = nombreComercial;
+                        diccionarioEmpresas[key] = nombreComercial;
+                        if (!listaEmpresasNombres.includes(nombreComercial)) listaEmpresasNombres.push(nombreComercial);
                     }
                 });
 
                 listaEmpresasNombres.sort((a, b) => a.localeCompare(b));
                 poblarSelectsEmpresas();
 
-                // 2. Procesar catálogo de rutas vinculando los nombres oficiales
-                const dataRutas = (snapRutas && snapRutas.exists()) ? snapRutas.val() : {};
+                const dataRutas = snapRutas.exists() ? snapRutas.val() : {};
                 aplanarRutasParaCache(dataRutas);
 
                 actualizarMetricasGerenciales();
-                reiniciarYRenderizarTabla();
+                renderizarCatalogoRutasGranular();
                 alSeleccionarEmpresaExplorador();
 
                 badge.className = "bg-emerald-500/10 text-emerald-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-emerald-500/20 flex items-center gap-1.5";
                 badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Conectado (Universal Sync)';
 
             } catch (error) {
-                console.error("Error al sincronizar:", error);
+                console.error("Error sincronizando:", error);
                 badge.className = "bg-red-500/10 text-red-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-red-500/20 flex items-center gap-1.5";
                 badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-400"></span> Error de sincronización';
             }
@@ -554,42 +537,40 @@
             Object.entries(rutasNodo).forEach(([empresaKey, rutasEmpresa]) => {
                 if (typeof rutasEmpresa === 'object' && rutasEmpresa) {
                     Object.entries(rutasEmpresa).forEach(([idRuta, r]) => {
-                        // Resolver siempre al nombre comercial limpio registrado
                         let nombreEmpresa = diccionarioEmpresas[empresaKey] || diccionarioEmpresas[sanitizarKey(r.empresaDestino)] || r.empresaDestino || "";
                         if (esIdTecnico(nombreEmpresa)) {
                             nombreEmpresa = empresaKey.replace(/_/g, ' ').toUpperCase();
                         }
-                        
-                        let coordenadas = r.coordenadasAbordaje || "";
-                        if (!coordenadas && Array.isArray(r.paradas)) {
-                            const pConGeo = r.paradas.find(p => p.coordenadasAbordaje);
-                            if (pConGeo) coordenadas = pConGeo.coordenadasAbordaje;
-                        }
 
-                        let paradasTexto = r.puntosAbordaje || "";
-                        if (!paradasTexto && Array.isArray(r.paradas)) {
-                            paradasTexto = r.paradas.map(p => p.referenciaOriginal).filter(Boolean).join(", ");
-                        }
-
-                        let horarioTexto = r.horarioPaso || "";
-                        if (!horarioTexto && Array.isArray(r.paradas)) {
-                            const setH = new Set();
-                            r.paradas.forEach(p => (p.horarios || []).forEach(h => setH.add(h.formatoCivil)));
-                            horarioTexto = Array.from(setH).join(" / ");
+                        // Normalización granular de paradas
+                        let paradasNormalizadas = [];
+                        if (Array.isArray(r.paradas) && r.paradas.length > 0) {
+                            paradasNormalizadas = r.paradas.map((p, idx) => ({
+                                numeroParada: p.numeroParada || (idx + 1),
+                                referenciaOriginal: p.referenciaOriginal || p.nombre || "",
+                                cruceVialEnriquecido: p.cruceVialEnriquecido || "",
+                                coordenadasAbordaje: p.coordenadasAbordaje || "",
+                                horarios: p.horarios || []
+                            }));
+                        } else if (r.puntosAbordaje) {
+                            const puntos = r.puntosAbordaje.split(",").map(x => x.trim()).filter(Boolean);
+                            paradasNormalizadas = puntos.map((p, idx) => ({
+                                numeroParada: idx + 1,
+                                referenciaOriginal: p,
+                                cruceVialEnriquecido: p,
+                                coordenadasAbordaje: idx === 0 ? (r.coordenadasAbordaje || "") : "",
+                                horarios: []
+                            }));
                         }
 
                         cacheTodasLasRutas.push({
                             idRuta: idRuta,
                             empresaKey: empresaKey,
                             empresaNombre: nombreEmpresa,
-                            nombreRuta: r.nombreRuta || "Ruta Sin Nombre",
-                            estadoMunicipio: r.estadoMunicipio || `${r.municipio || ''}, ${r.estado || ''}`.trim() || "México",
-                            horarioPaso: horarioTexto || "Horario a convenir",
-                            puntosAbordaje: paradasTexto || "Sin paradas definidas",
-                            coordenadasAbordaje: coordenadas,
-                            paradas: Array.isArray(r.paradas) ? r.paradas : [],
-                            operativo: r.operativo || null,
-                            fechaActualizacion: r.fechaActualizacion || new Date().toISOString()
+                            nombreRuta: r.nombreRuta || idRuta,
+                            estadoMunicipio: r.estadoMunicipio || "General, Nuevo León",
+                            distanciaTotalKm: r.distanciaTotalKm || "0.0",
+                            paradas: paradasNormalizadas
                         });
                     });
                 }
@@ -619,7 +600,7 @@
 
             cacheTodasLasRutas.forEach(r => {
                 if (r.empresaNombre) empresasConRutaSet.add(r.empresaNombre);
-                if (tieneCoordenadasValidas(r.coordenadasAbordaje) || (r.paradas && r.paradas.some(p => tieneCoordenadasValidas(p.coordenadasAbordaje)))) {
+                if (r.paradas && r.paradas.some(p => tieneCoordenadasValidas(p.coordenadasAbordaje))) {
                     totalRutasConCoords++;
                 }
             });
@@ -644,9 +625,107 @@
             return p.length === 2 && !isNaN(parseFloat(p[0])) && !isNaN(parseFloat(p[1]));
         }
 
+        // RENDERIZADO GRANULAR HOMOLOGADO (PARADA POR PARADA)
+        function renderizarCatalogoRutasGranular() {
+            const contenedor = document.getElementById("contenedorRutasAcordeon");
+            const filtro = document.getElementById("filtroEmpresaTabla").value;
+            contenedor.innerHTML = "";
+
+            const rutasFiltradas = cacheTodasLasRutas.filter(r => {
+                if (filtro === "TODAS") return true;
+                return r.empresaNombre === filtro || r.empresaKey === sanitizarKey(filtro);
+            });
+
+            document.getElementById("txtTotalRutasEnLista").innerText = `${rutasFiltradas.length} rutas registradas`;
+
+            if (rutasFiltradas.length === 0) {
+                contenedor.innerHTML = `<div class="p-6 text-center text-slate-500 font-mono text-xs">No hay rutas registradas bajo este filtro.</div>`;
+                return;
+            }
+
+            rutasFiltradas.forEach(r => {
+                const totalParadas = r.paradas.length;
+                const paradasConGps = r.paradas.filter(p => tieneCoordenadasValidas(p.coordenadasAbordaje)).length;
+
+                let filasParadasHtml = "";
+                r.paradas.forEach((p, idx) => {
+                    const coordsValidas = tieneCoordenadasValidas(p.coordenadasAbordaje);
+                    const horariosTxt = (p.horarios || []).map(h => h.formatoCivil).join(" / ") || "Sin horario";
+
+                    filasParadasHtml += `
+                        <tr class="hover:bg-slate-800/40 border-b border-cyber-border/40 text-slate-300">
+                            <td class="p-2 font-mono text-cyber-purple font-bold">#${p.numeroParada}</td>
+                            <td class="p-2">
+                                <div class="font-semibold text-white">${p.referenciaOriginal}</div>
+                                <div class="text-[10px] text-slate-400">${p.cruceVialEnriquecido || ''}</div>
+                            </td>
+                            <td class="p-2 font-mono text-amber-400 text-[11px]">${horariosTxt}</td>
+                            <td class="p-2 font-mono text-[11px]">
+                                ${coordsValidas 
+                                    ? `<span class="text-cyber-cyan">${p.coordenadasAbordaje}</span>` 
+                                    : `<span class="text-rose-400">Sin GPS</span>`}
+                            </td>
+                            <td class="p-2 text-center whitespace-nowrap space-x-1">
+                                ${coordsValidas ? `
+                                    <button onclick="centrarParadaEnMapa('${p.coordenadasAbordaje}', '${r.nombreRuta}', '${p.referenciaOriginal}')" title="Centrar en Mapa" class="bg-cyber-cyan/20 hover:bg-cyber-cyan/40 text-cyber-cyan px-2 py-1 rounded text-[10px]">
+                                        📍
+                                    </button>` : ''}
+                                <button onclick="abrirModalEdicionParada('${r.empresaKey}', '${r.idRuta}', ${idx})" title="Editar parada" class="bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 px-2 py-1 rounded text-[10px]">
+                                    ✏️
+                                </button>
+                                <button onclick="abrirModalAcuseDirecto('${r.nombreRuta}', '${r.empresaNombre}', '${horariosTxt}', '${p.referenciaOriginal}', '${p.coordenadasAbordaje}')" title="Acuse QR de Parada" class="bg-orange-600/20 hover:bg-orange-600 text-orange-400 hover:text-white px-2 py-1 rounded text-[10px]">
+                                    <i class="fas fa-qrcode"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                const divRuta = document.createElement("div");
+                divRuta.className = "bg-cyber-bg border border-cyber-border rounded-xl overflow-hidden";
+                divRuta.innerHTML = `
+                    <div class="p-3 bg-cyber-card flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-cyber-border">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <h3 class="font-bold text-white text-sm">${r.nombreRuta}</h3>
+                                <span class="bg-cyber-purple/10 text-cyber-purple border border-cyber-purple/20 text-[10px] px-2 py-0.5 rounded font-mono font-bold">${r.empresaNombre}</span>
+                            </div>
+                            <span class="text-[11px] text-cyber-cyan font-mono">📍 ${r.estadoMunicipio} • ${totalParadas} Paradas (${paradasConGps} con GPS)</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button onclick="cargarRutaEnFormulario('${r.empresaKey}', '${r.idRuta}')" class="bg-cyber-cyan/20 hover:bg-cyber-cyan/40 text-cyber-cyan text-xs px-2.5 py-1 rounded font-bold transition">
+                                <i class="fas fa-pen me-1"></i>Editar Toda
+                            </button>
+                            <button onclick="eliminarRuta('${r.empresaKey}', '${r.idRuta}')" class="bg-rose-500/20 hover:bg-rose-500/40 text-rose-400 text-xs px-2.5 py-1 rounded font-bold transition">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead class="bg-slate-900/80 border-b border-cyber-border text-slate-400">
+                                <tr>
+                                    <th class="p-2 w-10">#</th>
+                                    <th class="p-2">Referencia / Cruce</th>
+                                    <th class="p-2">Horarios de Paso</th>
+                                    <th class="p-2">GPS</th>
+                                    <th class="p-2 text-center w-28">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-cyber-border/30 font-sans">
+                                ${filasParadasHtml || '<tr><td colspan="5" class="p-3 text-center text-slate-500">Sin paradas definidas.</td></tr>'}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+                contenedor.appendChild(divRuta);
+            });
+        }
+
+        // EXPLORADOR Y MAPA
         function alSeleccionarEmpresaExplorador() {
             if (!leafletMap) inicializarMapaLeaflet();
-            
             const empresaSeleccionada = document.getElementById("selectEmpresaExplorador").value;
             const contenedorResultados = document.getElementById("listaMatchRutas");
             const badgeConteo = document.getElementById("badgeConteoMatches");
@@ -669,82 +748,47 @@
             const boundsCoords = [];
 
             rutasFiltradas.forEach(r => {
-                if (leafletMap) {
-                    if (r.paradas && r.paradas.length > 0) {
-                        r.paradas.forEach(p => {
-                            if (tieneCoordenadasValidas(p.coordenadasAbordaje)) {
-                                const [lat, lng] = p.coordenadasAbordaje.split(",").map(Number);
-                                boundsCoords.push([lat, lng]);
-
-                                const m = L.circleMarker([lat, lng], {
-                                    radius: 6,
-                                    fillColor: "#06b6d4",
-                                    color: "#fff",
-                                    weight: 1.5,
-                                    fillOpacity: 0.9
-                                }).addTo(leafletMap);
-
-                                const horariosTxt = (p.horarios || []).map(h => `${h.formatoCivil}`).join(" / ");
-
-                                m.bindPopup(`
-                                    <div style="font-size:12px;">
-                                        <strong style="color:#06b6d4;">${r.nombreRuta} (Parada #${p.numeroParada})</strong><br>
-                                        <b>Ref:</b> ${p.referenciaOriginal}<br>
-                                        <b>Horarios:</b> ${horariosTxt || r.horarioPaso}<br>
-                                        <a href="https://www.google.com/maps/search/?api=1&query=${lat},${lng}" target="_blank" style="color:#38bdf8; font-weight:bold; display:block; margin-top:4px;">Abrir GPS ➔</a>
-                                    </div>
-                                `);
-                                leafletMarkers.push(m);
-                            }
-                        });
-                    } else if (tieneCoordenadasValidas(r.coordenadasAbordaje)) {
-                        const [lat, lng] = r.coordenadasAbordaje.split(",").map(Number);
+                r.paradas.forEach(p => {
+                    if (tieneCoordenadasValidas(p.coordenadasAbordaje)) {
+                        const [lat, lng] = p.coordenadasAbordaje.split(",").map(Number);
                         boundsCoords.push([lat, lng]);
 
-                        const m = L.marker([lat, lng]).addTo(leafletMap);
+                        const m = L.circleMarker([lat, lng], {
+                            radius: 6,
+                            fillColor: "#06b6d4",
+                            color: "#fff",
+                            weight: 1.5,
+                            fillOpacity: 0.9
+                        }).addTo(leafletMap);
+
+                        const hTxt = (p.horarios || []).map(h => h.formatoCivil).join(" / ");
+
                         m.bindPopup(`
                             <div style="font-size:12px;">
-                                <strong style="color:#ea580c;">${r.nombreRuta}</strong><br>
-                                <b>Empresa:</b> ${r.empresaNombre}<br>
-                                <b>Horario:</b> ${r.horarioPaso}<br>
-                                <a href="https://www.google.com/maps/search/?api=1&query=${lat},${lng}" target="_blank" style="color:#38bdf8; font-weight:bold; display:block; margin-top:4px;">Abrir GPS ➔</a>
+                                <strong style="color:#06b6d4;">${r.nombreRuta} (#${p.numeroParada})</strong><br>
+                                <b>Parada:</b> ${p.referenciaOriginal}<br>
+                                <b>Horarios:</b> ${hTxt}<br>
+                                <a href="https://www.google.com/maps/search/?api=1&query=${lat},${lng}" target="_blank" style="color:#38bdf8; font-weight:bold;">Ver Maps ➔</a>
                             </div>
                         `);
                         leafletMarkers.push(m);
                     }
-                }
+                });
 
                 const card = document.createElement("div");
-                card.className = "flex flex-col bg-cyber-bg p-3 rounded-lg border border-cyber-border text-xs gap-1.5 hover:border-cyber-accent/40 transition-all";
+                card.className = "flex flex-col bg-cyber-bg p-3 rounded-lg border border-cyber-border text-xs gap-1 hover:border-cyber-accent/40 transition";
                 card.innerHTML = `
                     <div class="flex justify-between items-start">
-                        <div>
-                            <div class="font-bold text-white text-xs">${r.nombreRuta}</div>
-                            <div class="text-cyber-cyan text-[11px]">📍 ${r.estadoMunicipio}</div>
-                        </div>
-                        <span class="bg-cyber-purple/10 text-cyber-purple border border-cyber-purple/20 font-mono text-[10px] px-2 py-0.5 rounded">
-                            ${r.empresaNombre}
-                        </span>
+                        <span class="font-bold text-white">${r.nombreRuta}</span>
+                        <span class="text-[10px] text-cyber-purple font-mono">${r.empresaNombre}</span>
                     </div>
-                    <div class="text-slate-400 text-[11px] line-clamp-2">${r.puntosAbordaje}</div>
-                    <div class="flex items-center justify-between pt-1 border-t border-cyber-border/40 mt-1 flex-wrap gap-2">
-                        <span class="text-cyber-amber font-mono text-[10px]">⏱️ ${r.horarioPaso}</span>
-                        <div class="flex gap-1.5">
-                            <button onclick="abrirModalAcusePorId('${r.empresaKey}', '${r.idRuta}')" class="bg-orange-600/20 hover:bg-orange-600 text-orange-400 hover:text-white border border-orange-500/30 px-2 py-1 rounded text-[10px] font-bold transition-all flex items-center gap-1">
-                                <i class="fas fa-qrcode"></i> Acuse QR
-                            </button>
-                            <button onclick="compartirWhatsAppPorId('${r.empresaKey}', '${r.idRuta}')" class="bg-emerald-600 hover:bg-emerald-500 text-white px-2 py-1 rounded text-[10px] font-bold transition-all">
-                                <i class="fab fa-whatsapp"></i>
-                            </button>
-                        </div>
-                    </div>
+                    <div class="text-slate-400 text-[11px]">${r.paradas.length} paradas configuradas</div>
                 `;
                 contenedorResultados.appendChild(card);
             });
 
             if (leafletMap && boundsCoords.length > 0) {
                 leafletMap.fitBounds(boundsCoords, { padding: [30, 30], maxZoom: 14 });
-                setTimeout(() => leafletMap.invalidateSize(), 200);
             }
         }
 
@@ -759,16 +803,23 @@
             leafletMarkers = [];
         }
 
+        function centrarParadaEnMapa(coordsStr, rutaNom, paradaNom) {
+            if (!leafletMap || !tieneCoordenadasValidas(coordsStr)) return;
+            const [lat, lng] = coordsStr.split(",").map(Number);
+            leafletMap.flyTo([lat, lng], 16, { duration: 1.0 });
+
+            const m = L.circleMarker([lat, lng], { radius: 8, fillColor: "#ea580c", color: "#fff", weight: 2, fillOpacity: 0.95 }).addTo(leafletMap);
+            m.bindPopup(`<b>${rutaNom}</b><br>${paradaNom}`).openPopup();
+            leafletMarkers.push(m);
+        }
+
         function obtenerUbicacionGPS() {
             const input = document.getElementById("ubicacionCandidatoTexto");
             if (!navigator.geolocation) return alert("Tu dispositivo no soporta geolocalización GPS.");
-
-            input.placeholder = "Obteniendo GPS satelital...";
+            input.placeholder = "Localizando por satélite...";
             navigator.geolocation.getCurrentPosition(
-                (pos) => {
-                    input.value = `${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)}`;
-                },
-                (err) => alert("Error de GPS: " + err.message),
+                pos => input.value = `${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)}`,
+                err => alert("Error de GPS: " + err.message),
                 { enableHighAccuracy: true, timeout: 10000 }
             );
         }
@@ -778,7 +829,7 @@
             const ubicacionTexto = document.getElementById("ubicacionCandidatoTexto").value.trim();
             const empresaFiltro = document.getElementById("selectEmpresaExplorador").value;
 
-            if (!ubicacionTexto) return alert("Ingresa una dirección, colonia o coordenada GPS.");
+            if (!ubicacionTexto) return alert("Ingresa una dirección o coordenada.");
 
             const btn = document.getElementById("btnBuscarGeoloc");
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Calculando...';
@@ -801,10 +852,73 @@
 
                 if (!latCand || !lngCand) throw new Error("No pudimos geocodificar la ubicación ingresada.");
 
-                procesarMatchesTriangulacion(latCand, lngCand, empresaFiltro);
+                limpiarMarcadoresMapa();
+                const contenedor = document.getElementById("listaMatchRutas");
+                contenedor.innerHTML = "";
 
-            } catch (error) {
-                alert("Error: " + error.message);
+                const candMarker = L.circleMarker([latCand, lngCand], { radius: 9, fillColor: "#ea580c", color: "#fff", weight: 2, fillOpacity: 0.95 }).addTo(leafletMap);
+                candMarker.bindPopup("<b>📍 Ubicación del Candidato</b>").openPopup();
+                leafletMarkers.push(candMarker);
+
+                let matches = [];
+                cacheTodasLasRutas.forEach(r => {
+                    if (empresaFiltro && r.empresaNombre !== empresaFiltro) return;
+
+                    r.paradas.forEach(p => {
+                        if (tieneCoordenadasValidas(p.coordenadasAbordaje)) {
+                            const [pLat, pLng] = p.coordenadasAbordaje.split(",").map(Number);
+                            const dist = calcularDistanciaKm(latCand, lngCand, pLat, pLng);
+                            let score = dist <= 0.8 ? 100 : (dist <= 2.0 ? 85 : (dist <= 4.0 ? 70 : 30));
+                            matches.push({
+                                ruta: r.nombreRuta,
+                                empresa: r.empresaNombre,
+                                parada: p.referenciaOriginal,
+                                horario: (p.horarios || []).map(h => h.formatoCivil).join(" / ") || "S/H",
+                                coords: p.coordenadasAbordaje,
+                                dist, score, lat: pLat, lng: pLng
+                            });
+                        }
+                    });
+                });
+
+                matches.sort((a, b) => a.dist - b.dist);
+                document.getElementById("badgeConteoMatches").innerText = `${matches.length} matches`;
+
+                if (matches.length === 0) {
+                    contenedor.innerHTML = `<p class="text-slate-500 text-xs italic">No hay paradas cerca para este filtro.</p>`;
+                    return;
+                }
+
+                const bounds = [[latCand, lngCand]];
+                matches.slice(0, 10).forEach(m => {
+                    bounds.push([m.lat, m.lng]);
+                    const mk = L.marker([m.lat, m.lng]).addTo(leafletMap);
+                    mk.bindPopup(`<b>${m.ruta}</b><br>${m.parada}<br>Distancia: ${m.dist.toFixed(2)} km`);
+                    leafletMarkers.push(mk);
+
+                    const poly = L.polyline([[latCand, lngCand], [m.lat, m.lng]], { color: m.score >= 80 ? '#10b981' : '#f59e0b', weight: 2, dashArray: '4,4' }).addTo(leafletMap);
+                    leafletMarkers.push(poly);
+
+                    const item = document.createElement("div");
+                    item.className = "bg-cyber-bg p-2.5 rounded-lg border border-cyber-border text-xs";
+                    item.innerHTML = `
+                        <div class="flex justify-between font-bold">
+                            <span class="text-white">${m.ruta}</span>
+                            <span class="text-emerald-400 font-mono">${m.score}%</span>
+                        </div>
+                        <div class="text-slate-300">${m.parada}</div>
+                        <div class="text-[11px] text-slate-400">📏 ${m.dist.toFixed(2)} km • ⏱️ ${m.horario}</div>
+                        <button onclick="abrirModalAcuseDirecto('${m.ruta}', '${m.empresa}', '${m.horario}', '${m.parada}', '${m.coords}')" class="mt-1 bg-orange-600/20 text-orange-400 px-2 py-0.5 rounded text-[10px] font-bold">
+                            Acuse QR
+                        </button>
+                    `;
+                    contenedor.appendChild(item);
+                });
+
+                leafletMap.fitBounds(bounds, { padding: [30, 30] });
+
+            } catch (err) {
+                alert(err.message);
             } finally {
                 btn.innerHTML = '<i class="fas fa-bullseye"></i> Calcular Compatibilidad';
                 btn.disabled = false;
@@ -821,220 +935,70 @@
             return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
         }
 
-        function procesarMatchesTriangulacion(cLat, cLng, empresaFiltro) {
-            limpiarMarcadoresMapa();
-            const contenedor = document.getElementById("listaMatchRutas");
-            contenedor.innerHTML = "";
+        // GESTOR DE PARADAS EN FORMULARIO MANUAL
+        function agregarFilaParadaFormulario(nombre = "", cruce = "", horario = "", coords = "") {
+            const contenedor = document.getElementById("contenedorParadasDinamicasForm");
+            const index = contenedor.children.length + 1;
 
-            if (leafletMap) {
-                const candMarker = L.circleMarker([cLat, cLng], {
-                    radius: 9,
-                    fillColor: "#ea580c",
-                    color: "#ffffff",
-                    weight: 2,
-                    fillOpacity: 0.95
-                }).addTo(leafletMap);
-                candMarker.bindPopup("<b>📍 Posición del Candidato</b>").openPopup();
-                leafletMarkers.push(candMarker);
-            }
-
-            let matches = [];
-
-            cacheTodasLasRutas.forEach(r => {
-                if (empresaFiltro && r.empresaNombre !== empresaFiltro) return;
-
-                if (r.paradas && r.paradas.length > 0) {
-                    r.paradas.forEach(p => {
-                        if (tieneCoordenadasValidas(p.coordenadasAbordaje)) {
-                            const [pLat, pLng] = p.coordenadasAbordaje.split(",").map(Number);
-                            const dist = calcularDistanciaKm(cLat, cLng, pLat, pLng);
-                            let score = dist <= 0.8 ? 100 : (dist <= 2.0 ? 85 : (dist <= 4.0 ? 70 : (dist <= 6.5 ? 50 : 15)));
-                            matches.push({
-                                ...r,
-                                nombreParada: p.referenciaOriginal,
-                                horarioParada: (p.horarios || []).map(h => h.formatoCivil).join(" / ") || r.horarioPaso,
-                                coordenadasAbordaje: p.coordenadasAbordaje,
-                                dist, score, lat: pLat, lng: pLng
-                            });
-                        }
-                    });
-                } else if (tieneCoordenadasValidas(r.coordenadasAbordaje)) {
-                    const [rLat, rLng] = r.coordenadasAbordaje.split(",").map(Number);
-                    const dist = calcularDistanciaKm(cLat, cLng, rLat, rLng);
-                    let score = dist <= 0.8 ? 100 : (dist <= 2.0 ? 85 : (dist <= 4.0 ? 70 : (dist <= 6.5 ? 50 : 15)));
-                    matches.push({ ...r, nombreParada: r.puntosAbordaje, horarioParada: r.horarioPaso, dist, score, lat: rLat, lng: rLng });
-                }
-            });
-
-            matches.sort((a, b) => a.dist - b.dist);
-            document.getElementById("badgeConteoMatches").innerText = `${matches.length} coincidencias`;
-
-            if (matches.length === 0) {
-                contenedor.innerHTML = `<p class="text-slate-500 text-xs italic">No hay paradas geocodificadas cerca para la empresa seleccionada.</p>`;
-                return;
-            }
-
-            const boundsCoords = [[cLat, cLng]];
-
-            matches.forEach(m => {
-                boundsCoords.push([m.lat, m.lng]);
-
-                if (leafletMap) {
-                    const marker = L.marker([m.lat, m.lng]).addTo(leafletMap);
-                    marker.bindPopup(`
-                        <div style="font-size:12px;">
-                            <strong style="color:#ea580c;">${m.nombreRuta}</strong><br>
-                            <b>Punto:</b> ${m.nombreParada}<br>
-                            <b>Distancia:</b> ${m.dist.toFixed(2)} km (Score: ${m.score}%)<br>
-                            <b>Horario:</b> ${m.horarioParada}
-                        </div>
-                    `);
-                    leafletMarkers.push(marker);
-
-                    const poly = L.polyline([[cLat, cLng], [m.lat, m.lng]], {
-                        color: m.score >= 80 ? '#10b981' : (m.score >= 50 ? '#f59e0b' : '#ef4444'),
-                        weight: 2,
-                        dashArray: '4, 4'
-                    }).addTo(leafletMap);
-                    leafletMarkers.push(poly);
-                }
-
-                const colorScore = m.score >= 80 ? 'text-emerald-400 border-emerald-500/30' : (m.score >= 50 ? 'text-amber-400 border-amber-500/30' : 'text-red-400 border-red-500/30');
-                const card = document.createElement("div");
-                card.className = "flex flex-col bg-cyber-bg p-3 rounded-lg border border-cyber-border text-xs gap-1.5";
-                card.innerHTML = `
-                    <div class="flex justify-between items-start">
-                        <div>
-                            <div class="font-bold text-white">${m.nombreRuta}</div>
-                            <div class="text-cyber-cyan text-[11px]">🏢 ${m.empresaNombre}</div>
-                        </div>
-                        <span class="bg-slate-800 font-mono font-black px-2 py-0.5 rounded border text-[11px] ${colorScore}">
-                            ${m.score}% Match
-                        </span>
-                    </div>
-                    <div class="text-slate-300 text-[11px]">📍 ${m.nombreParada}</div>
-                    <div class="text-slate-400 text-[11px]">📏 <b>${m.dist.toFixed(2)} km</b> • ⏱️ ${m.horarioParada}</div>
-                    <div class="flex justify-end gap-1.5 pt-1 border-t border-cyber-border/40 mt-1">
-                        <button onclick="abrirModalAcuseDirecto('${escapeHTML(m.nombreRuta)}', '${escapeHTML(m.empresaNombre)}', '${escapeHTML(m.horarioParada)}', '${escapeHTML(m.nombreParada)}', '${escapeHTML(m.coordenadasAbordaje)}')" class="bg-orange-600/20 hover:bg-orange-600 text-orange-400 hover:text-white border border-orange-500/30 px-2 py-1 rounded text-[10px] font-bold">
-                            <i class="fas fa-qrcode"></i> Acuse QR
-                        </button>
-                    </div>
-                `;
-                contenedor.appendChild(card);
-            });
-
-            if (leafletMap) leafletMap.fitBounds(boundsCoords, { padding: [30, 30] });
+            const div = document.createElement("div");
+            div.className = "fila-parada-item bg-cyber-bg p-2 rounded border border-cyber-border space-y-1.5 text-xs";
+            div.innerHTML = `
+                <div class="flex justify-between items-center">
+                    <span class="font-mono text-[10px] text-cyber-purple font-bold">Parada #${index}</span>
+                    <button type="button" onclick="removerFilaParadaFormulario(this)" class="text-rose-400 hover:text-rose-300 text-xs font-bold">&times;</button>
+                </div>
+                <input type="text" value="${nombre}" placeholder="Referencia / Nombre Parada" class="p-nombre w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs">
+                <input type="text" value="${cruce}" placeholder="Cruce vial" class="p-cruce w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-300 text-[11px]">
+                <div class="grid grid-cols-2 gap-1.5">
+                    <input type="text" value="${horario}" placeholder="06:30 AM / 06:30 PM" class="p-horario bg-slate-900 border border-slate-700 rounded px-2 py-1 text-amber-400 text-xs font-mono">
+                    <input type="text" value="${coords}" placeholder="Lat, Lng" class="p-coords bg-slate-900 border border-slate-700 rounded px-2 py-1 text-cyber-cyan text-xs font-mono">
+                </div>
+            `;
+            contenedor.appendChild(div);
         }
 
-        function abrirModalAcusePorId(empresaKey, idRuta) {
-            const r = cacheTodasLasRutas.find(x => x.empresaKey === empresaKey && x.idRuta === idRuta);
-            if (r) abrirModalAcuseDirecto(r.nombreRuta, r.empresaNombre, r.horarioPaso, r.puntosAbordaje, r.coordenadasAbordaje);
+        function removerFilaParadaFormulario(btn) {
+            btn.closest(".fila-parada-item").remove();
         }
 
-        function compartirWhatsAppPorId(empresaKey, idRuta) {
-            const r = cacheTodasLasRutas.find(x => x.empresaKey === empresaKey && x.idRuta === idRuta);
-            if (r) compartirFichaWhatsApp(r.nombreRuta, r.empresaNombre, r.estadoMunicipio, r.puntosAbordaje, r.horarioPaso, r.coordenadasAbordaje);
-        }
-
-        function compartirFichaWhatsApp(nombre, empresa, ubicacion, paradas, horario, coords) {
-            let linkMaps = "https://maps.google.com";
-            if (tieneCoordenadasValidas(coords)) {
-                const [lat, lng] = coords.split(",");
-                linkMaps = `https://www.google.com/maps/search/?api=1&query=${lat.trim()},${lng.trim()}`;
-            }
-
-            const msj = `🚌 *FICHA OFICIAL DE TRANSPORTE* 🚌\n\n` +
-                        `*Empresa:* ${empresa}\n` +
-                        `*Ruta:* ${nombre}\n` +
-                        `*Zona:* ${ubicacion || 'General'}\n` +
-                        `*Horario:* ${horario}\n` +
-                        `*Paradas Principales:* ${paradas}\n\n` +
-                        `📍 *Ubicación GPS Satelital:* ${linkMaps}\n\n` +
-                        `_Preséntate con 10 minutos de anticipación._`;
-
-            window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msj)}`, '_blank');
-        }
-
-        function abrirModalAcuseDirecto(ruta, empresa, horario, paradas, coords) {
-            document.getElementById("pdfEmpresaNombre").innerText = empresa || "Empresa Destino";
-            document.getElementById("pdfRutaNombre").innerText = ruta || "Ruta de Transporte";
-            document.getElementById("pdfHorario").innerText = horario || "Horario Asignado";
-            document.getElementById("pdfParadas").innerText = paradas || "Paradas de Abordaje";
-            document.getElementById("pdfCoordenadasTexto").innerText = coords ? `GPS: ${coords}` : "Sin GPS satelital";
-
-            const contenedorQR = document.getElementById("contenedorQRCode");
-            contenedorQR.innerHTML = "";
-
-            let urlDestino = "https://www.google.com/maps";
-            if (tieneCoordenadasValidas(coords)) {
-                const [lat, lng] = coords.split(",");
-                urlDestino = `https://www.google.com/maps/search/?api=1&query=${lat.trim()},${lng.trim()}`;
-            }
-
-            new QRCode(contenedorQR, {
-                text: urlDestino,
-                width: 90,
-                height: 90,
-                colorDark : "#0f172a",
-                colorLight : "#ffffff",
-                correctLevel : QRCode.CorrectLevel.H
-            });
-
-            document.getElementById("modalAcusePDF").classList.remove("hidden");
-        }
-
-        function cerrarModalAcuse() {
-            document.getElementById("modalAcusePDF").classList.add("hidden");
-        }
-
-        async function autodetectarCoordenadasFormulario() {
-            const zona = document.getElementById("estadoMunicipio").value.trim();
-            const paradas = document.getElementById("puntosAbordaje").value.trim();
-            const consulta = `${paradas ? paradas.split(",")[0] : ''} ${zona}, Mexico`.trim();
-
-            if (!consulta || consulta === ", Mexico") return alert("Completa Municipio o Paradas para autodetectar.");
-
-            try {
-                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(consulta)}&countrycodes=mx&limit=1`);
-                const data = await res.json();
-                if (data && data.length > 0) {
-                    const lat = parseFloat(data[0].lat).toFixed(6);
-                    const lng = parseFloat(data[0].lon).toFixed(6);
-                    document.getElementById("coordenadasAbordaje").value = `${lat}, ${lng}`;
-                    alert(`¡Coordenadas localizadas!: ${lat}, ${lng}`);
-                } else {
-                    alert("No se ubicaron coordenadas exactas. Haz clic sobre el mapa para fijarla.");
-                }
-            } catch (e) {
-                alert("Error al autodetectar: " + e.message);
-            }
-        }
-
-        async function guardarRutaManual(e) {
+        async function guardarRutaCompletaForm(e) {
             e.preventDefault();
             const idRuta = document.getElementById("editRutaId").value;
             const empresaAnterior = document.getElementById("editEmpresaAnterior").value;
             const empresaNombre = document.getElementById("empresaDestino").value;
 
-            if (!empresaNombre) return alert("Selecciona la empresa destino.");
+            if (!empresaNombre) return alert("Selecciona una empresa.");
             const empresaKey = sanitizarKey(empresaNombre);
-
             const nombreRuta = document.getElementById("nombreRuta").value.trim();
-            const targetIdRuta = idRuta || sanitizarKey(nombreRuta);
+            const targetId = idRuta || sanitizarKey(nombreRuta);
 
-            const rutaExistente = cacheTodasLasRutas.find(r => r.idRuta === idRuta && r.empresaKey === (empresaAnterior || empresaKey)) || {};
+            const paradasNuevas = [];
+            document.querySelectorAll("#contenedorParadasDinamicasForm .fila-parada-item").forEach((fila, idx) => {
+                const nom = fila.querySelector(".p-nombre").value.trim();
+                const cru = fila.querySelector(".p-cruce").value.trim();
+                const hor = fila.querySelector(".p-horario").value.trim();
+                const coo = fila.querySelector(".p-coords").value.trim();
+
+                const horariosArr = hor.split("/").map(x => ({ formatoCivil: x.trim(), formatoMilitar: x.trim() })).filter(h => h.formatoCivil);
+
+                if (nom) {
+                    paradasNuevas.push({
+                        numeroParada: idx + 1,
+                        referenciaOriginal: nom,
+                        cruceVialEnriquecido: cru || nom,
+                        coordenadasAbordaje: coo,
+                        horarios: horariosArr
+                    });
+                }
+            });
 
             const rutaData = {
-                idRuta: targetIdRuta,
+                idRuta: targetId,
                 nombreRuta: nombreRuta,
                 empresaDestino: empresaNombre,
                 empresaKey: empresaKey,
                 estadoMunicipio: document.getElementById("estadoMunicipio").value.trim(),
-                horarioPaso: document.getElementById("horarioPaso").value.trim(),
-                coordenadasAbordaje: document.getElementById("coordenadasAbordaje").value.trim(),
-                puntosAbordaje: document.getElementById("puntosAbordaje").value.trim(),
-                paradas: rutaExistente.paradas || [],
-                operativo: rutaExistente.operativo || null,
+                paradas: paradasNuevas,
                 fechaActualizacion: new Date().toISOString()
             };
 
@@ -1043,151 +1007,158 @@
                     await remove(ref(db, `rutas/${empresaAnterior}/${idRuta}`));
                 }
 
-                await set(ref(db, `rutas/${empresaKey}/${targetIdRuta}`), rutaData);
+                await set(ref(db, `rutas/${empresaKey}/${targetId}`), rutaData);
                 cancelarEdicion();
                 await sincronizarInicialBajoDemanda();
-                alert("✅ Ruta guardada y sincronizada correctamente.");
+                alert("✅ Ruta guardada exitosamente.");
             } catch (err) {
-                alert("Error al guardar: " + err.message);
+                alert("Error: " + err.message);
             }
         }
 
         function cargarRutaEnFormulario(empresaKey, idRuta) {
-            const r = cacheTodasLasRutas.find(item => item.idRuta === idRuta && item.empresaKey === empresaKey);
+            const r = cacheTodasLasRutas.find(x => x.idRuta === idRuta && x.empresaKey === empresaKey);
             if (!r) return;
 
             document.getElementById("editRutaId").value = r.idRuta;
             document.getElementById("editEmpresaAnterior").value = r.empresaKey;
-
             document.getElementById("empresaDestino").value = r.empresaNombre;
-            document.getElementById("nombreRuta").value = r.nombreRuta || "";
-            document.getElementById("estadoMunicipio").value = r.estadoMunicipio || "";
-            document.getElementById("horarioPaso").value = r.horarioPaso || "";
-            document.getElementById("coordenadasAbordaje").value = r.coordenadasAbordaje || "";
-            document.getElementById("puntosAbordaje").value = r.puntosAbordaje || "";
+            document.getElementById("nombreRuta").value = r.nombreRuta;
+            document.getElementById("estadoMunicipio").value = r.estadoMunicipio;
 
-            document.getElementById("formTitle").innerHTML = '<i class="fas fa-pen-to-square"></i> Editando Ruta Sincronizada';
+            const contenedor = document.getElementById("contenedorParadasDinamicasForm");
+            contenedor.innerHTML = "";
+
+            r.paradas.forEach(p => {
+                const hTxt = (p.horarios || []).map(h => h.formatoCivil).join(" / ");
+                agregarFilaParadaFormulario(p.referenciaOriginal, p.cruceVialEnriquecido, hTxt, p.coordenadasAbordaje);
+            });
+
             document.getElementById("btnSubmitForm").innerText = "Actualizar Ruta";
             document.getElementById("btnCancelarEdicion").classList.remove("hidden");
-            window.scrollTo({ top: document.getElementById("formRuta").offsetTop - 100, behavior: 'smooth' });
+            window.scrollTo({ top: document.getElementById("formRuta").offsetTop - 50, behavior: 'smooth' });
         }
 
         function cancelarEdicion() {
             document.getElementById("editRutaId").value = "";
             document.getElementById("editEmpresaAnterior").value = "";
             document.getElementById("formRuta").reset();
-            document.getElementById("formTitle").innerHTML = '<i class="fas fa-bus-simple"></i> Registro / Edición Manual';
-            document.getElementById("btnSubmitForm").innerText = "Guardar Ruta";
+            document.getElementById("contenedorParadasDinamicasForm").innerHTML = "";
+            document.getElementById("btnSubmitForm").innerText = "Guardar Ruta Completa";
             document.getElementById("btnCancelarEdicion").classList.add("hidden");
         }
 
         async function eliminarRuta(empresaKey, idRuta) {
-            if (confirm("¿Confirmas eliminar esta ruta del servidor?")) {
+            if (confirm("¿Deseas eliminar esta ruta definitivamente?")) {
                 await remove(ref(db, `rutas/${empresaKey}/${idRuta}`));
-                sincronizarInicialBajoDemanda();
+                await sincronizarInicialBajoDemanda();
             }
         }
 
         async function eliminarRutasPorEmpresaSeleccionada() {
             const filtro = document.getElementById("filtroEmpresaTabla").value;
-            if (filtro === "TODAS") return alert("Selecciona una empresa específica en el filtro.");
-
-            if (confirm(`⚠️ ¿Deseas eliminar TODAS las rutas de "${filtro}"?`)) {
+            if (filtro === "TODAS") return alert("Selecciona una empresa específica.");
+            if (confirm(`¿Eliminar TODAS las rutas de ${filtro}?`)) {
                 await remove(ref(db, `rutas/${sanitizarKey(filtro)}`));
-                sincronizarInicialBajoDemanda();
-                alert(`Rutas de ${filtro} eliminadas.`);
+                await sincronizarInicialBajoDemanda();
             }
         }
 
-        async function purgarTodasLasRutas() {
-            const clave = prompt("⚠️ ACCIÓN CRÍTICA ⚠️\nEscribe 'BORRAR TODO' para purgar el catálogo de rutas:");
-            if (clave === "BORRAR TODO") {
-                await remove(ref(db, "rutas"));
-                sincronizarInicialBajoDemanda();
-                alert("Todas las rutas han sido eliminadas.");
+        // EDICIÓN GRANULAR INDIVIDUAL
+        function abrirModalEdicionParada(empresaKey, idRuta, pIndex) {
+            const r = cacheTodasLasRutas.find(x => x.idRuta === idRuta && x.empresaKey === empresaKey);
+            if (!r || !r.paradas[pIndex]) return;
+
+            const p = r.paradas[pIndex];
+            document.getElementById("modalParadaEmpresaKey").value = empresaKey;
+            document.getElementById("modalParadaRutaId").value = idRuta;
+            document.getElementById("modalParadaIndex").value = pIndex;
+
+            document.getElementById("modalParadaReferencia").value = p.referenciaOriginal || "";
+            document.getElementById("modalParadaCruce").value = p.cruceVialEnriquecido || "";
+            document.getElementById("modalParadaHorarios").value = (p.horarios || []).map(h => h.formatoCivil).join(" / ");
+            document.getElementById("modalParadaCoords").value = p.coordenadasAbordaje || "";
+
+            document.getElementById("modalEdicionParadaIndividual").classList.remove("hidden");
+        }
+
+        function cerrarModalEdicionParada() {
+            document.getElementById("modalEdicionParadaIndividual").classList.add("hidden");
+        }
+
+        async function guardarParadaIndividualDesdeModal() {
+            const empKey = document.getElementById("modalParadaEmpresaKey").value;
+            const idRuta = document.getElementById("modalParadaRutaId").value;
+            const pIdx = document.getElementById("modalParadaIndex").value;
+
+            const hTxt = document.getElementById("modalParadaHorarios").value.trim();
+            const horariosArr = hTxt.split("/").map(x => ({ formatoCivil: x.trim(), formatoMilitar: x.trim() })).filter(h => h.formatoCivil);
+
+            const updates = {
+                referenciaOriginal: document.getElementById("modalParadaReferencia").value.trim(),
+                cruceVialEnriquecido: document.getElementById("modalParadaCruce").value.trim(),
+                coordenadasAbordaje: document.getElementById("modalParadaCoords").value.trim(),
+                horarios: horariosArr
+            };
+
+            try {
+                await update(ref(db, `rutas/${empKey}/${idRuta}/paradas/${pIdx}`), updates);
+                cerrarModalEdicionParada();
+                await sincronizarInicialBajoDemanda();
+                alert("✅ Parada individual actualizada en Firebase.");
+            } catch (err) {
+                alert("Error al actualizar: " + err.message);
             }
         }
 
-        function reiniciarYRenderizarTabla() {
-            document.getElementById("tablaRutas").innerHTML = "";
-            paginaActual = 0;
-            cargarMasRutasEnTabla();
+        // ACUSE QR
+        function abrirModalAcusePorId(empresaKey, idRuta) {
+            const r = cacheTodasLasRutas.find(x => x.empresaKey === empresaKey && x.idRuta === idRuta);
+            if (!r) return;
+            const primeraP = r.paradas[0] || {};
+            const h = (primeraP.horarios || []).map(x => x.formatoCivil).join(" / ") || "A convenir";
+            abrirModalAcuseDirecto(r.nombreRuta, r.empresaNombre, h, primeraP.referenciaOriginal || "Parada General", primeraP.coordenadasAbordaje || "");
         }
 
-        function cargarMasRutasEnTabla() {
-            const tbody = document.getElementById("tablaRutas");
-            const filtro = document.getElementById("filtroEmpresaTabla").value;
+        function abrirModalAcuseDirecto(ruta, empresa, horario, parada, coords) {
+            document.getElementById("pdfEmpresaNombre").innerText = empresa;
+            document.getElementById("pdfRutaNombre").innerText = ruta;
+            document.getElementById("pdfHorario").innerText = horario;
+            document.getElementById("pdfParadas").innerText = parada;
+            document.getElementById("pdfCoordenadasTexto").innerText = coords ? `GPS: ${coords}` : "Sin coordenadas";
 
-            const rutasFiltradas = cacheTodasLasRutas.filter(r => {
-                if (filtro === "TODAS") return true;
-                return r.empresaNombre === filtro || r.empresaKey === sanitizarKey(filtro);
-            });
+            const qrContenedor = document.getElementById("contenedorQRCode");
+            qrContenedor.innerHTML = "";
 
-            const inicio = paginaActual * RUTAS_POR_PAGINA;
-            const fin = inicio + RUTAS_POR_PAGINA;
-            const bloque = rutasFiltradas.slice(inicio, fin);
-
-            if (bloque.length === 0 && paginaActual === 0) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="4" class="p-6 text-center text-slate-500 font-mono text-xs">
-                            No hay rutas registradas bajo este filtro.
-                        </td>
-                    </tr>`;
-                document.getElementById("btnCargarMas").classList.add("hidden");
-                document.getElementById("txtPaginacionInfo").innerText = "0 rutas";
-                return;
+            let url = "https://www.google.com/maps";
+            if (tieneCoordenadasValidas(coords)) {
+                const [lat, lng] = coords.split(",");
+                url = `https://www.google.com/maps/search/?api=1&query=${lat.trim()},${lng.trim()}`;
             }
 
-            bloque.forEach(r => {
-                const tieneGPS = tieneCoordenadasValidas(r.coordenadasAbordaje) || (r.paradas && r.paradas.some(p => tieneCoordenadasValidas(p.coordenadasAbordaje)));
-                const cantParadas = r.paradas ? r.paradas.length : 0;
-
-                const tr = document.createElement("tr");
-                tr.className = "hover:bg-slate-800/40 border-b border-cyber-border/50 text-slate-300";
-                tr.innerHTML = `
-                    <td class="p-3">
-                        <div class="font-bold text-white text-xs">${r.nombreRuta}</div>
-                        <div class="flex items-center gap-1.5 mt-0.5">
-                            <span class="bg-cyber-purple/10 text-cyber-purple border border-cyber-purple/20 text-[10px] px-2 py-0.5 rounded font-mono">
-                                ${r.empresaNombre}
-                            </span>
-                            ${cantParadas > 0 ? `<span class="text-[9px] bg-slate-800 text-cyber-cyan px-1.5 py-0.5 rounded font-mono">${cantParadas} paradas</span>` : ''}
-                        </div>
-                    </td>
-                    <td class="p-3">
-                        <div class="text-cyber-cyan font-medium text-[11px] mb-0.5">📍 ${r.estadoMunicipio}</div>
-                        <div class="text-slate-400 text-[11px] line-clamp-2 max-w-xs" title="${r.puntosAbordaje}">${r.puntosAbordaje}</div>
-                    </td>
-                    <td class="p-3 font-mono text-[11px]">
-                        <div class="text-cyber-amber font-semibold">⏱️ ${r.horarioPaso}</div>
-                        <div class="${tieneGPS ? 'text-cyber-cyan' : 'text-red-400 font-bold'} text-[10px]">
-                            ${tieneGPS ? (r.coordenadasAbordaje || 'GPS Multi-Parada') : '⚠️ Sin Coordenadas'}
-                        </div>
-                    </td>
-                    <td class="p-3 text-center space-x-1 whitespace-nowrap">
-                        <button onclick="abrirModalAcusePorId('${r.empresaKey}', '${r.idRuta}')" title="Generar Acuse con QR" class="text-orange-400 hover:text-orange-300 p-1.5"><i class="fas fa-qrcode"></i></button>
-                        <button onclick="cargarRutaEnFormulario('${r.empresaKey}', '${r.idRuta}')" title="Editar" class="text-cyber-cyan hover:text-white p-1.5"><i class="fas fa-pen"></i></button>
-                        <button onclick="eliminarRuta('${r.empresaKey}', '${r.idRuta}')" title="Eliminar" class="text-red-400 hover:text-red-300 p-1.5"><i class="fas fa-trash"></i></button>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
-
-            paginaActual++;
-            const mostrados = Math.min(fin, rutasFiltradas.length);
-            document.getElementById("txtPaginacionInfo").innerText = `Mostrando ${mostrados} de ${rutasFiltradas.length} rutas`;
-
-            if (fin < rutasFiltradas.length) {
-                document.getElementById("btnCargarMas").classList.remove("hidden");
-            } else {
-                document.getElementById("btnCargarMas").classList.add("hidden");
-            }
+            new QRCode(qrContenedor, { text: url, width: 85, height: 85 });
+            document.getElementById("modalAcusePDF").classList.remove("hidden");
         }
 
-        function escapeHTML(str) {
-            if (!str) return "";
-            return String(str).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        function cerrarModalAcuse() {
+            document.getElementById("modalAcusePDF").classList.add("hidden");
+        }
+
+        function compartirWhatsAppPorId(empresaKey, idRuta) {
+            const r = cacheTodasLasRutas.find(x => x.empresaKey === empresaKey && x.idRuta === idRuta);
+            if (!r) return;
+            const p = r.paradas[0] || {};
+            const h = (p.horarios || []).map(x => x.formatoCivil).join(" / ");
+            const coords = p.coordenadasAbordaje || "";
+            const url = coords ? `https://www.google.com/maps/search/?api=1&query=${coords.replace(/\s+/g, '')}` : "https://maps.google.com";
+
+            const msj = `🚌 *FICHA OFICIAL DE TRANSPORTE*\n\n` +
+                        `*Empresa:* ${r.empresaNombre}\n` +
+                        `*Ruta:* ${r.nombreRuta}\n` +
+                        `*Parada:* ${p.referenciaOriginal || 'Punto General'}\n` +
+                        `*Horario:* ${h || 'A convenir'}\n` +
+                        `📍 *Ubicación GPS:* ${url}`;
+            window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msj)}`, '_blank');
         }
     </script>
 </body>
