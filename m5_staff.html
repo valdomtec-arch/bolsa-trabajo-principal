@@ -84,7 +84,7 @@
     <i class="fas fa-user-lock text-warning" style="font-size: 4rem;"></i>
     <h3 class="mt-4 fw-bold">Acceso Restringido por Nivel de Autoridad</h3>
     <p class="text-muted max-w-500">Este módulo requiere privilegios directivos (Nivel 4 o 5). Si eres colaborador operativo, tus permisos son asignados por tu coordinador.</p>
-    <a href="index.html" class="btn btn-orange px-4 py-2 mt-2"><i class="bi bi-arrow-left me-2"></i>Regresar al Panel Principal</a>
+    <a href="admin.html" class="btn btn-orange px-4 py-2 mt-2"><i class="bi bi-arrow-left me-2"></i>Regresar al Panel Principal</a>
   </div>
 
   <!-- INTERFAZ PRINCIPAL DE GOBERNANZA -->
@@ -103,9 +103,12 @@
         <div class="d-flex align-items-center gap-2">
           <span class="badge bg-warning text-dark px-3 py-2" id="userMasterBadge"><i class="bi bi-person-badge-fill me-1"></i>Verificando Sesión...</span>
           <a href="m5_2_cobertura.html" class="btn btn-outline-info btn-sm rounded-pill px-3">
-            <i class="fas fa-map-location-dot me-1"></i> M5.2 Cobertura
+            <i class="fas fa-sitemap me-1"></i> M5.2 Cobertura
           </a>
-          <button id="btnForceSync" class="btn btn-outline-light btn-sm rounded-pill px-3" onclick="location.reload()">
+          <a href="admin.html" class="btn btn-outline-light btn-sm rounded-pill px-3">
+            <i class="fas fa-home me-1"></i> Panel
+          </a>
+          <button id="btnForceSync" class="btn btn-outline-secondary btn-sm rounded-pill px-3" onclick="location.reload()">
             <i class="bi bi-arrow-repeat me-1"></i> Recargar
           </button>
         </div>
@@ -176,7 +179,7 @@
                 </div>
               </div>
 
-              <!-- SELECTOR DE ROL PURO (CERO OVERRIDE) -->
+              <!-- SELECTOR DE ROL PURO -->
               <div class="col-md-3">
                 <label for="staffRol" class="form-label fw-semibold text-warning">Rol Dinámico Asignado</label>
                 <select class="form-select border-warning" id="staffRol" required>
@@ -410,12 +413,11 @@
       measurementId: "G-DH2LD3BJEF"
     };
 
-    // Sesión Master en uso[cite: 4]
     const appMain = initializeApp(firebaseConfig);
     const authMain = getAuth(appMain);
     const db = getDatabase(appMain);
 
-    // Instancia Secundaria para provisionar cuentas de staff sin cerrar la sesión Master[cite: 4]
+    // Instancia Secundaria para provisionar cuentas sin desloguear al administrador
     const appSecondary = initializeApp(firebaseConfig, "StaffProvisioningApp");
     const authSecondary = getAuth(appSecondary);
 
@@ -425,12 +427,15 @@
     const agendaRef = ref(db, 'modulo_3_agenda');
     const logsRef = ref(db, 'modulo_7_logs');
 
+    // CATÁLOGO DE MÓDULOS DEL SISTEMA: INCLUYE LOS SUBMÓDULOS M3.2 Y M5.2
     const MODULOS_SISTEMA = [
       { id: 'm1_empresas', label: 'M1: Empresas y Cuentas' },
       { id: 'm2_vacantes', label: 'M2: Extracción Vacantes (IA)' },
       { id: 'm3_agenda', label: 'M3: Agenda y Postulantes' },
+      { id: 'm3_supervision', label: 'M3.2: Torre de Control & SLA' },
       { id: 'm4_metricas', label: 'M4: Métricas Demográficas' },
-      { id: 'm5_staff', label: 'M5: Gobernanza y Staff' },
+      { id: 'm5_staff', label: 'M5.1: Gobernanza y Staff' },
+      { id: 'm5_2_cobertura', label: 'M5.2: Cobertura & Cuotas' },
       { id: 'm6_transporte', label: 'M6: Rutas y Transporte' },
       { id: 'm7_logs', label: 'M7: Auditoría y Logs' },
       { id: 'm8_creador', label: 'M8: Creador de Módulos' }
@@ -469,7 +474,7 @@
       }
     }
 
-    // 1. CANDADO ZERO-TRUST Y VERIFICACIÓN DE IDENTIDAD[cite: 4]
+    // 1. CANDADO ZERO-TRUST Y VERIFICACIÓN DE IDENTIDAD
     onAuthStateChanged(authMain, async (user) => {
       const badge = document.getElementById('userMasterBadge');
       const panel = document.getElementById('panelGobernanza');
@@ -495,7 +500,7 @@
       }
     });
 
-    // 2. TOGGLE DE CONTRASEÑA (VER / OCULTAR OJO)[cite: 4]
+    // 2. TOGGLE DE CONTRASEÑA (VER / OCULTAR OJO)
     const btnToggle = document.getElementById('btnTogglePassword');
     const inputPass = document.getElementById('staffPassword');
     const iconToggle = document.getElementById('iconTogglePassword');
@@ -506,7 +511,7 @@
       iconToggle.className = isPass ? 'bi bi-eye-slash text-warning' : 'bi bi-eye';
     });
 
-    // 3. GENERADOR DE CONTRASEÑAS SEGURAS[cite: 4]
+    // 3. GENERADOR DE CONTRASEÑAS SEGURAS
     document.getElementById('btnGenerarPass').addEventListener('click', () => {
       const charset = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%*";
       let pass = "";
@@ -518,7 +523,7 @@
       iconToggle.className = 'bi bi-eye-slash text-warning';
     });
 
-    // 4. MATRIZ CRUD CANÓNICA PARA ROLES[cite: 4]
+    // 4. MATRIZ CRUD CANÓNICA PARA ROLES
     function renderMatrizCrud() {
       const body = document.getElementById('matrizCrudBody');
       body.innerHTML = '';
@@ -535,7 +540,7 @@
     }
     renderMatrizCrud();
 
-    // 5. GESTIÓN DE ROLES DINÁMICOS[cite: 4]
+    // 5. GESTIÓN DE ROLES DINÁMICOS
     window.prepararNuevoRol = () => {
       document.getElementById('formNuevoRol').reset();
       document.getElementById('rolIdHidden').value = '';
@@ -648,7 +653,7 @@
       }
     };
 
-    // 6. LÓGICA DEDUCTIVA: AL CAMBIAR DE ROL SE AJUSTA EL FORMULARIO[cite: 4]
+    // 6. LÓGICA DEDUCTIVA: AL CAMBIAR DE ROL SE AJUSTA EL FORMULARIO
     document.getElementById('staffRol').addEventListener('change', (e) => {
       const rolKey = e.target.value;
       const rol = globalRoles[rolKey];
@@ -690,7 +695,7 @@
       });
     }
 
-    // 7. CARGA DE EMPRESAS[cite: 4]
+    // 7. CARGA DE EMPRESAS
     onValue(empresasRef, (snapshot) => {
       const container = document.getElementById('empresasContainer');
       container.innerHTML = '';
@@ -709,7 +714,7 @@
       }
     });
 
-    // 8. ALTA Y EDICIÓN DE STAFF CON AUTONOMÍA DE CONTRASEÑA[cite: 4]
+    // 8. ALTA Y EDICIÓN DE STAFF
     document.getElementById('formStaff').addEventListener('submit', async (e) => {
       e.preventDefault();
       const id = document.getElementById('staffId').value;
@@ -800,7 +805,7 @@
       }
     }
 
-    // 9. REASIGNACIÓN AUTOMÁTICA DE AGENDA EN CASO DE BAJA[cite: 4]
+    // 9. REASIGNACIÓN AUTOMÁTICA EN CASO DE BAJA
     function abrirAsistenteBaja(idBaja) {
       const u = globalStaff[idBaja];
       document.getElementById('bajaNombreColaborador').textContent = u.nombre;
@@ -852,7 +857,7 @@
       }
     }
 
-    // 10. PREPARAR Y CANCELAR EDICIÓN (REESTRUCTURADO Y BLINDADO)
+    // 10. PREPARAR Y CANCELAR EDICIÓN
     window.prepararEdicionStaff = (id) => {
       const u = globalStaff[id];
       if (!u) {
@@ -860,14 +865,12 @@
         return;
       }
 
-      // Asegurar activación de la Pestaña 1 (Directorio y Ficha)
       const tabTrigger = document.querySelector('#tab-staff-link');
       if (tabTrigger) {
         const tabInstance = bootstrap.Tab.getOrCreateInstance(tabTrigger);
         tabInstance.show();
       }
 
-      // Llenado de inputs directos con protección ante valores nulos
       document.getElementById('staffId').value = id;
       document.getElementById('staffNombre').value = u.nombre || '';
       document.getElementById('staffEmail').value = u.email || '';
@@ -876,11 +879,9 @@
       document.getElementById('staffTelefono').value = u.telefono || '';
       document.getElementById('staffEstatus').value = u.estatus || 'Activo';
 
-      // Asignar el rol seleccionado
       const selectRol = document.getElementById('staffRol');
       selectRol.value = u.rolId || '';
 
-      // Ajuste reactivo del scope y jerarquía
       const rol = globalRoles[u.rolId];
       const groupCoord = document.getElementById('groupCoordinadorPadre');
       const containerEmpresas = document.getElementById('empresasContainer');
@@ -906,7 +907,6 @@
         }
       }
 
-      // Marcar casillas de empresas asociadas
       const listaEmpresas = Array.isArray(u.empresas) ? u.empresas : [];
       const esGlobal = listaEmpresas.includes("TODAS") || u.scope === 'global';
 
@@ -914,13 +914,11 @@
         cb.checked = esGlobal || listaEmpresas.includes(cb.value);
       });
 
-      // Pasar formulario a modo Edición
       document.getElementById('btnCancelarStaff').classList.remove('d-none');
       document.getElementById('formModeBadge').className = "badge bg-warning text-dark fw-bold";
       document.getElementById('formModeBadge').textContent = `Editando a: ${u.nombre}`;
       document.getElementById('btnSubmitStaff').innerHTML = `<i class="bi bi-pencil-square me-1"></i> Actualizar Ficha`;
 
-      // Desplazamiento ergonómico hacia la ficha
       document.getElementById('formStaff').scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
 
@@ -946,7 +944,7 @@
       document.querySelectorAll('.emp-cb').forEach(cb => cb.checked = false);
     };
 
-    // 11. ACCIÓN RÁPIDA: ENVIAR EMAIL DE RESTABLECIMIENTO[cite: 4]
+    // 11. ENVIAR EMAIL DE RESTABLECIMIENTO
     window.enviarEmailReseteo = async (email, nombre) => {
       if (confirm(`¿Enviar correo de restablecimiento de contraseña a ${nombre} (${email})?`)) {
         try {
@@ -959,7 +957,7 @@
       }
     };
 
-    // 12. MENSAJE DE BIENVENIDA POR WHATSAPP[cite: 4]
+    // 12. MENSAJE DE BIENVENIDA POR WHATSAPP
     window.enviarWhatsAppAcceso = (tel, nombre, email) => {
       const portalUrl = window.location.origin;
       const msg = encodeURIComponent(
@@ -971,7 +969,7 @@
       window.open(`https://wa.me/52${tel}?text=${msg}`, '_blank');
     };
 
-    // 13. RENDERIZADO DEL DIRECTORIO[cite: 4]
+    // 13. RENDERIZADO DEL DIRECTORIO
     onValue(staffRef, (snapshot) => {
       document.getElementById('statusDot').className = "status-dot status-connected";
       document.getElementById('connectionText').textContent = "Conexión en línea con Firebase Realtime";
