@@ -3,122 +3,156 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Supervisión de Equipo - Módulo 3</title>
-    <script>
-        window.tailwind = { config: { suppressDeprecationWarnings: true } };
-    </script>
+    <title>Torre de Control & Supervisión de Reclutamiento | M3.2</title>
+
+    <!-- Tailwind CSS, Chart.js y FontAwesome -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
     <style>
-        :root { --primary-orange: #ff6600; --bg-page: #030712; }
-        body { background: radial-gradient(circle at 50% 0%, #0d1e3d 0%, var(--bg-page) 80%); color: #f1f5f9; font-family: 'Segoe UI', system-ui, sans-serif; }
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        :root {
+            --primary-orange: #ff6600;
+            --primary-orange-glow: rgba(255, 102, 0, 0.35);
+            --bg-page: #030712;
+            --container-bg: #0b1329;
+            --card-bg: rgba(20, 35, 65, 0.6);
+            --border-color: rgba(30, 58, 138, 0.4);
+        }
+
+        body {
+            background: radial-gradient(circle at 50% 0%, #0d1e3d 0%, var(--bg-page) 85%);
+            color: #f1f5f9;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            min-height: 100vh;
+        }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #06101e; }
         ::-webkit-scrollbar-thumb { background: var(--primary-orange); border-radius: 4px; }
+
+        .btn-orange-glow {
+            background: linear-gradient(135deg, #ff6600 0%, #e05500 100%);
+            transition: all 0.2s ease;
+        }
+        .btn-orange-glow:hover {
+            box-shadow: 0 0 15px var(--primary-orange-glow);
+            transform: translateY(-1px);
+        }
+
+        .status-pill-green { background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); }
+        .status-pill-amber { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+        .status-pill-red { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
     </style>
 </head>
-<body class="min-h-screen p-4 md:p-6 antialiased">
+<body class="p-3 sm:p-5 md:p-6 antialiased">
 
-    <div class="max-w-7xl mx-auto bg-[#0b1329] p-6 rounded-2xl shadow-2xl border border-white/5 backdrop-blur-md">
-        
-        <!-- ENCABEZADO -->
-        <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 bg-gradient-to-br from-[#091a36] to-[#06101e] p-6 rounded-xl border-t border-orange-500/30 border-b-4 border-[#ff6600] shadow-xl">
+    <div class="max-w-7xl mx-auto space-y-6">
+
+        <!-- CABECERA OPERATIVA -->
+        <header class="flex flex-col lg:flex-row justify-between items-start lg:items-center bg-[#0b1329] p-5 rounded-2xl border border-white/10 shadow-2xl gap-4">
             <div>
-                <h1 class="text-2xl font-bold tracking-wide uppercase text-white flex items-center gap-3">
-                    <i class="fas fa-users-cog text-[#ff6600]"></i> TORRE DE CONTROL & SUPERVISIÓN M3
+                <div class="flex items-center gap-2 mb-1 flex-wrap">
+                    <span class="bg-orange-500/10 text-orange-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold tracking-wider uppercase border border-orange-500/20">
+                        Torre de Control M3.2
+                    </span>
+                    <span id="badgeFirebaseStatus" class="bg-emerald-500/10 text-emerald-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-emerald-500/20 flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Sincronizando...
+                    </span>
+                    <span id="badgeJerarquia" class="bg-blue-500/10 text-cyan-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-blue-500/20">
+                        Cargando célula...
+                    </span>
+                </div>
+                <h1 class="text-xl sm:text-2xl font-extrabold text-white tracking-tight flex items-center gap-2.5">
+                    <i class="fas fa-tower-broadcast text-[#ff6600]"></i> Supervisión, Auditoría SLA & Balanceo
                 </h1>
-                <p class="text-sm text-slate-400 mt-1">Gobernanza, auditoría de tiempos de respuesta y reasignación de operadores.</p>
-                <div id="userInfoSup" class="text-xs text-amber-400 font-semibold mt-1">
-                    <i class="fas fa-user-shield"></i> Verificando acceso...
+                <div id="userInfoSup" class="text-xs text-amber-400 font-mono font-medium mt-1">
+                    <i class="fas fa-user-shield"></i> Verificando credenciales...
                 </div>
             </div>
-            
-            <div class="flex flex-wrap items-center gap-3">
-                <div id="btnFirebaseStatusSup" class="bg-[#0a1426] border border-red-500 text-red-400 font-bold py-2 px-4 rounded-xl flex items-center gap-2 text-xs transition-all">
-                    <span class="inline-block w-2 h-2 rounded-full bg-red-500 animate-pulse"></span> Desconectado
-                </div>
-                <a id="linkVolverAgenda" href="m3_agenda.html" class="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 text-white font-semibold py-2 px-4 rounded-xl shadow flex items-center gap-2 text-xs">
-                    <i class="fas fa-arrow-left"></i> Volver al Panel M3
+
+            <div class="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
+                <button onclick="balancearCargaInteligente()" class="flex-1 sm:flex-initial btn-orange-glow text-white font-bold py-2 px-3.5 rounded-xl shadow flex items-center justify-center gap-2 text-xs">
+                    <i class="fas fa-scale-balanced"></i> Auto-Balancear Equipo
+                </button>
+                <a href="m3_agenda.html" class="flex-1 sm:flex-initial bg-[#15264a] hover:bg-[#1e3a70] border border-blue-900/60 text-white font-semibold py-2 px-3.5 rounded-xl flex items-center justify-center gap-2 text-xs transition">
+                    <i class="fas fa-address-book"></i> Agenda Operativa
+                </a>
+                <a href="admin.html" class="flex-1 sm:flex-initial bg-[#06101e] hover:bg-slate-900 border border-white/10 text-slate-300 font-semibold py-2 px-3.5 rounded-xl flex items-center justify-center gap-2 text-xs transition">
+                    <i class="fas fa-home"></i> Panel Central
                 </a>
             </div>
         </header>
 
-        <!-- TARJETAS METRICAS -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div class="bg-[#142341]/60 p-5 rounded-xl border border-blue-900/40 shadow-md flex items-center justify-between">
-                <div>
-                    <p class="text-xs uppercase font-bold text-slate-400 tracking-wider">TOTAL CARTERA ACTIVA</p>
-                    <h3 id="txtTotalPostuladosSup" class="text-3xl font-extrabold text-white mt-1">0</h3>
-                </div>
-                <div class="text-3xl text-blue-400 p-3 bg-[#030712]/50 rounded-lg"><i class="fas fa-users"></i></div>
+        <!-- TARJETAS DE SALUD OPERATIVA (KPIs) -->
+        <div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+            <div class="bg-[#0b1329] p-4 rounded-xl border border-blue-900/40 shadow-lg">
+                <span class="text-[10px] font-mono uppercase text-slate-400 font-bold block">Cartera Auditada</span>
+                <div class="text-2xl font-black text-white font-mono mt-1" id="kpiCarteraTotal">0</div>
+                <span class="text-[10px] text-slate-500">Postulantes en tu célula</span>
             </div>
-
-            <div class="bg-[#142341]/60 p-5 rounded-xl border border-emerald-500/30 shadow-md flex items-center justify-between">
-                <div>
-                    <p class="text-xs uppercase font-bold text-emerald-400 tracking-wider">AL DÍA (&lt;24H)</p>
-                    <h3 id="txtSemaforoVerde" class="text-3xl font-extrabold text-emerald-400 mt-1">0</h3>
-                </div>
-                <div class="text-3xl text-emerald-400 p-3 bg-[#030712]/50 rounded-lg"><i class="fas fa-check-circle"></i></div>
+            <div class="bg-[#0b1329] p-4 rounded-xl border border-emerald-500/30 shadow-lg">
+                <span class="text-[10px] font-mono uppercase text-emerald-400 font-bold block">Al Día (&lt;24H)</span>
+                <div class="text-2xl font-black text-emerald-400 font-mono mt-1" id="kpiAlDia">0</div>
+                <span class="text-[10px] text-slate-500">Atención rápida y en SLA</span>
             </div>
-
-            <div class="bg-[#142341]/60 p-5 rounded-xl border border-amber-500/30 shadow-md flex items-center justify-between">
-                <div>
-                    <p class="text-xs uppercase font-bold text-amber-400 tracking-wider">ATENCIÓN (24H-48H)</p>
-                    <h3 id="txtSemaforoAmarillo" class="text-3xl font-extrabold text-amber-400 mt-1">0</h3>
-                </div>
-                <div class="text-3xl text-amber-400 p-3 bg-[#030712]/50 rounded-lg"><i class="fas fa-exclamation-triangle"></i></div>
+            <div class="bg-[#0b1329] p-4 rounded-xl border border-amber-500/30 shadow-lg">
+                <span class="text-[10px] font-mono uppercase text-amber-400 font-bold block">En Alerta (24H-48H)</span>
+                <div class="text-2xl font-black text-amber-400 font-mono mt-1" id="kpiAlerta">0</div>
+                <span class="text-[10px] text-slate-500">Requieren avance de fase</span>
             </div>
-
-            <div class="bg-[#142341]/60 p-5 rounded-xl border border-rose-500/30 shadow-md flex items-center justify-between">
-                <div>
-                    <p class="text-xs uppercase font-bold text-rose-400 tracking-wider">ESTANCADOS (&gt;48H)</p>
-                    <h3 id="txtSemaforoRojo" class="text-3xl font-extrabold text-rose-400 mt-1">0</h3>
-                </div>
-                <div class="text-3xl text-rose-400 p-3 bg-[#030712]/50 rounded-lg"><i class="fas fa-fire"></i></div>
+            <div class="bg-[#0b1329] p-4 rounded-xl border border-rose-500/40 shadow-lg">
+                <span class="text-[10px] font-mono uppercase text-rose-400 font-bold block">Críticos (&gt;48H)</span>
+                <div class="text-2xl font-black text-rose-400 font-mono mt-1" id="kpiCriticos">0</div>
+                <span class="text-[10px] text-slate-500">Candidatos en riesgo de fuga</span>
             </div>
         </div>
 
-        <!-- GRÁFICOS -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-            <div class="bg-[#142341]/40 p-5 rounded-xl border border-white/5 flex flex-col items-center">
-                <h3 class="text-xs font-bold text-slate-400 mb-3 uppercase tracking-wider flex items-center gap-2">
-                    <i class="fas fa-chart-pie text-[#ff6600]"></i> SALUD DE CARTERA
+        <!-- SECCIÓN DE GRÁFICOS ANALÍTICOS -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div class="bg-[#0b1329] p-4 rounded-xl border border-white/10 flex flex-col items-center">
+                <h3 class="text-xs font-bold text-slate-300 mb-2 uppercase tracking-wider flex items-center gap-2">
+                    <i class="fas fa-chart-pie text-[#ff6600]"></i> Proporción de Tiempos SLA
                 </h3>
-                <div class="w-full h-56 flex justify-center">
-                    <canvas id="chartSaludDona"></canvas>
+                <div class="w-full h-48 flex justify-center">
+                    <canvas id="chartSlaDona"></canvas>
                 </div>
             </div>
 
-            <div class="lg:col-span-2 bg-[#142341]/40 p-5 rounded-xl border border-white/5 flex flex-col items-center">
-                <h3 class="text-xs font-bold text-slate-400 mb-3 uppercase tracking-wider flex items-center gap-2">
-                    <i class="fas fa-chart-bar text-[#ff6600]"></i> TIEMPOS DE RESPUESTA POR RECLUTADOR
+            <div class="lg:col-span-2 bg-[#0b1329] p-4 rounded-xl border border-white/10 flex flex-col items-center">
+                <h3 class="text-xs font-bold text-slate-300 mb-2 uppercase tracking-wider flex items-center gap-2">
+                    <i class="fas fa-chart-bar text-[#ff6600]"></i> Carga Activa y Rezago por Operador
                 </h3>
-                <div class="w-full h-56 flex justify-center">
-                    <canvas id="chartRendimientoEquipo"></canvas>
+                <div class="w-full h-48 flex justify-center">
+                    <canvas id="chartCargaBarras"></canvas>
                 </div>
             </div>
         </div>
 
-        <!-- TABLA -->
-        <div class="bg-[#0d1b3e] rounded-xl border border-blue-900/30 overflow-hidden shadow-lg">
-            <div class="p-4 border-b border-blue-900/40 flex justify-between items-center bg-[#06101e]">
-                <h3 class="text-sm font-bold text-white uppercase tracking-wider">
-                    <i class="fas fa-list-alt text-[#ff6600]"></i> RENDIMIENTO Y AUDITORÍA DE OPERADORES
-                </h3>
+        <!-- TABLA PRINCIPAL DE AUDITORÍA Y ACCIÓN -->
+        <div class="bg-[#0b1329] rounded-xl border border-white/10 overflow-hidden shadow-2xl">
+            <div class="p-3.5 border-b border-white/10 flex justify-between items-center bg-[#06101e] flex-wrap gap-2">
+                <span class="text-xs font-mono text-slate-300 font-semibold" id="txtTotalReclutadoresAuditoria">
+                    Supervisando 0 operadores
+                </span>
+                <span class="text-[11px] text-slate-400">
+                    <i class="fas fa-info-circle text-amber-400 me-1"></i> Pulsa en cualquier cifra para auditarla directamente en la agenda.
+                </span>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left border-collapse">
                     <thead>
-                        <tr class="bg-[#06101e]/60 text-slate-400 text-xs uppercase tracking-wider border-b border-blue-900/60">
-                            <th class="p-3.5 font-bold">RECLUTADOR / OPERADOR</th>
-                            <th class="p-3.5 font-bold text-center">POSTULANTES</th>
-                            <th class="p-3.5 font-bold text-center">SEMÁFORO (&lt;24H / 24-48H / &gt;48H)</th>
-                            <th class="p-3.5 font-bold text-center">EFECTIVIDAD (%)</th>
-                            <th class="p-3.5 font-bold text-center">ACCIONES</th>
+                        <tr class="bg-[#06101e]/80 text-slate-400 text-xs font-mono uppercase tracking-wider border-b border-white/10">
+                            <th class="p-3.5">Reclutador / Contacto</th>
+                            <th class="p-3.5 text-center">Nivel de Carga</th>
+                            <th class="p-3.5 text-center">Activos</th>
+                            <th class="p-3.5 text-center">Semáforo (&lt;24H / 24-48H / &gt;48H)</th>
+                            <th class="p-3.5 text-center">Tasa Cierre</th>
+                            <th class="p-3.5 text-center">Acciones de Mando</th>
                         </tr>
                     </thead>
-                    <tbody id="tablaSupervisionEquipo" class="text-sm divide-y divide-blue-950 text-slate-200">
+                    <tbody id="tablaSupervisionBody" class="text-sm divide-y divide-white/5 text-slate-200 font-medium">
+                        <tr><td colspan="6" class="text-center py-6 text-slate-500 font-mono text-xs">Cargando métricas de equipo...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -126,10 +160,54 @@
 
     </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, onValue, get, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    <!-- MODAL DE RESCATE SELECTIVO DE CANDIDATOS -->
+    <div id="modalRescate" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 z-50">
+        <div class="bg-[#0b1329] border border-orange-500/50 rounded-2xl shadow-2xl max-w-md w-full p-5 relative space-y-4">
+            <button type="button" onclick="cerrarModalRescate()" class="absolute top-3 right-4 text-slate-400 hover:text-white text-lg font-bold">&times;</button>
+            
+            <div class="border-b border-white/10 pb-2">
+                <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                    <i class="fas fa-hand-holding-hand text-[#ff6600]"></i> Rescate Quirúrgico de Cartera
+                </h3>
+                <p class="text-[11px] text-slate-400 mt-0.5">Transfiere candidatos estancados sin quitarle los prospectos al día.</p>
+            </div>
 
+            <input type="hidden" id="rescateOrigenUid">
+            
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Operador Afectado</label>
+                    <input type="text" id="rescateOrigenNombre" readonly class="w-full bg-[#15264a] border border-white/10 text-white rounded-lg p-2 font-semibold">
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-mono text-orange-400 uppercase mb-1 font-bold">Tipo de Transferencia</label>
+                    <select id="rescateFiltroTipo" class="w-full bg-[#15264a] border border-white/10 text-white rounded-lg p-2 focus:outline-none focus:border-orange-500">
+                        <option value="CRITICOS">Solo candidatos en riesgo crítico (>48 horas)</option>
+                        <option value="TODOS_ACTIVOS">Toda la cartera activa en proceso</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Reclutador Destino (Misma Célula)</label>
+                    <select id="rescateDestinoUid" class="w-full bg-[#15264a] border border-white/10 text-white rounded-lg p-2 focus:outline-none focus:border-orange-500">
+                    </select>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2 border-t border-white/10">
+                <button type="button" onclick="cerrarModalRescate()" class="px-3.5 py-1.5 border border-white/10 rounded-lg text-xs text-slate-400 hover:bg-slate-800 transition">Cancelar</button>
+                <button type="button" onclick="ejecutarRescateConfirmado()" class="px-4 py-1.5 btn-orange-glow text-white rounded-lg text-xs font-bold transition shadow-lg">Confirmar Transferencia</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- FIREBASE SDK V8 -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <script>
         const firebaseConfig = {
             apiKey: "AIzaSyDxgP1YnycCEqkQ2vr3SPkwc9QMhtG8Zqw",
             authDomain: "bolsa-de-trabajo-a52e4.firebaseapp.com",
@@ -137,157 +215,205 @@
             projectId: "bolsa-de-trabajo-a52e4",
             storageBucket: "bolsa-de-trabajo-a52e4.firebasestorage.app",
             messagingSenderId: "592492733212",
-            appId: "1:592492733212:web:88e8ec243bd53608b6d0d9"
+            appId: "1:592492733212:web:88e8ec243bd53608b6d0d9",
+            measurementId: "G-DH2LD3BJEF"
         };
 
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.database();
 
-        let usuarioSesionSup = { uid: "SYS_ADMIN_01", nombre: "Administrador_Sistema", rol: "Administrador" };
-        let chartRendimientoInstance = null;
-        let chartSaludInstance = null;
-        let cacheUsuarios = {};
+        let usuarioSesion = null;
+        let catalogoUsuarios = {};
+        let todosPostulantes = {};
+        let equipoAuditableIds = [];
+
+        let chartSlaInstance = null;
+        let chartCargaInstance = null;
 
         document.addEventListener("DOMContentLoaded", () => {
-            inicializarPerfilSupervision();
+            validarAccesoJerarquico();
         });
 
-        async function inicializarPerfilSupervision() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const activeUid = urlParams.get('uid') || usuarioSesionSup.uid;
+        // 1. VALIDACIÓN ZERO-TRUST DE IDENTIDAD Y JERARQUÍA
+        function validarAccesoJerarquico() {
+            auth.onAuthStateChanged(user => {
+                if (!user) {
+                    window.location.href = "acceso.html";
+                    return;
+                }
 
-            if (activeUid) {
-                document.getElementById("linkVolverAgenda").href = `m3_agenda.html?uid=${activeUid}`;
-            }
+                db.ref(`usuarios_reclutadores/${user.uid}`).once('value', snap => {
+                    if (!snap.exists()) {
+                        alert("No tienes perfil asignado en el ERP.");
+                        window.location.href = "acceso.html";
+                        return;
+                    }
 
-            try {
-                const userSnap = await get(ref(db, `usuarios_reclutadores/${activeUid}`));
-                if (userSnap.exists()) {
-                    const val = userSnap.val();
-                    usuarioSesionSup = {
-                        uid: activeUid,
-                        nombre: val.nombre || val.usuario || "Operador_Sistema",
-                        rol: val.rol || "Administrador"
+                    const u = snap.val();
+                    const nivel = parseInt(u.nivel) || 1;
+
+                    // Bloqueo: Reclutadores operativos (Nivel < 3) no acceden a la torre de supervisión
+                    if (nivel < 3) {
+                        alert("Acceso Restringido. Este módulo está reservado exclusivamente para coordinadores y dirección.");
+                        window.location.href = "m3_agenda.html";
+                        return;
+                    }
+
+                    usuarioSesion = {
+                        uid: user.uid,
+                        nombre: u.nombre || user.email,
+                        email: user.email,
+                        rol: u.nombreRol || "Coordinador",
+                        nivel: nivel,
+                        scope: u.scope || "regional",
+                        telefono: u.telefono || ""
                     };
-                }
-            } catch (e) {
-                console.error("Error al cargar perfil:", e);
-            }
 
-            document.getElementById("userInfoSup").innerHTML = `<i class="fas fa-user-shield"></i> Supervisor: <b>${usuarioSesionSup.nombre}</b> (${usuarioSesionSup.rol})`;
-            inicializarEscuchaFirebase();
+                    document.getElementById("userInfoSup").innerHTML = `
+                        <i class="fas fa-user-shield"></i> Supervisor: <b>${usuarioSesion.nombre}</b> (${usuarioSesion.rol} - N${usuarioSesion.nivel})
+                    `;
+
+                    inicializarEscuchasTiempoReal();
+                });
+            });
         }
 
-        function inicializarEscuchaFirebase() {
-            const btnStatus = document.getElementById("btnFirebaseStatusSup");
-
-            onValue(ref(db, ".info/connected"), (snap) => {
+        // 2. CONEXIÓN EN TIEMPO REAL
+        function inicializarEscuchasTiempoReal() {
+            const badge = document.getElementById("badgeFirebaseStatus");
+            db.ref(".info/connected").on("value", snap => {
                 if (snap.val() === true) {
-                    btnStatus.className = "bg-[#0a1426] border border-green-500 text-green-400 font-bold py-2 px-4 rounded-xl flex items-center gap-2 text-xs shadow-[0_0_10px_rgba(34,197,94,0.2)]";
-                    btnStatus.innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-green-500"></span> Conectado`;
+                    badge.className = "bg-emerald-500/10 text-emerald-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-emerald-500/20 flex items-center gap-1.5";
+                    badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Conectado`;
                 } else {
-                    btnStatus.className = "bg-[#0a1426] border border-red-500 text-red-400 font-bold py-2 px-4 rounded-xl flex items-center gap-2 text-xs";
-                    btnStatus.innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-red-500 animate-pulse"></span> Desconectado`;
+                    badge.className = "bg-red-500/10 text-red-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-red-500/20 flex items-center gap-1.5";
+                    badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span> Desconectado`;
                 }
             });
 
-            // Escucha directa del nodo principal "postulantes" y "usuarios_reclutadores"
-            onValue(ref(db), (snapshot) => {
+            // Escuchar cambios simultáneos en Staff y Postulantes
+            db.ref().on("value", snapshot => {
                 const data = snapshot.val() || {};
-                cacheUsuarios = data.usuarios_reclutadores || {};
-                const rawPostulantes = data.postulantes || {};
-                procesarDatosSupervision(rawPostulantes, cacheUsuarios);
+                catalogoUsuarios = data.usuarios_reclutadores || {};
+                todosPostulantes = data.postulantes || data.modulo_3_agenda || {};
+
+                construirEquipoAuditable();
+                procesarMetricasSupervision();
             });
         }
 
-        function cleanString(str) {
-            if (!str) return "";
-            return str.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+        // 3. CONSTRUIR CÉLULA OPERATIVA SEGÚN GOBERNANZA M5
+        function construirEquipoAuditable() {
+            equipoAuditableIds = [];
+
+            if (usuarioSesion.nivel >= 4 || usuarioSesion.scope === 'global') {
+                // Dirección y SuperAdmin: auditan a todos los reclutadores del sistema
+                equipoAuditableIds = Object.keys(catalogoUsuarios);
+                document.getElementById("badgeJerarquia").textContent = "Célula: Toda la Empresa (Global)";
+            } else {
+                // Coordinador (Nivel 3): Audita a sí mismo + los reclutadores bajo su supervisión directa
+                equipoAuditableIds.push(usuarioSesion.uid);
+                Object.entries(catalogoUsuarios).forEach(([uId, uVal]) => {
+                    if (uVal && uVal.coordinadorPadreId === usuarioSesion.uid) {
+                        if (!equipoAuditableIds.includes(uId)) equipoAuditableIds.push(uId);
+                    }
+                });
+                document.getElementById("badgeJerarquia").textContent = `Célula: Equipo Directo (${equipoAuditableIds.length} Ejecutivos)`;
+            }
         }
 
-        function perteneceA(cand, uId, uNombre) {
-            const uidNorm = cleanString(uId);
-            const nameNorm = cleanString(uNombre);
-
-            const candRecId = cleanString(cand.reclutadorId || cand.operadorId || cand.uidReclutador || cand.usuarioId);
-            const candRecNombre = cleanString(cand.reclutadorNombre || cand.reclutador || cand.operador || cand.asignadoA);
-
-            if (uidNorm && candRecId === uidNorm) return true;
-            if (nameNorm && candRecNombre && (candRecNombre.includes(nameNorm) || nameNorm.includes(candRecNombre))) return true;
-
-            return false;
-        }
-
-        function getHoras(fecha) {
+        // 4. MOTOR ANALÍTICO SLA Y CÁLCULO DE CAPACIDADES
+        function getHorasInactividad(fecha) {
             if (!fecha) return 999;
             const diff = new Date() - new Date(fecha);
-            return isNaN(diff) ? 999 : diff / (1000 * 60 * 60);
+            return isNaN(diff) ? 999 : Math.max(0, diff / (1000 * 60 * 60));
         }
 
-        function procesarDatosSupervision(rawPostulantes, usuarios) {
-            const tabla = document.getElementById("tablaSupervisionEquipo");
-            if (!tabla) return;
+        function procesarMetricasSupervision() {
+            const tabla = document.getElementById("tablaSupervisionBody");
             tabla.innerHTML = "";
 
-            // Convertir objeto de postulantes a array guardando su clave de Firebase
-            const listaCandidatos = [];
-            Object.keys(rawPostulantes).forEach(key => {
-                if (rawPostulantes[key] && typeof rawPostulantes[key] === 'object') {
-                    listaCandidatos.push({ ...rawPostulantes[key], _keyFirebase: key });
-                }
-            });
+            let globalTotal = 0, globalV = 0, globalA = 0, globalR = 0;
+            let chartLabels = [], chartDataV = [], chartDataA = [], chartDataR = [];
 
-            const totalCartera = listaCandidatos.length;
+            const arrayPostulantes = Object.entries(todosPostulantes).map(([k, v]) => ({ ...v, _id: k }));
 
-            let globalV = 0, globalA = 0, globalR = 0;
-            let chartLabels = [], chartV = [], chartA = [], chartR = [];
-            const procesadosKeys = new Set();
+            equipoAuditableIds.forEach(uId => {
+                const uVal = catalogoUsuarios[uId];
+                if (!uVal) return;
 
-            Object.entries(usuarios).forEach(([uId, uVal]) => {
-                const uNombre = uVal.nombre || uVal.usuario || uId;
-                let recV = 0, recA = 0, recR = 0, countTotal = 0, contratados = 0;
+                const uNombre = uVal.nombre || uVal.email || uId;
+                const uTel = uVal.telefono || "";
 
-                listaCandidatos.forEach((cand) => {
-                    if (perteneceA(cand, uId, uNombre)) {
-                        procesadosKeys.add(cand._keyFirebase);
-                        countTotal++;
-                        if (cand.estatus === "Contratado") contratados++;
+                // Filtrar prospectos que corresponden a este operador
+                const cands = arrayPostulantes.filter(p => (p.reclutadorId === uId || p.agenteId === uId));
+                const total = cands.length;
+                const contratados = cands.filter(p => p.estatus === "Contratado").length;
+                const activos = cands.filter(p => p.estatus !== "Contratado" && p.estatus !== "Declinante").length;
 
-                        const hrs = getHoras(cand.ultimaActualizacion || cand.fechaRegistro || cand.fechaPostulacion || cand.fecha);
-                        if (hrs <= 24) recV++;
-                        else if (hrs <= 48) recA++;
-                        else recR++;
+                let v = 0, a = 0, r = 0;
+                cands.forEach(c => {
+                    if (c.estatus !== "Contratado" && c.estatus !== "Declinante") {
+                        const hrs = getHorasInactividad(c.diaEntrevista || c.fechaRegistro || c.fechaPostulacion);
+                        if (hrs <= 24) v++;
+                        else if (hrs <= 48) a++;
+                        else r++;
                     }
                 });
 
-                globalV += recV; globalA += recA; globalR += recR;
-                chartLabels.push(uNombre);
-                chartV.push(recV); chartA.push(recA); chartR.push(recR);
+                globalTotal += total;
+                globalV += v;
+                globalA += a;
+                globalR += r;
 
-                const efec = countTotal > 0 ? ((contratados / countTotal) * 100).toFixed(1) : "0.0";
+                chartLabels.push(uNombre.split(" ")[0]);
+                chartDataV.push(v);
+                chartDataA.push(a);
+                chartDataR.push(r);
+
+                // Determinar nivel de carga operativa
+                let badgeCarga = `<span class="status-pill-green text-xs font-mono font-bold px-2 py-0.5 rounded-full">Óptima (${activos})</span>`;
+                if (activos > 35) {
+                    badgeCarga = `<span class="status-pill-red text-xs font-mono font-bold px-2 py-0.5 rounded-full animate-pulse">Saturado (${activos})</span>`;
+                } else if (activos >= 20) {
+                    badgeCarga = `<span class="status-pill-amber text-xs font-mono font-bold px-2 py-0.5 rounded-full">Carga Alta (${activos})</span>`;
+                }
+
+                const tasaCierre = total > 0 ? Math.round((contratados / total) * 100) : 0;
+
+                // Mensaje directo para WhatsApp
+                const msgWA = encodeURIComponent(
+                    `Hola ${uNombre}, en la Torre de Control M3 veo que tienes ${r} candidato(s) con más de 48h sin seguimiento. ` +
+                    `Por favor avísame si requieres que reasignemos parte de tu cartera para agilizar la cobertura.`
+                );
 
                 tabla.innerHTML += `
-                    <tr class="hover:bg-[#15264a]/30 transition-colors">
+                    <tr class="hover:bg-[#15264a]/30 transition">
                         <td class="p-3.5">
-                            <div class="font-bold text-white"><i class="fas fa-user-circle text-[#ff6600]"></i> ${uNombre}</div>
-                            <div class="text-xs text-slate-400 font-mono">UID: ${uId}</div>
+                            <div class="font-bold text-white flex items-center gap-1.5">
+                                <i class="fas fa-circle-user text-orange-500"></i> ${uNombre}
+                            </div>
+                            <div class="text-xs text-slate-400 font-mono">${uVal.email || 'Sin correo'}</div>
                         </td>
-                        <td class="p-3.5 text-center font-bold text-slate-100">${countTotal}</td>
+                        <td class="p-3.5 text-center">${badgeCarga}</td>
+                        <td class="p-3.5 text-center font-bold text-white font-mono">${total}</td>
                         <td class="p-3.5 text-center">
-                            <div class="inline-flex items-center gap-2 font-semibold text-xs">
-                                <span class="bg-emerald-950/80 text-emerald-400 border border-emerald-500/40 px-2 py-0.5 rounded-md" title="<24h">${recV}</span>
-                                <span class="bg-amber-950/80 text-amber-400 border border-amber-500/40 px-2 py-0.5 rounded-md" title="24h-48h">${recA}</span>
-                                <span class="bg-rose-950/80 text-rose-400 border border-rose-500/40 px-2 py-0.5 rounded-md" title=">48h">${recR}</span>
+                            <div class="inline-flex items-center gap-2 font-mono text-xs font-bold">
+                                <a href="m3_agenda.html?opFiltro=${uId}" class="status-pill-green px-2.5 py-0.5 rounded hover:scale-105 transition" title="Al día">${v}</a>
+                                <a href="m3_agenda.html?opFiltro=${uId}" class="status-pill-amber px-2.5 py-0.5 rounded hover:scale-105 transition" title="En atención">${a}</a>
+                                <a href="m3_agenda.html?opFiltro=${uId}" class="status-pill-red px-2.5 py-0.5 rounded hover:scale-105 transition" title="Críticos (>48h)">${r}</a>
                             </div>
                         </td>
-                        <td class="p-3.5 text-center font-bold text-amber-400">${efec}%</td>
-                        <td class="p-3.5 text-center">
+                        <td class="p-3.5 text-center font-bold text-amber-400 font-mono">${tasaCierre}%</td>
+                        <td class="p-3.5 text-center whitespace-nowrap">
                             <div class="flex items-center justify-center gap-2">
-                                <a href="m3_agenda.html?uid=${usuarioSesionSup.uid}&opFiltro=${uId}" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-xl text-xs shadow inline-flex items-center gap-1.5">
-                                    <i class="fas fa-search"></i> Ver
-                                </a>
-                                <button onclick="window.reasignarOpt('${uId}', '${uNombre}')" class="bg-amber-600 hover:bg-amber-500 text-white px-3 py-1.5 rounded-xl text-xs shadow inline-flex items-center gap-1.5">
-                                    <i class="fas fa-exchange-alt"></i> Reasignar
+                                ${uTel ? `
+                                <a href="https://wa.me/52${uTel}?text=${msgWA}" target="_blank" title="Notificar por WhatsApp" class="bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/30 p-2 rounded-xl text-xs transition">
+                                    <i class="fab fa-whatsapp"></i>
+                                </a>` : ''}
+                                <button onclick="abrirModalRescate('${uId}', '${uNombre}')" title="Rescatar Candidatos Estancados" class="bg-amber-600/20 hover:bg-amber-600 text-amber-300 hover:text-white border border-amber-500/30 p-2 rounded-xl text-xs font-bold transition flex items-center gap-1">
+                                    <i class="fas fa-hand-holding-hand"></i> Rescatar
                                 </button>
                             </div>
                         </td>
@@ -295,114 +421,212 @@
                 `;
             });
 
-            let huerfanos = 0;
-            listaCandidatos.forEach((cand) => {
-                if (!procesadosKeys.has(cand._keyFirebase)) huerfanos++;
-            });
+            // Resumen en KPIs
+            document.getElementById("kpiCarteraTotal").textContent = globalTotal;
+            document.getElementById("kpiAlDia").textContent = globalV;
+            document.getElementById("kpiAlerta").textContent = globalA;
+            document.getElementById("kpiCriticos").textContent = globalR;
+            document.getElementById("txtTotalReclutadoresAuditoria").textContent = `Supervisando ${equipoAuditableIds.length} ejecutivos autorizados`;
 
-            if (huerfanos > 0) {
-                tabla.innerHTML += `
-                    <tr class="bg-rose-950/30 border-l-4 border-rose-500">
-                        <td class="p-3.5">
-                            <div class="font-bold text-rose-400"><i class="fas fa-user-slash"></i> SIN ASIGNAR / OTROS</div>
-                        </td>
-                        <td class="p-3.5 text-center font-bold text-rose-200">${huerfanos}</td>
-                        <td class="p-3.5 text-center text-xs text-slate-400">-</td>
-                        <td class="p-3.5 text-center text-xs text-slate-400">N/A</td>
-                        <td class="p-3.5 text-center">
-                            <button onclick="window.reasignarOpt('SIN_ASIGNAR', 'Sin Asignar')" class="bg-rose-600 hover:bg-rose-500 text-white px-3 py-1.5 rounded-xl text-xs font-bold">
-                                Asignar Cartera
-                            </button>
-                        </td>
-                    </tr>
-                `;
-            }
-
-            document.getElementById("txtTotalPostuladosSup").innerText = totalCartera;
-            document.getElementById("txtSemaforoVerde").innerText = globalV;
-            document.getElementById("txtSemaforoAmarillo").innerText = globalA;
-            document.getElementById("txtSemaforoRojo").innerText = globalR;
-
-            renderDona(globalV, globalA, globalR);
-            renderBarras(chartLabels, chartV, chartA, chartR);
+            renderizarGraficos(globalV, globalA, globalR, chartLabels, chartDataV, chartDataA, chartDataR);
         }
 
-        function renderDona(v, a, r) {
-            if (chartSaludInstance) chartSaludInstance.destroy();
-            const ctx = document.getElementById('chartSaludDona').getContext('2d');
-            chartSaludInstance = new Chart(ctx, {
+        // 5. RENDERIZACIÓN DE GRÁFICOS
+        function renderizarGraficos(v, a, r, labels, dataV, dataA, dataR) {
+            if (chartSlaInstance) chartSlaInstance.destroy();
+            const ctxDona = document.getElementById('chartSlaDona').getContext('2d');
+            chartSlaInstance = new Chart(ctxDona, {
                 type: 'doughnut',
                 data: {
-                    labels: ['Al Día (<24h)', 'Atención (24-48h)', 'Estancados (>48h)'],
-                    datasets: [{ data: [v, a, r], backgroundColor: ['#22c55e', '#f59e0b', '#f43f5e'], borderWidth: 2, borderColor: '#0b1329' }]
+                    labels: ['Al Día (<24h)', 'Atención (24-48h)', 'Críticos (>48h)'],
+                    datasets: [{
+                        data: [v, a, r],
+                        backgroundColor: ['#22c55e', '#f59e0b', '#f43f5e'],
+                        borderWidth: 2,
+                        borderColor: '#0b1329'
+                    }]
                 },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#f1f5f9' } } } }
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#94a3b8', font: { size: 10 } } } } }
             });
-        }
 
-        function renderBarras(labels, v, a, r) {
-            if (chartRendimientoInstance) chartRendimientoInstance.destroy();
-            const ctx = document.getElementById('chartRendimientoEquipo').getContext('2d');
-            chartRendimientoInstance = new Chart(ctx, {
+            if (chartCargaInstance) chartCargaInstance.destroy();
+            const ctxBarras = document.getElementById('chartCargaBarras').getContext('2d');
+            chartCargaInstance = new Chart(ctxBarras, {
                 type: 'bar',
                 data: {
                     labels: labels,
                     datasets: [
-                        { label: '<24h', data: v, backgroundColor: '#22c55e', borderRadius: 4 },
-                        { label: '24-48h', data: a, backgroundColor: '#f59e0b', borderRadius: 4 },
-                        { label: '>48h', data: r, backgroundColor: '#f43f5e', borderRadius: 4 }
+                        { label: '<24h', data: dataV, backgroundColor: '#22c55e', borderRadius: 4 },
+                        { label: '24-48h', data: dataA, backgroundColor: '#f59e0b', borderRadius: 4 },
+                        { label: '>48h', data: dataR, backgroundColor: '#f43f5e', borderRadius: 4 }
                     ]
                 },
                 options: {
                     responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { labels: { color: '#f1f5f9' } } },
+                    plugins: { legend: { labels: { color: '#94a3b8', font: { size: 10 } } } },
                     scales: {
                         x: { stacked: true, ticks: { color: '#94a3b8' } },
-                        y: { stacked: true, beginAtZero: true, ticks: { color: '#94a3b8' } }
+                        y: { stacked: true, beginAtZero: true, ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } }
                     }
                 }
             });
         }
 
-        window.reasignarOpt = async function(origUid, origName) {
-            const list = Object.keys(cacheUsuarios).filter(id => id !== origUid);
-            if (!list.length) return alert("No hay otros usuarios.");
+        // 6. MODAL DE RESCATE QUIRÚRGICO DE CARTERA
+        window.abrirModalRescate = function(origenUid, origenNombre) {
+            document.getElementById("rescateOrigenUid").value = origenUid;
+            document.getElementById("rescateOrigenNombre").value = origenNombre;
 
-            let txt = "Seleccione nuevo Reclutador (Número):\n";
-            list.forEach((id, i) => txt += `${i + 1}. ${cacheUsuarios[id].nombre || cacheUsuarios[id].usuario}\n`);
+            const selectDest = document.getElementById("rescateDestinoUid");
+            selectDest.innerHTML = '<option value="">-- Seleccionar Receptor --</option>';
 
-            const sel = prompt(txt);
-            const idx = parseInt(sel) - 1;
-
-            if (!isNaN(idx) && list[idx]) {
-                const targetUid = list[idx];
-                const targetName = cacheUsuarios[targetUid].nombre || cacheUsuarios[targetUid].usuario;
-
-                if (confirm(`¿Transferir cartera de ${origName} a ${targetName}?`)) {
-                    const snap = await get(ref(db, 'postulantes'));
-                    const raw = snap.val() || {};
-                    const updates = {};
-                    let count = 0;
-
-                    Object.keys(raw).forEach(key => {
-                        const c = raw[key];
-                        let match = origUid === "SIN_ASIGNAR" 
-                            ? !Object.keys(cacheUsuarios).some(uId => perteneceA(c, uId, cacheUsuarios[uId].nombre)) 
-                            : perteneceA(c, origUid, origName);
-
-                        if (match) {
-                            updates[`postulantes/${key}/reclutadorId`] = targetUid;
-                            updates[`postulantes/${key}/reclutadorNombre`] = targetName;
-                            updates[`postulantes/${key}/ultimaActualizacion`] = new Date().toISOString();
-                            count++;
-                        }
-                    });
-
-                    if (count > 0) {
-                        await update(ref(db), updates);
-                        alert(`✅ ${count} candidatos asignados a ${targetName}`);
-                    } else alert("No se encontraron registros para actualizar.");
+            equipoAuditableIds.forEach(id => {
+                if (id !== origenUid && catalogoUsuarios[id]) {
+                    const u = catalogoUsuarios[id];
+                    selectDest.innerHTML += `<option value="${id}">${u.nombre || u.email} (${u.nombreRol || 'Reclutador'})</option>`;
                 }
+            });
+
+            document.getElementById("modalRescate").classList.remove("hidden");
+        };
+
+        window.cerrarModalRescate = function() {
+            document.getElementById("modalRescate").classList.add("hidden");
+        };
+
+        window.ejecutarRescateConfirmado = async function() {
+            const origenUid = document.getElementById("rescateOrigenUid").value;
+            const origenNombre = document.getElementById("rescateOrigenNombre").value;
+            const destinoUid = document.getElementById("rescateDestinoUid").value;
+            const tipo = document.getElementById("rescateFiltroTipo").value;
+
+            if (!destinoUid) {
+                alert("Por favor selecciona un reclutador destino.");
+                return;
+            }
+
+            const destinoNombre = catalogoUsuarios[destinoUid]?.nombre || "Nuevo Reclutador";
+            const snap = await db.ref('postulantes').once('value');
+            const data = snap.val() || {};
+
+            const updates = {};
+            let count = 0;
+
+            Object.entries(data).forEach(([id, p]) => {
+                if (p.reclutadorId === origenUid || p.agenteId === origenUid) {
+                    let esCandidato = false;
+                    if (tipo === "TODOS_ACTIVOS") {
+                        esCandidato = p.estatus !== "Contratado" && p.estatus !== "Declinante";
+                    } else {
+                        // Solo críticos > 48h
+                        const hrs = getHorasInactividad(p.diaEntrevista || p.fechaRegistro || p.fechaPostulacion);
+                        esCandidato = hrs > 48 && p.estatus !== "Contratado" && p.estatus !== "Declinante";
+                    }
+
+                    if (esCandidato) {
+                        updates[`postulantes/${id}/reclutadorId`] = destinoUid;
+                        updates[`postulantes/${id}/reclutadorNombre`] = destinoNombre;
+                        updates[`postulantes/${id}/ultimaActualizacion`] = new Date().toISOString();
+                        count++;
+                    }
+                }
+            });
+
+            if (count === 0) {
+                alert("No se encontraron candidatos bajo el criterio seleccionado.");
+                cerrarModalRescate();
+                return;
+            }
+
+            await db.ref().update(updates);
+
+            // Registro inmutable en auditoría M7
+            await db.ref('modulo_7_logs').push({
+                modulo: "M3_SUPERVISION",
+                evento: "RESCATE_QUIRURGICO",
+                supervisor: usuarioSesion.nombre,
+                detalle: `Se transfirieron ${count} candidatos de ${origenNombre} hacia ${destinoNombre}. Criterio: ${tipo}.`,
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            });
+
+            cerrarModalRescate();
+            alert(`✅ ${count} candidatos rescatados y transferidos exitosamente a ${destinoNombre}.`);
+        };
+
+        // 7. TOQUE MAESTRO: AUTO-BALANCEO INTELIGENTE DE CARGA
+        window.balancearCargaInteligente = async function() {
+            if (equipoAuditableIds.length < 2) {
+                alert("Se requieren al menos 2 operadores en tu equipo para realizar un balanceo.");
+                return;
+            }
+
+            if (!confirm("¿Deseas auto-balancear los candidatos estancados (>48h) de forma equitativa entre los reclutadores disponibles?")) {
+                return;
+            }
+
+            const snap = await db.ref('postulantes').once('value');
+            const data = snap.val() || {};
+
+            // 1. Detectar reclutadores receptores con menor carga
+            const cargas = {};
+            equipoAuditableIds.forEach(id => cargas[id] = 0);
+
+            Object.values(data).forEach(p => {
+                if (cargas[p.reclutadorId] !== undefined && p.estatus !== "Contratado" && p.estatus !== "Declinante") {
+                    cargas[p.reclutadorId]++;
+                }
+            });
+
+            // 2. Extraer candidatos en riesgo (>48h)
+            const candidatosCriticos = [];
+            Object.entries(data).forEach(([id, p]) => {
+                if (equipoAuditableIds.includes(p.reclutadorId) && p.estatus !== "Contratado" && p.estatus !== "Declinante") {
+                    const hrs = getHorasInactividad(p.diaEntrevista || p.fechaRegistro || p.fechaPostulacion);
+                    if (hrs > 48) {
+                        candidatosCriticos.push({ id, ...p });
+                    }
+                }
+            });
+
+            if (candidatosCriticos.length === 0) {
+                alert("¡Excelente! No hay candidatos en riesgo crítico (>48h) para balancear en tu célula.");
+                return;
+            }
+
+            const updates = {};
+            let reasignados = 0;
+
+            // Repartir en algoritmo round-robin hacia los operadores con menos prospectos
+            candidatosCriticos.forEach(cand => {
+                // Encontrar el operador con la menor carga actual
+                const mejorOpId = Object.keys(cargas).reduce((a, b) => cargas[a] < cargas[b] ? a : b);
+
+                if (mejorOpId !== cand.reclutadorId) {
+                    const receptorNombre = catalogoUsuarios[mejorOpId]?.nombre || "Operador Disponible";
+                    updates[`postulantes/${cand.id}/reclutadorId`] = mejorOpId;
+                    updates[`postulantes/${cand.id}/reclutadorNombre`] = receptorNombre;
+                    updates[`postulantes/${cand.id}/ultimaActualizacion`] = new Date().toISOString();
+
+                    cargas[mejorOpId]++;
+                    cargas[cand.reclutadorId]--;
+                    reasignados++;
+                }
+            });
+
+            if (reasignados > 0) {
+                await db.ref().update(updates);
+
+                await db.ref('modulo_7_logs').push({
+                    modulo: "M3_SUPERVISION",
+                    evento: "BALANCEO_INTELIGENTE",
+                    supervisor: usuarioSesion.nombre,
+                    detalle: `Algoritmo balanceó equitativamente ${reasignados} candidatos críticos entre la célula operativa.`,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                });
+
+                alert(`⚖️ Balanceo completado: Se redistribuyeron ${reasignados} prospectos en riesgo entre los operadores con mayor disponibilidad.`);
+            } else {
+                alert("La carga actual de prospectos críticos ya se encuentra distribuida de forma equilibrada.");
             }
         };
     </script>
