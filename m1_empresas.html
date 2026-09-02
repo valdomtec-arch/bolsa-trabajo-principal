@@ -73,7 +73,8 @@
             align-items: center;
             justify-content: space-between;
             margin-bottom: 25px;
-            flex-wrap: gap;
+            flex-wrap: wrap;
+            gap: 10px;
         }
 
         .btn-panel-action {
@@ -450,6 +451,9 @@
         </div>
     </div>
 
+    <!-- BOOTSTRAP 5 JS BUNDLE (RESUELVE EL REFERENCE ERROR DE BOOTSTRAP) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
     <!-- FIREBASE COMPAT SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
@@ -470,9 +474,15 @@
 
         let catalogoEmpresasCompleto = {};
         let catalogoVacantesDetalles = {};
-        const modalVacantesInstance = new bootstrap.Modal(document.getElementById('modalVacantesIndividuales'));
+        let modalVacantesInstance = null;
 
         document.addEventListener("DOMContentLoaded", () => {
+            // Inicializar instancia de modal de forma segura tras cargar el DOM
+            const modalEl = document.getElementById('modalVacantesIndividuales');
+            if (modalEl && typeof bootstrap !== 'undefined') {
+                modalVacantesInstance = new bootstrap.Modal(modalEl);
+            }
+
             const inputID = document.getElementById("inputID");
             inputID.addEventListener("input", () => {
                 const idLimpio = inputID.value.trim().toLowerCase();
@@ -532,7 +542,7 @@
                 else if (estatus === "No Disponible") claseSelect = "status-nodisponible";
                 else if (estatus === "Cerrada") claseSelect = "status-cerrada";
 
-                // Contar vacantes activas en vacantes_detalles
+                // Contar vacantes configuradas en vacantes_detalles
                 const vacsEmp = catalogoVacantesDetalles[key] || {};
                 const totalVacs = Object.keys(vacsEmp).length;
 
@@ -619,7 +629,13 @@
                 });
             }
 
-            modalVacantesInstance.show();
+            if (modalVacantesInstance) {
+                modalVacantesInstance.show();
+            } else {
+                const modalEl = document.getElementById('modalVacantesIndividuales');
+                modalVacantesInstance = new bootstrap.Modal(modalEl);
+                modalVacantesInstance.show();
+            }
         };
 
         async function cambiarEstatusVacanteIndividual(empKey, vacKey, nuevoEstatus) {
