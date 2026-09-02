@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Motor de Transporte - Ruteo Vial Real OSRM y Asignación Operativa</title>
+    <title>Motor de Transporte - Ruteo Vial Real OSRM & Gestión Granular</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -50,19 +50,22 @@
         }
     </style>
 </head>
-<body class="bg-cyber-bg text-slate-200 font-sans min-h-screen p-4 md:p-6 space-y-6">
+<body class="bg-cyber-bg text-slate-200 font-sans min-h-screen p-3 sm:p-5 md:p-6 space-y-6">
 
     <div class="max-w-7xl mx-auto space-y-6">
         
         <!-- HEADER PRINCIPAL -->
         <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-cyber-border pb-5">
             <div>
-                <h1 class="text-2xl font-black text-white flex items-center gap-2">
-                    <span class="text-cyber-accent">⚡</span> Motor de Transporte <span class="text-xs bg-cyber-accent/20 text-cyber-accent px-2 py-0.5 rounded border border-cyber-accent/40 font-mono">v3.4 GeoPro</span>
+                <h1 class="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
+                    <span class="text-cyber-accent">⚡</span> Motor Logístico de Transporte <span class="text-xs bg-cyber-accent/20 text-cyber-accent px-2 py-0.5 rounded border border-cyber-accent/40 font-mono">v4.0 Granular</span>
                 </h1>
-                <p class="text-xs text-slate-400 mt-1">Extracción dual de horarios, buscador universal de coordenadas y ruteo vial OSRM</p>
+                <p class="text-xs text-slate-400 mt-1">Extracción dual IA, edición parada por parada y sincronización bidireccional con Firebase</p>
             </div>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 flex-wrap">
+                <a href="m6_transporte.html" class="bg-cyber-card hover:bg-slate-800 text-slate-300 border border-cyber-border font-mono text-xs px-3.5 py-2 rounded-xl flex items-center gap-2 transition-all">
+                    <i class="fas fa-arrow-left"></i> Volver a M6 Logística
+                </a>
                 <span id="badgeRutasCount" class="bg-cyber-purple/20 border border-cyber-purple/40 text-cyber-purple text-xs font-bold px-3 py-1.5 rounded-lg">
                     0 Rutas
                 </span>
@@ -72,31 +75,40 @@
             </div>
         </header>
 
-        <!-- SECCIÓN SUPERIOR: PANEL DE CONFIGURACIÓN + MAPA CON BUSCADOR UNIVERSAL -->
+        <!-- SECCIÓN SUPERIOR: CONFIGURACIÓN / IMPORTADOR + MAPA CON TRAZADO VIAL -->
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
             
-            <!-- CONTROLES Y PARÁMETROS -->
+            <!-- PANEL DE EXTRACCIÓN E IMPORTACIÓN -->
             <div class="lg:col-span-4 bg-cyber-card border border-cyber-border rounded-xl p-5 space-y-4 flex flex-col justify-between">
                 <div class="space-y-3">
-                    <h2 class="text-xs font-bold text-cyber-accent uppercase tracking-wider flex items-center gap-2">
-                        <span>⚙️</span> Configuración del Servicio
-                    </h2>
-                    
+                    <div class="flex justify-between items-center">
+                        <h2 class="text-xs font-bold text-cyber-accent uppercase tracking-wider flex items-center gap-2">
+                            <span>⚙️</span> Origen de Datos
+                        </h2>
+                        <span class="text-[10px] text-cyber-cyan font-mono">IA o Firebase</span>
+                    </div>
+
+                    <!-- SELECTOR DE EMPRESA Y BOTÓN DE CARGA EXISTENTE -->
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-300 mb-1">Empresa Operativa</label>
+                        <div class="flex gap-2">
+                            <select id="empresaValidacionIA" class="flex-1 bg-cyber-bg border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyber-accent">
+                                <option value="">-- Cargando Empresas... --</option>
+                            </select>
+                            <button onclick="importarRutasDesdeFirebase()" title="Descargar rutas existentes de esta empresa desde Firebase" class="bg-cyber-cardAlt hover:bg-slate-800 text-cyber-cyan border border-cyber-border px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0">
+                                <span>📥</span> Cargar
+                            </button>
+                        </div>
+                    </div>
+
                     <div>
                         <label class="block text-[11px] font-semibold text-slate-300 mb-1">Gemini API Key</label>
                         <input type="password" id="apiKeyGemini" placeholder="AIzaSy..." class="w-full bg-cyber-bg border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyber-accent font-mono">
                     </div>
 
                     <div>
-                        <label class="block text-[11px] font-semibold text-slate-300 mb-1">Empresa Destino</label>
-                        <select id="empresaValidacionIA" class="w-full bg-cyber-bg border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyber-accent">
-                            <option value="">-- Cargando Empresas... --</option>
-                        </select>
-                    </div>
-
-                    <div>
                         <label class="block text-[11px] font-semibold text-slate-300 mb-1">Estado de Operación</label>
-                        <input type="text" id="estadoOperacionInput" value="Nuevo León" placeholder="Ej: Nuevo León, Chiapas, Jalisco" class="w-full bg-cyber-bg border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyber-accent">
+                        <input type="text" id="estadoOperacionInput" value="Nuevo León" placeholder="Ej: Nuevo León, Chiapas" class="w-full bg-cyber-bg border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyber-accent">
                     </div>
 
                     <div>
@@ -110,19 +122,19 @@
                     </div>
                 </div>
 
-                <!-- ACCIONES PASO 1 Y 2 -->
+                <!-- ACCIONES DE EXTRACCIÓN Y GEOCODIFICACIÓN -->
                 <div class="space-y-2 pt-2 border-t border-cyber-border">
                     <button id="btnPaso1Extraer" onclick="ejecutarPaso1Extraccion()" class="w-full bg-cyber-accent hover:bg-sky-400 text-slate-950 font-bold py-2.5 px-4 rounded-lg text-xs transition-all flex items-center justify-center gap-2 shadow-lg shadow-cyber-accent/10">
                         <span>🧠</span> Paso 1: Extracción Estructural IA
                     </button>
 
                     <button id="btnPaso2GeolocalizarTodos" onclick="ejecutarPaso2GeolocalizarTodas()" class="w-full bg-cyber-purple/20 hover:bg-cyber-purple/30 text-cyber-purple border border-cyber-purple/40 font-bold py-2.5 px-4 rounded-lg text-xs transition-all flex items-center justify-center gap-2">
-                        <span>🗺️</span> Paso 2: Geocodificar Todas las Rutas
+                        <span>🗺️</span> Paso 2: Geocodificar Todas las Paradas
                     </button>
                 </div>
             </div>
 
-            <!-- MAPA CON ASISTENTE DE BÚSQUEDA UNIVERSAL -->
+            <!-- MAPA CON BUSCADOR UNIVERSAL Y TRAZADO VIAL OSRM -->
             <div class="lg:col-span-8 bg-cyber-card border border-cyber-border rounded-xl p-5 space-y-3 flex flex-col">
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <h2 class="text-xs font-bold text-cyber-amber uppercase tracking-wider flex items-center gap-2">
@@ -134,11 +146,10 @@
                     </div>
                 </div>
 
-                <!-- BARRA DE BÚSQUEDA UNIVERSAL DE COORDENADAS / DESTINOS -->
                 <div class="flex gap-2">
                     <input type="text" id="inputBusquedaMapaUniversal" 
                         onkeydown="if(event.key==='Enter') buscarEnMapaUniversal()" 
-                        placeholder="🔍 Buscar: 'Planta FIMEX Nuevo León', '25.6997, -100.3250' o pega URL de Google Maps..." 
+                        placeholder="🔍 Buscar: 'Planta FIMEX', '25.6997, -100.3250' o pega URL de Maps..." 
                         class="flex-1 bg-cyber-bg border border-slate-700 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyber-accent font-mono">
                     <button onclick="buscarEnMapaUniversal()" id="btnBuscarMapaUniversal" class="bg-cyber-cyan hover:bg-cyan-500 text-slate-950 font-bold px-4 py-2 rounded-lg text-xs transition-all flex items-center gap-1">
                         <span>🔍</span> Buscar
@@ -150,42 +161,7 @@
 
         </div>
 
-        <!-- SECCIÓN DE ASIGNACIÓN OPERATIVA DE FLOTA -->
-        <div id="panelAsignacionFlota" class="bg-cyber-card border border-cyber-border rounded-xl p-5 space-y-4">
-            <h2 class="text-xs font-bold text-cyber-cyan uppercase tracking-wider flex items-center gap-2">
-                <span>🚌</span> Asignación Operativa del Bloque Seleccionado
-            </h2>
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div>
-                    <label class="block text-[11px] font-semibold text-slate-400 mb-1">Tipo de Unidad</label>
-                    <select id="opTipoUnidad" onchange="actualizarMetadatosOperativos()" class="w-full bg-cyber-bg border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-cyber-accent">
-                        <option value="Camión Urbano (40 Pax)">Camión Urbano (40 Pax)</option>
-                        <option value="Sprinter / Crafter (20 Pax)">Sprinter / Crafter (20 Pax)</option>
-                        <option value="Van / Urvan (15 Pax)">Van / Urvan (15 Pax)</option>
-                        <option value="Autobús Foráneo (45 Pax)">Autobús Foráneo (45 Pax)</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-[11px] font-semibold text-slate-400 mb-1">Capacidad Máxima (Pax)</label>
-                    <input type="number" id="opCapacidadPax" value="40" onchange="actualizarMetadatosOperativos()" class="w-full bg-cyber-bg border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-cyber-accent font-mono">
-                </div>
-                <div>
-                    <label class="block text-[11px] font-semibold text-slate-400 mb-1">Operador / Chofer Asignado</label>
-                    <input type="text" id="opChofer" placeholder="Nombre del Chofer" onchange="actualizarMetadatosOperativos()" class="w-full bg-cyber-bg border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-cyber-accent">
-                </div>
-                <div>
-                    <label class="block text-[11px] font-semibold text-slate-400 mb-1">Turno de Operación</label>
-                    <select id="opTurno" onchange="actualizarMetadatosOperativos()" class="w-full bg-cyber-bg border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-cyber-accent">
-                        <option value="Turno 1 - Matutino">Turno 1 - Matutino</option>
-                        <option value="Turno 2 - Vespertino">Turno 2 - Vespertino</option>
-                        <option value="Turno 3 - Nocturno">Turno 3 - Nocturno</option>
-                        <option value="Mixto / Especial">Mixto / Especial</option>
-                    </select>
-                </div>
-            </div>
-        </div>
-
-        <!-- SECCIÓN INFERIOR: VISOR JSON + TABLA DE AUDITORÍA -->
+        <!-- SECCIÓN INFERIOR: VISOR JSON + TABLA DE AUDITORÍA Y EDICIÓN GRANULAR -->
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
             
             <!-- VISOR JSON NORMALIZADO -->
@@ -198,15 +174,15 @@
                         📋 Copiar
                     </button>
                 </div>
-                <textarea id="jsonOutputViewer" readonly placeholder="Los esquemas normalizados con multi-horarios y resumen M6 se mostrarán aquí..." class="w-full h-full min-h-[420px] bg-cyber-bg border border-slate-800 rounded-lg p-3 text-xs font-mono text-emerald-400 custom-scrollbar focus:outline-none resize-none"></textarea>
+                <textarea id="jsonOutputViewer" readonly placeholder="El esquema limpio sin campos innecesarios se proyectará aquí..." class="w-full h-full min-h-[440px] bg-cyber-bg border border-slate-800 rounded-lg p-3 text-xs font-mono text-emerald-400 custom-scrollbar focus:outline-none resize-none"></textarea>
             </div>
 
-            <!-- CONTROLES POR BLOQUE DE RUTA Y TABLA DETALLADA -->
+            <!-- CONTROLES POR BLOQUE DE RUTA Y TABLA DE EDICIÓN PARADA POR PARADA -->
             <div class="lg:col-span-8 bg-cyber-card border border-cyber-border rounded-xl p-5 space-y-4">
                 
                 <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-cyber-border pb-3">
                     <div class="flex items-center gap-3">
-                        <label class="text-xs font-bold text-cyber-cyan uppercase tracking-wider">Bloque de Ruta:</label>
+                        <label class="text-xs font-bold text-cyber-cyan uppercase tracking-wider">Ruta Activa:</label>
                         <select id="filtroRutaActiva" onchange="cambiarRutaActiva(this.value)" class="bg-cyber-bg border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-cyber-accent">
                             <option value="TODAS">-- Todas las Rutas --</option>
                         </select>
@@ -225,23 +201,22 @@
                     </div>
                 </div>
 
-                <!-- TABLA DE AUDITORÍA -->
-                <div class="overflow-x-auto custom-scrollbar max-h-[380px]">
+                <!-- TABLA GRANULAR DE PARADAS -->
+                <div class="overflow-x-auto custom-scrollbar max-h-[400px]">
                     <table class="w-full text-left border-collapse text-xs">
-                        <thead class="bg-cyber-bg sticky top-0 border-b border-cyber-border text-slate-400">
+                        <thead class="bg-cyber-bg sticky top-0 border-b border-cyber-border text-slate-400 z-10">
                             <tr>
-                                <th class="p-2.5">Ruta & Parada</th>
-                                <th class="p-2.5">Horarios (Civil / Militar)</th>
-                                <th class="p-2.5">Pax Suben</th>
+                                <th class="p-2.5"># & Ruta</th>
                                 <th class="p-2.5">Referencia & Cruce</th>
-                                <th class="p-2.5">Coordenadas</th>
-                                <th class="p-2.5 text-center">Precisión / Ver</th>
+                                <th class="p-2.5">Horarios (Dual)</th>
+                                <th class="p-2.5">Coordenadas (Lat, Lng)</th>
+                                <th class="p-2.5 text-center">Acciones Parada</th>
                             </tr>
                         </thead>
                         <tbody id="tablaResultadosPreCommit" class="divide-y divide-cyber-border/40 font-sans">
                             <tr>
-                                <td colspan="6" class="p-8 text-center text-slate-500">
-                                    Cargue un manifiesto y ejecute el <b>Paso 1</b> para auditar rutas.
+                                <td colspan="5" class="p-8 text-center text-slate-500 font-mono">
+                                    Carga un manifiesto para extraer o pulsa <b>Cargar desde Firebase</b> para auditar paradas existentes.
                                 </td>
                             </tr>
                         </tbody>
@@ -257,7 +232,7 @@
     <!-- FIREBASE V10 + MOTOR LOGÍSTICO Y OSRM -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { getDatabase, ref, get, set, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDxgP1YnycCEqkQ2vr3SPkwc9QMhtG8Zqw",
@@ -283,15 +258,18 @@
         window.ejecutarPaso2GeolocalizarTodas = ejecutarPaso2GeolocalizarTodas;
         window.geolocalizarRutaSeleccionada = geolocalizarRutaSeleccionada;
         window.cambiarRutaActiva = cambiarRutaActiva;
-        window.actualizarMetadatosOperativos = actualizarMetadatosOperativos;
-        window.actualizarPaxParada = actualizarPaxParada;
         window.inyectarRutaSeleccionadaAFirebase = inyectarRutaSeleccionadaAFirebase;
         window.inyectarTodoAFirebase = inyectarTodoAFirebase;
         window.copiarJsonAlPortapapeles = copiarJsonAlPortapapeles;
         window.centrarEnMapa = centrarEnMapa;
         window.actualizarCoordManual = actualizarCoordManual;
+        window.actualizarReferenciaParada = actualizarReferenciaParada;
+        window.actualizarCruceParada = actualizarCruceParada;
+        window.actualizarHorariosTexto = actualizarHorariosTexto;
         window.buscarEnMapaUniversal = buscarEnMapaUniversal;
         window.asignarCoordenadaBuscadorAParada = asignarCoordenadaBuscadorAParada;
+        window.importarRutasDesdeFirebase = importarRutasDesdeFirebase;
+        window.guardarParadaIndividualAFirebase = guardarParadaIndividualAFirebase;
 
         document.addEventListener("DOMContentLoaded", async () => {
             mapObj = L.map('mapaPreCommit').setView([25.6866, -100.3161], 11);
@@ -303,7 +281,6 @@
             markersGroup = L.featureGroup().addTo(mapObj);
             polylineGroup = L.featureGroup().addTo(mapObj);
 
-            // Clic directo en el mapa para capturar coordenadas
             mapObj.on('click', function(e) {
                 const lat = e.latlng.lat.toFixed(6);
                 const lng = e.latlng.lng.toFixed(6);
@@ -314,7 +291,7 @@
                 const snapEmpresas = await get(ref(db, "empresas"));
                 const dataEmpresas = snapEmpresas.val() || {};
                 const selectValidacion = document.getElementById("empresaValidacionIA");
-                selectValidacion.innerHTML = '<option value="">-- Selecciona Empresa Destino --</option>';
+                selectValidacion.innerHTML = '<option value="">-- Selecciona Empresa --</option>';
                 
                 const listaNombres = [];
                 Object.entries(dataEmpresas).forEach(([key, val]) => {
@@ -341,7 +318,72 @@
                 .replace(/^_|_$/g, "");
         }
 
-        // BUSCADOR UNIVERSAL INTELIGENTE
+        // 1. CARGA BIDIRECCIONAL DESDE FIREBASE
+        async function importarRutasDesdeFirebase() {
+            const empresaNombre = document.getElementById("empresaValidacionIA").value.trim();
+            if (!empresaNombre) return alert("⚠️ Selecciona una empresa en la lista para cargar sus rutas.");
+
+            const empresaKey = sanitizarKey(empresaNombre);
+            try {
+                const snap = await get(ref(db, `rutas/${empresaKey}`));
+                if (!snap.exists()) {
+                    return alert(`No se encontraron rutas registradas para "${empresaNombre}" en Firebase.`);
+                }
+
+                const rutasData = snap.val();
+                coleccionRutas = [];
+
+                Object.entries(rutasData).forEach(([idR, r]) => {
+                    let paradasNormalizadas = [];
+                    if (Array.isArray(r.paradas) && r.paradas.length > 0) {
+                        paradasNormalizadas = r.paradas.map((p, idx) => ({
+                            numeroParada: p.numeroParada || (idx + 1),
+                            referenciaOriginal: p.referenciaOriginal || p.nombre || "",
+                            cruceVialEnriquecido: p.cruceVialEnriquecido || "",
+                            coordenadasAbordaje: p.coordenadasAbordaje || "",
+                            estadoGeocodificacion: p.coordenadasAbordaje ? "Exacta" : "Sin Geocodificar",
+                            horarios: p.horarios || []
+                        }));
+                    } else if (r.puntosAbordaje) {
+                        // Descomprimir texto plano si venía de un formato antiguo
+                        const puntosArr = r.puntosAbordaje.split(",").map(p => p.trim());
+                        paradasNormalizadas = puntosArr.map((pto, idx) => ({
+                            numeroParada: idx + 1,
+                            referenciaOriginal: pto,
+                            cruceVialEnriquecido: pto,
+                            coordenadasAbordaje: (idx === 0) ? (r.coordenadasAbordaje || "") : "",
+                            estadoGeocodificacion: (idx === 0 && r.coordenadasAbordaje) ? "Exacta" : "Sin Geocodificar",
+                            horarios: []
+                        }));
+                    }
+
+                    coleccionRutas.push({
+                        idRuta: idR,
+                        nombreRuta: r.nombreRuta || idR,
+                        empresaDestino: empresaNombre,
+                        empresaKey: empresaKey,
+                        municipio: r.municipio || "General",
+                        estado: r.estado || "Nuevo León",
+                        estadoMunicipio: r.estadoMunicipio || `${r.municipio || 'General'}, ${r.estado || 'Nuevo León'}`,
+                        puntosAbordaje: r.puntosAbordaje || "",
+                        horarioPaso: r.horarioPaso || "",
+                        coordenadasAbordaje: r.coordenadasAbordaje || "",
+                        distanciaTotalKm: r.distanciaTotalKm || "0.0",
+                        tiempoEstimadoMin: r.tiempoEstimadoMin || 0,
+                        paradas: paradasNormalizadas
+                    });
+                });
+
+                actualizarSelectRutas();
+                await renderizarTablaYMapa();
+                alert(`✅ Se cargaron ${coleccionRutas.length} rutas desde Firebase para "${empresaNombre}".`);
+
+            } catch (err) {
+                alert("Error al cargar rutas de Firebase: " + err.message);
+            }
+        }
+
+        // 2. BUSCADOR UNIVERSAL INTELIGENTE
         async function buscarEnMapaUniversal() {
             const query = document.getElementById("inputBusquedaMapaUniversal").value.trim();
             const estadoDefecto = document.getElementById("estadoOperacionInput").value.trim() || "Nuevo León";
@@ -353,7 +395,6 @@
             btn.innerHTML = "<span>⏳</span> Buscando...";
 
             try {
-                // 1. Detectar si es URL de Google Maps
                 const regexMapsUrl = /@(-?\d+\.\d+),(-?\d+\.\d+)|q=(-?\d+\.\d+),(-?\d+\.\d+)|destination=(-?\d+\.\d+),(-?\d+\.\d+)/;
                 const matchUrl = query.match(regexMapsUrl);
                 if (matchUrl) {
@@ -363,7 +404,6 @@
                     return;
                 }
 
-                // 2. Detectar si son coordenadas directas (Lat, Lng)
                 const partes = query.split(",");
                 if (partes.length === 2 && !isNaN(parseFloat(partes[0])) && !isNaN(parseFloat(partes[1]))) {
                     const lat = parseFloat(partes[0]).toFixed(6);
@@ -372,7 +412,6 @@
                     return;
                 }
 
-                // 3. Búsqueda semántica textual
                 const consultas = [
                     `${query}, ${estadoDefecto}, Mexico`,
                     `${query}, Mexico`,
@@ -382,21 +421,20 @@
                 let localizado = false;
                 for (const q of consultas) {
                     const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&countrycodes=mx&limit=1`, {
-                        headers: { "User-Agent": "ERPTransportePro/3.4" }
+                        headers: { "User-Agent": "ERPTransportePro/4.0" }
                     });
                     const data = await res.json();
                     if (data && data.length > 0) {
                         const lat = parseFloat(data[0].lat).toFixed(6);
                         const lng = parseFloat(data[0].lon).toFixed(6);
-                        const nombreLugar = data[0].display_name;
-                        colocarPinManualEnMapa(lat, lng, nombreLugar);
+                        colocarPinManualEnMapa(lat, lng, data[0].display_name);
                         localizado = true;
                         break;
                     }
                 }
 
                 if (!localizado) {
-                    alert("No se localizó el lugar exacto. Intenta con un cruce cercano o haz clic directo sobre el mapa para fijar el punto.");
+                    alert("No se localizó el lugar exacto. Haz clic directo sobre el mapa para fijar el punto.");
                 }
 
             } catch (err) {
@@ -457,6 +495,7 @@
             alert(`✅ Coordenadas asignadas a la Parada #${numParada} de la ruta "${nombreRuta}".`);
         }
 
+        // 3. NORMALIZACIÓN LIMPIA (SIN CAMPOS DE CHOFER NI CAMIONES)
         function normalizarRutaParaInyeccion(r) {
             const paradas = r.paradas || [];
             
@@ -468,11 +507,7 @@
             const setHorarios = new Set();
             paradas.forEach(p => {
                 (p.horarios || []).forEach(h => {
-                    if (h.formatoCivil && h.formatoMilitar) {
-                        setHorarios.add(`${h.formatoCivil} (${h.formatoMilitar})`);
-                    } else if (h.formatoCivil) {
-                        setHorarios.add(h.formatoCivil);
-                    }
+                    if (h.formatoCivil) setHorarios.add(h.formatoCivil);
                 });
             });
             const horarioPaso = Array.from(setHorarios).join(" / ") || (r.horarioPaso || "No especificado");
@@ -482,32 +517,24 @@
 
             const mun = r.municipio || "General";
             const est = r.estado || "Nuevo León";
-            const estadoMunicipio = `${mun}, ${est}`;
 
             return {
-                idRuta: sanitizarKey(r.nombreRuta),
+                idRuta: r.idRuta || sanitizarKey(r.nombreRuta),
                 nombreRuta: r.nombreRuta || "Ruta Sin Nombre",
                 empresaDestino: r.empresaDestino || "General",
                 empresaKey: sanitizarKey(r.empresaDestino),
                 municipio: mun,
                 estado: est,
-                estadoMunicipio: estadoMunicipio,
+                estadoMunicipio: `${mun}, ${est}`,
                 puntosAbordaje: listaParadasTexto || "Sin paradas definidas",
                 horarioPaso: horarioPaso,
                 coordenadasAbordaje: coordenadasAbordaje,
-                operativo: r.operativo || {
-                    tipoUnidad: "Camión Urbano (40 Pax)",
-                    capacidadMaxima: 40,
-                    choferAsignado: "Sin Asignar",
-                    turno: "Turno 1 - Matutino",
-                    distanciaTotalKm: "0.0",
-                    tiempoEstimadoMin: 0
-                },
-                paradas: paradas.map(p => ({
-                    numeroParada: p.numeroParada || 1,
+                distanciaTotalKm: r.distanciaTotalKm || "0.0",
+                tiempoEstimadoMin: r.tiempoEstimadoMin || 0,
+                paradas: paradas.map((p, idx) => ({
+                    numeroParada: p.numeroParada || (idx + 1),
                     referenciaOriginal: p.referenciaOriginal || "",
                     cruceVialEnriquecido: p.cruceVialEnriquecido || "",
-                    pasajerosAbordan: parseInt(p.pasajerosAbordan) || 0,
                     coordenadasAbordaje: p.coordenadasAbordaje || "",
                     estadoGeocodificacion: p.estadoGeocodificacion || (p.coordenadasAbordaje ? "Exacta" : "Sin Geocodificar"),
                     horarios: p.horarios || []
@@ -518,43 +545,28 @@
 
         async function prepararContenidoArchivo(file) {
             const extension = file.name.split('.').pop().toLowerCase();
-            
-            if (extension === 'txt') {
-                const texto = await file.text();
-                return { tipo: 'texto', payload: { text: texto } };
-            }
-            
+            if (extension === 'txt') return { tipo: 'texto', payload: { text: await file.text() } };
             if (extension === 'docx') {
-                const arrayBuffer = await file.arrayBuffer();
-                const result = await mammoth.extractRawText({ arrayBuffer: arrayBuffer });
-                return { tipo: 'texto', payload: { text: result.value } };
+                const res = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
+                return { tipo: 'texto', payload: { text: res.value } };
             }
-
             const base64Data = await transformarArchivoABase64(file);
             const parts = base64Data.split(",");
             let mimeType = "application/pdf";
             if (extension === 'png') mimeType = "image/png";
             if (extension === 'jpg' || extension === 'jpeg') mimeType = "image/jpeg";
-            
-            return { 
-                tipo: 'media', 
-                payload: { inlineData: { mimeType: mimeType, data: parts[1] } } 
-            };
+            return { tipo: 'media', payload: { inlineData: { mimeType: mimeType, data: parts[1] } } };
         }
 
         async function procesarArchivoPaso1(file, apiKey, empresa, estadoDefecto) {
             const contenido = await prepararContenidoArchivo(file);
-
             const promptInstrucciones = {
                 text: `
-                Eres un experto en logística de transporte de personal para la empresa "${empresa}".
-                Analiza a fondo este manifiesto y extrae TODAS las rutas y paradas.
-
-                REGLAS ESENCIALES:
-                1. HORARIOS MÚLTIPLES: Extrae todos los turnos disponibles por parada.
-                2. NORMALIZACIÓN DUAL: Genera "formatoCivil" (ej. "06:15 AM") y "formatoMilitar" (ej. "06:15").
-                3. ENLACES Y COORDENADAS DIRECTAS: Si incluye coordenadas numéricas o URLs de Google Maps, extráelas en "coordenadaDetectadaDirecta" o "urlGoogleMaps".
-                4. CRUCE VIAL ENRIQUECIDO: Extrae el cruce exacto de avenidas/calles.
+                Eres un experto en logística de transporte para la empresa "${empresa}".
+                Extrae TODAS las rutas y paradas del archivo.
+                1. Horarios duales: genera formatoCivil (ej. 06:15 AM) y formatoMilitar (ej. 06:15).
+                2. Si incluye coordenadas o URLs de Google Maps, extráelas en coordenadaDetectadaDirecta o urlGoogleMaps.
+                3. Identifica cruces viales y referencias reconocibles por parada.
                 `
             };
 
@@ -575,7 +587,6 @@
                                     numeroParada: { type: "INTEGER" },
                                     referenciaOriginal: { type: "STRING" },
                                     cruceVialEnriquecido: { type: "STRING" },
-                                    pasajerosAbordan: { type: "INTEGER" },
                                     horarios: {
                                         type: "ARRAY",
                                         items: {
@@ -601,60 +612,37 @@
 
             const payloadBase = {
                 contents: [{ parts: [promptInstrucciones, contenido.payload] }],
-                generationConfig: { 
-                    temperature: 0.0,
-                    responseMimeType: "application/json",
-                    responseSchema: schemaDefinition
-                }
+                generationConfig: { temperature: 0.0, responseMimeType: "application/json", responseSchema: schemaDefinition }
             };
 
-            const modelos = ["gemini-2.5-flash", "gemini-1.5-flash"];
-            let ultimoError = null;
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payloadBase)
+            });
 
-            for (const modelo of modelos) {
-                try {
-                    const urlApi = `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${apiKey}`;
-                    const res = await fetch(urlApi, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(payloadBase)
-                    });
-
-                    if (res.ok) {
-                        const jsonRes = await res.json();
-                        const textoIA = jsonRes.candidates?.[0]?.content?.parts?.[0]?.text;
-                        return JSON.parse(textoIA);
-                    }
-                } catch (err) {
-                    ultimoError = err;
-                }
+            if (res.ok) {
+                const jsonRes = await res.json();
+                return JSON.parse(jsonRes.candidates?.[0]?.content?.parts?.[0]?.text);
             }
-
-            throw new Error(ultimoError ? ultimoError.message : "Error al conectarse a Gemini.");
+            throw new Error("No se pudo extraer la información del manifiesto.");
         }
 
         async function calcularRutaVialOSRM(coordenadasLatLng) {
             if (coordenadasLatLng.length < 2) return null;
-
-            const coordinatesString = coordenadasLatLng
-                .map(c => `${c[1]},${c[0]}`)
-                .join(';');
-
+            const coordinatesString = coordenadasLatLng.map(c => `${c[1]},${c[0]}`).join(';');
             try {
-                const url = `https://router.project-osrm.org/route/v1/driving/${coordinatesString}?overview=full&geometries=geojson`;
-                const res = await fetch(url);
+                const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${coordinatesString}?overview=full&geometries=geojson`);
                 const data = await res.json();
-
                 if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
-                    const r = data.routes[0];
                     return {
-                        distanciaKm: (r.distance / 1000).toFixed(2),
-                        duracionMin: Math.round(r.duration / 60),
-                        geoJsonGeometry: r.geometry
+                        distanciaKm: (data.routes[0].distance / 1000).toFixed(2),
+                        duracionMin: Math.round(data.routes[0].duration / 60),
+                        geoJsonGeometry: data.routes[0].geometry
                     };
                 }
             } catch (e) {
-                console.warn("OSRM Router no respondió, aplicando fallback:", e);
+                console.warn("OSRM no respondió:", e);
             }
             return null;
         }
@@ -663,46 +651,22 @@
             if (parada.coordenadaDetectadaDirecta && parada.coordenadaDetectadaDirecta.includes(",")) {
                 return { coords: parada.coordenadaDetectadaDirecta.trim(), origen: "Exacta (Texto)" };
             }
-
-            if (parada.urlGoogleMaps) {
-                const regexCoordsUrl = /@(-?\d+\.\d+),(-?\d+\.\d+)|q=(-?\d+\.\d+),(-?\d+\.\d+)|destination=(-?\d+\.\d+),(-?\d+\.\d+)/;
-                const match = parada.urlGoogleMaps.match(regexCoordsUrl);
-                if (match) {
-                    const lat = match[1] || match[3] || match[5];
-                    const lng = match[2] || match[4] || match[6];
-                    return { coords: `${lat}, ${lng}`, origen: "Exacta (URL Maps)" };
-                }
-            }
-
-            const cruce = (parada.cruceVialEnriquecido || "").replace(/parabús|frente a|enfrente|parada \d+/gi, '').trim();
-            const referencia = (parada.referenciaOriginal || "").trim();
-
+            const cruce = (parada.cruceVialEnriquecido || "").replace(/parabús|frente a|enfrente/gi, '').trim();
             const querys = [
                 `${cruce}, ${municipio}, ${estado}, Mexico`,
                 `${cruce.split(',')[0]}, ${municipio}, ${estado}, Mexico`,
-                `${referencia}, ${municipio}, ${estado}, Mexico`
+                `${parada.referenciaOriginal}, ${municipio}, ${estado}, Mexico`
             ];
-
             for (const q of querys) {
                 if (!q || q.length < 5) continue;
-                const coord = await consultarNominatimAPI(q);
-                if (coord) return { coords: coord, origen: "Nominatim OSM" };
-                await new Promise(r => setTimeout(r, 300));
+                try {
+                    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&countrycodes=mx&limit=1`, { headers: { "User-Agent": "ERPTransportePro/4.0" } });
+                    const data = await res.json();
+                    if (data && data.length > 0) return { coords: `${parseFloat(data[0].lat).toFixed(6)}, ${parseFloat(data[0].lon).toFixed(6)}`, origen: "Nominatim OSM" };
+                } catch (e) { }
+                await new Promise(r => setTimeout(r, 250));
             }
-
             return { coords: "", origen: "Sin Geocodificar" };
-        }
-
-        async function consultarNominatimAPI(query) {
-            try {
-                const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=mx&limit=1`;
-                const res = await fetch(url, { headers: { "User-Agent": "ERPTransportePro/3.4" } });
-                const data = await res.json();
-                if (data && data.length > 0) {
-                    return `${parseFloat(data[0].lat).toFixed(6)}, ${parseFloat(data[0].lon).toFixed(6)}`;
-                }
-            } catch (e) { }
-            return null;
         }
 
         async function ejecutarPaso1Extraccion() {
@@ -717,41 +681,25 @@
             btn.disabled = true;
             coleccionRutas = [];
 
-            const archivos = Array.from(fileInput.files);
-
             try {
-                for (let i = 0; i < archivos.length; i++) {
-                    btn.innerHTML = `<span>🧠</span> Extrayendo Archivo (${i+1}/${archivos.length})...`;
-                    const rutasExtraidas = await procesarArchivoPaso1(archivos[i], apiKey, empresa, estadoDefecto);
-                    
-                    rutasExtraidas.forEach(r => {
+                for (const f of Array.from(fileInput.files)) {
+                    btn.innerHTML = `<span>🧠</span> Extrayendo Archivo...`;
+                    const rutas = await procesarArchivoPaso1(f, apiKey, empresa, estadoDefecto);
+                    rutas.forEach(r => {
                         r.empresaDestino = empresa;
                         r.estado = r.estado || estadoDefecto;
-                        r.operativo = {
-                            tipoUnidad: "Camión Urbano (40 Pax)",
-                            capacidadMaxima: 40,
-                            choferAsignado: "Sin Asignar",
-                            turno: "Turno 1 - Matutino",
-                            distanciaTotalKm: "0.0",
-                            tiempoEstimadoMin: 0
-                        };
-
                         r.paradas.forEach(p => {
-                            p.pasajerosAbordan = p.pasajerosAbordan || 0;
                             p.coordenadasAbordaje = p.coordenadaDetectadaDirecta || "";
                             p.estadoGeocodificacion = p.coordenadasAbordaje ? "Exacta (Texto)" : "Sin Geocodificar";
                         });
-
                         coleccionRutas.push(normalizarRutaParaInyeccion(r));
                     });
                 }
-
                 actualizarSelectRutas();
                 await renderizarTablaYMapa();
-                alert(`✅ Paso 1 Finalizado: Se extrajeron y normalizaron ${coleccionRutas.length} rutas.`);
-
+                alert(`✅ Se extrajeron ${coleccionRutas.length} rutas con éxito.`);
             } catch (err) {
-                alert("Error en la extracción IA: " + err.message);
+                alert("Error en la extracción: " + err.message);
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = '<span>🧠</span> Paso 1: Extracción Estructural IA';
@@ -759,64 +707,50 @@
         }
 
         async function ejecutarPaso2GeolocalizarTodas() {
-            if (coleccionRutas.length === 0) return alert("⚠️ Ejecuta primero el Paso 1.");
-
+            if (coleccionRutas.length === 0) return alert("⚠️ Carga o extrae rutas primero.");
             const btn = document.getElementById("btnPaso2GeolocalizarTodos");
-            btn.disabled = true;
-            btn.innerHTML = '<span>⏳</span> Geocodificando y Ruteando...';
-
-            const estadoDefecto = document.getElementById("estadoOperacionInput").value.trim() || "Nuevo León";
-
-            for (let i = 0; i < coleccionRutas.length; i++) {
-                const ruta = coleccionRutas[i];
-                const mun = ruta.municipio || "General";
-                const est = ruta.estado || estadoDefecto;
-
-                for (const parada of ruta.paradas) {
-                    if (!parada.estadoGeocodificacion.includes("Exacta") && !parada.coordenadasAbordaje) {
-                        const geo = await geocodificarParada(parada, mun, est);
-                        parada.coordenadasAbordaje = geo.coords;
-                        parada.estadoGeocodificacion = geo.origen;
-                    }
-                }
-                coleccionRutas[i] = normalizarRutaParaInyeccion(ruta);
-            }
-
-            btn.disabled = false;
-            btn.innerHTML = '<span>🗺️</span> Paso 2: Geocodificar Todas las Rutas';
-            await renderizarTablaYMapa();
-            alert("✅ Geocodificación y trazado OSRM global completados.");
-        }
-
-        async function geolocalizarRutaSeleccionada() {
-            if (rutaSeleccionadaFiltro === "TODAS") return ejecutarPaso2GeolocalizarTodas();
-
-            const idx = coleccionRutas.findIndex(r => r.nombreRuta === rutaSeleccionadaFiltro);
-            if (idx === -1) return;
-
-            const rutaObj = coleccionRutas[idx];
-            const btn = document.getElementById("btnPaso2RutaActual");
             btn.disabled = true;
             btn.innerHTML = '<span>⏳</span> Geocodificando...';
 
             const estadoDefecto = document.getElementById("estadoOperacionInput").value.trim() || "Nuevo León";
-            const mun = rutaObj.municipio || "General";
-            const est = rutaObj.estado || estadoDefecto;
+            for (let i = 0; i < coleccionRutas.length; i++) {
+                const r = coleccionRutas[i];
+                for (const p of r.paradas) {
+                    if (!p.coordenadasAbordaje) {
+                        const geo = await geocodificarParada(p, r.municipio, r.estado || estadoDefecto);
+                        p.coordenadasAbordaje = geo.coords;
+                        p.estadoGeocodificacion = geo.origen;
+                    }
+                }
+                coleccionRutas[i] = normalizarRutaParaInyeccion(r);
+            }
+            btn.disabled = false;
+            btn.innerHTML = '<span>🗺️</span> Paso 2: Geocodificar Todas las Paradas';
+            await renderizarTablaYMapa();
+            alert("✅ Geocodificación completada.");
+        }
 
-            for (const parada of rutaObj.paradas) {
-                if (!parada.coordenadasAbordaje) {
-                    const geo = await geocodificarParada(parada, mun, est);
-                    parada.coordenadasAbordaje = geo.coords;
-                    parada.estadoGeocodificacion = geo.origen;
+        async function geolocalizarRutaSeleccionada() {
+            if (rutaSeleccionadaFiltro === "TODAS") return ejecutarPaso2GeolocalizarTodas();
+            const idx = coleccionRutas.findIndex(r => r.nombreRuta === rutaSeleccionadaFiltro);
+            if (idx === -1) return;
+
+            const r = coleccionRutas[idx];
+            const btn = document.getElementById("btnPaso2RutaActual");
+            btn.disabled = true;
+            btn.innerHTML = '<span>⏳</span> Geocodificando...';
+
+            for (const p of r.paradas) {
+                if (!p.coordenadasAbordaje) {
+                    const geo = await geocodificarParada(p, r.municipio, r.estado || "Nuevo León");
+                    p.coordenadasAbordaje = geo.coords;
+                    p.estadoGeocodificacion = geo.origen;
                 }
             }
-
-            coleccionRutas[idx] = normalizarRutaParaInyeccion(rutaObj);
-
+            coleccionRutas[idx] = normalizarRutaParaInyeccion(r);
             btn.disabled = false;
             btn.innerHTML = '🗺️ Geocodificar Bloque';
             await renderizarTablaYMapa();
-            alert(`✅ Bloque "${rutaObj.nombreRuta}" geocodificado con éxito.`);
         }
 
         function actualizarSelectRutas() {
@@ -830,49 +764,77 @@
 
         function cambiarRutaActiva(nombreRuta) {
             rutaSeleccionadaFiltro = nombreRuta;
-            
-            const panel = document.getElementById("panelAsignacionFlota");
-            if (nombreRuta === "TODAS") {
-                panel.classList.add("opacity-50", "pointer-events-none");
-            } else {
-                panel.classList.remove("opacity-50", "pointer-events-none");
-                const r = coleccionRutas.find(x => x.nombreRuta === nombreRuta);
-                if (r && r.operativo) {
-                    document.getElementById("opTipoUnidad").value = r.operativo.tipoUnidad || "Camión Urbano (40 Pax)";
-                    document.getElementById("opCapacidadPax").value = r.operativo.capacidadMaxima || 40;
-                    document.getElementById("opChofer").value = r.operativo.choferAsignado || "";
-                    document.getElementById("opTurno").value = r.operativo.turno || "Turno 1 - Matutino";
-                }
-            }
-
             renderizarTablaYMapa();
         }
 
-        function actualizarMetadatosOperativos() {
-            if (rutaSeleccionadaFiltro === "TODAS") return;
-            const idx = coleccionRutas.findIndex(x => x.nombreRuta === rutaSeleccionadaFiltro);
-            if (idx !== -1) {
-                coleccionRutas[idx].operativo.tipoUnidad = document.getElementById("opTipoUnidad").value;
-                coleccionRutas[idx].operativo.capacidadMaxima = parseInt(document.getElementById("opCapacidadPax").value) || 40;
-                coleccionRutas[idx].operativo.choferAsignado = document.getElementById("opChofer").value;
-                coleccionRutas[idx].operativo.turno = document.getElementById("opTurno").value;
-                coleccionRutas[idx] = normalizarRutaParaInyeccion(coleccionRutas[idx]);
-                document.getElementById("jsonOutputViewer").value = JSON.stringify(coleccionRutas, null, 2);
-            }
-        }
-
-        function actualizarPaxParada(nombreRuta, numParada, valorPax) {
-            const idx = coleccionRutas.findIndex(r => r.nombreRuta === nombreRuta);
-            if (idx !== -1) {
-                const parada = coleccionRutas[idx].paradas.find(p => p.numeroParada === numParada);
-                if (parada) {
-                    parada.pasajerosAbordan = parseInt(valorPax) || 0;
-                    coleccionRutas[idx] = normalizarRutaParaInyeccion(coleccionRutas[idx]);
+        // 4. EDICIÓN DINÁMICA DE CAMPOS DE LA PARADA
+        function actualizarReferenciaParada(nombreRuta, numParada, valor) {
+            const r = coleccionRutas.find(x => x.nombreRuta === nombreRuta);
+            if (r) {
+                const p = r.paradas.find(item => item.numeroParada === numParada);
+                if (p) {
+                    p.referenciaOriginal = valor.trim();
                     document.getElementById("jsonOutputViewer").value = JSON.stringify(coleccionRutas, null, 2);
                 }
             }
         }
 
+        function actualizarCruceParada(nombreRuta, numParada, valor) {
+            const r = coleccionRutas.find(x => x.nombreRuta === nombreRuta);
+            if (r) {
+                const p = r.paradas.find(item => item.numeroParada === numParada);
+                if (p) {
+                    p.cruceVialEnriquecido = valor.trim();
+                    document.getElementById("jsonOutputViewer").value = JSON.stringify(coleccionRutas, null, 2);
+                }
+            }
+        }
+
+        function actualizarHorariosTexto(nombreRuta, numParada, valor) {
+            const r = coleccionRutas.find(x => x.nombreRuta === nombreRuta);
+            if (r) {
+                const p = r.paradas.find(item => item.numeroParada === numParada);
+                if (p) {
+                    const partes = valor.split("/").map(s => s.trim()).filter(Boolean);
+                    p.horarios = partes.map(h => ({ formatoCivil: h, formatoMilitar: h }));
+                    document.getElementById("jsonOutputViewer").value = JSON.stringify(coleccionRutas, null, 2);
+                }
+            }
+        }
+
+        function actualizarCoordManual(nombreRuta, numParada, nuevaCoord) {
+            const r = coleccionRutas.find(x => x.nombreRuta === nombreRuta);
+            if (r) {
+                const p = r.paradas.find(item => item.numeroParada === numParada);
+                if (p) {
+                    p.coordenadasAbordaje = nuevaCoord.trim();
+                    p.estadoGeocodificacion = nuevaCoord.trim() ? "Ajuste Manual" : "Sin Geocodificar";
+                    renderizarTablaYMapa();
+                }
+            }
+        }
+
+        // 5. INYECCIÓN GRANULAR (PARADA POR PARADA)
+        async function guardarParadaIndividualAFirebase(nombreRuta, numParada) {
+            const r = coleccionRutas.find(x => x.nombreRuta === nombreRuta);
+            if (!r) return;
+
+            const pIdx = r.paradas.findIndex(item => item.numeroParada === numParada);
+            if (pIdx === -1) return;
+
+            const paradaObj = r.paradas[pIdx];
+            const rutaId = r.idRuta || sanitizarKey(r.nombreRuta);
+            const empKey = r.empresaKey || sanitizarKey(r.empresaDestino);
+
+            try {
+                await set(ref(db, `rutas/${empKey}/${rutaId}/paradas/${pIdx}`), paradaObj);
+                alert(`✅ Parada #${numParada} de la ruta "${nombreRuta}" guardada exitosamente en Firebase.`);
+            } catch (err) {
+                alert("Error al guardar la parada: " + err.message);
+            }
+        }
+
+        // 6. RENDERIZADO TABULAR Y CARTOGRÁFICO
         async function renderizarTablaYMapa() {
             const tbody = document.getElementById("tablaResultadosPreCommit");
             tbody.innerHTML = "";
@@ -886,7 +848,7 @@
             document.getElementById("badgeRutasCount").innerText = `${coleccionRutas.length} Rutas`;
 
             if (rutasFiltradas.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-500">No hay paradas en el filtro seleccionado.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-500 font-mono">No hay paradas bajo el filtro seleccionado.</td></tr>`;
                 return;
             }
 
@@ -906,13 +868,9 @@
                         puntosRuta.push([lat, lng]);
                         latLngsGlobales.push([lat, lng]);
 
-                        let markerColor = "#f59e0b";
-                        if (parada.estadoGeocodificacion.includes("Exacta")) markerColor = "#10b981";
-                        if (parada.estadoGeocodificacion.includes("Nominatim")) markerColor = "#38bdf8";
-
                         const marker = L.circleMarker([lat, lng], {
-                            radius: 7,
-                            fillColor: markerColor,
+                            radius: 6,
+                            fillColor: "#38bdf8",
                             color: "#fff",
                             weight: 1.5,
                             fillOpacity: 0.9
@@ -920,47 +878,46 @@
 
                         marker.bindPopup(`
                             <div class="font-sans text-xs">
-                                <b class="text-cyber-accent">${ruta.nombreRuta}</b><br>
-                                <b>Parada #${parada.numeroParada}:</b> ${parada.referenciaOriginal}<br>
-                                <b class="text-cyber-cyan">Pax Abordan:</b> ${parada.pasajerosAbordan || 0}<br>
-                                <b class="text-cyber-amber">Cruce:</b> ${parada.cruceVialEnriquecido}<br>
-                                <span class="font-mono text-emerald-400 font-bold">${lat.toFixed(6)}, ${lng.toFixed(6)}</span>
+                                <b class="text-cyber-accent">${ruta.nombreRuta} (Parada #${parada.numeroParada})</b><br>
+                                <b>Ref:</b> ${parada.referenciaOriginal}<br>
+                                <b>Cruce:</b> ${parada.cruceVialEnriquecido}<br>
+                                <span class="font-mono text-emerald-400">${lat.toFixed(6)}, ${lng.toFixed(6)}</span>
                             </div>
                         `);
                     }
 
-                    const htmlHorarios = (parada.horarios || []).map(h => `
-                        <span class="inline-block bg-slate-900 border border-slate-700 px-1.5 py-0.5 rounded text-[10px] text-cyber-amber font-mono mr-1 mb-1">
-                            ${h.formatoCivil} <span class="text-slate-500 font-sans">(${h.formatoMilitar})</span>
-                        </span>
-                    `).join("");
+                    const textoHorarios = (parada.horarios || []).map(h => h.formatoCivil).join(" / ");
 
                     const tr = document.createElement("tr");
                     tr.className = "hover:bg-slate-800/40 border-b border-cyber-border/40 text-slate-300";
                     tr.innerHTML = `
-                        <td class="p-2.5">
-                            <div class="font-bold text-white">${ruta.nombreRuta}</div>
-                            <div class="text-[10px] text-cyber-purple font-mono">Parada #${parada.numeroParada}</div>
+                        <td class="p-2.5 whitespace-nowrap">
+                            <span class="font-bold text-white">${ruta.nombreRuta}</span>
+                            <div class="text-[10px] text-cyber-purple font-mono font-bold">Parada #${parada.numeroParada}</div>
                         </td>
-                        <td class="p-2.5 max-w-xs">${htmlHorarios || '<span class="text-slate-500">Sin horario</span>'}</td>
+                        <td class="p-2.5">
+                            <input type="text" value="${parada.referenciaOriginal || ''}" 
+                                onchange="actualizarReferenciaParada('${ruta.nombreRuta}', ${parada.numeroParada}, this.value)"
+                                placeholder="Referencia" class="w-full bg-cyber-bg border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-cyber-accent mb-1">
+                            <input type="text" value="${parada.cruceVialEnriquecido || ''}" 
+                                onchange="actualizarCruceParada('${ruta.nombreRuta}', ${parada.numeroParada}, this.value)"
+                                placeholder="Cruce vial" class="w-full bg-cyber-bg border border-slate-700 rounded px-2 py-1 text-[11px] text-slate-400 focus:outline-none">
+                        </td>
                         <td class="p-2.5 font-mono">
-                            <input type="number" min="0" value="${parada.pasajerosAbordan || 0}" 
-                                onchange="actualizarPaxParada('${ruta.nombreRuta}', ${parada.numeroParada}, this.value)" 
-                                class="w-16 bg-cyber-bg border border-slate-700 rounded px-2 py-1 text-xs text-cyber-cyan focus:outline-none focus:border-cyber-accent">
-                        </td>
-                        <td class="p-2.5">
-                            <div class="text-slate-200">${parada.referenciaOriginal}</div>
-                            <div class="text-[10px] text-slate-400">${parada.cruceVialEnriquecido}</div>
+                            <input type="text" value="${textoHorarios}" 
+                                onchange="actualizarHorariosTexto('${ruta.nombreRuta}', ${parada.numeroParada}, this.value)"
+                                placeholder="Ej: 06:30 AM / 06:30 PM" class="w-full bg-cyber-bg border border-slate-700 rounded px-2 py-1 text-xs text-cyber-amber focus:outline-none">
                         </td>
                         <td class="p-2.5 font-mono">
                             <input type="text" value="${parada.coordenadasAbordaje || ''}" 
                                 onchange="actualizarCoordManual('${ruta.nombreRuta}', ${parada.numeroParada}, this.value)" 
-                                placeholder="Lat, Lng"
-                                class="bg-cyber-bg border border-slate-700 rounded px-2 py-1 text-xs text-cyber-cyan w-full focus:outline-none focus:border-cyber-accent">
+                                placeholder="Lat, Lng" class="w-full bg-cyber-bg border border-slate-700 rounded px-2 py-1 text-xs text-cyber-cyan focus:outline-none">
                         </td>
-                        <td class="p-2.5 text-center space-y-1">
-                            <span class="inline-block px-2 py-0.5 rounded text-[10px] border border-slate-700 ${valida ? 'text-emerald-400 border-emerald-500/30' : 'text-slate-400'}">${parada.estadoGeocodificacion}</span>
-                            ${valida ? `<div><button type="button" onclick="centrarEnMapa(${lat}, ${lng}, '${ruta.nombreRuta}', ${parada.numeroParada})" class="bg-cyber-cyan/20 hover:bg-cyber-cyan/40 text-cyber-cyan px-2.5 py-1 rounded text-[10px] font-bold transition-colors">📍 Ver</button></div>` : ''}
+                        <td class="p-2.5 text-center whitespace-nowrap space-x-1">
+                            ${valida ? `<button type="button" onclick="centrarEnMapa(${lat}, ${lng})" title="Centrar en el mapa" class="bg-cyber-cyan/20 hover:bg-cyber-cyan/40 text-cyber-cyan px-2 py-1 rounded text-xs">📍</button>` : ''}
+                            <button type="button" onclick="guardarParadaIndividualAFirebase('${ruta.nombreRuta}', ${parada.numeroParada})" title="Guardar parada individual en Firebase" class="bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white px-2 py-1 rounded text-xs font-bold transition">
+                                💾
+                            </button>
                         </td>
                     `;
                     tbody.appendChild(tr);
@@ -969,8 +926,8 @@
                 if (puntosRuta.length >= 2) {
                     const routingRes = await calcularRutaVialOSRM(puntosRuta);
                     if (routingRes) {
-                        ruta.operativo.distanciaTotalKm = routingRes.distanciaKm;
-                        ruta.operativo.tiempoEstimadoMin = routingRes.duracionMin;
+                        ruta.distanciaTotalKm = routingRes.distanciaKm;
+                        ruta.tiempoEstimadoMin = routingRes.duracionMin;
                         distanciaTotalAcumulada += parseFloat(routingRes.distanciaKm);
 
                         L.geoJSON(routingRes.geoJsonGeometry, {
@@ -981,8 +938,6 @@
                             document.getElementById("lblDistanciaKm").innerText = routingRes.distanciaKm;
                             document.getElementById("lblTiempoMin").innerText = routingRes.duracionMin;
                         }
-                    } else {
-                        L.polyline(puntosRuta, { color: '#ea580c', weight: 2, dashArray: '4,4' }).addTo(polylineGroup);
                     }
                 }
             }
@@ -995,29 +950,9 @@
             }
         }
 
-        function centrarEnMapa(lat, lng, nombreRuta, numParada) {
+        function centrarEnMapa(lat, lng) {
             if (mapObj && !isNaN(lat) && !isNaN(lng)) {
                 mapObj.flyTo([lat, lng], 17, { duration: 1.0 });
-
-                markersGroup.eachLayer(layer => {
-                    const pos = layer.getLatLng();
-                    if (pos && Math.abs(pos.lat - lat) < 0.00001 && Math.abs(pos.lng - lng) < 0.00001) {
-                        layer.openPopup();
-                    }
-                });
-            }
-        }
-
-        function actualizarCoordManual(nombreRuta, numParada, nuevaCoord) {
-            const idx = coleccionRutas.findIndex(r => r.nombreRuta === nombreRuta);
-            if (idx !== -1) {
-                const parada = coleccionRutas[idx].paradas.find(p => p.numeroParada === numParada);
-                if (parada) {
-                    parada.coordenadasAbordaje = nuevaCoord.trim();
-                    parada.estadoGeocodificacion = nuevaCoord.trim() ? "Ajuste Manual" : "Sin Geocodificar";
-                    coleccionRutas[idx] = normalizarRutaParaInyeccion(coleccionRutas[idx]);
-                    renderizarTablaYMapa();
-                }
             }
         }
 
@@ -1031,9 +966,9 @@
             btn.innerHTML = '<span>⏳</span> Subiendo...';
 
             try {
-                const rutaNormalizada = normalizarRutaParaInyeccion(ruta);
-                await set(ref(db, `rutas/${rutaNormalizada.empresaKey}/${rutaNormalizada.idRuta}`), rutaNormalizada);
-                alert(`✅ Ruta "${ruta.nombreRuta}" inyectada y normalizada exitosamente para M6.`);
+                const rutaNorm = normalizarRutaParaInyeccion(ruta);
+                await set(ref(db, `rutas/${rutaNorm.empresaKey}/${rutaNorm.idRuta}`), rutaNorm);
+                alert(`✅ Ruta "${ruta.nombreRuta}" guardada exitosamente en Firebase.`);
             } catch (err) {
                 alert("Error al subir a Firebase: " + err.message);
             } finally {
@@ -1043,21 +978,17 @@
         }
 
         async function inyectarTodoAFirebase() {
-            if (coleccionRutas.length === 0) return alert("⚠️ No hay rutas extraídas para inyectar.");
-
+            if (coleccionRutas.length === 0) return alert("⚠️ No hay rutas para inyectar.");
             const btn = document.getElementById("btnSubirTodo");
             btn.disabled = true;
-            btn.innerHTML = '<span>⏳</span> Inyectando Todo...';
+            btn.innerHTML = '<span>⏳</span> Inyectando...';
 
             try {
-                let contador = 0;
                 for (const ruta of coleccionRutas) {
-                    const rutaNormalizada = normalizarRutaParaInyeccion(ruta);
-                    await set(ref(db, `rutas/${rutaNormalizada.empresaKey}/${rutaNormalizada.idRuta}`), rutaNormalizada);
-                    contador++;
+                    const rutaNorm = normalizarRutaParaInyeccion(ruta);
+                    await set(ref(db, `rutas/${rutaNorm.empresaKey}/${rutaNorm.idRuta}`), rutaNorm);
                 }
-
-                alert(`✅ Inyección masiva completada: ${contador} rutas sincronizadas.`);
+                alert(`✅ Se inyectaron ${coleccionRutas.length} rutas a Firebase exitosamente.`);
             } catch (err) {
                 alert("Error en inyección masiva: " + err.message);
             } finally {
@@ -1068,10 +999,10 @@
 
         function copiarJsonAlPortapapeles() {
             const area = document.getElementById("jsonOutputViewer");
-            if (!area.value) return alert("No hay datos JSON disponibles.");
+            if (!area.value) return alert("No hay datos disponibles.");
             area.select();
             navigator.clipboard.writeText(area.value);
-            alert("📋 JSON universal copiado al portapapeles.");
+            alert("📋 JSON copiado al portapapeles.");
         }
 
         function transformarArchivoABase64(file) {
