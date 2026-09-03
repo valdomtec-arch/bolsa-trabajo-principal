@@ -61,9 +61,9 @@
         <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-cyber-border pb-5">
             <div>
                 <h1 class="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
-                    <span class="text-cyber-accent">⚡</span> Motor Logístico de Transporte <span class="text-xs bg-cyber-accent/20 text-cyber-accent px-2 py-0.5 rounded border border-cyber-accent/40 font-mono">v4.2 GeoPro KMZ</span>
+                    <span class="text-cyber-accent">⚡</span> Motor Logístico de Transporte <span class="text-xs bg-cyber-accent/20 text-cyber-accent px-2 py-0.5 rounded border border-cyber-accent/40 font-mono">v4.3 Universal KMZ</span>
                 </h1>
-                <p class="text-xs text-slate-400 mt-1">Extracción dual IA, lector directo KMZ/KML y ruteo vial OSRM</p>
+                <p class="text-xs text-slate-400 mt-1">Extracción dual IA, lector satelital KMZ/KML y ruteo vial OSRM</p>
             </div>
             <div class="flex items-center gap-2 flex-wrap">
                 <a href="m6_transporte.html" class="bg-cyber-card hover:bg-slate-800 text-slate-300 border border-cyber-border font-mono text-xs px-3.5 py-2 rounded-xl flex items-center gap-2 transition-all">
@@ -424,7 +424,7 @@
                 let localizado = false;
                 for (const q of consultas) {
                     const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&countrycodes=mx&limit=1`, {
-                        headers: { "User-Agent": "ERPTransportePro/4.0" }
+                        headers: { "User-Agent": "ERPTransportePro/4.3" }
                     });
                     const data = await res.json();
                     if (data && data.length > 0) {
@@ -546,7 +546,7 @@
             };
         }
 
-        // 4. PARSER DE ARCHIVOS KMZ / KML (DIRECTO EN NAVEGADOR)
+        // 4. PARSER UNIVERSAL DE ARCHIVOS KMZ / KML (CON SOPORTE DE NAMESPACES Y FALLBACKS)
         async function procesarArchivoKMZoKML(file) {
             let kmlTexto = "";
             const extension = file.name.split('.').pop().toLowerCase();
@@ -561,43 +561,95 @@
                 kmlTexto = await file.text();
             }
 
-            const parser = new DOMParser();
-            const xmlDoc = parser.parseFromString(kmlTexto, "text/xml");
-            const placemarks = Array.from(xmlDoc.getElementsByTagName("Placemark"));
+            // 1. Limpieza preventiva de namespaces para parseo uniforme en todos los navegadores
+            const kmlLimpio = kmlTexto
+                .replace(/xmlns(:\w+)?="[^"]*"/g, '')
+                .replace(/<(\/)?(\w+):/g, '<$1');
 
-            if (placemarks.length === 0) {
-                throw new Error("El archivo KMZ/KML no contiene puntos de parada (<Placemark>).");
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(kmlLimpio, "text/xml");
+
+            const parseError = xmlDoc.getElementsByTagName("parsererror");
+            if (parseError.length > 0) {
+                throw new Error("El archivo KML interno contiene errores de estructura XML.");
             }
 
             const paradasExtraidas = [];
             let contador = 1;
 
-            placemarks.forEach(pm => {
-                const nombre = pm.getElementsByTagName("name")[0]?.textContent?.trim() || `Parada #${contador}`;
-                const desc = pm.getElementsByTagName("description")[0]?.textContent?.trim() || "";
-                const coordTag = pm.getElementsByTagName("coordinates")[0]?.textContent?.trim();
+            // 2. Extraer Placemarks (Puntos individuales o Rutas)
+            const placemarks = Array.from(xmlDoc.getElementsByTagName("Placemark"));
 
-                if (coordTag) {
-                    const primerPunto = coordTag.split(/\s+/)[0];
-                    const partes = primerPunto.split(",");
-                    const lng = partes[0];
-                    const lat = partes[1];
+            if (placemarks.length > 0) {
+                placemarks.forEach(pm => {
+                    const nombre = pm.getElementsByTagName("name")[0]?.textContent?.trim() || `Punto #${contador}`;
+                    const desc = pm.getElementsByTagName("description")[0]?.textContent?.trim() || "";
+                    const coordTag = pm.getElementsByTagName("coordinates")[0]?.textContent?.trim();
 
-                    if (lat && lng && !isNaN(parseFloat(lat)) && !isNaN(parseFloat(lng))) {
-                        paradasExtraidas.push({
-                            numeroParada: contador++,
-                            referenciaOriginal: nombre,
-                            cruceVialEnriquecido: desc || nombre,
-                            coordenadasAbordaje: `${parseFloat(lat).toFixed(6)}, ${parseFloat(lng).toFixed(6)}`,
-                            estadoGeocodificacion: "Exacta (KMZ Satelital)",
-                            horarios: []
+                    if (coordTag) {
+                        const bloques = coordTag.split(/\s+/).filter(Boolean);
+
+                        bloques.forEach((bloque, bIdx) => {
+                            const partes = bloque.split(",");
+                            const lng = partes[0]?.trim();
+                            const lat = partes[1]?.trim();
+
+                            if (lat && lng && !isNaN(parseFloat(lat)) && !isNaN(parseFloat(lng))) {
+                                const esMultiPunto = bloques.length > 1;
+                                const etiquetaParada = esMultiPunto ? `${nombre} (Punto ${bIdx + 1})` : nombre;
+
+                                paradasExtraidas.push({
+                                    numeroParada: contador++,
+                                    referenciaOriginal: etiquetaParada,
+                                    cruceVialEnriquecido: desc || etiquetaParada,
+                                    coordenadasAbordaje: `${parseFloat(lat).toFixed(6)}, ${parseFloat(lng).toFixed(6)}`,
+                                    estadoGeocodificacion: "Exacta (KMZ Satelital)",
+                                    horarios: []
+                                });
+                            }
                         });
                     }
-                }
-            });
+                });
+            }
+
+            // 3. Fallback: Si no hay Placemarks pero hay etiquetas <coordinates> en el KML
+            if (paradasExtraidas.length === 0) {
+                const todasCoordenadas = Array.from(xmlDoc.getElementsByTagName("coordinates"));
+                todasCoordenadas.forEach(cTag => {
+                    const texto = cTag.textContent.trim();
+                    const bloques = texto.split(/\s+/).filter(Boolean);
+
+                    bloques.forEach(bloque => {
+                        const partes = bloque.split(",");
+                        const lng = partes[0]?.trim();
+                        const lat = partes[1]?.trim();
+
+                        if (lat && lng && !isNaN(parseFloat(lat)) && !isNaN(parseFloat(lng))) {
+                            paradasExtraidas.push({
+                                numeroParada: contador++,
+                                referenciaOriginal: `Punto Trazado #${contador - 1}`,
+                                cruceVialEnriquecido: `Coordenada KML #${contador - 1}`,
+                                coordenadasAbordaje: `${parseFloat(lat).toFixed(6)}, ${parseFloat(lng).toFixed(6)}`,
+                                estadoGeocodificacion: "Exacta (KMZ Satelital)",
+                                horarios: []
+                            });
+                        }
+                    });
+                });
+            }
+
+            if (paradasExtraidas.length === 0) {
+                throw new Error("No se detectaron coordenadas válidas (Latitud/Longitud) dentro del archivo KMZ/KML.");
+            }
+
+            const nombreRutaLimpio = file.name
+                .replace(/\.[^/.]+$/, "")
+                .replace(/[-_]+/g, " ")
+                .toUpperCase()
+                .trim();
 
             return [{
-                nombreRuta: file.name.replace(/\.[^/.]+$/, "").replace(/_/g, " ").toUpperCase(),
+                nombreRuta: nombreRutaLimpio || "RUTA KMZ SATELITAL",
                 paradas: paradasExtraidas
             }];
         }
@@ -743,7 +795,7 @@ Reglas estrictas:
             for (const q of querys) {
                 if (!q || q.length < 5) continue;
                 try {
-                    const res = await fetch(`[https://nominatim.openstreetmap.org/search?format=json&q=$](https://nominatim.openstreetmap.org/search?format=json&q=$){encodeURIComponent(q)}&countrycodes=mx&limit=1`, { headers: { "User-Agent": "ERPTransportePro/4.2" } });
+                    const res = await fetch(`[https://nominatim.openstreetmap.org/search?format=json&q=$](https://nominatim.openstreetmap.org/search?format=json&q=$){encodeURIComponent(q)}&countrycodes=mx&limit=1`, { headers: { "User-Agent": "ERPTransportePro/4.3" } });
                     const data = await res.json();
                     if (data && data.length > 0) return { coords: `${parseFloat(data[0].lat).toFixed(6)}, ${parseFloat(data[0].lon).toFixed(6)}`, origen: "Nominatim OSM" };
                 } catch (e) { }
