@@ -61,9 +61,9 @@
         <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-cyber-border pb-5">
             <div>
                 <h1 class="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
-                    <span class="text-cyber-accent">⚡</span> Motor Logístico de Transporte <span class="text-xs bg-cyber-accent/20 text-cyber-accent px-2 py-0.5 rounded border border-cyber-accent/40 font-mono">v4.3 Universal KMZ</span>
+                    <span class="text-cyber-accent">⚡</span> Motor Logístico de Transporte <span class="text-xs bg-cyber-accent/20 text-cyber-accent px-2 py-0.5 rounded border border-cyber-accent/40 font-mono">v5.0 Enterprise High-Load</span>
                 </h1>
-                <p class="text-xs text-slate-400 mt-1">Extracción dual IA, lector satelital KMZ/KML y ruteo vial OSRM</p>
+                <p class="text-xs text-slate-400 mt-1">Extractor híbrido satelital KMZ/KML, IA Gemini con soporte para archivos pesados y ruteo vial OSRM</p>
             </div>
             <div class="flex items-center gap-2 flex-wrap">
                 <a href="m6_transporte.html" class="bg-cyber-card hover:bg-slate-800 text-slate-300 border border-cyber-border font-mono text-xs px-3.5 py-2 rounded-xl flex items-center gap-2 transition-all">
@@ -88,7 +88,7 @@
                         <h2 class="text-xs font-bold text-cyber-accent uppercase tracking-wider flex items-center gap-2">
                             <span>⚙️</span> Origen de Datos
                         </h2>
-                        <span class="text-[10px] text-cyber-cyan font-mono">IA / KMZ / Firebase</span>
+                        <span class="text-[10px] text-cyber-cyan font-mono">KMZ / KML / IA / Firebase</span>
                     </div>
 
                     <!-- SELECTOR DE EMPRESA Y BOTÓN DE CARGA EXISTENTE -->
@@ -105,7 +105,7 @@
                     </div>
 
                     <div>
-                        <label class="block text-[11px] font-semibold text-slate-300 mb-1">Gemini API Key (Opcional si usa KMZ)</label>
+                        <label class="block text-[11px] font-semibold text-slate-300 mb-1">Gemini API Key (No requerida para KMZ/KML)</label>
                         <input type="password" id="apiKeyGemini" placeholder="AIzaSy..." class="w-full bg-cyber-bg border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyber-accent font-mono">
                     </div>
 
@@ -115,11 +115,11 @@
                     </div>
 
                     <div>
-                        <label class="block text-[11px] font-semibold text-slate-300 mb-1">Manifiesto (PDF, PNG, JPG, TXT, DOCX, KMZ, KML)</label>
+                        <label class="block text-[11px] font-semibold text-slate-300 mb-1">Manifiesto o Ruta Satelital</label>
                         <div id="dropZone" class="border-2 border-dashed border-slate-700 hover:border-cyber-accent rounded-lg p-3 text-center cursor-pointer bg-cyber-bg/50 transition-colors">
                             <span class="text-xl">📁</span>
-                            <p class="text-[11px] text-slate-400">Arrastra o haz clic para adjuntar archivo</p>
-                            <span class="text-[9px] text-cyber-cyan font-mono block mt-0.5">Soporta .kmz satelital directo</span>
+                            <p class="text-[11px] text-slate-400">Arrastra archivos aquí o haz clic</p>
+                            <span class="text-[9px] text-emerald-400 font-mono block mt-0.5 font-bold">KMZ, KML, PDF, PNG, JPG, TXT, DOCX</span>
                             <input type="file" id="fileInput" accept=".pdf,.png,.jpg,.jpeg,.txt,.docx,.kmz,.kml" multiple class="hidden">
                         </div>
                         <div id="fileFeedback" class="mt-1 text-[10px] text-cyber-cyan font-mono max-h-12 overflow-y-auto hidden"></div>
@@ -129,11 +129,11 @@
                 <!-- ACCIONES DE EXTRACCIÓN Y GEOCODIFICACIÓN -->
                 <div class="space-y-2 pt-2 border-t border-cyber-border">
                     <button id="btnPaso1Extraer" onclick="ejecutarPaso1Extraccion()" class="w-full bg-cyber-accent hover:bg-sky-400 text-slate-950 font-bold py-2.5 px-4 rounded-lg text-xs transition-all flex items-center justify-center gap-2 shadow-lg shadow-cyber-accent/10">
-                        <span>🧠</span> Paso 1: Procesar Archivos (IA / KMZ)
+                        <span>🧠</span> Procesar y Extraer Rutas
                     </button>
 
                     <button id="btnPaso2GeolocalizarTodos" onclick="ejecutarPaso2GeolocalizarTodas()" class="w-full bg-cyber-purple/20 hover:bg-cyber-purple/30 text-cyber-purple border border-cyber-purple/40 font-bold py-2.5 px-4 rounded-lg text-xs transition-all flex items-center justify-center gap-2">
-                        <span>🗺️</span> Paso 2: Geocodificar Paradas Pendientes
+                        <span>🗺️</span> Geocodificar Paradas Pendientes
                     </button>
                 </div>
             </div>
@@ -220,7 +220,7 @@
                         <tbody id="tablaResultadosPreCommit" class="divide-y divide-cyber-border/40 font-sans">
                             <tr>
                                 <td colspan="5" class="p-8 text-center text-slate-500 font-mono">
-                                    Carga un manifiesto o archivo KMZ para extraer, o pulsa <b>Cargar desde Firebase</b> para auditar paradas existentes.
+                                    Carga un archivo KMZ, KML o manifiesto para procesar rutas automáticamente.
                                 </td>
                             </tr>
                         </tbody>
@@ -236,7 +236,7 @@
     <!-- FIREBASE V10 + MOTOR LOGÍSTICO Y OSRM -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, get, set, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDxgP1YnycCEqkQ2vr3SPkwc9QMhtG8Zqw",
@@ -424,7 +424,7 @@
                 let localizado = false;
                 for (const q of consultas) {
                     const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&countrycodes=mx&limit=1`, {
-                        headers: { "User-Agent": "ERPTransportePro/4.3" }
+                        headers: { "User-Agent": "ERPTransportePro/5.0" }
                     });
                     const data = await res.json();
                     if (data && data.length > 0) {
@@ -546,22 +546,43 @@
             };
         }
 
-        // 4. PARSER UNIVERSAL DE ARCHIVOS KMZ / KML (CON SOPORTE DE NAMESPACES Y FALLBACKS)
+        // 4. PARSER UNIVERSAL DE ARCHIVOS KMZ / KML (CON SOPORTE DE POINTS, LINESTRINGS Y MULTI-CAPAS)
         async function procesarArchivoKMZoKML(file) {
             let kmlTexto = "";
             const extension = file.name.split('.').pop().toLowerCase();
 
             if (extension === 'kmz') {
                 const zip = new JSZip();
-                const contenidoZip = await zip.loadAsync(file);
+                let contenidoZip;
+                try {
+                    contenidoZip = await zip.loadAsync(file);
+                } catch (e) {
+                    throw new Error("El archivo .kmz está dañado o no es un paquete válido.");
+                }
+
                 const kmlFileKey = Object.keys(contenidoZip.files).find(nombre => nombre.toLowerCase().endsWith('.kml'));
-                if (!kmlFileKey) throw new Error("No se encontró ningún archivo .kml dentro del paquete .kmz");
+                if (!kmlFileKey) throw new Error("No se encontró ningún archivo .kml dentro del paquete .kmz.");
                 kmlTexto = await contenidoZip.files[kmlFileKey].async("text");
             } else if (extension === 'kml') {
                 kmlTexto = await file.text();
             }
 
-            // 1. Limpieza preventiva de namespaces para parseo uniforme en todos los navegadores
+            if (!kmlTexto || kmlTexto.trim().length === 0) {
+                throw new Error("El archivo KML está vacío.");
+            }
+
+            // Detección de NetworkLinks para prevenir archivos sin datos
+            if (kmlTexto.includes("<NetworkLink>") && kmlTexto.includes("<href>")) {
+                const matchHref = kmlTexto.match(/<href>(.*?)<\/href>/i);
+                const urlEnlace = matchHref ? matchHref[1].replace(/&amp;/g, '&') : '';
+                const urlForzada = urlEnlace ? `${urlEnlace}&forcekml=1` : '';
+                throw new Error(
+                    `Este archivo es un enlace de red virtual y no contiene coordenadas directas.\n\n` +
+                    `Descarga el archivo físico completo abriendo este enlace en tu navegador:\n${urlForzada}`
+                );
+            }
+
+            // Normalización de namespaces
             const kmlLimpio = kmlTexto
                 .replace(/xmlns(:\w+)?="[^"]*"/g, '')
                 .replace(/<(\/)?(\w+):/g, '<$1');
@@ -569,89 +590,121 @@
             const parser = new DOMParser();
             const xmlDoc = parser.parseFromString(kmlLimpio, "text/xml");
 
-            const parseError = xmlDoc.getElementsByTagName("parsererror");
-            if (parseError.length > 0) {
-                throw new Error("El archivo KML interno contiene errores de estructura XML.");
+            const nombreDoc = xmlDoc.getElementsByTagName("Document")[0]?.getElementsByTagName("name")[0]?.textContent?.trim();
+            const nombreRutaFinal = nombreDoc || file.name.replace(/\.[^/.]+$/, "").replace(/[-_]+/g, " ").toUpperCase().trim();
+
+            const placemarks = Array.from(xmlDoc.getElementsByTagName("Placemark"));
+            if (placemarks.length === 0) {
+                throw new Error("No se encontraron elementos <Placemark> dentro del KML.");
             }
 
             const paradasExtraidas = [];
             let contador = 1;
 
-            // 2. Extraer Placemarks (Puntos individuales o Rutas)
-            const placemarks = Array.from(xmlDoc.getElementsByTagName("Placemark"));
-
-            if (placemarks.length > 0) {
-                placemarks.forEach(pm => {
-                    const nombre = pm.getElementsByTagName("name")[0]?.textContent?.trim() || `Punto #${contador}`;
+            // Paso A: Extraer todas las paradas puntuales (<Point>)
+            placemarks.forEach(pm => {
+                const pointTag = pm.getElementsByTagName("Point")[0];
+                if (pointTag) {
+                    const nombre = pm.getElementsByTagName("name")[0]?.textContent?.trim() || `Parada #${contador}`;
                     const desc = pm.getElementsByTagName("description")[0]?.textContent?.trim() || "";
-                    const coordTag = pm.getElementsByTagName("coordinates")[0]?.textContent?.trim();
+                    const coordTexto = pointTag.getElementsByTagName("coordinates")[0]?.textContent?.trim();
 
-                    if (coordTag) {
-                        const bloques = coordTag.split(/\s+/).filter(Boolean);
-
-                        bloques.forEach((bloque, bIdx) => {
-                            const partes = bloque.split(",");
-                            const lng = partes[0]?.trim();
-                            const lat = partes[1]?.trim();
-
-                            if (lat && lng && !isNaN(parseFloat(lat)) && !isNaN(parseFloat(lng))) {
-                                const esMultiPunto = bloques.length > 1;
-                                const etiquetaParada = esMultiPunto ? `${nombre} (Punto ${bIdx + 1})` : nombre;
-
-                                paradasExtraidas.push({
-                                    numeroParada: contador++,
-                                    referenciaOriginal: etiquetaParada,
-                                    cruceVialEnriquecido: desc || etiquetaParada,
-                                    coordenadasAbordaje: `${parseFloat(lat).toFixed(6)}, ${parseFloat(lng).toFixed(6)}`,
-                                    estadoGeocodificacion: "Exacta (KMZ Satelital)",
-                                    horarios: []
-                                });
-                            }
-                        });
-                    }
-                });
-            }
-
-            // 3. Fallback: Si no hay Placemarks pero hay etiquetas <coordinates> en el KML
-            if (paradasExtraidas.length === 0) {
-                const todasCoordenadas = Array.from(xmlDoc.getElementsByTagName("coordinates"));
-                todasCoordenadas.forEach(cTag => {
-                    const texto = cTag.textContent.trim();
-                    const bloques = texto.split(/\s+/).filter(Boolean);
-
-                    bloques.forEach(bloque => {
-                        const partes = bloque.split(",");
+                    if (coordTexto) {
+                        const primerPunto = coordTexto.split(/\s+/)[0];
+                        const partes = primerPunto.split(",");
                         const lng = partes[0]?.trim();
                         const lat = partes[1]?.trim();
 
                         if (lat && lng && !isNaN(parseFloat(lat)) && !isNaN(parseFloat(lng))) {
                             paradasExtraidas.push({
                                 numeroParada: contador++,
-                                referenciaOriginal: `Punto Trazado #${contador - 1}`,
-                                cruceVialEnriquecido: `Coordenada KML #${contador - 1}`,
+                                referenciaOriginal: nombre,
+                                cruceVialEnriquecido: desc || nombre,
                                 coordenadasAbordaje: `${parseFloat(lat).toFixed(6)}, ${parseFloat(lng).toFixed(6)}`,
-                                estadoGeocodificacion: "Exacta (KMZ Satelital)",
+                                estadoGeocodificacion: "Exacta (KML Satelital)",
                                 horarios: []
                             });
                         }
-                    });
+                    }
+                }
+            });
+
+            // Paso B: Si no hubo puntos individuales pero hay trazado lineal (<LineString>)
+            if (paradasExtraidas.length === 0) {
+                placemarks.forEach(pm => {
+                    const lineTag = pm.getElementsByTagName("LineString")[0];
+                    if (lineTag) {
+                        const nombre = pm.getElementsByTagName("name")[0]?.textContent?.trim() || "Punto de Ruta";
+                        const coordTexto = lineTag.getElementsByTagName("coordinates")[0]?.textContent?.trim();
+                        if (coordTexto) {
+                            const bloques = coordTexto.split(/\s+/).filter(Boolean);
+                            // Muestreo si el trazado tiene miles de vértices
+                            const salto = bloques.length > 40 ? Math.ceil(bloques.length / 30) : 1;
+                            
+                            for (let i = 0; i < bloques.length; i += salto) {
+                                const partes = bloques[i].split(",");
+                                const lng = partes[0]?.trim();
+                                const lat = partes[1]?.trim();
+
+                                if (lat && lng && !isNaN(parseFloat(lat)) && !isNaN(parseFloat(lng))) {
+                                    paradasExtraidas.push({
+                                        numeroParada: contador++,
+                                        referenciaOriginal: `${nombre} (Vértice ${contador - 1})`,
+                                        cruceVialEnriquecido: `Punto de trazado`,
+                                        coordenadasAbordaje: `${parseFloat(lat).toFixed(6)}, ${parseFloat(lng).toFixed(6)}`,
+                                        estadoGeocodificacion: "Exacta (KML Trazado)",
+                                        horarios: []
+                                    });
+                                }
+                            }
+                        }
+                    }
                 });
             }
 
             if (paradasExtraidas.length === 0) {
-                throw new Error("No se detectaron coordenadas válidas (Latitud/Longitud) dentro del archivo KMZ/KML.");
+                throw new Error("No se detectaron coordenadas válidas de puntos o líneas dentro del archivo KML.");
             }
 
-            const nombreRutaLimpio = file.name
-                .replace(/\.[^/.]+$/, "")
-                .replace(/[-_]+/g, " ")
-                .toUpperCase()
-                .trim();
-
             return [{
-                nombreRuta: nombreRutaLimpio || "RUTA KMZ SATELITAL",
+                nombreRuta: nombreRutaFinal,
                 paradas: paradasExtraidas
             }];
+        }
+
+        // COMPRESIÓN DINÁMICA DE IMÁGENES PARA NO SATURAR LA API CON ARCHIVOS PESADOS
+        async function optimizarImagenSiEsPesada(file) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.src = URL.createObjectURL(file);
+                img.onload = () => {
+                    URL.revokeObjectURL(img.src);
+                    const maxDim = 1920;
+                    let w = img.width;
+                    let h = img.height;
+
+                    if (w > maxDim || h > maxDim) {
+                        if (w > h) {
+                            h = Math.round((h * maxDim) / w);
+                            w = maxDim;
+                        } else {
+                            w = Math.round((w * maxDim) / h);
+                            h = maxDim;
+                        }
+                    }
+
+                    const canvas = document.createElement("canvas");
+                    canvas.width = w;
+                    canvas.height = h;
+                    const ctx = canvas.getContext("2d");
+                    ctx.drawImage(img, 0, 0, w, h);
+
+                    canvas.toBlob((blob) => {
+                        resolve(blob || file);
+                    }, "image/jpeg", 0.82);
+                };
+                img.onerror = () => resolve(file);
+            });
         }
 
         async function prepararContenidoArchivo(file) {
@@ -661,7 +714,13 @@
                 const res = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
                 return { tipo: 'texto', payload: { text: res.value } };
             }
-            const base64Data = await transformarArchivoABase64(file);
+
+            let archivoFinal = file;
+            if (['png', 'jpg', 'jpeg'].includes(extension) && file.size > 2 * 1024 * 1024) {
+                archivoFinal = await optimizarImagenSiEsPesada(file);
+            }
+
+            const base64Data = await transformarArchivoABase64(archivoFinal);
             const parts = base64Data.split(",");
             let mimeType = "application/pdf";
             if (extension === 'png') mimeType = "image/png";
@@ -669,7 +728,7 @@
             return { tipo: 'media', payload: { inlineData: { mimeType: mimeType, data: parts[1] } } };
         }
 
-        // 5. EXTRACTOR ROBUSTO GEMINI IA
+        // 5. EXTRACTOR CON RESILIENCIA DE MODELOS GEMINI IA
         async function procesarArchivoPaso1(file, apiKey, empresa, estadoDefecto) {
             const contenido = await prepararContenidoArchivo(file);
             
@@ -783,6 +842,9 @@ Reglas estrictas:
         }
 
         async function geocodificarParada(parada, municipio, estado) {
+            if (parada.coordenadasAbordaje && parada.coordenadasAbordaje.includes(",")) {
+                return { coords: parada.coordenadasAbordaje.trim(), origen: "Exacta" };
+            }
             if (parada.coordenadaDetectadaDirecta && parada.coordenadaDetectadaDirecta.includes(",")) {
                 return { coords: parada.coordenadaDetectadaDirecta.trim(), origen: "Exacta (Texto)" };
             }
@@ -795,7 +857,7 @@ Reglas estrictas:
             for (const q of querys) {
                 if (!q || q.length < 5) continue;
                 try {
-                    const res = await fetch(`[https://nominatim.openstreetmap.org/search?format=json&q=$](https://nominatim.openstreetmap.org/search?format=json&q=$){encodeURIComponent(q)}&countrycodes=mx&limit=1`, { headers: { "User-Agent": "ERPTransportePro/4.3" } });
+                    const res = await fetch(`[https://nominatim.openstreetmap.org/search?format=json&q=$](https://nominatim.openstreetmap.org/search?format=json&q=$){encodeURIComponent(q)}&countrycodes=mx&limit=1`, { headers: { "User-Agent": "ERPTransportePro/5.0" } });
                     const data = await res.json();
                     if (data && data.length > 0) return { coords: `${parseFloat(data[0].lat).toFixed(6)}, ${parseFloat(data[0].lon).toFixed(6)}`, origen: "Nominatim OSM" };
                 } catch (e) { }
@@ -810,7 +872,7 @@ Reglas estrictas:
             const estadoDefecto = document.getElementById("estadoOperacionInput").value.trim() || "Nuevo León";
             const fileInput = document.getElementById("fileInput");
 
-            if (!empresa || !fileInput.files.length) return alert("⚠️ Completa Empresa y selecciona al menos un archivo.");
+            if (!empresa || !fileInput.files.length) return alert("⚠️ Selecciona una Empresa y adjunta al menos un archivo.");
 
             const btn = document.getElementById("btnPaso1Extraer");
             btn.disabled = true;
@@ -825,7 +887,7 @@ Reglas estrictas:
                         btn.innerHTML = `<span>🛰️</span> Parseando Satelital ${f.name}...`;
                         rutas = await procesarArchivoKMZoKML(f);
                     } else {
-                        if (!apiKey) throw new Error("Se requiere Gemini API Key para procesar archivos PDF, imágenes o documentos.");
+                        if (!apiKey) throw new Error("Se requiere Gemini API Key para procesar archivos PDF, imágenes o documentos de texto.");
                         btn.innerHTML = `<span>🧠</span> Extrayendo con IA ${f.name}...`;
                         rutas = await procesarArchivoPaso1(f, apiKey, empresa, estadoDefecto);
                     }
@@ -850,7 +912,7 @@ Reglas estrictas:
                 alert("Error en la extracción: " + err.message);
             } finally {
                 btn.disabled = false;
-                btn.innerHTML = '<span>🧠</span> Paso 1: Procesar Archivos (IA / KMZ)';
+                btn.innerHTML = '<span>🧠</span> Procesar y Extraer Rutas';
             }
         }
 
@@ -873,7 +935,7 @@ Reglas estrictas:
                 coleccionRutas[i] = normalizarRutaParaInyeccion(r);
             }
             btn.disabled = false;
-            btn.innerHTML = '<span>🗺️</span> Paso 2: Geocodificar Paradas Pendientes';
+            btn.innerHTML = '<span>🗺️</span> Geocodificar Paradas Pendientes';
             await renderizarTablaYMapa();
             alert("✅ Geocodificación completada.");
         }
