@@ -345,7 +345,6 @@
                             horarios: p.horarios || []
                         }));
                     } else if (r.puntosAbordaje) {
-                        // Descomprimir texto plano si venía de un formato antiguo
                         const puntosArr = r.puntosAbordaje.split(",").map(p => p.trim());
                         paradasNormalizadas = puntosArr.map((pto, idx) => ({
                             numeroParada: idx + 1,
@@ -558,81 +557,106 @@
             return { tipo: 'media', payload: { inlineData: { mimeType: mimeType, data: parts[1] } } };
         }
 
+        // FUNCIÓN CORREGIDA Y ROBUSTA
         async function procesarArchivoPaso1(file, apiKey, empresa, estadoDefecto) {
             const contenido = await prepararContenidoArchivo(file);
+            
             const promptInstrucciones = {
-                text: `
-                Eres un experto en logística de transporte para la empresa "${empresa}".
-                Extrae TODAS las rutas y paradas del archivo.
-                1. Horarios duales: genera formatoCivil (ej. 06:15 AM) y formatoMilitar (ej. 06:15).
-                2. Si incluye coordenadas o URLs de Google Maps, extráelas en coordenadaDetectadaDirecta o urlGoogleMaps.
-                3. Identifica cruces viales y referencias reconocibles por parada.
-                `
-            };
+                text: `Eres un analista de transporte de personal para la empresa "${empresa}" en ${estadoDefecto}, México.
+Tu tarea es analizar el documento adjunto y extraer TODAS las rutas de transporte y paradas disponibles.
 
-            const schemaDefinition = {
-                type: "ARRAY",
-                items: {
-                    type: "OBJECT",
-                    properties: {
-                        nombreRuta: { type: "STRING" },
-                        empresaDestino: { type: "STRING" },
-                        municipio: { type: "STRING" },
-                        estado: { type: "STRING" },
-                        paradas: {
-                            type: "ARRAY",
-                            items: {
-                                type: "OBJECT",
-                                properties: {
-                                    numeroParada: { type: "INTEGER" },
-                                    referenciaOriginal: { type: "STRING" },
-                                    cruceVialEnriquecido: { type: "STRING" },
-                                    horarios: {
-                                        type: "ARRAY",
-                                        items: {
-                                            type: "OBJECT",
-                                            properties: {
-                                                etiquetaTurno: { type: "STRING" },
-                                                formatoCivil: { type: "STRING" },
-                                                formatoMilitar: { type: "STRING" }
-                                            },
-                                            required: ["formatoCivil", "formatoMilitar"]
-                                        }
-                                    },
-                                    urlGoogleMaps: { type: "STRING" },
-                                    coordenadaDetectadaDirecta: { type: "STRING" }
-                                },
-                                required: ["numeroParada", "referenciaOriginal", "cruceVialEnriquecido", "horarios"]
-                            }
-                        }
-                    },
-                    required: ["nombreRuta", "empresaDestino", "paradas"]
-                }
+DEBES RESPONDER EXCLUSIVAMENTE UN ARREGLO JSON VÁLIDO (sin texto adicional, sin formato Markdown exterior, solo la estructura JSON pura).
+
+Estructura requerida:
+[
+  {
+    "nombreRuta": "Nombre de la Ruta (ej. Ruta 1 - Apodaca)",
+    "empresaDestino": "${empresa}",
+    "municipio": "Municipio principal detectado o General",
+    "estado": "${estadoDefecto}",
+    "paradas": [
+      {
+        "numeroParada": 1,
+        "referenciaOriginal": "Nombre de la parada / esquina / comercio visible",
+        "cruceVialEnriquecido": "Avenidas o calles que cruzan la parada",
+        "horarios": [
+          {
+            "etiquetaTurno": "Día",
+            "formatoCivil": "06:30 AM",
+            "formatoMilitar": "06:30"
+          }
+        ],
+        "coordenadaDetectadaDirecta": "Lat, Lng si aparece explícita en el texto, o vacío",
+        "urlGoogleMaps": "Enlace de Maps si viene en el documento, o vacío"
+      }
+    ]
+  }
+]
+
+Reglas estrictas:
+- Extrae cada una de las paradas numeradas secuencialmente.
+- Asegúrate de que las horas estén formateadas en formatoCivil ("hh:mm AM/PM") y formatoMilitar ("hh:mm").
+- Si hay horarios de noche o tarde, agrégalos en el arreglo "horarios" de la parada.`
             };
 
             const payloadBase = {
                 contents: [{ parts: [promptInstrucciones, contenido.payload] }],
-                generationConfig: { temperature: 0.0, responseMimeType: "application/json", responseSchema: schemaDefinition }
+                generationConfig: {
+                    temperature: 0.1,
+                    responseMimeType: "application/json"
+                }
             };
 
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payloadBase)
-            });
+            const modelos = ["gemini-2.5-flash", "gemini-1.5-flash"];
+            let ultimoError = null;
 
-            if (res.ok) {
-                const jsonRes = await res.json();
-                return JSON.parse(jsonRes.candidates?.[0]?.content?.parts?.[0]?.text);
+            for (const modelo of modelos) {
+                try {
+                    const urlApi = `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${apiKey}`;
+                    const res = await fetch(urlApi, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(payloadBase)
+                    });
+
+                    if (!res.ok) {
+                        const errorJson = await res.json().catch(() => ({}));
+                        const mensajeDetalle = errorJson.error?.message || `HTTP ${res.status} ${res.statusText}`;
+                        throw new Error(`[${modelo}] ${mensajeDetalle}`);
+                    }
+
+                    const jsonRes = await res.json();
+                    let textoIA = jsonRes.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                    if (!textoIA) {
+                        throw new Error("El modelo devolvió una respuesta vacía o bloqueada por políticas de contenido.");
+                    }
+
+                    // Limpieza preventiva si el modelo incluye backticks
+                    textoIA = textoIA.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
+
+                    const resultado = JSON.parse(textoIA);
+                    if (Array.isArray(resultado)) {
+                        return resultado;
+                    } else if (resultado && typeof resultado === 'object') {
+                        const arregloDetectado = Object.values(resultado).find(v => Array.isArray(v));
+                        if (arregloDetectado) return arregloDetectado;
+                        return [resultado];
+                    }
+                } catch (err) {
+                    console.warn(`Fallo con ${modelo}:`, err.message);
+                    ultimoError = err;
+                }
             }
-            throw new Error("No se pudo extraer la información del manifiesto.");
+
+            throw new Error(ultimoError ? ultimoError.message : "No se pudo extraer la información del manifiesto.");
         }
 
         async function calcularRutaVialOSRM(coordenadasLatLng) {
             if (coordenadasLatLng.length < 2) return null;
             const coordinatesString = coordenadasLatLng.map(c => `${c[1]},${c[0]}`).join(';');
             try {
-                const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${coordinatesString}?overview=full&geometries=geojson`);
+                const res = await fetch(`[https://router.project-osrm.org/route/v1/driving/$](https://router.project-osrm.org/route/v1/driving/$){coordinatesString}?overview=full&geometries=geojson`);
                 const data = await res.json();
                 if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
                     return {
@@ -660,7 +684,7 @@
             for (const q of querys) {
                 if (!q || q.length < 5) continue;
                 try {
-                    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&countrycodes=mx&limit=1`, { headers: { "User-Agent": "ERPTransportePro/4.0" } });
+                    const res = await fetch(`[https://nominatim.openstreetmap.org/search?format=json&q=$](https://nominatim.openstreetmap.org/search?format=json&q=$){encodeURIComponent(q)}&countrycodes=mx&limit=1`, { headers: { "User-Agent": "ERPTransportePro/4.0" } });
                     const data = await res.json();
                     if (data && data.length > 0) return { coords: `${parseFloat(data[0].lat).toFixed(6)}, ${parseFloat(data[0].lon).toFixed(6)}`, origen: "Nominatim OSM" };
                 } catch (e) { }
