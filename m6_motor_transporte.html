@@ -61,9 +61,9 @@
         <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-cyber-border pb-5">
             <div>
                 <h1 class="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
-                    <span class="text-cyber-accent">⚡</span> Motor Logístico de Transporte <span class="text-xs bg-cyber-accent/20 text-cyber-accent px-2 py-0.5 rounded border border-cyber-accent/40 font-mono">v5.0 Enterprise High-Load</span>
+                    <span class="text-cyber-accent">⚡</span> Motor Logístico de Transporte <span class="text-xs bg-cyber-accent/20 text-cyber-accent px-2 py-0.5 rounded border border-cyber-accent/40 font-mono">v5.2 Industrial OSRM</span>
                 </h1>
-                <p class="text-xs text-slate-400 mt-1">Extractor híbrido satelital KMZ/KML, IA Gemini con soporte para archivos pesados y ruteo vial OSRM</p>
+                <p class="text-xs text-slate-400 mt-1">Fusión híbrida KML/KMZ + PDF, ruteo vial por segmentos OSRM y base canónica</p>
             </div>
             <div class="flex items-center gap-2 flex-wrap">
                 <a href="m6_transporte.html" class="bg-cyber-card hover:bg-slate-800 text-slate-300 border border-cyber-border font-mono text-xs px-3.5 py-2 rounded-xl flex items-center gap-2 transition-all">
@@ -105,7 +105,7 @@
                     </div>
 
                     <div>
-                        <label class="block text-[11px] font-semibold text-slate-300 mb-1">Gemini API Key (No requerida para KMZ/KML)</label>
+                        <label class="block text-[11px] font-semibold text-slate-300 mb-1">Gemini API Key (Requerida si incluye PDF/Docx)</label>
                         <input type="password" id="apiKeyGemini" placeholder="AIzaSy..." class="w-full bg-cyber-bg border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyber-accent font-mono">
                     </div>
 
@@ -118,8 +118,8 @@
                         <label class="block text-[11px] font-semibold text-slate-300 mb-1">Manifiesto o Ruta Satelital</label>
                         <div id="dropZone" class="border-2 border-dashed border-slate-700 hover:border-cyber-accent rounded-lg p-3 text-center cursor-pointer bg-cyber-bg/50 transition-colors">
                             <span class="text-xl">📁</span>
-                            <p class="text-[11px] text-slate-400">Arrastra archivos aquí o haz clic</p>
-                            <span class="text-[9px] text-emerald-400 font-mono block mt-0.5 font-bold">KMZ, KML, PDF, PNG, JPG, TXT, DOCX</span>
+                            <p class="text-[11px] text-slate-400">Arrastra KML/KMZ y PDF juntos o haz clic</p>
+                            <span class="text-[9px] text-emerald-400 font-mono block mt-0.5 font-bold">Soporta selección múltiple simultánea</span>
                             <input type="file" id="fileInput" accept=".pdf,.png,.jpg,.jpeg,.txt,.docx,.kmz,.kml" multiple class="hidden">
                         </div>
                         <div id="fileFeedback" class="mt-1 text-[10px] text-cyber-cyan font-mono max-h-12 overflow-y-auto hidden"></div>
@@ -220,7 +220,7 @@
                         <tbody id="tablaResultadosPreCommit" class="divide-y divide-cyber-border/40 font-sans">
                             <tr>
                                 <td colspan="5" class="p-8 text-center text-slate-500 font-mono">
-                                    Carga un archivo KMZ, KML o manifiesto para procesar rutas automáticamente.
+                                    Carga un archivo KMZ, KML o manifiesto para procesar rutas automáticamente[cite: 1].
                                 </td>
                             </tr>
                         </tbody>
@@ -424,7 +424,7 @@
                 let localizado = false;
                 for (const q of consultas) {
                     const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&countrycodes=mx&limit=1`, {
-                        headers: { "User-Agent": "ERPTransportePro/5.0" }
+                        headers: { "User-Agent": "ERPTransportePro/5.2" }
                     });
                     const data = await res.json();
                     if (data && data.length > 0) {
@@ -546,7 +546,7 @@
             };
         }
 
-        // 4. PARSER UNIVERSAL DE ARCHIVOS KMZ / KML (CON SOPORTE DE POINTS, LINESTRINGS Y MULTI-CAPAS)
+        // 4. PARSER EXACTO GOOGLE EARTH / MY MAPS (POINTS + LINESTRINGS)
         async function procesarArchivoKMZoKML(file) {
             let kmlTexto = "";
             const extension = file.name.split('.').pop().toLowerCase();
@@ -571,7 +571,7 @@
                 throw new Error("El archivo KML está vacío.");
             }
 
-            // Detección de NetworkLinks para prevenir archivos sin datos
+            // Detección preventiva de NetworkLinks
             if (kmlTexto.includes("<NetworkLink>") && kmlTexto.includes("<href>")) {
                 const matchHref = kmlTexto.match(/<href>(.*?)<\/href>/i);
                 const urlEnlace = matchHref ? matchHref[1].replace(/&amp;/g, '&') : '';
@@ -582,7 +582,7 @@
                 );
             }
 
-            // Normalización de namespaces
+            // Limpieza de namespaces
             const kmlLimpio = kmlTexto
                 .replace(/xmlns(:\w+)?="[^"]*"/g, '')
                 .replace(/<(\/)?(\w+):/g, '<$1');
@@ -601,7 +601,7 @@
             const paradasExtraidas = [];
             let contador = 1;
 
-            // Paso A: Extraer todas las paradas puntuales (<Point>)
+            // Extraer paradas puntuales (<Point>)
             placemarks.forEach(pm => {
                 const pointTag = pm.getElementsByTagName("Point")[0];
                 if (pointTag) {
@@ -629,7 +629,7 @@
                 }
             });
 
-            // Paso B: Si no hubo puntos individuales pero hay trazado lineal (<LineString>)
+            // Fallback: Si no hubo puntos individuales, extraer vértices de LineString
             if (paradasExtraidas.length === 0) {
                 placemarks.forEach(pm => {
                     const lineTag = pm.getElementsByTagName("LineString")[0];
@@ -638,7 +638,6 @@
                         const coordTexto = lineTag.getElementsByTagName("coordinates")[0]?.textContent?.trim();
                         if (coordTexto) {
                             const bloques = coordTexto.split(/\s+/).filter(Boolean);
-                            // Muestreo si el trazado tiene miles de vértices
                             const salto = bloques.length > 40 ? Math.ceil(bloques.length / 30) : 1;
                             
                             for (let i = 0; i < bloques.length; i += salto) {
@@ -663,7 +662,7 @@
             }
 
             if (paradasExtraidas.length === 0) {
-                throw new Error("No se detectaron coordenadas válidas de puntos o líneas dentro del archivo KML.");
+                throw new Error("No se detectaron coordenadas válidas dentro del archivo KML.");
             }
 
             return [{
@@ -672,7 +671,7 @@
             }];
         }
 
-        // COMPRESIÓN DINÁMICA DE IMÁGENES PARA NO SATURAR LA API CON ARCHIVOS PESADOS
+        // COMPRESIÓN DINÁMICA DE IMÁGENES GRANDES
         async function optimizarImagenSiEsPesada(file) {
             return new Promise((resolve) => {
                 const img = new Image();
@@ -822,23 +821,48 @@ Reglas estrictas:
             throw new Error(ultimoError ? ultimoError.message : "No se pudo extraer la información del manifiesto.");
         }
 
+        // 6. MOTOR DE RUTEO VIAL REAL OSRM POR SEGMENTOS (CHUNKING ROBUSTO)
         async function calcularRutaVialOSRM(coordenadasLatLng) {
-            if (coordenadasLatLng.length < 2) return null;
-            const coordinatesString = coordenadasLatLng.map(c => `${c[1]},${c[0]}`).join(';');
-            try {
-                const res = await fetch(`[https://router.project-osrm.org/route/v1/driving/$](https://router.project-osrm.org/route/v1/driving/$){coordinatesString}?overview=full&geometries=geojson`);
-                const data = await res.json();
-                if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
-                    return {
-                        distanciaKm: (data.routes[0].distance / 1000).toFixed(2),
-                        duracionMin: Math.round(data.routes[0].duration / 60),
-                        geoJsonGeometry: data.routes[0].geometry
-                    };
+            if (!coordenadasLatLng || coordenadasLatLng.length < 2) return null;
+
+            let distanciaTotalMetros = 0;
+            let duracionTotalSegundos = 0;
+            const todosPuntosGeoJSON = [];
+
+            // Segmentación en bloques de 8 puntos para evitar errores de URL en OSRM
+            const tamanoLote = 8;
+            for (let i = 0; i < coordenadasLatLng.length - 1; i += (tamanoLote - 1)) {
+                const segmento = coordenadasLatLng.slice(i, i + tamanoLote);
+                if (segmento.length < 2) break;
+
+                const coordinatesString = segmento.map(c => `${c[1]},${c[0]}`).join(';');
+                const urlOsrm = `[https://router.project-osrm.org/route/v1/driving/$](https://router.project-osrm.org/route/v1/driving/$){coordinatesString}?overview=full&geometries=geojson`;
+
+                try {
+                    const res = await fetch(urlOsrm);
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    const data = await res.json();
+
+                    if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+                        distanciaTotalMetros += data.routes[0].distance;
+                        duracionTotalSegundos += data.routes[0].duration;
+
+                        const coordsSegmento = data.routes[0].geometry.coordinates; // [lng, lat]
+                        coordsSegmento.forEach(pt => todosPuntosGeoJSON.push([pt[1], pt[0]])); // [lat, lng]
+                    } else {
+                        segmento.forEach(pt => todosPuntosGeoJSON.push(pt));
+                    }
+                } catch (e) {
+                    console.warn("Fallo segmento OSRM, aplicando trazado directo:", e);
+                    segmento.forEach(pt => todosPuntosGeoJSON.push(pt));
                 }
-            } catch (e) {
-                console.warn("OSRM no respondió:", e);
             }
-            return null;
+
+            return {
+                distanciaKm: (distanciaTotalMetros / 1000).toFixed(2),
+                duracionMin: Math.round(duracionTotalSegundos / 60),
+                puntosPolilinea: todosPuntosGeoJSON
+            };
         }
 
         async function geocodificarParada(parada, municipio, estado) {
@@ -857,7 +881,7 @@ Reglas estrictas:
             for (const q of querys) {
                 if (!q || q.length < 5) continue;
                 try {
-                    const res = await fetch(`[https://nominatim.openstreetmap.org/search?format=json&q=$](https://nominatim.openstreetmap.org/search?format=json&q=$){encodeURIComponent(q)}&countrycodes=mx&limit=1`, { headers: { "User-Agent": "ERPTransportePro/5.0" } });
+                    const res = await fetch(`[https://nominatim.openstreetmap.org/search?format=json&q=$](https://nominatim.openstreetmap.org/search?format=json&q=$){encodeURIComponent(q)}&countrycodes=mx&limit=1`, { headers: { "User-Agent": "ERPTransportePro/5.2" } });
                     const data = await res.json();
                     if (data && data.length > 0) return { coords: `${parseFloat(data[0].lat).toFixed(6)}, ${parseFloat(data[0].lon).toFixed(6)}`, origen: "Nominatim OSM" };
                 } catch (e) { }
@@ -866,50 +890,101 @@ Reglas estrictas:
             return { coords: "", origen: "Sin Geocodificar" };
         }
 
+        // 7. EXTRACCIÓN Y FUSIÓN HÍBRIDA (KML + PDF EN TIEMPO REAL)
         async function ejecutarPaso1Extraccion() {
             const apiKey = document.getElementById("apiKeyGemini").value.trim();
             const empresa = document.getElementById("empresaValidacionIA").value.trim();
             const estadoDefecto = document.getElementById("estadoOperacionInput").value.trim() || "Nuevo León";
             const fileInput = document.getElementById("fileInput");
 
-            if (!empresa || !fileInput.files.length) return alert("⚠️ Selecciona una Empresa y adjunta al menos un archivo.");
+            if (!empresa || !fileInput.files.length) return alert("⚠️ Selecciona una Empresa y adjunta los archivos.");
 
             const btn = document.getElementById("btnPaso1Extraer");
             btn.disabled = true;
-            coleccionRutas = [];
 
             try {
-                for (const f of Array.from(fileInput.files)) {
+                const archivos = Array.from(fileInput.files);
+                const archivoKML = archivos.find(f => {
                     const ext = f.name.split('.').pop().toLowerCase();
-                    let rutas = [];
+                    return ext === 'kml' || ext === 'kmz';
+                });
+                const archivoDoc = archivos.find(f => {
+                    const ext = f.name.split('.').pop().toLowerCase();
+                    return ['pdf', 'png', 'jpg', 'jpeg', 'txt', 'docx'].includes(ext);
+                });
 
-                    if (ext === 'kmz' || ext === 'kml') {
-                        btn.innerHTML = `<span>🛰️</span> Parseando Satelital ${f.name}...`;
-                        rutas = await procesarArchivoKMZoKML(f);
-                    } else {
-                        if (!apiKey) throw new Error("Se requiere Gemini API Key para procesar archivos PDF, imágenes o documentos de texto.");
-                        btn.innerHTML = `<span>🧠</span> Extrayendo con IA ${f.name}...`;
-                        rutas = await procesarArchivoPaso1(f, apiKey, empresa, estadoDefecto);
+                // ESCENARIO A: FUSIÓN HÍBRIDA (Subieron KML y Manifiesto juntos)
+                if (archivoKML && archivoDoc) {
+                    if (!apiKey) throw new Error("Se requiere Gemini API Key para procesar los horarios del PDF/Imagen.");
+
+                    btn.innerHTML = `<span>🛰️</span> 1/2: Leyendo coordenadas KML...`;
+                    const rutasKml = await procesarArchivoKMZoKML(archivoKML);
+
+                    btn.innerHTML = `<span>🧠</span> 2/2: Extrayendo horarios del PDF...`;
+                    const rutasDoc = await procesarArchivoPaso1(archivoDoc, apiKey, empresa, estadoDefecto);
+
+                    btn.innerHTML = `<span>⚡</span> Fusionando Coordenadas + Horarios...`;
+                    
+                    const rutaFusionada = rutasKml[0];
+                    const rutaDocInfo = rutasDoc[0] || {};
+
+                    rutaFusionada.paradas.forEach((paradaKml, index) => {
+                        const paradaDoc = rutaDocInfo.paradas?.[index];
+                        if (paradaDoc) {
+                            if (!paradaKml.referenciaOriginal || /^PARADA\s*\d+$/i.test(paradaKml.referenciaOriginal.trim())) {
+                                paradaKml.referenciaOriginal = paradaDoc.referenciaOriginal || paradaKml.referenciaOriginal;
+                            }
+                            paradaKml.cruceVialEnriquecido = paradaDoc.cruceVialEnriquecido || paradaKml.cruceVialEnriquecido;
+                            paradaKml.horarios = paradaDoc.horarios || [];
+                        }
+                    });
+
+                    if (rutaDocInfo.nombreRuta && !rutaDocInfo.nombreRuta.includes("Sin Nombre")) {
+                        rutaFusionada.nombreRuta = rutaDocInfo.nombreRuta;
                     }
 
-                    rutas.forEach(r => {
-                        r.empresaDestino = empresa;
-                        r.estado = r.estado || estadoDefecto;
-                        r.paradas.forEach(p => {
-                            if (!p.coordenadasAbordaje) {
-                                p.coordenadasAbordaje = p.coordenadaDetectadaDirecta || "";
-                                p.estadoGeocodificacion = p.coordenadasAbordaje ? "Exacta (Texto)" : "Sin Geocodificar";
-                            }
+                    rutaFusionada.empresaDestino = empresa;
+                    rutaFusionada.estado = estadoDefecto;
+
+                    coleccionRutas = [normalizarRutaParaInyeccion(rutaFusionada)];
+                    alert(`✅ ¡Fusión Híbrida Exitosa! Se combinaron las ${rutaFusionada.paradas.length} paradas satelitales con los nombres y horarios.`);
+
+                // ESCENARIO B: EXTRACCIÓN INDIVIDUAL HABITUAL
+                } else {
+                    coleccionRutas = [];
+                    for (const f of archivos) {
+                        const ext = f.name.split('.').pop().toLowerCase();
+                        let rutas = [];
+
+                        if (ext === 'kmz' || ext === 'kml') {
+                            btn.innerHTML = `<span>🛰️</span> Parseando Satelital ${f.name}...`;
+                            rutas = await procesarArchivoKMZoKML(f);
+                        } else {
+                            if (!apiKey) throw new Error("Se requiere Gemini API Key para procesar documentos.");
+                            btn.innerHTML = `<span>🧠</span> Extrayendo con IA ${f.name}...`;
+                            rutas = await procesarArchivoPaso1(f, apiKey, empresa, estadoDefecto);
+                        }
+
+                        rutas.forEach(r => {
+                            r.empresaDestino = empresa;
+                            r.estado = r.estado || estadoDefecto;
+                            r.paradas.forEach(p => {
+                                if (!p.coordenadasAbordaje) {
+                                    p.coordenadasAbordaje = p.coordenadaDetectadaDirecta || "";
+                                    p.estadoGeocodificacion = p.coordenadasAbordaje ? "Exacta (Texto)" : "Sin Geocodificar";
+                                }
+                            });
+                            coleccionRutas.push(normalizarRutaParaInyeccion(r));
                         });
-                        coleccionRutas.push(normalizarRutaParaInyeccion(r));
-                    });
+                    }
+                    alert(`✅ Se procesaron ${coleccionRutas.length} rutas.`);
                 }
 
                 actualizarSelectRutas();
                 await renderizarTablaYMapa();
-                alert(`✅ Se extrajeron ${coleccionRutas.length} rutas con éxito.`);
+
             } catch (err) {
-                alert("Error en la extracción: " + err.message);
+                alert("Error en la extracción / fusión: " + err.message);
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = '<span>🧠</span> Procesar y Extraer Rutas';
@@ -977,7 +1052,7 @@ Reglas estrictas:
             renderizarTablaYMapa();
         }
 
-        // 6. EDICIÓN DINÁMICA DE CAMPOS DE LA PARADA
+        // 8. EDICIÓN DINÁMICA DE CAMPOS DE LA PARADA
         function actualizarReferenciaParada(nombreRuta, numParada, valor) {
             const r = coleccionRutas.find(x => x.nombreRuta === nombreRuta);
             if (r) {
@@ -1024,7 +1099,7 @@ Reglas estrictas:
             }
         }
 
-        // 7. INYECCIÓN GRANULAR (PARADA POR PARADA)
+        // 9. INYECCIÓN GRANULAR (PARADA POR PARADA)
         async function guardarParadaIndividualAFirebase(nombreRuta, numParada) {
             const r = coleccionRutas.find(x => x.nombreRuta === nombreRuta);
             if (!r) return;
@@ -1044,7 +1119,7 @@ Reglas estrictas:
             }
         }
 
-        // 8. RENDERIZADO TABULAR Y CARTOGRÁFICO
+        // 10. RENDERIZADO TABULAR Y CARTOGRÁFICO CON POLILÍNEA VIAL REAL
         async function renderizarTablaYMapa() {
             const tbody = document.getElementById("tablaResultadosPreCommit");
             tbody.innerHTML = "";
@@ -1135,16 +1210,19 @@ Reglas estrictas:
 
                 if (puntosRuta.length >= 2) {
                     const routingRes = await calcularRutaVialOSRM(puntosRuta);
-                    if (routingRes) {
+                    if (routingRes && routingRes.puntosPolilinea.length > 0) {
                         ruta.distanciaTotalKm = routingRes.distanciaKm;
                         ruta.tiempoEstimadoMin = routingRes.duracionMin;
                         distanciaTotalAcumulada += parseFloat(routingRes.distanciaKm);
 
-                        L.geoJSON(routingRes.geoJsonGeometry, {
-                            style: { color: '#38bdf8', weight: 3.5, opacity: 0.85 }
+                        L.polyline(routingRes.puntosPolilinea, {
+                            color: '#38bdf8',
+                            weight: 4,
+                            opacity: 0.85,
+                            smoothFactor: 1
                         }).addTo(polylineGroup);
 
-                        if (rutaSeleccionadaFiltro === ruta.nombreRuta) {
+                        if (rutaSeleccionadaFiltro === ruta.nombreRuta || rutaSeleccionadaFiltro === "TODAS") {
                             document.getElementById("lblDistanciaKm").innerText = routingRes.distanciaKm;
                             document.getElementById("lblTiempoMin").innerText = routingRes.duracionMin;
                         }
