@@ -247,11 +247,9 @@
                     </div>
 
                     <div class="flex flex-wrap items-center gap-2">
-                        <!-- BOTÓN PARA TRAZAR ASFALTO O LIMPIAR A DEMANDA -->
                         <button id="btnTrazarAsfalto" onclick="toggleTrazadoAsfalto()" class="bg-cyber-amber/20 hover:bg-cyber-amber/40 text-cyber-amber border border-cyber-amber/40 px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm">
                             <span>🛣️</span> <span id="lblBtnTrazarAsfalto">Trazar Asfalto (OSRM)</span>
                         </button>
-
                         <button id="btnPaso2RutaActual" onclick="geolocalizarRutaSeleccionada()" class="bg-cyber-purple/20 hover:bg-cyber-purple/40 text-cyber-purple border border-cyber-purple/40 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all">
                             🗺️ Geocodificar Bloque
                         </button>
@@ -294,7 +292,7 @@
 
     </div>
 
-    <!-- MÓDULO JS OPTIMIZADO: EXTRACCIÓN MASIVA, MAPA CLARO & DEDUPLICACIÓN EN MEMORIA -->
+    <!-- MÓDULO JS: EXTRACCIÓN MASIVA, MAPA CLARO, OSRM REAL & DEDUPLICACIÓN EN MEMORIA -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
@@ -412,7 +410,7 @@
                 });
                 
                 listaNombres.sort((a, b) => a.localeCompare(b)).forEach(nom => {
-                    selectValidacion.innerHTML += '<option value="' + nom + '">' + nom + '</option>';
+                    selectValidacion.innerHTML += `<option value="${nom}">${nom}</option>`;
                 });
             } catch (e) {
                 console.error("Error cargando empresas:", e);
@@ -434,13 +432,13 @@
         }
 
         function crearIconoLagrimaGPS(numero, colorHex) {
-            const svgHtml = '<div class="gps-pin-marker">' +
-                '<svg class="gps-pin-svg" viewBox="0 0 384 512" fill="' + colorHex + '" xmlns="http://www.w3.org/2000/svg">' +
-                '<path stroke="#ffffff" stroke-width="20" d="M172.268 501.67C26.97 291.031 0 269.413 0 192 0 85.961 85.961 0 192 0s192 85.961 192 192c0 77.413-26.97 99.031-172.268 309.67-9.535 13.774-29.93 13.773-39.464 0z"/>' +
-                '<circle cx="192" cy="192" r="95" fill="#0f172a" opacity="0.6"/>' +
-                '</svg>' +
-                '<span class="gps-pin-number">' + numero + '</span>' +
-                '</div>';
+            const svgHtml = `<div class="gps-pin-marker">
+                <svg class="gps-pin-svg" viewBox="0 0 384 512" fill="${colorHex}" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke="#ffffff" stroke-width="20" d="M172.268 501.67C26.97 291.031 0 269.413 0 192 0 85.961 85.961 0 192 0s192 85.961 192 192c0 77.413-26.97 99.031-172.268 309.67-9.535 13.774-29.93 13.773-39.464 0z"/>
+                    <circle cx="192" cy="192" r="95" fill="#0f172a" opacity="0.6"/>
+                </svg>
+                <span class="gps-pin-number">${numero}</span>
+            </div>`;
             return L.divIcon({
                 className: 'custom-gps-pin',
                 html: svgHtml,
@@ -486,7 +484,7 @@
 
             const empresaKey = sanitizarKey(empresaNombre);
             try {
-                const snap = await get(ref(db, "rutas/" + empresaKey));
+                const snap = await get(ref(db, `rutas/${empresaKey}`));
                 if (!snap.exists()) return alert('No se encontraron rutas registradas.');
 
                 const rutasData = snap.val();
@@ -532,7 +530,7 @@
                         empresaKey: empresaKey,
                         municipio: r.municipio || "General",
                         estado: r.estado || "Nuevo León",
-                        estadoMunicipio: r.estadoMunicipio || ((r.municipio || 'General') + ', ' + (r.estado || 'Nuevo León')),
+                        estadoMunicipio: r.estadoMunicipio || (`${r.municipio || 'General'}, ${r.estado || 'Nuevo León'}`),
                         puntosAbordaje: r.puntosAbordaje || "",
                         horarioPaso: r.horarioPaso || "",
                         coordenadasAbordaje: r.coordenadasAbordaje || "",
@@ -800,27 +798,34 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
         }
 
         async function proyectarPuntoAlAsfalto(lat, lng) {
-            const claveCache = `${lat},${lng}`;
+            const latNum = parseFloat(lat);
+            const lngNum = parseFloat(lng);
+            if (isNaN(latNum) || isNaN(lngNum)) return [lat, lng];
+
+            const claveCache = `${latNum.toFixed(6)},${lngNum.toFixed(6)}`;
             if (cacheSnappingVial.has(claveCache)) return cacheSnappingVial.get(claveCache);
 
+            const urlNearest = `[https://router.project-osrm.org/nearest/v1/driving/$](https://router.project-osrm.org/nearest/v1/driving/$){lngNum},${latNum}?number=1`;
             try {
-                const res = await fetch(`[https://router.project-osrm.org/nearest/v1/driving/$](https://router.project-osrm.org/nearest/v1/driving/$){lng},${lat}?number=1`);
+                const res = await fetch(urlNearest);
                 if (res.ok) {
                     const data = await res.json();
-                    if (data.code === 'Ok' && data.waypoints?.length > 0) {
+                    if (data.code === 'Ok' && data.waypoints && data.waypoints.length > 0) {
                         const snapped = [data.waypoints[0].location[1], data.waypoints[0].location[0]];
                         cacheSnappingVial.set(claveCache, snapped);
                         return snapped;
                     }
                 }
-            } catch (e) {}
+            } catch (e) {
+                console.warn("Fallo snap-to-road, usando coordenada original:", e);
+            }
 
-            const fallback = [lat, lng];
+            const fallback = [latNum, lngNum];
             cacheSnappingVial.set(claveCache, fallback);
             return fallback;
         }
 
-        // MOTOR OSRM CON MANEJO NUMÉRICO ROBUSTO
+        // MOTOR OSRM VIAL REAL (CALLE POR CALLE SIN ERRORES DE SINTAXIS)
         async function calcularRutaVialOSRM(coordenadasLatLng, claveCache = null) {
             if (!coordenadasLatLng || coordenadasLatLng.length < 2) return null;
 
@@ -851,13 +856,14 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
             for (let i = 0; i < ajustados.length - 1; i++) {
                 const p1 = ajustados[i];
                 const p2 = ajustados[i + 1];
-                const url = `[https://router.project-osrm.org/route/v1/driving/$](https://router.project-osrm.org/route/v1/driving/$){p1[1]},${p1[0]};${p2[1]},${p2[0]}?overview=full&geometries=geojson`;
+                const coordString = `${p1[1]},${p1[0]};${p2[1]},${p2[0]}`;
+                const url = `[https://router.project-osrm.org/route/v1/driving/$](https://router.project-osrm.org/route/v1/driving/$){coordString}?overview=full&geometries=geojson`;
 
                 try {
                     const res = await fetch(url);
                     if (res.ok) {
                         const data = await res.json();
-                        if (data.code === 'Ok' && data.routes?.length > 0) {
+                        if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
                             distanciaTotalMetros += data.routes[0].distance;
                             duracionTotalSegundos += data.routes[0].duration;
                             data.routes[0].geometry.coordinates.forEach(c => todosPuntosGeoJSON.push([c[1], c[0]]));
@@ -868,9 +874,10 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
                         todosPuntosGeoJSON.push(p1, p2);
                     }
                 } catch (e) {
+                    console.error("Error al consultar OSRM segmento:", e);
                     todosPuntosGeoJSON.push(p1, p2);
                 }
-                await new Promise(r => setTimeout(r, 20));
+                await new Promise(r => setTimeout(r, 35));
             }
 
             const resultado = {
@@ -1230,7 +1237,6 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
             polylineGroup.clearLayers();
             diccionarioMarcadores = {};
 
-            // Reiniciar estado del botón de asfalto
             asfaltoTrazadoActivo = false;
             const btnAsfalto = document.getElementById("btnTrazarAsfalto");
             const lblAsfalto = document.getElementById("lblBtnTrazarAsfalto");
