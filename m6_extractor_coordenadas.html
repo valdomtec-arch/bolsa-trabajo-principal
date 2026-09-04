@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Extractor y Gestor de Coordenadas Maestras - INEGI, KML & KMZ</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        cyber: {
+                            bg: '#0a0d14',
+                            card: '#121824',
+                            cardHover: '#172033',
+                            border: '#1e293b',
+                            accent: '#38bdf8',
+                            purple: '#a855f7',
+                            cyan: '#06b6d4',
+                            amber: '#f59e0b',
+                            emerald: '#10b981',
+                            rose: '#f43f5e'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Leaflet CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- JSZip para soporte de descompresión KMZ -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+    <style>
+        #mapaVerificador { min-height: 300px; width: 100%; border-radius: 0.75rem; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #0a0d14; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #38bdf8; }
+        .leaflet-popup-content-wrapper, .leaflet-popup-tip {
+            background: #121824 !important;
+            color: #e2e8f0 !important;
+            border: 1px solid #1e293b;
+        }
+    </style>
+</head>
+<body class="bg-cyber-bg text-slate-200 font-sans min-h-screen p-3 sm:p-5 md:p-6 space-y-6">
+
+    <div class="max-w-7xl mx-auto space-y-6">
+        
+        <!-- HEADER PRINCIPAL -->
+        <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-cyber-border pb-5">
+            <div>
+                <h1 class="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
+                    <span class="text-cyber-cyan">🛰️</span> Extractor Maestro de Coordenadas <span class="text-xs bg-cyber-cyan/20 text-cyber-cyan px-2 py-0.5 rounded border border-cyber-cyan/40 font-mono">v2.0 INEGI & KML/KMZ</span>
+                </h1>
+                <p class="text-xs text-slate-400 mt-1">Cosecha oficial del DENUE (INEGI), parseo satelital KML/KMZ y control de geocatálogos por Estado</p>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap">
+                <a href="m6_motor_transporte.html" class="bg-cyber-card hover:bg-slate-800 text-slate-300 border border-cyber-border font-mono text-xs px-3.5 py-2 rounded-xl flex items-center gap-2 transition-all">
+                    <span>←</span> Motor Logístico M6
+                </a>
+                <a href="m6_transporte.html" class="bg-cyber-card hover:bg-slate-800 text-slate-300 border border-cyber-border font-mono text-xs px-3.5 py-2 rounded-xl flex items-center gap-2 transition-all">
+                    <span>←</span> Dashboard M6
+                </a>
+            </div>
+        </header>
+
+        <!-- SECCIÓN DE PARÁMETROS Y FUENTES DE ENTRADA -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- PANEL 1: SELECCIÓN DE ESTADO & EXTRACTOR OFICIAL INEGI -->
+            <div class="lg:col-span-4 bg-cyber-card border border-cyber-border rounded-xl p-5 space-y-4 flex flex-col justify-between">
+                <div class="space-y-4">
+                    <div class="flex justify-between items-center border-b border-cyber-border/60 pb-2">
+                        <h2 class="text-xs font-bold text-cyber-accent uppercase tracking-wider flex items-center gap-2">
+                            <span>🏛️</span> API Oficial INEGI DENUE
+                        </h2>
+                        <span id="badgeEstadoActivo" class="text-[10px] bg-cyber-cyan/20 text-cyber-cyan border border-cyber-cyan/30 px-2 py-0.5 rounded font-mono">nuevo_leon</span>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-300 mb-1">Entidad Federativa Objetivo</label>
+                        <select id="selectEstadoCatalogo" onchange="cambiarEstadoActivo(this.value)" class="w-full bg-cyber-bg border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyber-accent font-mono">
+                            <!-- Inyectado vía JS con los 32 estados -->
+                        </select>
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="text-[11px] font-semibold text-slate-300">Token de Desarrollador INEGI</label>
+                            <a href="https://www.inegi.org.mx/servicios/api_denue.html" target="_blank" class="text-[10px] text-cyber-cyan hover:underline">Obtener gratis ↗</a>
+                        </div>
+                        <input type="text" id="tokenInegiInput" placeholder="Ej: a8f3b2c1-4d5e-6f7a-8b9c-0d1e2f3a4b5c" class="w-full bg-cyber-bg border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyber-accent font-mono">
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-300 mb-1">Criterio de Cosecha INEGI</label>
+                        <div class="flex gap-2">
+                            <select id="selectCriterioInegi" class="flex-1 bg-cyber-bg border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyber-accent">
+                                <option value="oxxo">Tiendas OXXO</option>
+                                <option value="seven eleven">7-Eleven</option>
+                                <option value="bodega aurrera">Bodega Aurrera</option>
+                                <option value="soriana">Soriana</option>
+                                <option value="farmacia guadalajara">Farmacias Guadalajara</option>
+                                <option value="parque industrial">Parques Industriales</option>
+                                <option value="maquiladora">Maquiladoras</option>
+                                <option value="PERSONALIZADO">-- Otra palabra clave --</option>
+                            </select>
+                            <input type="text" id="inputPalabraPersonalizada" placeholder="Buscar..." class="hidden w-28 bg-cyber-bg border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-cyber-accent">
+                        </div>
+                    </div>
+
+                    <button onclick="ejecutarCosechaInegi()" id="btnCosecharInegi" class="w-full bg-cyber-cyan/20 hover:bg-cyber-cyan/30 text-cyber-cyan border border-cyber-cyan/40 font-bold py-2.5 px-4 rounded-lg text-xs transition flex items-center justify-center gap-2 shadow-lg shadow-cyber-cyan/10">
+                        <span>⚡</span> Cosechar del INEGI e Inyectar
+                    </button>
+                    <div id="progresoInegiFeedback" class="hidden text-center text-[10px] font-mono text-cyber-cyan py-1 bg-slate-900/60 rounded border border-cyber-cyan/30"></div>
+                </div>
+
+                <!-- PURGA DE ESTADO -->
+                <div class="pt-3 border-t border-cyber-border">
+                    <button onclick="purgarEstadoCompleto()" id="btnPurgarEstado" class="w-full bg-cyber-rose/20 hover:bg-cyber-rose/30 text-cyber-rose border border-cyber-rose/40 font-bold py-2 px-3 rounded-lg text-xs transition flex items-center justify-center gap-2">
+                        <span>🧹</span> Vaciar Catálogo de esta Entidad
+                    </button>
+                </div>
+            </div>
+
+            <!-- PANEL 2: IMPORTADOR KML / KMZ SATELITAL & ALTA DIRECTA -->
+            <div class="lg:col-span-4 bg-cyber-card border border-cyber-border rounded-xl p-5 space-y-4 flex flex-col justify-between">
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center border-b border-cyber-border/60 pb-2">
+                        <h2 class="text-xs font-bold text-cyber-emerald uppercase tracking-wider flex items-center gap-2">
+                            <span>🛰️</span> Inyector KML / KMZ / JSON
+                        </h2>
+                        <span class="text-[10px] text-cyber-emerald font-mono">Google Earth / My Maps</span>
+                    </div>
+
+                    <!-- DROPZONE KML/KMZ -->
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-300 mb-1">Arrastra Archivo KML, KMZ o JSON</label>
+                        <div id="dropZoneGeo" class="border-2 border-dashed border-slate-700 hover:border-cyber-emerald rounded-lg p-3 text-center cursor-pointer bg-cyber-bg/50 transition-colors">
+                            <span class="text-2xl">🗺️</span>
+                            <p class="text-[11px] text-slate-200 font-bold mt-1">Arrastra KML o KMZ Satelital</p>
+                            <p class="text-[9px] text-slate-400 font-mono">Extrae Placemarks, coordenadas y nombres</p>
+                            <input type="file" id="fileInputGeo" accept=".kml,.kmz,.json,.geojson" class="hidden">
+                        </div>
+                        <div id="fileFeedbackGeo" class="mt-1 text-[10px] text-cyber-emerald font-mono hidden"></div>
+                    </div>
+
+                    <!-- ALTA MANUAL RÁPIDA -->
+                    <div class="border-t border-cyber-border/60 pt-3 space-y-2">
+                        <span class="text-[11px] font-bold text-cyber-amber uppercase tracking-wider block">Alta Directa de Coordenada</span>
+                        <input type="text" id="inputManualRef" placeholder="Referencia: Oxxo Sendero, Caseta..." class="w-full bg-cyber-bg border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-cyber-accent">
+                        <div class="grid grid-cols-2 gap-2">
+                            <input type="text" id="inputManualMun" placeholder="Municipio: Zuazua, Apodaca..." class="bg-cyber-bg border border-slate-700 rounded px-2 py-1.5 text-xs text-slate-300 focus:outline-none">
+                            <input type="text" id="inputManualCoord" placeholder="Lat, Lng: 25.78, -100.13" class="bg-cyber-bg border border-slate-700 rounded px-2 py-1.5 text-xs text-cyber-cyan font-mono focus:outline-none">
+                        </div>
+                        <button onclick="guardarPuntoManual()" class="w-full bg-cyber-amber/20 hover:bg-cyber-amber/30 text-cyber-amber border border-cyber-amber/40 font-bold py-1.5 rounded text-xs transition">
+                            ➕ Registrar en Catálogo Maestro
+                        </button>
+                    </div>
+                </div>
+
+                <div class="text-[10px] text-slate-500 font-mono text-center pt-2">
+                    Partición de datos: /geocodigos_maestros/{estado}/
+                </div>
+            </div>
+
+            <!-- PANEL 3: MÉTRICAS Y AUDITOR SATELITAL LEAFLET -->
+            <div class="lg:col-span-4 bg-cyber-card border border-cyber-border rounded-xl p-5 space-y-4 flex flex-col justify-between">
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center border-b border-cyber-border/60 pb-2">
+                        <h2 class="text-xs font-bold text-cyber-purple uppercase tracking-wider flex items-center gap-2">
+                            <span>📊</span> Consumo y Auditor Satelital
+                        </h2>
+                        <span id="statStatusSinc" class="text-[10px] font-mono text-cyber-emerald">Listo</span>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="bg-cyber-bg border border-slate-800 rounded-lg p-2.5">
+                            <span class="text-[10px] text-slate-400 uppercase font-mono block">Puntos Activos</span>
+                            <div id="statTotalPuntos" class="text-xl font-black text-cyber-cyan mt-0.5">0</div>
+                        </div>
+                        <div class="bg-cyber-bg border border-slate-800 rounded-lg p-2.5">
+                            <span class="text-[10px] text-slate-400 uppercase font-mono block">Peso en Firebase</span>
+                            <div id="statPesoKb" class="text-xl font-black text-cyber-emerald mt-0.5">0.0 KB</div>
+                        </div>
+                    </div>
+
+                    <!-- MAPA LEAFLET VERIFICADOR -->
+                    <div class="space-y-1">
+                        <div class="flex justify-between items-center">
+                            <span class="text-[11px] font-bold text-slate-300">Posición en Asfalto</span>
+                            <span id="lblPuntoAuditor" class="text-[10px] font-mono text-slate-400 truncate max-w-[160px]">Sin selección</span>
+                        </div>
+                        <div id="mapaVerificador"></div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- TABLA ADMINISTRATIVA CRUD CELDA POR CELDA -->
+        <div class="bg-cyber-card border border-cyber-border rounded-xl p-5 space-y-4">
+            
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-cyber-border pb-3">
+                <div class="flex items-center gap-3">
+                    <h2 class="text-xs font-bold text-cyber-accent uppercase tracking-wider flex items-center gap-2">
+                        <span>📋</span> Catálogo de Coordenadas Guardadas
+                    </h2>
+                    <span id="badgeFiltroResultados" class="text-xs font-mono text-slate-400">0 encontrados</span>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <input type="text" id="inputFiltroTabla" oninput="filtrarTablaPuntos(this.value)" placeholder="🔍 Filtrar por referencia, municipio o calle..." class="bg-cyber-bg border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyber-accent font-mono w-72">
+                    <button onclick="cargarCatalogoDesdeFirebase()" title="Refrescar catálogo desde Firebase" class="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-bold transition">
+                        🔄
+                    </button>
+                </div>
+            </div>
+
+            <!-- TABLA SCROLLABLE -->
+            <div class="overflow-x-auto custom-scrollbar max-h-[460px]">
+                <table class="w-full text-left border-collapse text-xs">
+                    <thead class="bg-cyber-bg sticky top-0 border-b border-cyber-border text-slate-400 z-10">
+                        <tr>
+                            <th class="p-2.5">Clave de Indexación</th>
+                            <th class="p-2.5">Referencia Comercial / Cruce</th>
+                            <th class="p-2.5">Municipio</th>
+                            <th class="p-2.5">Coordenadas (Lat, Lng)</th>
+                            <th class="p-2.5 text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbodyGeocatalogos" class="divide-y divide-cyber-border/40 font-sans">
+                        <tr>
+                            <td colspan="5" class="p-8 text-center text-slate-500 font-mono">
+                                Cargando catálogo de la entidad seleccionada...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- MÓDULO JAVASCRIPT: CONEXIÓN FIREBASE, INEGI REST & PARSEO KML/KMZ -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, get, set, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDxgP1YnycCEqkQ2vr3SPkwc9QMhtG8Zqw",
+            authDomain: "bolsa-de-trabajo-a52e4.firebaseapp.com",
+            databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com",
+            projectId: "bolsa-de-trabajo-a52e4",
+            storageBucket: "bolsa-de-trabajo-a52e4.firebasestorage.app",
+            messagingSenderId: "592492733212",
+            appId: "1:592492733212:web:88e8ec243bd53608b6d0d9"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        const ENTIDADES_FEDERATIVAS = [
+            { key: "aguascalientes", nombre: "Aguascalientes", idInegi: "01", latDef: 21.8853, lngDef: -102.2916 },
+            { key: "baja_california", nombre: "Baja California", idInegi: "02", latDef: 32.5149, lngDef: -117.0382 },
+            { key: "baja_california_sur", nombre: "Baja California Sur", idInegi: "03", latDef: 24.1426, lngDef: -110.3128 },
+            { key: "campeche", nombre: "Campeche", idInegi: "04", latDef: 19.8301, lngDef: -90.5349 },
+            { key: "chiapas", nombre: "Chiapas", idInegi: "07", latDef: 16.7569, lngDef: -93.1292 },
+            { key: "chihuahua", nombre: "Chihuahua", idInegi: "08", latDef: 28.6353, lngDef: -106.0889 },
+            { key: "ciudad_de_mexico", nombre: "Ciudad de México", idInegi: "09", latDef: 19.4326, lngDef: -99.1332 },
+            { key: "coahuila", nombre: "Coahuila", idInegi: "05", latDef: 25.4260, lngDef: -101.0053 },
+            { key: "colima", nombre: "Colima", idInegi: "06", latDef: 19.2452, lngDef: -103.7240 },
+            { key: "durango", nombre: "Durango", idInegi: "10", latDef: 24.0277, lngDef: -104.6532 },
+            { key: "estado_de_mexico", nombre: "Estado de México", idInegi: "15", latDef: 19.3553, lngDef: -99.6436 },
+            { key: "guanajuato", nombre: "Guanajuato", idInegi: "11", latDef: 21.0190, lngDef: -101.2574 },
+            { key: "guerrero", nombre: "Guerrero", idInegi: "12", latDef: 17.5516, lngDef: -99.5006 },
+            { key: "hidalgo", nombre: "Hidalgo", idInegi: "13", latDef: 20.1011, lngDef: -98.7591 },
+            { key: "jalisco", nombre: "Jalisco", idInegi: "14", latDef: 20.6597, lngDef: -103.3496 },
+            { key: "michoacan", nombre: "Michoacán", idInegi: "16", latDef: 19.7060, lngDef: -101.1950 },
+            { key: "morelos", nombre: "Morelos", idInegi: "17", latDef: 18.9242, lngDef: -99.2216 },
+            { key: "nayarit", nombre: "Nayarit", idInegi: "18", latDef: 21.5039, lngDef: -104.8946 },
+            { key: "nuevo_leon", nombre: "Nuevo León", idInegi: "19", latDef: 25.6866, lngDef: -100.3161 },
+            { key: "oaxaca", nombre: "Oaxaca", idInegi: "20", latDef: 17.0732, lngDef: -96.7266 },
+            { key: "puebla", nombre: "Puebla", idInegi: "21", latDef: 19.0414, lngDef: -98.2063 },
+            { key: "queretaro", nombre: "Querétaro", idInegi: "22", latDef: 20.5888, lngDef: -100.3899 },
+            { key: "quintana_roo", nombre: "Quintana Roo", idInegi: "23", latDef: 18.5141, lngDef: -88.3038 },
+            { key: "san_luis_potosi", nombre: "San Luis Potosí", idInegi: "24", latDef: 22.1565, lngDef: -100.9855 },
+            { key: "sinaloa", nombre: "Sinaloa", idInegi: "25", latDef: 24.8091, lngDef: -107.3940 },
+            { key: "sonora", nombre: "Sonora", idInegi: "26", latDef: 29.0729, lngDef: -110.9559 },
+            { key: "tabasco", nombre: "Tabasco", idInegi: "27", latDef: 17.9892, lngDef: -92.9281 },
+            { key: "tamaulipas", nombre: "Tamaulipas", idInegi: "28", latDef: 23.7369, lngDef: -99.1411 },
+            { key: "tlaxcala", nombre: "Tlaxcala", idInegi: "29", latDef: 19.3182, lngDef: -98.2375 },
+            { key: "veracruz", nombre: "Veracruz", idInegi: "30", latDef: 19.1738, lngDef: -96.1342 },
+            { key: "yucatan", nombre: "Yucatán", idInegi: "31", latDef: 20.9674, lngDef: -89.5926 },
+            { key: "zacatecas", nombre: "Zacatecas", idInegi: "32", latDef: 22.7709, lngDef: -102.5832 }
+        ];
+
+        let estadoActualKey = "nuevo_leon";
+        let cacheCatalogoLocal = {};
+        let listaPuntosFiltrada = [];
+        let mapObjVerificador = null;
+        let markerVerificador = null;
+
+        window.cambiarEstadoActivo = cambiarEstadoActivo;
+        window.filtrarTablaPuntos = filtrarTablaPuntos;
+        window.cargarCatalogoDesdeFirebase = cargarCatalogoDesdeFirebase;
+        window.guardarPuntoManual = guardarPuntoManual;
+        window.actualizarPuntoEnFirebase = actualizarPuntoEnFirebase;
+        window.eliminarPuntoEnFirebase = eliminarPuntoEnFirebase;
+        window.auditarPuntoSatelital = auditarPuntoSatelital;
+        window.purgarEstadoCompleto = purgarEstadoCompleto;
+        window.ejecutarCosechaInegi = ejecutarCosechaInegi;
+
+        document.addEventListener("DOMContentLoaded", () => {
+            const select = document.getElementById("selectEstadoCatalogo");
+            select.innerHTML = "";
+            ENTIDADES_FEDERATIVAS.forEach(ent => {
+                const opt = document.createElement("option");
+                opt.value = ent.key;
+                opt.textContent = ent.nombre;
+                if (ent.key === "nuevo_leon") opt.selected = true;
+                select.appendChild(opt);
+            });
+
+            const tokenGuardado = localStorage.getItem("token_inegi_denue") || "";
+            if (tokenGuardado) document.getElementById("tokenInegiInput").value = tokenGuardado;
+
+            document.getElementById("selectCriterioInegi").addEventListener("change", (e) => {
+                const inputPers = document.getElementById("inputPalabraPersonalizada");
+                if (e.target.value === "PERSONALIZADO") {
+                    inputPers.classList.remove("hidden");
+                    inputPers.focus();
+                } else {
+                    inputPers.classList.add("hidden");
+                }
+            });
+
+            mapObjVerificador = L.map('mapaVerificador').setView([25.6866, -100.3161], 12);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '© OpenStreetMap'
+            }).addTo(mapObjVerificador);
+
+            cargarCatalogoDesdeFirebase();
+            configurarDragAndDropGeo();
+        });
+
+        function sanitizarKey(str) {
+            return (str || "general").toLowerCase().trim()
+                .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+                .replace(/[^a-z0-9]/g, "_")
+                .replace(/_+/g, "_")
+                .replace(/^_|_$/g, "");
+        }
+
+        function generarClavePunto(texto, municipio) {
+            const munLimpio = sanitizarKey(municipio || "general");
+            const refLimpia = sanitizarKey(texto || "punto");
+            return refLimpia + "_" + munLimpio;
+        }
+
+        function cambiarEstadoActivo(nuevaKey) {
+            estadoActualKey = nuevaKey;
+            document.getElementById("badgeEstadoActivo").innerText = nuevaKey;
+
+            const ent = ENTIDADES_FEDERATIVAS.find(e => e.key === nuevaKey);
+            if (ent && mapObjVerificador) {
+                mapObjVerificador.flyTo([ent.latDef, ent.lngDef], 11);
+            }
+
+            cargarCatalogoDesdeFirebase();
+        }
+
+        async function cargarCatalogoDesdeFirebase() {
+            const tbody = document.getElementById("tbodyGeocatalogos");
+            tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-slate-400 font-mono">Sincronizando catálogo desde Firebase...</td></tr>';
+            document.getElementById("statStatusSinc").innerText = "Leyendo...";
+
+            try {
+                const snap = await get(ref(db, "geocodigos_maestros/" + estadoActualKey));
+                cacheCatalogoLocal = snap.exists() ? snap.val() : {};
+
+                const llaves = Object.keys(cacheCatalogoLocal);
+                listaPuntosFiltrada = llaves.map(k => ({ clave: k, ...cacheCatalogoLocal[k] }));
+
+                const total = llaves.length;
+                document.getElementById("statTotalPuntos").innerText = total.toLocaleString();
+                
+                const pesoKb = ((total * 110) / 1024).toFixed(1);
+                document.getElementById("statPesoKb").innerText = pesoKb > 1024 
+                    ? (pesoKb / 1024).toFixed(2) + " MB" 
+                    : pesoKb + " KB";
+
+                document.getElementById("statStatusSinc").innerText = "Sincronizado";
+                renderizarTablaPuntos();
+
+            } catch (err) {
+                tbody.innerHTML = `<tr ><td colspan="5" class="p-8 text-center text-cyber-rose font-mono">Error de conexión: ${err.message}</td></tr>`;
+                document.getElementById("statStatusSinc").innerText = "Error";
+            }
+        }
+
+        function renderizarTablaPuntos() {
+            const tbody = document.getElementById("tbodyGeocatalogos");
+            tbody.innerHTML = "";
+
+            document.getElementById("badgeFiltroResultados").innerText = `${listaPuntosFiltrada.length} puntos`;
+
+            if (listaPuntosFiltrada.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-slate-500 font-mono">No hay coordenadas guardadas bajo este criterio en esta entidad.</td></tr>';
+                return;
+            }
+
+            const puntosVisibles = listaPuntosFiltrada.slice(0, 150);
+
+            puntosVisibles.forEach(pto => {
+                const tr = document.createElement("tr");
+                tr.className = "hover:bg-slate-800/40 border-b border-cyber-border/40 text-slate-300";
+
+                tr.innerHTML = `
+                    <td class="p-2.5 font-mono text-[11px] text-slate-400 select-all">${pto.clave}</td>
+                    <td class="p-2.5">
+                        <input type="text" value="${pto.referenciaOriginal || ''}" 
+                            onchange="actualizarPuntoEnFirebase('${pto.clave}', 'referenciaOriginal', this.value)" 
+                            class="w-full bg-cyber-bg border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-cyber-accent">
+                    </td>
+                    <td class="p-2.5">
+                        <input type="text" value="${pto.municipio || ''}" 
+                            onchange="actualizarPuntoEnFirebase('${pto.clave}', 'municipio', this.value)" 
+                            class="w-full bg-cyber-bg border border-slate-700 rounded px-2 py-1 text-xs text-cyber-cyan focus:outline-none">
+                    </td>
+                    <td class="p-2.5 font-mono">
+                        <input type="text" value="${pto.coordenadas || ''}" 
+                            onchange="actualizarPuntoEnFirebase('${pto.clave}', 'coordenadas', this.value)" 
+                            class="w-full bg-cyber-bg border border-slate-700 rounded px-2 py-1 text-xs text-emerald-400 focus:outline-none">
+                    </td>
+                    <td class="p-2.5 text-center whitespace-nowrap space-x-1.5">
+                        <button onclick="auditarPuntoSatelital('${pto.coordenadas}', '${pto.referenciaOriginal}')" title="Ver en mapa" class="bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/50 text-cyber-cyan px-2 py-1 rounded text-xs font-bold transition">
+                            🎯
+                        </button>
+                        <button onclick="eliminarPuntoEnFirebase('${pto.clave}')" title="Eliminar punto" class="bg-rose-950/80 hover:bg-rose-900 border border-rose-500/50 text-cyber-rose px-2 py-1 rounded text-xs font-bold transition">
+                            🗑️
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function filtrarTablaPuntos(query) {
+            const q = sanitizarKey(query);
+            const llaves = Object.keys(cacheCatalogoLocal);
+
+            if (!q) {
+                listaPuntosFiltrada = llaves.map(k => ({ clave: k, ...cacheCatalogoLocal[k] }));
+            } else {
+                listaPuntosFiltrada = llaves
+                    .filter(k => {
+                        const item = cacheCatalogoLocal[k];
+                        const ref = sanitizarKey(item.referenciaOriginal || "");
+                        const mun = sanitizarKey(item.municipio || "");
+                        return k.includes(q) || ref.includes(q) || mun.includes(q);
+                    })
+                    .map(k => ({ clave: k, ...cacheCatalogoLocal[k] }));
+            }
+            renderizarTablaPuntos();
+        }
+
+        async function actualizarPuntoEnFirebase(clave, campo, nuevoValor) {
+            if (!cacheCatalogoLocal[clave]) return;
+            cacheCatalogoLocal[clave][campo] = nuevoValor.trim();
+            cacheCatalogoLocal[clave]["actualizadoEl"] = new Date().toISOString();
+
+            try {
+                await set(ref(db, `geocodigos_maestros/${estadoActualKey}/${clave}`), cacheCatalogoLocal[clave]);
+            } catch (err) {
+                alert(`Error al actualizar punto: ${err.message}`);
+            }
+        }
+
+        async function eliminarPuntoEnFirebase(clave) {
+            if (!confirm(`¿Eliminar la coordenada con clave "${clave}" de Firebase?`)) return;
+
+            try {
+                await remove(ref(db, `geocodigos_maestros/${estadoActualKey}/${clave}`));
+                delete cacheCatalogoLocal[clave];
+                filtrarTablaPuntos(document.getElementById("inputFiltroTabla").value);
+                document.getElementById("statTotalPuntos").innerText = Object.keys(cacheCatalogoLocal).length;
+            } catch (err) {
+                alert(`Error al eliminar: ${err.message}`);
+            }
+        }
+
+        async function guardarPuntoManual() {
+            const refTxt = document.getElementById("inputManualRef").value.trim();
+            const munTxt = document.getElementById("inputManualMun").value.trim();
+            const coordTxt = document.getElementById("inputManualCoord").value.trim();
+
+            if (!refTxt || !coordTxt.includes(",")) {
+                return alert("⚠️ Ingresa una referencia y coordenadas en formato 'Lat, Lng'.");
+            }
+
+            const partes = coordTxt.split(",");
+            const lat = parseFloat(partes[0].trim());
+            const lng = parseFloat(partes[1].trim());
+
+            if (isNaN(lat) || isNaN(lng)) return alert("⚠️ Coordenadas decimales inválidas.");
+
+            const claveFinal = generarClavePunto(refTxt, munTxt);
+            const nuevoPunto = {
+                coordenadas: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+                referenciaOriginal: refTxt,
+                municipio: munTxt || "General",
+                tipo: "Manual",
+                creadoEl: new Date().toISOString()
+            };
+
+            try {
+                await set(ref(db, `geocodigos_maestros/${estadoActualKey}/${claveFinal}`), nuevoPunto);
+                document.getElementById("inputManualRef").value = "";
+                document.getElementById("inputManualMun").value = "";
+                document.getElementById("inputManualCoord").value = "";
+                
+                await cargarCatalogoDesdeFirebase();
+                auditarPuntoSatelital(nuevoPunto.coordenadas, nuevoPunto.referenciaOriginal);
+                alert("✅ Punto registrado en el catálogo maestro.");
+            } catch (err) {
+                alert(`Error al guardar: ${err.message}`);
+            }
+        }
+
+        function auditarPuntoSatelital(coordenadasStr, etiqueta) {
+            if (!coordenadasStr || !coordenadasStr.includes(",")) return;
+            const partes = coordenadasStr.split(",");
+            const lat = parseFloat(partes[0]);
+            const lng = parseFloat(partes[1]);
+
+            if (isNaN(lat) || isNaN(lng)) return;
+
+            document.getElementById("lblPuntoAuditor").innerText = `${etiqueta} (${lat.toFixed(5)}, ${lng.toFixed(5)})`;
+            mapObjVerificador.flyTo([lat, lng], 17, { duration: 0.8 });
+
+            if (markerVerificador && mapObjVerificador.hasLayer(markerVerificador)) {
+                mapObjVerificador.removeLayer(markerVerificador);
+            }
+
+            markerVerificador = L.marker([lat, lng]).addTo(mapObjVerificador);
+            markerVerificador.bindPopup(`<b>${etiqueta}</b><br><span class="font-mono text-xs text-cyber-cyan">${lat}, ${lng}</span>`).openPopup();
+        }
+
+        async function purgarEstadoCompleto() {
+            const ent = ENTIDADES_FEDERATIVAS.find(e => e.key === estadoActualKey)?.nombre || estadoActualKey;
+            const confirmar = confirm(`⚠️ PELIGRO: ¿Estás seguro de vaciar y eliminar TODOS los puntos del catálogo de "${ent}" en Firebase?\n\nEsta acción liberará espacio de inmediato pero no se puede deshacer.`);
+            if (!confirmar) return;
+
+            const btn = document.getElementById("btnPurgarEstado");
+            btn.disabled = true;
+            btn.innerHTML = "<span>⏳</span> Vaciando...";
+
+            try {
+                await remove(ref(db, `geocodigos_maestros/${estadoActualKey}`));
+                cacheCatalogoLocal = {};
+                listaPuntosFiltrada = [];
+                renderizarTablaPuntos();
+                document.getElementById("statTotalPuntos").innerText = "0";
+                document.getElementById("statPesoKb").innerText = "0.0 KB";
+                alert(`✅ Catálogo de ${ent} vaciado exitosamente en Firebase.`);
+            } catch (err) {
+                alert(`Error al vaciar: ${err.message}`);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = "<span>🧹</span> Vaciar Catálogo de esta Entidad";
+            }
+        }
+
+        // =========================================================================
+        // EXTRACTOR OFICIAL API INEGI DENUE
+        // =========================================================================
+        async function ejecutarCosechaInegi() {
+            const token = document.getElementById("tokenInegiInput").value.trim();
+            if (!token) return alert("⚠️ Ingresa tu Token gratuito del INEGI DENUE.");
+            localStorage.setItem("token_inegi_denue", token);
+
+            const selectCrit = document.getElementById("selectCriterioInegi").value;
+            const palabra = selectCrit === "PERSONALIZADO" 
+                ? document.getElementById("inputPalabraPersonalizada").value.trim() 
+                : selectCrit;
+
+            if (!palabra) return alert("⚠️ Ingresa o selecciona una palabra clave para consultar en INEGI.");
+
+            const entObj = ENTIDADES_FEDERATIVAS.find(e => e.key === estadoActualKey) || { latDef: 25.6866, lngDef: -100.3161 };
+            const btn = document.getElementById("btnCosecharInegi");
+            const feedback = document.getElementById("progresoInegiFeedback");
+
+            btn.disabled = true;
+            btn.innerHTML = "<span>⏳</span> Consultando INEGI DENUE...";
+            feedback.classList.remove("hidden");
+            feedback.innerText = `Buscando "${palabra}" en ${estadoActualKey}...`;
+
+            try {
+                // Endpoint REST INEGI DENUE V1: Búsqueda por palabra clave y radio geográfico
+                // Radio amplio de 60,000 metros (60 km) desde el centro urbano del estado
+                const urlInegi = `https://www.inegi.org.mx/app/api/denue/v1/consulta/Buscar/${encodeURIComponent(palabra)}/${entObj.latDef},${entObj.lngDef}/60000/${token}`;
+
+                const res = await fetch(urlInegi);
+                if (!res.ok) throw new Error(`HTTP ${res.status} al conectar con INEGI`);
+                const dataInegi = await res.json();
+
+                if (!Array.isArray(dataInegi) || dataInegi.length === 0) {
+                    feedback.innerText = "No se encontraron establecimientos con ese criterio.";
+                    alert(`El INEGI no devolvió registros para "${palabra}" en el radio consultado.`);
+                    return;
+                }
+
+                const total = dataInegi.length;
+                feedback.innerText = `Se obtuvieron ${total} registros del INEGI. Inyectando a Firebase...`;
+
+                const objetoLote = {};
+                let inyectados = 0;
+
+                dataInegi.forEach(item => {
+                    const lat = parseFloat(item.Latitud);
+                    const lng = parseFloat(item.Longitud);
+                    const nom = item.Nombre || palabra;
+                    const calle = item.Calle || "";
+                    const col = item.Colonia || "";
+                    const mun = item.Ubicacion ? item.Ubicacion.split(",")[0].trim() : (item.Municipio || "General");
+
+                    if (!isNaN(lat) && !isNaN(lng)) {
+                        const refCompleta = `${nom} (${calle ? calle + ', ' : ''}${col})`.replace(/\s+/g, ' ').trim();
+                        const clave = generarClavePunto(refCompleta, mun);
+
+                        objetoLote[clave] = {
+                            coordenadas: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+                            referenciaOriginal: refCompleta,
+                            calle: calle,
+                            colonia: col,
+                            municipio: mun,
+                            tipo: item.Clase_actividad || "INEGI_DENUE",
+                            fuente: "INEGI Oficial",
+                            actualizadoEl: new Date().toISOString()
+                        };
+                        inyectados++;
+                    }
+                });
+
+                await set(ref(db, `geocodigos_maestros/${estadoActualKey}`), {
+                    ...cacheCatalogoLocal,
+                    ...objetoLote
+                });
+
+                feedback.innerText = `✅ ¡Éxito! ${inyectados} puntos inyectados a Firebase.`;
+                await cargarCatalogoDesdeFirebase();
+                alert(`✅ Cosecha completada: Se incorporaron ${inyectados} establecimientos oficiales del INEGI.`);
+
+            } catch (err) {
+                feedback.innerText = `Error: ${err.message}`;
+                alert(`Fallo en la consulta INEGI: ${err.message}`);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = "<span>⚡</span> Cosechar del INEGI e Inyectar";
+            }
+        }
+
+        // =========================================================================
+        // INYECTOR NATIVO KML / KMZ SATELITAL & JSON
+        // =========================================================================
+        function configurarDragAndDropGeo() {
+            const dropZone = document.getElementById("dropZoneGeo");
+            const fileInput = document.getElementById("fileInputGeo");
+
+            dropZone.addEventListener("click", () => fileInput.click());
+
+            dropZone.addEventListener("dragover", (e) => {
+                e.preventDefault();
+                dropZone.classList.add("border-cyber-emerald", "bg-cyber-bg");
+            });
+
+            dropZone.addEventListener("dragleave", () => {
+                dropZone.classList.remove("border-cyber-emerald", "bg-cyber-bg");
+            });
+
+            dropZone.addEventListener("drop", (e) => {
+                e.preventDefault();
+                dropZone.classList.remove("border-cyber-emerald", "bg-cyber-bg");
+                if (e.dataTransfer.files.length) procesarArchivoSatelital(e.dataTransfer.files[0]);
+            });
+
+            fileInput.addEventListener("change", (e) => {
+                if (e.target.files.length) procesarArchivoSatelital(e.target.files[0]);
+            });
+        }
+
+        async function procesarArchivoSatelital(file) {
+            const feedback = document.getElementById("fileFeedbackGeo");
+            feedback.classList.remove("hidden");
+            feedback.innerText = `Leyendo ${file.name}...`;
+
+            const ext = file.name.split('.').pop().toLowerCase();
+
+            try {
+                let kmlTexto = "";
+
+                if (ext === 'kmz') {
+                    const zip = new JSZip();
+                    const zipDoc = await zip.loadAsync(file);
+                    const kmlKey = Object.keys(zipDoc.files).find(k => k.toLowerCase().endsWith('.kml'));
+                    if (!kmlKey) throw new Error("No se localizó archivo .kml dentro del .kmz");
+                    kmlTexto = await zipDoc.files[kmlKey].async("text");
+                } else if (ext === 'kml') {
+                    kmlTexto = await file.text();
+                } else if (ext === 'json' || ext === 'geojson') {
+                    // Si arrastra un JSON de respaldo o GeoJSON
+                    return procesarJsonRespaldo(file);
+                }
+
+                if (!kmlTexto) throw new Error("Archivo KML vacío.");
+
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(kmlTexto.replace(/xmlns(:\w+)?="[^"]*"/g, ''), "text/xml");
+                const placemarks = Array.from(xmlDoc.getElementsByTagName("Placemark"));
+
+                if (placemarks.length === 0) throw new Error("No se encontraron elementos <Placemark> en el KML.");
+
+                const objetoLote = {};
+                let contador = 0;
+
+                placemarks.forEach((pm, idx) => {
+                    const point = pm.getElementsByTagName("Point")[0];
+                    const coordsTag = point ? point.getElementsByTagName("coordinates")[0] : null;
+                    const nombre = pm.getElementsByTagName("name")[0]?.textContent?.trim() || `Punto KML #${idx + 1}`;
+                    const desc = pm.getElementsByTagName("description")[0]?.textContent?.trim() || "";
+
+                    if (coordsTag) {
+                        const coordStr = coordsTag.textContent.trim().split(/\s+/)[0];
+                        const partes = coordStr.split(",");
+                        const lng = parseFloat(partes[0]);
+                        const lat = parseFloat(partes[1]);
+
+                        if (!isNaN(lat) && !isNaN(lng)) {
+                            const clave = generarClavePunto(nombre, estadoActualKey);
+                            objetoLote[clave] = {
+                                coordenadas: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+                                referenciaOriginal: nombre,
+                                descripcion: desc,
+                                municipio: estadoActualKey,
+                                tipo: "KML_Satelital",
+                                fuente: file.name,
+                                importadoEl: new Date().toISOString()
+                            };
+                            contador++;
+                        }
+                    }
+                });
+
+                if (contador === 0) throw new Error("No se detectaron coordenadas válidas en los puntos del KML.");
+
+                if (!confirm(`Se extrajeron ${contador} coordenadas satelitales de "${file.name}". ¿Deseas incorporarlas a "${estadoActualKey}" en Firebase?`)) {
+                    feedback.classList.add("hidden");
+                    return;
+                }
+
+                feedback.innerText = `Inyectando ${contador} coordenadas a Firebase...`;
+
+                await set(ref(db, `geocodigos_maestros/${estadoActualKey}`), {
+                    ...cacheCatalogoLocal,
+                    ...objetoLote
+                });
+
+                feedback.innerText = `✅ Inyección KML finalizada: ${contador} puntos agregados.`;
+                await cargarCatalogoDesdeFirebase();
+                alert(`✅ Inyección satelital completada: Se incorporaron ${contador} coordenadas de Google Earth.`);
+
+            } catch (err) {
+                feedback.innerText = `Error: ${err.message}`;
+                alert(`Fallo en lectura KML/KMZ: ${err.message}`);
+            }
+        }
+
+        async function procesarJsonRespaldo(file) {
+            const feedback = document.getElementById("fileFeedbackGeo");
+            try {
+                const texto = await file.text();
+                const json = JSON.parse(texto);
+                let lote = {};
+                let contador = 0;
+
+                if (Array.isArray(json.features)) {
+                    json.features.forEach(f => {
+                        const coords = f.geometry?.coordinates;
+                        const nom = f.properties?.name || f.properties?.Nombre || "Punto GeoJSON";
+                        if (coords && coords.length >= 2) {
+                            const clave = generarClavePunto(nom, estadoActualKey);
+                            lote[clave] = {
+                                coordenadas: `${coords[1].toFixed(6)}, ${coords[0].toFixed(6)}`,
+                                referenciaOriginal: nom,
+                                municipio: estadoActualKey,
+                                importadoEl: new Date().toISOString()
+                            };
+                            contador++;
+                        }
+                    });
+                } else if (typeof json === 'object') {
+                    Object.entries(json).forEach(([k, v]) => {
+                        if (v.coordenadas) {
+                            lote[k] = v;
+                            contador++;
+                        }
+                    });
+                }
+
+                await set(ref(db, `geocodigos_maestros/${estadoActualKey}`), {
+                    ...cacheCatalogoLocal,
+                    ...lote
+                });
+
+                feedback.innerText = `✅ Inyección JSON completada: ${contador} puntos guardados.`;
+                await cargarCatalogoDesdeFirebase();
+                alert(`✅ Se inyectaron ${contador} puntos desde el archivo.`);
+
+            } catch (e) {
+                feedback.innerText = `Error: ${e.message}`;
+                alert(`Error procesando JSON: ${e.message}`);
+            }
+        }
+    </script>
+</body>
+</html>
