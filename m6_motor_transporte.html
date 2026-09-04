@@ -40,7 +40,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
     <style>
-        #mapaPreCommit { min-height: 480px; width: 100%; border-radius: 0.75rem; }
+        #mapaPreCommit { min-height: 520px; width: 100%; border-radius: 0.75rem; }
         .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: #0a0d14; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
@@ -49,7 +49,47 @@
             background: #121824 !important;
             color: #e2e8f0 !important;
             border: 1px solid #1e293b;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 10px 25px -3px rgba(0, 0, 0, 0.7);
+        }
+
+        /* Marcador Pin Lágrima GPS Vectorial */
+        .gps-pin-marker {
+            position: relative;
+            cursor: pointer;
+            filter: drop-shadow(0px 3px 5px rgba(0,0,0,0.6));
+            transition: transform 0.15s ease-out;
+        }
+        .gps-pin-marker:hover {
+            transform: scale(1.2) translateY(-4px);
+            z-index: 9999 !important;
+        }
+        .gps-pin-svg {
+            width: 32px;
+            height: 42px;
+            display: block;
+        }
+        .gps-pin-number {
+            position: absolute;
+            top: 6px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 11px;
+            font-weight: 900;
+            color: #ffffff;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+            pointer-events: none;
+        }
+
+        /* Efecto de hundimiento 3D táctil para botones de auditoría */
+        .btn-audit-press {
+            transition: all 0.08s ease-in-out;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        .btn-audit-press:active {
+            transform: translateY(2px) scale(0.92);
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.6);
         }
     </style>
 </head>
@@ -61,9 +101,9 @@
         <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-cyber-border pb-5">
             <div>
                 <h1 class="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
-                    <span class="text-cyber-accent">⚡</span> Motor Logístico de Transporte <span class="text-xs bg-cyber-accent/20 text-cyber-accent px-2 py-0.5 rounded border border-cyber-accent/40 font-mono">v5.2 Industrial OSRM</span>
+                    <span class="text-cyber-accent">⚡</span> Motor Logístico de Transporte <span class="text-xs bg-cyber-accent/20 text-cyber-accent px-2 py-0.5 rounded border border-cyber-accent/40 font-mono">v6.0 OSRM Pro</span>
                 </h1>
-                <p class="text-xs text-slate-400 mt-1">Fusión híbrida KML/KMZ + PDF, ruteo vial por segmentos OSRM y base canónica</p>
+                <p class="text-xs text-slate-400 mt-1">Extracción híbrida KML/IA, ruteo vial por calles reales con OSRM y georreferenciación en cascada</p>
             </div>
             <div class="flex items-center gap-2 flex-wrap">
                 <a href="m6_transporte.html" class="bg-cyber-card hover:bg-slate-800 text-slate-300 border border-cyber-border font-mono text-xs px-3.5 py-2 rounded-xl flex items-center gap-2 transition-all">
@@ -135,6 +175,7 @@
                     <button id="btnPaso2GeolocalizarTodos" onclick="ejecutarPaso2GeolocalizarTodas()" class="w-full bg-cyber-purple/20 hover:bg-cyber-purple/30 text-cyber-purple border border-cyber-purple/40 font-bold py-2.5 px-4 rounded-lg text-xs transition-all flex items-center justify-center gap-2">
                         <span>🗺️</span> Geocodificar Paradas Pendientes
                     </button>
+                    <div id="progresoGeocodificacion" class="hidden text-center text-[11px] font-mono text-cyber-cyan font-bold py-1 bg-slate-900/60 rounded border border-cyber-cyan/30"></div>
                 </div>
             </div>
 
@@ -142,7 +183,7 @@
             <div class="lg:col-span-8 bg-cyber-card border border-cyber-border rounded-xl p-5 space-y-3 flex flex-col">
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <h2 class="text-xs font-bold text-cyber-amber uppercase tracking-wider flex items-center gap-2">
-                        <span>🛣️</span> Trazado Vial Real (Ruteo por Calles OSRM)
+                        <span>🛣️</span> Trazado Vial Real GPS (Calles OSRM)
                     </h2>
                     <div id="metricasRutaActiva" class="text-xs font-mono text-slate-300 flex items-center gap-3">
                         <span class="text-cyber-cyan">📍 Distancia: <b id="lblDistanciaKm">0.0</b> km</span>
@@ -153,7 +194,7 @@
                 <div class="flex gap-2">
                     <input type="text" id="inputBusquedaMapaUniversal" 
                         onkeydown="if(event.key==='Enter') buscarEnMapaUniversal()" 
-                        placeholder="🔍 Buscar: 'Planta FIMEX', '25.6997, -100.3250' o pega URL de Maps..." 
+                        placeholder="🔍 Buscar: 'Av Sendero y Barragán', '25.6997, -100.3250' o pega URL de Maps..." 
                         class="flex-1 bg-cyber-bg border border-slate-700 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyber-accent font-mono">
                     <button onclick="buscarEnMapaUniversal()" id="btnBuscarMapaUniversal" class="bg-cyber-cyan hover:bg-cyan-500 text-slate-950 font-bold px-4 py-2 rounded-lg text-xs transition-all flex items-center gap-1">
                         <span>🔍</span> Buscar
@@ -214,13 +255,13 @@
                                 <th class="p-2.5">Referencia & Cruce</th>
                                 <th class="p-2.5">Horarios (Dual)</th>
                                 <th class="p-2.5">Coordenadas (Lat, Lng)</th>
-                                <th class="p-2.5 text-center">Acciones Parada</th>
+                                <th class="p-2.5 text-center">Auditar & Guardar</th>
                             </tr>
                         </thead>
                         <tbody id="tablaResultadosPreCommit" class="divide-y divide-cyber-border/40 font-sans">
                             <tr>
                                 <td colspan="5" class="p-8 text-center text-slate-500 font-mono">
-                                    Carga un archivo KMZ, KML o manifiesto para procesar rutas automáticamente[cite: 1].
+                                    Carga un archivo KMZ, KML o manifiesto para procesar rutas automáticamente.
                                 </td>
                             </tr>
                         </tbody>
@@ -251,12 +292,29 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
+        // Paleta de alta visibilidad para identificar cada ruta de forma única
+        const PALETA_COLORES_RUTAS = [
+            '#06b6d4', // Cian
+            '#a855f7', // Púrpura
+            '#f59e0b', // Ámbar
+            '#10b981', // Esmeralda
+            '#f43f5e', // Rosa neón
+            '#eab308', // Amarillo oro
+            '#3b82f6', // Azul real
+            '#14b8a6', // Teal
+            '#ec4899', // Magenta
+            '#8b5cf6'  // Violeta
+        ];
+
         let coleccionRutas = [];
         let rutaSeleccionadaFiltro = "TODAS";
         let mapObj = null;
         let markersGroup = null;
         let polylineGroup = null;
         let pinBuscadorManual = null;
+
+        // Diccionario para abrir inmediatamente el popup y enfocar el pin desde la tabla
+        let diccionarioMarcadores = {};
 
         window.ejecutarPaso1Extraccion = ejecutarPaso1Extraccion;
         window.ejecutarPaso2GeolocalizarTodas = ejecutarPaso2GeolocalizarTodas;
@@ -265,7 +323,7 @@
         window.inyectarRutaSeleccionadaAFirebase = inyectarRutaSeleccionadaAFirebase;
         window.inyectarTodoAFirebase = inyectarTodoAFirebase;
         window.copiarJsonAlPortapapeles = copiarJsonAlPortapapeles;
-        window.centrarEnMapa = centrarEnMapa;
+        window.auditarPuntoEnMapa = auditarPuntoEnMapa;
         window.actualizarCoordManual = actualizarCoordManual;
         window.actualizarReferenciaParada = actualizarReferenciaParada;
         window.actualizarCruceParada = actualizarCruceParada;
@@ -288,7 +346,7 @@
             mapObj.on('click', function(e) {
                 const lat = e.latlng.lat.toFixed(6);
                 const lng = e.latlng.lng.toFixed(6);
-                colocarPinManualEnMapa(lat, lng, "Punto marcado en el mapa");
+                colocarPinManualEnMapa(lat, lng, "Punto marcado directamente en el mapa");
             });
 
             try {
@@ -320,6 +378,30 @@
                 .replace(/[^a-z0-9]/g, "_")
                 .replace(/_+/g, "_")
                 .replace(/^_|_$/g, "");
+        }
+
+        function obtenerColorPorRutaIndex(index) {
+            return PALETA_COLORES_RUTAS[index % PALETA_COLORES_RUTAS.length];
+        }
+
+        // Creador del Marcador Lágrima GPS Vectorial con Número
+        function crearIconoLagrimaGPS(numero, colorHex) {
+            const svgHtml = `
+                <div class="gps-pin-marker">
+                    <svg class="gps-pin-svg" viewBox="0 0 384 512" fill="${colorHex}" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke="#0f172a" stroke-width="18" d="M172.268 501.67C26.97 291.031 0 269.413 0 192 0 85.961 85.961 0 192 0s192 85.961 192 192c0 77.413-26.97 99.031-172.268 309.67-9.535 13.774-29.93 13.773-39.464 0z"/>
+                        <circle cx="192" cy="192" r="95" fill="#0f172a" opacity="0.45"/>
+                    </svg>
+                    <span class="gps-pin-number">${numero}</span>
+                </div>
+            `;
+            return L.divIcon({
+                className: 'custom-gps-pin',
+                html: svgHtml,
+                iconSize: [32, 42],
+                iconAnchor: [16, 42],
+                popupAnchor: [0, -40]
+            });
         }
 
         // 1. CARGA BIDIRECCIONAL DESDE FIREBASE
@@ -424,7 +506,7 @@
                 let localizado = false;
                 for (const q of consultas) {
                     const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&countrycodes=mx&limit=1`, {
-                        headers: { "User-Agent": "ERPTransportePro/5.2" }
+                        headers: { "User-Agent": "ERPTransportePro/6.0" }
                     });
                     const data = await res.json();
                     if (data && data.length > 0) {
@@ -462,16 +544,19 @@
                 });
             });
 
-            pinBuscadorManual = L.marker([lat, lng], { draggable: true }).addTo(mapObj);
+            pinBuscadorManual = L.marker([lat, lng], { 
+                icon: crearIconoLagrimaGPS("🎯", "#f43f5e"),
+                draggable: true 
+            }).addTo(mapObj);
             
             const popupContent = `
                 <div class="font-sans text-xs space-y-2 p-1" style="min-width: 220px;">
-                    <b class="text-cyber-accent">📍 Punto Localizado</b>
+                    <b class="text-cyber-rose font-bold">🎯 Punto Localizado / Marcado</b>
                     <p class="text-slate-300 text-[11px] leading-tight">${descripcion}</p>
                     <div class="font-mono text-emerald-400 font-bold bg-slate-900 px-2 py-1 rounded border border-slate-800 text-center">${lat}, ${lng}</div>
                     ${coleccionRutas.length > 0 ? `
                         <div class="pt-2 border-t border-slate-700 space-y-1">
-                            <label class="block text-[10px] text-slate-400 font-semibold uppercase">Asignar a parada:</label>
+                            <label class="block text-[10px] text-slate-400 font-semibold uppercase">Asignar a parada de la tabla:</label>
                             <select id="selectParadaAsignar" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-[11px] text-white focus:outline-none">
                                 ${opcionesSelectRutas}
                             </select>
@@ -571,18 +656,16 @@
                 throw new Error("El archivo KML está vacío.");
             }
 
-            // Detección preventiva de NetworkLinks
             if (kmlTexto.includes("<NetworkLink>") && kmlTexto.includes("<href>")) {
                 const matchHref = kmlTexto.match(/<href>(.*?)<\/href>/i);
                 const urlEnlace = matchHref ? matchHref[1].replace(/&amp;/g, '&') : '';
                 const urlForzada = urlEnlace ? `${urlEnlace}&forcekml=1` : '';
                 throw new Error(
                     `Este archivo es un enlace de red virtual y no contiene coordenadas directas.\n\n` +
-                    `Descarga el archivo físico completo abriendo este enlace en tu navegador:\n${urlForzada}`
+                    `Descarga el archivo físico abriendo este enlace:\n${urlForzada}`
                 );
             }
 
-            // Limpieza de namespaces
             const kmlLimpio = kmlTexto
                 .replace(/xmlns(:\w+)?="[^"]*"/g, '')
                 .replace(/<(\/)?(\w+):/g, '<$1');
@@ -601,7 +684,6 @@
             const paradasExtraidas = [];
             let contador = 1;
 
-            // Extraer paradas puntuales (<Point>)
             placemarks.forEach(pm => {
                 const pointTag = pm.getElementsByTagName("Point")[0];
                 if (pointTag) {
@@ -629,7 +711,6 @@
                 }
             });
 
-            // Fallback: Si no hubo puntos individuales, extraer vértices de LineString
             if (paradasExtraidas.length === 0) {
                 placemarks.forEach(pm => {
                     const lineTag = pm.getElementsByTagName("LineString")[0];
@@ -671,7 +752,6 @@
             }];
         }
 
-        // COMPRESIÓN DINÁMICA DE IMÁGENES GRANDES
         async function optimizarImagenSiEsPesada(file) {
             return new Promise((resolve) => {
                 const img = new Image();
@@ -727,7 +807,7 @@
             return { tipo: 'media', payload: { inlineData: { mimeType: mimeType, data: parts[1] } } };
         }
 
-        // 5. EXTRACTOR CON RESILIENCIA DE MODELOS GEMINI IA
+        // 5. EXTRACTOR CON RESILIENCIA DE MODELOS GEMINI IA (PASO 1)
         async function procesarArchivoPaso1(file, apiKey, empresa, estadoDefecto) {
             const contenido = await prepararContenidoArchivo(file);
             
@@ -821,7 +901,7 @@ Reglas estrictas:
             throw new Error(ultimoError ? ultimoError.message : "No se pudo extraer la información del manifiesto.");
         }
 
-        // 6. MOTOR DE RUTEO VIAL REAL OSRM POR SEGMENTOS (CHUNKING ROBUSTO)
+        // 6. MOTOR DE RUTEO VIAL REAL OSRM POR CALLES (URL CORREGIDA Y LIMPIA)
         async function calcularRutaVialOSRM(coordenadasLatLng) {
             if (!coordenadasLatLng || coordenadasLatLng.length < 2) return null;
 
@@ -829,12 +909,13 @@ Reglas estrictas:
             let duracionTotalSegundos = 0;
             const todosPuntosGeoJSON = [];
 
-            // Segmentación en bloques de 8 puntos para evitar errores de URL en OSRM
-            const tamanoLote = 8;
+            // Segmentación en bloques de hasta 12 puntos para máxima fluidez en OSRM
+            const tamanoLote = 12;
             for (let i = 0; i < coordenadasLatLng.length - 1; i += (tamanoLote - 1)) {
                 const segmento = coordenadasLatLng.slice(i, i + tamanoLote);
                 if (segmento.length < 2) break;
 
+                // OSRM requiere: lng,lat;lng,lat
                 const coordinatesString = segmento.map(c => `${c[1]},${c[0]}`).join(';');
                 const urlOsrm = `[https://router.project-osrm.org/route/v1/driving/$](https://router.project-osrm.org/route/v1/driving/$){coordinatesString}?overview=full&geometries=geojson`;
 
@@ -853,7 +934,7 @@ Reglas estrictas:
                         segmento.forEach(pt => todosPuntosGeoJSON.push(pt));
                     }
                 } catch (e) {
-                    console.warn("Fallo segmento OSRM, aplicando trazado directo:", e);
+                    console.warn("Fallo segmento OSRM, aplicando trazado de respaldo:", e);
                     segmento.forEach(pt => todosPuntosGeoJSON.push(pt));
                 }
             }
@@ -865,32 +946,99 @@ Reglas estrictas:
             };
         }
 
+        // 7. MOTOR DE GEOCODIFICACIÓN EN CASCADA AVANZADO (PASO 2)
+        function limpiarRuidoTexto(str) {
+            if (!str) return "";
+            return str
+                .replace(/\b(parab[uú]s|parada|frente a|enfrente|esq|esquina|cruce con|puente|retorno|puerta|port[oó]n|tienda|oxxo|seven|gasolinera|km|kil[oó]metro)\b/gi, ' ')
+                .replace(/[#\-\(\)\/\\]/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
+
+        async function consultarNominatimDirecto(url) {
+            try {
+                const res = await fetch(url, { headers: { "User-Agent": "ERPTransportePro/6.0 (Logistica Industrial)" } });
+                if (!res.ok) return null;
+                const data = await res.json();
+                if (data && data.length > 0) {
+                    return `${parseFloat(data[0].lat).toFixed(6)}, ${parseFloat(data[0].lon).toFixed(6)}`;
+                }
+            } catch (e) {}
+            return null;
+        }
+
         async function geocodificarParada(parada, municipio, estado) {
+            // Caso 0: Ya posee coordenadas válidas
             if (parada.coordenadasAbordaje && parada.coordenadasAbordaje.includes(",")) {
                 return { coords: parada.coordenadasAbordaje.trim(), origen: "Exacta" };
             }
             if (parada.coordenadaDetectadaDirecta && parada.coordenadaDetectadaDirecta.includes(",")) {
                 return { coords: parada.coordenadaDetectadaDirecta.trim(), origen: "Exacta (Texto)" };
             }
-            const cruce = (parada.cruceVialEnriquecido || "").replace(/parabús|frente a|enfrente/gi, '').trim();
-            const querys = [
-                `${cruce}, ${municipio}, ${estado}, Mexico`,
-                `${cruce.split(',')[0]}, ${municipio}, ${estado}, Mexico`,
-                `${parada.referenciaOriginal}, ${municipio}, ${estado}, Mexico`
-            ];
-            for (const q of querys) {
-                if (!q || q.length < 5) continue;
-                try {
-                    const res = await fetch(`[https://nominatim.openstreetmap.org/search?format=json&q=$](https://nominatim.openstreetmap.org/search?format=json&q=$){encodeURIComponent(q)}&countrycodes=mx&limit=1`, { headers: { "User-Agent": "ERPTransportePro/5.2" } });
-                    const data = await res.json();
-                    if (data && data.length > 0) return { coords: `${parseFloat(data[0].lat).toFixed(6)}, ${parseFloat(data[0].lon).toFixed(6)}`, origen: "Nominatim OSM" };
-                } catch (e) { }
-                await new Promise(r => setTimeout(r, 250));
+
+            const cruceCrudo = parada.cruceVialEnriquecido || "";
+            const refCruda = parada.referenciaOriginal || "";
+            const cruceLimpio = limpiarRuidoTexto(cruceCrudo);
+            const refLimpia = limpiarRuidoTexto(refCruda);
+
+            // Cascada de 5 niveles deductivos de búsqueda
+            const intentos = [];
+
+            // Nivel 1: Intersección formal OpenStreetMap (Calle 1 and Calle 2)
+            if (cruceLimpio.includes(" y ") || cruceLimpio.includes(" con ")) {
+                const calles = cruceLimpio.split(/\by\b|\bcon\b/i).map(c => c.trim()).filter(Boolean);
+                if (calles.length >= 2) {
+                    intentos.push({
+                        tipo: "Intersección Cruce OSM",
+                        url: `[https://nominatim.openstreetmap.org/search?format=json&q=$](https://nominatim.openstreetmap.org/search?format=json&q=$){encodeURIComponent(`${calles[0]} and ${calles[1]}, ${municipio}, ${estado}, Mexico`)}&countrycodes=mx&limit=1`
+                    });
+                }
             }
+
+            // Nivel 2: Búsqueda Estructurada en Nominatim
+            if (cruceLimpio.length > 3) {
+                intentos.push({
+                    tipo: "Estructurada Calle/Municipio",
+                    url: `[https://nominatim.openstreetmap.org/search?format=json&street=$](https://nominatim.openstreetmap.org/search?format=json&street=$){encodeURIComponent(cruceLimpio)}&city=${encodeURIComponent(municipio)}&state=${encodeURIComponent(estado)}&country=Mexico&limit=1`
+                });
+            }
+
+            // Nivel 3: Cruce Vial + Municipio + Estado libre
+            if (cruceLimpio.length > 3) {
+                intentos.push({
+                    tipo: "Cruce Libre Enriquecido",
+                    url: `[https://nominatim.openstreetmap.org/search?format=json&q=$](https://nominatim.openstreetmap.org/search?format=json&q=$){encodeURIComponent(`${cruceLimpio}, ${municipio}, ${estado}, Mexico`)}&countrycodes=mx&limit=1`
+                });
+            }
+
+            // Nivel 4: Referencia limpia + Municipio + Estado
+            if (refLimpia.length > 3 && refLimpia !== cruceLimpio) {
+                intentos.push({
+                    tipo: "Referencia Limpia",
+                    url: `[https://nominatim.openstreetmap.org/search?format=json&q=$](https://nominatim.openstreetmap.org/search?format=json&q=$){encodeURIComponent(`${refLimpia}, ${municipio}, ${estado}, Mexico`)}&countrycodes=mx&limit=1`
+                });
+            }
+
+            // Nivel 5: Búsqueda amplia de respaldo
+            intentos.push({
+                tipo: "Búsqueda Amplia",
+                url: `[https://nominatim.openstreetmap.org/search?format=json&q=$](https://nominatim.openstreetmap.org/search?format=json&q=$){encodeURIComponent(`${refCruda || cruceCrudo}, ${municipio}, Mexico`)}&countrycodes=mx&limit=1`
+            });
+
+            // Ejecución secuencial respetando el límite de OSM (1 segundo entre peticiones)
+            for (const intento of intentos) {
+                const coordsEncontradas = await consultarNominatimDirecto(intento.url);
+                if (coordsEncontradas) {
+                    return { coords: coordsEncontradas, origen: `Nominatim (${intento.tipo})` };
+                }
+                await new Promise(r => setTimeout(r, 950));
+            }
+
             return { coords: "", origen: "Sin Geocodificar" };
         }
 
-        // 7. EXTRACCIÓN Y FUSIÓN HÍBRIDA (KML + PDF EN TIEMPO REAL)
+        // 8. EXTRACCIÓN Y FUSIÓN HÍBRIDA (KML + PDF EN TIEMPO REAL)
         async function ejecutarPaso1Extraccion() {
             const apiKey = document.getElementById("apiKeyGemini").value.trim();
             const empresa = document.getElementById("empresaValidacionIA").value.trim();
@@ -994,14 +1142,26 @@ Reglas estrictas:
         async function ejecutarPaso2GeolocalizarTodas() {
             if (coleccionRutas.length === 0) return alert("⚠️ Carga o extrae rutas primero.");
             const btn = document.getElementById("btnPaso2GeolocalizarTodos");
+            const feedbackBar = document.getElementById("progresoGeocodificacion");
+            
             btn.disabled = true;
             btn.innerHTML = '<span>⏳</span> Geocodificando...';
+            feedbackBar.classList.remove("hidden");
 
             const estadoDefecto = document.getElementById("estadoOperacionInput").value.trim() || "Nuevo León";
+            
+            let totalParadasPendientes = 0;
+            coleccionRutas.forEach(r => {
+                r.paradas.forEach(p => { if (!p.coordenadasAbordaje) totalParadasPendientes++; });
+            });
+
+            let procesadas = 0;
             for (let i = 0; i < coleccionRutas.length; i++) {
                 const r = coleccionRutas[i];
                 for (const p of r.paradas) {
                     if (!p.coordenadasAbordaje) {
+                        procesadas++;
+                        feedbackBar.innerText = `🔍 Deduciendo cruce ${procesadas}/${totalParadasPendientes}: ${p.referenciaOriginal || 'Parada'}`;
                         const geo = await geocodificarParada(p, r.municipio, r.estado || estadoDefecto);
                         p.coordenadasAbordaje = geo.coords;
                         p.estadoGeocodificacion = geo.origen;
@@ -1009,10 +1169,12 @@ Reglas estrictas:
                 }
                 coleccionRutas[i] = normalizarRutaParaInyeccion(r);
             }
+
+            feedbackBar.classList.add("hidden");
             btn.disabled = false;
             btn.innerHTML = '<span>🗺️</span> Geocodificar Paradas Pendientes';
             await renderizarTablaYMapa();
-            alert("✅ Geocodificación completada.");
+            alert("✅ Proceso de geocodificación en cascada completado.");
         }
 
         async function geolocalizarRutaSeleccionada() {
@@ -1022,17 +1184,27 @@ Reglas estrictas:
 
             const r = coleccionRutas[idx];
             const btn = document.getElementById("btnPaso2RutaActual");
+            const feedbackBar = document.getElementById("progresoGeocodificacion");
+
             btn.disabled = true;
             btn.innerHTML = '<span>⏳</span> Geocodificando...';
+            feedbackBar.classList.remove("hidden");
+
+            const estadoDefecto = document.getElementById("estadoOperacionInput").value.trim() || "Nuevo León";
+            let procesadas = 0;
 
             for (const p of r.paradas) {
                 if (!p.coordenadasAbordaje) {
-                    const geo = await geocodificarParada(p, r.municipio, r.estado || "Nuevo León");
+                    procesadas++;
+                    feedbackBar.innerText = `🔍 Deduciendo parada #${p.numeroParada}: ${p.referenciaOriginal || ''}`;
+                    const geo = await geocodificarParada(p, r.municipio, r.estado || estadoDefecto);
                     p.coordenadasAbordaje = geo.coords;
                     p.estadoGeocodificacion = geo.origen;
                 }
             }
+
             coleccionRutas[idx] = normalizarRutaParaInyeccion(r);
+            feedbackBar.classList.add("hidden");
             btn.disabled = false;
             btn.innerHTML = '🗺️ Geocodificar Bloque';
             await renderizarTablaYMapa();
@@ -1052,7 +1224,6 @@ Reglas estrictas:
             renderizarTablaYMapa();
         }
 
-        // 8. EDICIÓN DINÁMICA DE CAMPOS DE LA PARADA
         function actualizarReferenciaParada(nombreRuta, numParada, valor) {
             const r = coleccionRutas.find(x => x.nombreRuta === nombreRuta);
             if (r) {
@@ -1099,7 +1270,6 @@ Reglas estrictas:
             }
         }
 
-        // 9. INYECCIÓN GRANULAR (PARADA POR PARADA)
         async function guardarParadaIndividualAFirebase(nombreRuta, numParada) {
             const r = coleccionRutas.find(x => x.nombreRuta === nombreRuta);
             if (!r) return;
@@ -1119,12 +1289,29 @@ Reglas estrictas:
             }
         }
 
-        // 10. RENDERIZADO TABULAR Y CARTOGRÁFICO CON POLILÍNEA VIAL REAL
+        // 9. FUNCIÓN DE AUDITORÍA CON ENFOQUE Y APERTURA INMEDIATA DE POPUP
+        function auditarPuntoEnMapa(idCompuesta, lat, lng) {
+            if (!mapObj || isNaN(lat) || isNaN(lng)) return;
+
+            // Vuelo suave hacia el punto
+            mapObj.flyTo([lat, lng], 17, { duration: 0.9 });
+
+            // Abrir automáticamente el popup del marcador sin necesidad de hacer clic sobre el mapa
+            setTimeout(() => {
+                const marker = diccionarioMarcadores[idCompuesta];
+                if (marker) {
+                    marker.openPopup();
+                }
+            }, 500);
+        }
+
+        // 10. RENDERIZADO CARTOGRÁFICO Y TABULAR INTEGRAL (COLORES POR RUTA + LÁGRIMAS GPS + VIAL REAL)
         async function renderizarTablaYMapa() {
             const tbody = document.getElementById("tablaResultadosPreCommit");
             tbody.innerHTML = "";
             markersGroup.clearLayers();
             polylineGroup.clearLayers();
+            diccionarioMarcadores = {};
 
             const rutasFiltradas = rutaSeleccionadaFiltro === "TODAS" 
                 ? coleccionRutas 
@@ -1140,7 +1327,11 @@ Reglas estrictas:
             const latLngsGlobales = [];
             let distanciaTotalAcumulada = 0;
 
-            for (const ruta of rutasFiltradas) {
+            for (let rIdx = 0; rIdx < rutasFiltradas.length; rIdx++) {
+                const ruta = rutasFiltradas[rIdx];
+                const indiceColorGlobal = coleccionRutas.findIndex(cr => cr.nombreRuta === ruta.nombreRuta);
+                const colorRutaActual = obtenerColorPorRutaIndex(indiceColorGlobal >= 0 ? indiceColorGlobal : rIdx);
+
                 const puntosRuta = [];
 
                 ruta.paradas.forEach((parada) => {
@@ -1148,27 +1339,40 @@ Reglas estrictas:
                     const lat = parseFloat(coords[0]);
                     const lng = parseFloat(coords[1]);
                     const valida = !isNaN(lat) && !isNaN(lng);
+                    const idParadaCompuesta = `${ruta.nombreRuta}_${parada.numeroParada}`;
 
                     if (valida) {
                         puntosRuta.push([lat, lng]);
                         latLngsGlobales.push([lat, lng]);
 
-                        const marker = L.circleMarker([lat, lng], {
-                            radius: 6,
-                            fillColor: "#38bdf8",
-                            color: "#fff",
-                            weight: 1.5,
-                            fillOpacity: 0.9
+                        // Marcador GPS estilo Lágrima con el color exclusivo de su ruta y número
+                        const marker = L.marker([lat, lng], {
+                            icon: crearIconoLagrimaGPS(parada.numeroParada, colorRutaActual),
+                            title: `${ruta.nombreRuta} - #${parada.numeroParada}`
                         }).addTo(markersGroup);
 
-                        marker.bindPopup(`
-                            <div class="font-sans text-xs">
-                                <b class="text-cyber-accent">${ruta.nombreRuta} (Parada #${parada.numeroParada})</b><br>
-                                <b>Ref:</b> ${parada.referenciaOriginal}<br>
-                                <b>Cruce:</b> ${parada.cruceVialEnriquecido}<br>
-                                <span class="font-mono text-emerald-400">${lat.toFixed(6)}, ${lng.toFixed(6)}</span>
+                        // Registro en diccionario para auditoría directa
+                        diccionarioMarcadores[idParadaCompuesta] = marker;
+
+                        const popupHtml = `
+                            <div class="font-sans text-xs space-y-1.5 p-1" style="min-width: 220px;">
+                                <div class="flex items-center justify-between border-b border-slate-700 pb-1">
+                                    <span class="font-bold text-white uppercase text-[11px]">${ruta.nombreRuta}</span>
+                                    <span class="px-1.5 py-0.5 rounded text-[10px] font-bold font-mono text-slate-950" style="background-color: ${colorRutaActual};">
+                                        #${parada.numeroParada}
+                                    </span>
+                                </div>
+                                <p class="text-slate-200"><b>Referencia:</b> ${parada.referenciaOriginal || 'Sin nombre'}</p>
+                                <p class="text-slate-400 text-[11px]"><b>Cruce:</b> ${parada.cruceVialEnriquecido || 'Sin especificar'}</p>
+                                <div class="font-mono text-emerald-400 font-bold bg-slate-900 px-2 py-1 rounded border border-slate-800 text-center mt-1">
+                                    ${lat.toFixed(6)}, ${lng.toFixed(6)}
+                                </div>
+                                <div class="text-[10px] text-cyber-cyan font-mono text-right pt-0.5">
+                                    Origen: ${parada.estadoGeocodificacion || 'Manual'}
+                                </div>
                             </div>
-                        `);
+                        `;
+                        marker.bindPopup(popupHtml);
                     }
 
                     const textoHorarios = (parada.horarios || []).map(h => h.formatoCivil).join(" / ");
@@ -1177,8 +1381,11 @@ Reglas estrictas:
                     tr.className = "hover:bg-slate-800/40 border-b border-cyber-border/40 text-slate-300";
                     tr.innerHTML = `
                         <td class="p-2.5 whitespace-nowrap">
-                            <span class="font-bold text-white">${ruta.nombreRuta}</span>
-                            <div class="text-[10px] text-cyber-purple font-mono font-bold">Parada #${parada.numeroParada}</div>
+                            <div class="flex items-center gap-2">
+                                <span class="w-2.5 h-2.5 rounded-full inline-block shrink-0 shadow-sm" style="background-color: ${colorRutaActual};"></span>
+                                <span class="font-bold text-white">${ruta.nombreRuta}</span>
+                            </div>
+                            <div class="text-[10px] font-mono font-bold ml-4.5" style="color: ${colorRutaActual};">Parada #${parada.numeroParada}</div>
                         </td>
                         <td class="p-2.5">
                             <input type="text" value="${parada.referenciaOriginal || ''}" 
@@ -1198,16 +1405,29 @@ Reglas estrictas:
                                 onchange="actualizarCoordManual('${ruta.nombreRuta}', ${parada.numeroParada}, this.value)" 
                                 placeholder="Lat, Lng" class="w-full bg-cyber-bg border border-slate-700 rounded px-2 py-1 text-xs text-cyber-cyan focus:outline-none">
                         </td>
-                        <td class="p-2.5 text-center whitespace-nowrap space-x-1">
-                            ${valida ? `<button type="button" onclick="centrarEnMapa(${lat}, ${lng})" title="Centrar en el mapa" class="bg-cyber-cyan/20 hover:bg-cyber-cyan/40 text-cyber-cyan px-2 py-1 rounded text-xs">📍</button>` : ''}
-                            <button type="button" onclick="guardarParadaIndividualAFirebase('${ruta.nombreRuta}', ${parada.numeroParada})" title="Guardar parada individual en Firebase" class="bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white px-2 py-1 rounded text-xs font-bold transition">
-                                💾
+                        <td class="p-2.5 text-center whitespace-nowrap space-x-1.5">
+                            ${valida ? `
+                                <button type="button" 
+                                    onclick="auditarPuntoEnMapa('${idParadaCompuesta}', ${lat}, ${lng})" 
+                                    title="Auditar en mapa: vuelo suave y apertura automática" 
+                                    class="btn-audit-press inline-flex items-center justify-center bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/50 text-cyber-cyan px-2.5 py-1.5 rounded-md text-xs font-bold">
+                                    <span>🎯 Ver</span>
+                                </button>
+                            ` : `
+                                <span class="text-[10px] text-slate-500 font-mono italic">Sin GPS</span>
+                            `}
+                            <button type="button" 
+                                onclick="guardarParadaIndividualAFirebase('${ruta.nombreRuta}', ${parada.numeroParada})" 
+                                title="Guardar parada individual en Firebase" 
+                                class="btn-audit-press inline-flex items-center justify-center bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/50 text-emerald-400 px-2.5 py-1.5 rounded-md text-xs font-bold">
+                                <span>💾</span>
                             </button>
                         </td>
                     `;
                     tbody.appendChild(tr);
                 });
 
+                // Cálculo y trazado vial real por calles con OSRM
                 if (puntosRuta.length >= 2) {
                     const routingRes = await calcularRutaVialOSRM(puntosRuta);
                     if (routingRes && routingRes.puntosPolilinea.length > 0) {
@@ -1215,10 +1435,22 @@ Reglas estrictas:
                         ruta.tiempoEstimadoMin = routingRes.duracionMin;
                         distanciaTotalAcumulada += parseFloat(routingRes.distanciaKm);
 
+                        // Polilínea con halo exterior oscuro (Estilo Google Maps Navigation)
                         L.polyline(routingRes.puntosPolilinea, {
-                            color: '#38bdf8',
-                            weight: 4,
-                            opacity: 0.85,
+                            color: '#020617',
+                            weight: 7,
+                            opacity: 0.9,
+                            lineCap: 'round',
+                            lineJoin: 'round'
+                        }).addTo(polylineGroup);
+
+                        // Trazo vial con el color único de la ruta
+                        L.polyline(routingRes.puntosPolilinea, {
+                            color: colorRutaActual,
+                            weight: 4.5,
+                            opacity: 0.95,
+                            lineCap: 'round',
+                            lineJoin: 'round',
                             smoothFactor: 1
                         }).addTo(polylineGroup);
 
@@ -1234,13 +1466,7 @@ Reglas estrictas:
             document.getElementById("jsonOutputViewer").value = JSON.stringify(coleccionRutas, null, 2);
 
             if (latLngsGlobales.length > 0) {
-                mapObj.fitBounds(latLngsGlobales, { padding: [30, 30] });
-            }
-        }
-
-        function centrarEnMapa(lat, lng) {
-            if (mapObj && !isNaN(lat) && !isNaN(lng)) {
-                mapObj.flyTo([lat, lng], 17, { duration: 1.0 });
+                mapObj.fitBounds(latLngsGlobales, { padding: [35, 35] });
             }
         }
 
