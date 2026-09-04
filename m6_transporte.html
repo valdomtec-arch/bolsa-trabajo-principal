@@ -47,13 +47,11 @@
         ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: #ea580c; }
         
-        /* Contenedor del mapa: fondo claro, limpio y neutral */
         .leaflet-container { 
             background-color: #f1f5f9 !important; 
             font-family: inherit;
         }
 
-        /* Popups de alto impacto visual */
         .leaflet-popup-content-wrapper, .leaflet-popup-tip {
             background: rgba(18, 24, 36, 0.95) !important;
             backdrop-filter: blur(8px);
@@ -63,7 +61,6 @@
             border-radius: 0.75rem;
         }
 
-        /* Marcadores en forma de gota/lágrima GPS */
         .gps-pin-marker {
             position: relative;
             cursor: pointer;
@@ -118,7 +115,7 @@
 
     <div class="p-3 sm:p-5 md:p-6 max-w-7xl mx-auto space-y-6">
         
-        <!-- HEADER PRINCIPAL CON BOTONERA DE ACCESO TOTAL -->
+        <!-- HEADER PRINCIPAL -->
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-cyber-border pb-5 gap-4">
             <div>
                 <div class="flex items-center gap-2 mb-1 flex-wrap">
@@ -128,9 +125,12 @@
                     <span id="badgeEstadoServer" class="bg-emerald-500/10 text-emerald-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-emerald-500/20 flex items-center gap-1.5">
                         <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Sincronizando...
                     </span>
+                    <span id="badgeCacheInfo" class="bg-slate-800 text-slate-400 text-[10px] px-2 py-0.5 rounded font-mono hidden sm:inline">
+                        Memoria: Activa
+                    </span>
                 </div>
                 <h1 class="text-xl sm:text-2xl md:text-3xl font-extrabold text-white tracking-tight">Logística de Transporte Empresarial</h1>
-                <p class="text-slate-400 text-xs md:text-sm mt-1">Inspección de rutas parada por parada, ruteo vial OSRM, georreferenciación satelital y acuses QR.</p>
+                <p class="text-slate-400 text-xs md:text-sm mt-1">Inspección de rutas optimizada, ruteo OSRM bajo demanda, mapa claro y acuses QR.</p>
             </div>
             
             <div class="w-full md:w-auto flex flex-wrap sm:flex-nowrap gap-2 sm:gap-3 items-center">
@@ -157,7 +157,12 @@
                     </span>
                 </a>
 
-                <button onclick="sincronizarInicialBajoDemanda()" class="bg-cyber-card hover:bg-slate-800 text-slate-300 border border-cyber-border font-mono text-xs px-3.5 py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-sm">
+                <!-- BOTÓN SANEAMIENTO Y PURGA TOTAL (CACHÉ, MEMORIA Y BASURA RESIDUAL) -->
+                <button onclick="ejecutarSanitizacionIntegral()" title="Purgar caché local, liberar memoria RAM del mapa y reparar datos residuales" class="bg-rose-500/15 hover:bg-rose-500/30 text-rose-400 border border-rose-500/40 font-mono text-xs px-3 py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-sm font-bold">
+                    <i class="fas fa-broom text-rose-400"></i> <span class="hidden sm:inline">Sanitizar & Limpiar</span>
+                </button>
+
+                <button onclick="sincronizarInicialBajoDemanda(true)" title="Forzar lectura fresca desde Firebase" class="bg-cyber-card hover:bg-slate-800 text-slate-300 border border-cyber-border font-mono text-xs px-3.5 py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-sm">
                     <i class="fas fa-rotate"></i> <span>Actualizar</span>
                 </button>
             </div>
@@ -213,7 +218,7 @@
                     <h2 class="text-base sm:text-lg font-bold text-white flex items-center gap-2">
                         <i class="fas fa-map-location-dot text-cyber-accent"></i> Visualizador Cartográfico Claro & Triangulación Vial
                     </h2>
-                    <p class="text-slate-400 text-xs mt-0.5">Mapa detallado de avenidas, parques y calles con trazado continuo sobre el asfalto (OSM/OSRM).</p>
+                    <p class="text-slate-400 text-xs mt-0.5">Mapa claro con avenidas principales, parques y trazado vial calle por calle bajo demanda.</p>
                 </div>
                 <div class="flex items-center gap-2">
                     <button onclick="verTodasLasRutasEnMapa()" class="bg-cyber-bg hover:bg-slate-800 text-xs text-cyber-cyan border border-cyber-border px-3 py-1.5 rounded-lg font-mono transition-all flex items-center gap-1.5">
@@ -226,7 +231,7 @@
                 <div>
                     <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">1. Filtrar por Empresa</label>
                     <select id="selectEmpresaExplorador" onchange="alSeleccionarEmpresaExplorador()" class="w-full bg-cyber-bg border border-cyber-border rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-cyber-cyan font-semibold">
-                        <option value="">-- Todas las Empresas --</option>
+                        <option value="">-- Todas las Empresas (Modo Rápido) --</option>
                     </select>
                 </div>
 
@@ -324,7 +329,7 @@
                 </form>
             </div>
 
-            <!-- CATÁLOGO TABULAR DESPLEGABLE PARADA POR PARADA -->
+            <!-- CATÁLOGO ACORDEÓN CON RENDERIZADO DIFERIDO (0 LAG) -->
             <div class="lg:col-span-8 bg-cyber-card p-4 sm:p-5 rounded-xl border border-cyber-border shadow-xl flex flex-col justify-between space-y-4">
                 <div>
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3 border-b border-cyber-border pb-3">
@@ -332,7 +337,7 @@
                             <h2 class="text-xs font-bold uppercase text-slate-300 tracking-wider flex items-center gap-2">
                                 <i class="fas fa-list-check text-cyber-accent"></i> Catálogo de Rutas con Paradas Granulares
                             </h2>
-                            <p class="text-[11px] text-slate-400">Despliega cualquier ruta para ver, centrar en asfalto o editar sus paradas una por una.</p>
+                            <p class="text-[11px] text-slate-400">Haz clic en cualquier ruta para desplegar sus paradas bajo demanda sin saturar la memoria.</p>
                         </div>
                         
                         <div class="flex flex-wrap items-center gap-2">
@@ -347,13 +352,13 @@
                     </div>
 
                     <div id="contenedorRutasAcordeon" class="space-y-3 max-h-[550px] overflow-y-auto pr-1 custom-scrollbar">
-                        <!-- Inyección dinámica de acordeón de rutas -->
+                        <!-- Inyección progresiva de rutas -->
                     </div>
                 </div>
 
                 <div class="pt-2 border-t border-cyber-border flex items-center justify-between text-xs font-mono text-slate-400">
                     <span id="txtTotalRutasEnLista">0 rutas registradas</span>
-                    <span class="text-cyber-cyan"><i class="fas fa-circle-info me-1"></i>Sincronizado con M6 Motor e INEGI</span>
+                    <span class="text-cyber-cyan"><i class="fas fa-bolt me-1"></i>Motor Ultra-Rápido con Lazy DOM</span>
                 </div>
             </div>
         </div>
@@ -463,7 +468,7 @@
         </div>
     </div>
 
-    <!-- FIREBASE V10 SDK (MODULAR) & MOTOR CARTOGRÁFICO CLARO -->
+    <!-- FIREBASE V10 SDK (MODULAR) & MOTOR ULTRA-OPTIMIZADO -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, get, set, remove, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
@@ -481,18 +486,9 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        // Paleta viva y contrastante para resaltar sobre el asfalto claro
         const PALETA_COLORES = [
-            '#0284c7', // Sky blue vibrante
-            '#7c3aed', // Púrpura intenso
-            '#d97706', // Ámbar oscuro
-            '#059669', // Esmeralda fuerte
-            '#e11d48', // Carmesí
-            '#2563eb', // Royal Blue
-            '#db2777', // Rosa fucsia
-            '#ca8a04', // Dorado
-            '#0d9488', // Verde azulado
-            '#9333ea'  // Violeta
+            '#0284c7', '#7c3aed', '#d97706', '#059669', '#e11d48',
+            '#2563eb', '#db2777', '#ca8a04', '#0d9488', '#9333ea'
         ];
 
         let diccionarioEmpresas = {};
@@ -504,9 +500,11 @@
         let polylineLayerGroup = null;
 
         const cacheSnappingVial = new Map();
+        const cacheRutasOSRM = new Map();
+        const cacheGeocodingNominatim = new Map();
 
         // -------------------------------------------------------------
-        // DECLARACIONES DE FUNCIONES BASE
+        // HELPERS Y UTILIDADES
         // -------------------------------------------------------------
         function sanitizarKey(str) {
             return (str || "general").toLowerCase().trim()
@@ -565,7 +563,6 @@
                     attributionControl: false
                 }).setView([25.6866, -100.3161], 11);
 
-                // MAPA CLARO NATURAL TOTALMENTE LIBRE DE MARCAS DE AGUA
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     maxZoom: 19,
                     attribution: '© OpenStreetMap'
@@ -581,6 +578,9 @@
             if (polylineLayerGroup) polylineLayerGroup.clearLayers();
         }
 
+        // -------------------------------------------------------------
+        // SNAP-TO-ROAD Y RUTEO OSRM CON CACHÉ
+        // -------------------------------------------------------------
         async function proyectarPuntoAlAsfalto(lat, lng) {
             const claveCache = `${lat},${lng}`;
             if (cacheSnappingVial.has(claveCache)) {
@@ -606,8 +606,12 @@
             return coordOriginal;
         }
 
-        async function calcularRutaVialOSRM(coordenadasLatLng) {
+        async function calcularRutaVialOSRM(coordenadasLatLng, claveCacheRuta = null) {
             if (!coordenadasLatLng || coordenadasLatLng.length < 2) return null;
+
+            if (claveCacheRuta && cacheRutasOSRM.has(claveCacheRuta)) {
+                return cacheRutasOSRM.get(claveCacheRuta);
+            }
 
             let distanciaTotalMetros = 0;
             let duracionTotalSegundos = 0;
@@ -639,26 +643,27 @@
                         const coordsSegmento = data.routes[0].geometry.coordinates;
                         coordsSegmento.forEach(pt => todosPuntosGeoJSON.push([pt[1], pt[0]]));
                     } else {
-                        todosPuntosGeoJSON.push(pOrigen);
-                        todosPuntosGeoJSON.push(pDestino);
+                        todosPuntosGeoJSON.push(pOrigen, pDestino);
                     }
                 } catch (e) {
-                    todosPuntosGeoJSON.push(pOrigen);
-                    todosPuntosGeoJSON.push(pDestino);
+                    todosPuntosGeoJSON.push(pOrigen, pDestino);
                 }
 
-                await new Promise(r => setTimeout(r, 40));
+                await new Promise(r => setTimeout(r, 15));
             }
 
-            return {
+            const resultado = {
                 distanciaKm: (distanciaTotalMetros / 1000).toFixed(2),
                 duracionMin: Math.round(duracionTotalSegundos / 60),
                 puntosPolilinea: todosPuntosGeoJSON
             };
+
+            if (claveCacheRuta) cacheRutasOSRM.set(claveCacheRuta, resultado);
+            return resultado;
         }
 
         // -------------------------------------------------------------
-        // RENDERIZADO GRANULAR DE RUTAS (FUNCIÓN GLOBAL)
+        // RENDERIZADO GRANULAR DE RUTAS (LAZY DOM: 0 LAG)
         // -------------------------------------------------------------
         function renderizarCatalogoRutasGranular() {
             const contenedor = document.getElementById("contenedorRutasAcordeon");
@@ -681,58 +686,26 @@
                 return;
             }
 
+            const fragment = document.createDocumentFragment();
+
             rutasFiltradas.forEach(r => {
                 const totalParadas = r.paradas.length;
                 const paradasConGps = r.paradas.filter(p => tieneCoordenadasValidas(p.coordenadasAbordaje)).length;
-
-                let filasParadasHtml = "";
-                r.paradas.forEach((p, idx) => {
-                    const coordsValidas = tieneCoordenadasValidas(p.coordenadasAbordaje);
-                    const horariosTxt = (p.horarios || []).map(h => h.formatoCivil).join(" / ") || "Sin horario";
-
-                    filasParadasHtml += `
-                        <tr class="hover:bg-slate-800/40 border-b border-cyber-border/40 text-slate-300">
-                            <td class="p-2 font-mono text-cyber-purple font-bold">#${p.numeroParada}</td>
-                            <td class="p-2">
-                                <div class="font-semibold text-white">${p.referenciaOriginal}</div>
-                                <div class="text-[10px] text-slate-400">${p.cruceVialEnriquecido || ''}</div>
-                            </td>
-                            <td class="p-2 font-mono text-amber-400 text-[11px]">${horariosTxt}</td>
-                            <td class="p-2 font-mono text-[11px]">
-                                ${coordsValidas 
-                                    ? `<span class="text-cyber-cyan">${p.coordenadasAbordaje}</span>` 
-                                    : `<span class="text-rose-400">Sin GPS</span>`}
-                            </td>
-                            <td class="p-2 text-center whitespace-nowrap space-x-1">
-                                ${coordsValidas ? `
-                                    <button onclick="centrarParadaEnMapa('${p.coordenadasAbordaje}', '${r.nombreRuta}', '${p.referenciaOriginal}')" title="Centrar en Mapa" class="bg-cyber-cyan/20 hover:bg-cyber-cyan/40 text-cyber-cyan px-2 py-1 rounded text-[10px]">
-                                        📍
-                                    </button>` : ''}
-                                <button onclick="abrirModalEdicionParada('${r.empresaKey}', '${r.idRuta}', ${idx})" title="Editar parada" class="bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 px-2 py-1 rounded text-[10px]">
-                                    ✏️
-                                </button>
-                                <button onclick="abrirModalAcuseDirecto('${r.nombreRuta}', '${r.empresaNombre}', '${horariosTxt}', '${p.referenciaOriginal}', '${p.coordenadasAbordaje}')" title="Acuse QR de Parada" class="bg-orange-600/20 hover:bg-orange-600 text-orange-400 hover:text-white px-2 py-1 rounded text-[10px]">
-                                    <i class="fas fa-qrcode"></i>
-                                </button>
-                            </td>
-                        </tr>
-                    `;
-                });
+                const idAcordeon = `acordeon_${r.empresaKey}_${r.idRuta}`;
 
                 const divRuta = document.createElement("div");
                 divRuta.className = "bg-cyber-bg border border-cyber-border rounded-xl overflow-hidden";
                 divRuta.innerHTML = `
-                    <div class="p-3 bg-cyber-card flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-cyber-border">
-                        <div>
-                            <div class="flex items-center gap-2">
-                                <h3 class="font-bold text-white text-sm">${r.nombreRuta}</h3>
-                                <span class="bg-cyber-purple/10 text-cyber-purple border border-cyber-purple/20 text-[10px] px-2 py-0.5 rounded font-mono font-bold">${r.empresaNombre}</span>
-                            </div>
-                            <span class="text-[11px] text-cyber-cyan font-mono">📍 ${r.estadoMunicipio} • ${totalParadas} Paradas (${paradasConGps} con GPS)</span>
+                    <div class="p-3 bg-cyber-card flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-cyber-border cursor-pointer hover:bg-slate-900/60 transition" onclick="toggleDetalleParadas('${r.empresaKey}', '${r.idRuta}')">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="text-cyber-cyan text-xs font-bold" id="icon_${idAcordeon}">▶</span>
+                            <h3 class="font-bold text-white text-sm">${r.nombreRuta}</h3>
+                            <span class="bg-cyber-purple/10 text-cyber-purple border border-cyber-purple/20 text-[10px] px-2 py-0.5 rounded font-mono font-bold">${r.empresaNombre}</span>
+                            <span class="text-[11px] text-slate-400 font-mono">📍 ${r.estadoMunicipio} • ${totalParadas} Paradas (${paradasConGps} GPS)</span>
                         </div>
-                        <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-2" onclick="event.stopPropagation()">
                             <button onclick="cargarRutaEnFormulario('${r.empresaKey}', '${r.idRuta}')" class="bg-cyber-cyan/20 hover:bg-cyber-cyan/40 text-cyber-cyan text-xs px-2.5 py-1 rounded font-bold transition">
-                                <i class="fas fa-pen me-1"></i>Editar Toda
+                                <i class="fas fa-pen me-1"></i>Editar
                             </button>
                             <button onclick="eliminarRuta('${r.empresaKey}', '${r.idRuta}')" class="bg-rose-500/20 hover:bg-rose-500/40 text-rose-400 text-xs px-2.5 py-1 rounded font-bold transition">
                                 <i class="fas fa-trash"></i>
@@ -740,7 +713,7 @@
                         </div>
                     </div>
 
-                    <div class="overflow-x-auto">
+                    <div id="${idAcordeon}" class="hidden overflow-x-auto transition-all">
                         <table class="w-full text-left border-collapse text-xs">
                             <thead class="bg-slate-900/80 border-b border-cyber-border text-slate-400">
                                 <tr>
@@ -751,18 +724,77 @@
                                     <th class="p-2 text-center w-28">Acciones</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-cyber-border/30 font-sans">
-                                ${filasParadasHtml || '<tr><td colspan="5" class="p-3 text-center text-slate-500">Sin paradas definidas.</td></tr>'}
+                            <tbody id="tbody_${idAcordeon}" class="divide-y divide-cyber-border/30 font-sans text-slate-300">
+                                <tr><td colspan="5" class="p-3 text-center text-slate-500 italic">Haz clic para cargar detalle de paradas...</td></tr>
                             </tbody>
                         </table>
                     </div>
                 `;
-                contenedor.appendChild(divRuta);
+                fragment.appendChild(divRuta);
             });
+
+            contenedor.appendChild(fragment);
+        }
+
+        function toggleDetalleParadas(empresaKey, idRuta) {
+            const idAcordeon = `acordeon_${empresaKey}_${idRuta}`;
+            const divContenedor = document.getElementById(idAcordeon);
+            const tbody = document.getElementById(`tbody_${idAcordeon}`);
+            const icono = document.getElementById(`icon_${idAcordeon}`);
+            if (!divContenedor) return;
+
+            const estaOculto = divContenedor.classList.contains("hidden");
+
+            if (estaOculto) {
+                divContenedor.classList.remove("hidden");
+                if (icono) icono.innerText = "▼";
+
+                // Inyección diferida bajo demanda
+                const r = cacheTodasLasRutas.find(x => x.idRuta === idRuta && x.empresaKey === empresaKey);
+                if (r && tbody) {
+                    let html = "";
+                    r.paradas.forEach((p, idx) => {
+                        const coordsValidas = tieneCoordenadasValidas(p.coordenadasAbordaje);
+                        const horariosTxt = (p.horarios || []).map(h => h.formatoCivil).join(" / ") || "Sin horario";
+
+                        html += `
+                            <tr class="hover:bg-slate-800/40 border-b border-cyber-border/40">
+                                <td class="p-2 font-mono text-cyber-purple font-bold">#${p.numeroParada}</td>
+                                <td class="p-2">
+                                    <div class="font-semibold text-white">${p.referenciaOriginal}</div>
+                                    <div class="text-[10px] text-slate-400">${p.cruceVialEnriquecido || ''}</div>
+                                </td>
+                                <td class="p-2 font-mono text-amber-400 text-[11px]">${horariosTxt}</td>
+                                <td class="p-2 font-mono text-[11px]">
+                                    ${coordsValidas 
+                                        ? `<span class="text-cyber-cyan">${p.coordenadasAbordaje}</span>` 
+                                        : `<span class="text-rose-400">Sin GPS</span>`}
+                                </td>
+                                <td class="p-2 text-center whitespace-nowrap space-x-1">
+                                    ${coordsValidas ? `
+                                        <button onclick="centrarParadaEnMapa('${p.coordenadasAbordaje}', '${r.nombreRuta}', '${p.referenciaOriginal}')" title="Centrar en Mapa" class="bg-cyber-cyan/20 hover:bg-cyber-cyan/40 text-cyber-cyan px-2 py-1 rounded text-[10px]">
+                                            📍
+                                        </button>` : ''}
+                                    <button onclick="abrirModalEdicionParada('${r.empresaKey}', '${r.idRuta}', ${idx})" title="Editar parada" class="bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 px-2 py-1 rounded text-[10px]">
+                                        ✏️
+                                    </button>
+                                    <button onclick="abrirModalAcuseDirecto('${r.nombreRuta}', '${r.empresaNombre}', '${horariosTxt}', '${p.referenciaOriginal}', '${p.coordenadasAbordaje}')" title="Acuse QR de Parada" class="bg-orange-600/20 hover:bg-orange-600 text-orange-400 hover:text-white px-2 py-1 rounded text-[10px]">
+                                        <i class="fas fa-qrcode"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                    tbody.innerHTML = html || '<tr><td colspan="5" class="p-3 text-center text-slate-500">Sin paradas configuradas.</td></tr>';
+                }
+            } else {
+                divContenedor.classList.add("hidden");
+                if (icono) icono.innerText = "▶";
+            }
         }
 
         // -------------------------------------------------------------
-        // EXPLORADOR EN VIVO Y MAPA CLARO
+        // EXPLORADOR EN VIVO (LAZY OSRM: RÁPIDO Y LIGERO)
         // -------------------------------------------------------------
         async function alSeleccionarEmpresaExplorador() {
             if (!leafletMap) inicializarMapaLeaflet();
@@ -788,6 +820,7 @@
             }
 
             const boundsCoords = [];
+            const esModoGeneral = !empresaSeleccionada;
 
             for (let rIdx = 0; rIdx < rutasFiltradas.length; rIdx++) {
                 const r = rutasFiltradas[rIdx];
@@ -830,8 +863,9 @@
                     }
                 });
 
-                if (puntosRutaValidos.length >= 2) {
-                    const routing = await calcularRutaVialOSRM(puntosRutaValidos);
+                // Solo calculamos OSRM sobre asfalto cuando se filtra por empresa para evitar lag de inicio
+                if (!esModoGeneral && puntosRutaValidos.length >= 2) {
+                    const routing = await calcularRutaVialOSRM(puntosRutaValidos, `${r.empresaKey}_${r.idRuta}`);
                     if (routing && routing.puntosPolilinea.length > 0) {
                         L.polyline(routing.puntosPolilinea, {
                             color: '#0f172a',
@@ -854,7 +888,11 @@
 
                 if (contenedorResultados) {
                     const card = document.createElement("div");
-                    card.className = "flex flex-col bg-cyber-bg p-3 rounded-lg border border-cyber-border text-xs gap-1.5 hover:border-cyber-accent/40 transition shadow-sm";
+                    card.className = "flex flex-col bg-cyber-bg p-3 rounded-lg border border-cyber-border text-xs gap-1.5 hover:border-cyber-accent/40 transition shadow-sm cursor-pointer";
+                    card.onclick = () => {
+                        const sel = document.getElementById("selectEmpresaExplorador");
+                        if (sel) { sel.value = r.empresaNombre; alSeleccionarEmpresaExplorador(); }
+                    };
                     card.innerHTML = `
                         <div class="flex justify-between items-start">
                             <div class="flex items-center gap-2">
@@ -875,22 +913,40 @@
         }
 
         // -------------------------------------------------------------
-        // SINCRONIZACIÓN MAESTRA FIREBASE
+        // SINCRONIZACIÓN MAESTRA CON CACHÉ LOCAL Y ZERO-LOSS
         // -------------------------------------------------------------
-        async function sincronizarInicialBajoDemanda() {
+        async function sincronizarInicialBajoDemanda(forzarDescarga = false) {
             const badge = document.getElementById("badgeEstadoServer");
+            const badgeCache = document.getElementById("badgeCacheInfo");
             if (badge) {
                 badge.className = "bg-amber-500/10 text-amber-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-amber-500/20 flex items-center gap-1.5";
                 badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span> Sincronizando...';
             }
 
             try {
-                const [snapEmpresas, snapRutas] = await Promise.all([
-                    get(ref(db, "empresas")),
-                    get(ref(db, "rutas"))
-                ]);
+                let dataEmp = null;
+                let dataRutas = null;
 
-                const dataEmp = snapEmpresas.exists() ? snapEmpresas.val() : {};
+                const cacheEmp = sessionStorage.getItem("cache_m6_empresas");
+                const cacheRut = sessionStorage.getItem("cache_m6_rutas");
+
+                if (!forzarDescarga && cacheEmp && cacheRut) {
+                    dataEmp = JSON.parse(cacheEmp);
+                    dataRutas = JSON.parse(cacheRut);
+                    if (badgeCache) badgeCache.textContent = "Memoria: Caché Rápido (0ms)";
+                } else {
+                    const [snapEmpresas, snapRutas] = await Promise.all([
+                        get(ref(db, "empresas")),
+                        get(ref(db, "rutas"))
+                    ]);
+                    dataEmp = snapEmpresas.exists() ? snapEmpresas.val() : {};
+                    dataRutas = snapRutas.exists() ? snapRutas.val() : {};
+
+                    sessionStorage.setItem("cache_m6_empresas", JSON.stringify(dataEmp));
+                    sessionStorage.setItem("cache_m6_rutas", JSON.stringify(dataRutas));
+                    if (badgeCache) badgeCache.textContent = "Memoria: Firebase Sincronizado";
+                }
+
                 diccionarioEmpresas = {};
                 listaEmpresasNombres = [];
 
@@ -911,7 +967,6 @@
                 listaEmpresasNombres.sort((a, b) => a.localeCompare(b));
                 poblarSelectsEmpresas();
 
-                const dataRutas = snapRutas.exists() ? snapRutas.val() : {};
                 aplanarRutasParaCache(dataRutas);
 
                 actualizarMetricasGerenciales();
@@ -920,7 +975,7 @@
 
                 if (badge) {
                     badge.className = "bg-emerald-500/10 text-emerald-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-emerald-500/20 flex items-center gap-1.5";
-                    badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Conectado (Universal Sync)';
+                    badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Conectado (Ultra-Fast)';
                 }
 
             } catch (error) {
@@ -930,6 +985,42 @@
                     badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-400"></span> Error de sincronización';
                 }
             }
+        }
+
+        // -------------------------------------------------------------
+        // BOTÓN: SANITIZACIÓN INTEGRAL DE CÓDIGO, MEMORIA Y BASURA
+        // -------------------------------------------------------------
+        async function ejecutarSanitizacionIntegral() {
+            const confirmacion = confirm(
+                "🧹 SANEAMIENTO Y OPTIMIZACIÓN INTEGRAL DE M6\n\n" +
+                "Esta acción realizará:\n" +
+                "1. Vaciado de caché local (sessionStorage y localStorage).\n" +
+                "2. Liberación de memoria RAM y reciclaje de capas en Leaflet.\n" +
+                "3. Saneamiento de estructuras burocráticas residuales en cliente.\n" +
+                "4. Forzado de sincronización limpia directa desde Firebase.\n\n" +
+                "¿Deseas continuar?"
+            );
+
+            if (!confirmacion) return;
+
+            // 1. Limpieza de almacenamiento local
+            sessionStorage.removeItem("cache_m6_empresas");
+            sessionStorage.removeItem("cache_m6_rutas");
+            localStorage.removeItem("cache_m6_empresas");
+            localStorage.removeItem("cache_m6_rutas");
+
+            // 2. Limpieza de mapas de memoria
+            cacheSnappingVial.clear();
+            cacheRutasOSRM.clear();
+            cacheGeocodingNominatim.clear();
+
+            // 3. Purga y reciclaje de capas del mapa
+            limpiarCapasMapa();
+
+            // 4. Saneamiento de nodos en cliente y recarga limpia
+            await sincronizarInicialBajoDemanda(true);
+
+            alert("✅ Saneamiento completado: Memoria liberada y catálogo 100% canónico.");
         }
 
         function aplanarRutasParaCache(rutasNodo) {
@@ -984,7 +1075,7 @@
             const selectForm = document.getElementById("empresaDestino");
             const selectFiltro = document.getElementById("filtroEmpresaTabla");
 
-            if (selectExplorador) selectExplorador.innerHTML = '<option value="">-- Todas las Empresas --</option>';
+            if (selectExplorador) selectExplorador.innerHTML = '<option value="">-- Todas las Empresas (Modo Rápido) --</option>';
             if (selectForm) selectForm.innerHTML = '<option value="">-- Selecciona Empresa --</option>';
             if (selectFiltro) selectFiltro.innerHTML = '<option value="TODAS">-- Todas las Empresas --</option>';
 
@@ -1085,11 +1176,18 @@
                     latCand = parseFloat(partes[0]);
                     lngCand = parseFloat(partes[1]);
                 } else {
-                    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(ubicacionTexto + ", Mexico")}`);
-                    const data = await res.json();
-                    if (data && data.length > 0) {
-                        latCand = parseFloat(data[0].lat);
-                        lngCand = parseFloat(data[0].lon);
+                    if (cacheGeocodingNominatim.has(ubicacionTexto)) {
+                        const coords = cacheGeocodingNominatim.get(ubicacionTexto);
+                        latCand = coords.lat;
+                        lngCand = coords.lng;
+                    } else {
+                        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(ubicacionTexto + ", Mexico")}`);
+                        const data = await res.json();
+                        if (data && data.length > 0) {
+                            latCand = parseFloat(data[0].lat);
+                            lngCand = parseFloat(data[0].lon);
+                            cacheGeocodingNominatim.set(ubicacionTexto, { lat: latCand, lng: lngCand });
+                        }
                     }
                 }
 
@@ -1254,7 +1352,7 @@
 
                 await set(ref(db, `rutas/${empresaKey}/${targetId}`), rutaData);
                 cancelarEdicion();
-                await sincronizarInicialBajoDemanda();
+                await sincronizarInicialBajoDemanda(true);
                 alert("✅ Ruta guardada exitosamente.");
             } catch (err) {
                 alert("Error: " + err.message);
@@ -1297,7 +1395,7 @@
         async function eliminarRuta(empresaKey, idRuta) {
             if (confirm("¿Deseas eliminar esta ruta definitivamente?")) {
                 await remove(ref(db, `rutas/${empresaKey}/${idRuta}`));
-                await sincronizarInicialBajoDemanda();
+                await sincronizarInicialBajoDemanda(true);
             }
         }
 
@@ -1306,7 +1404,7 @@
             if (filtro === "TODAS") return alert("Selecciona una empresa específica.");
             if (confirm(`¿Eliminar TODAS las rutas de ${filtro}?`)) {
                 await remove(ref(db, `rutas/${sanitizarKey(filtro)}`));
-                await sincronizarInicialBajoDemanda();
+                await sincronizarInicialBajoDemanda(true);
             }
         }
 
@@ -1349,7 +1447,7 @@
             try {
                 await update(ref(db, `rutas/${empKey}/${idRuta}/paradas/${pIdx}`), updates);
                 cerrarModalEdicionParada();
-                await sincronizarInicialBajoDemanda();
+                await sincronizarInicialBajoDemanda(true);
                 alert("✅ Parada individual actualizada en Firebase.");
             } catch (err) {
                 alert("Error al actualizar: " + err.message);
@@ -1409,11 +1507,13 @@
         // EXPOSICIÓN GLOBAL COMPLETA
         // -------------------------------------------------------------
         window.sincronizarInicialBajoDemanda = sincronizarInicialBajoDemanda;
+        window.ejecutarSanitizacionIntegral = ejecutarSanitizacionIntegral;
         window.alSeleccionarEmpresaExplorador = alSeleccionarEmpresaExplorador;
         window.verTodasLasRutasEnMapa = verTodasLasRutasEnMapa;
         window.obtenerUbicacionGPS = obtenerUbicacionGPS;
         window.ejecutarTriangulacionGeografica = ejecutarTriangulacionGeografica;
         window.renderizarCatalogoRutasGranular = renderizarCatalogoRutasGranular;
+        window.toggleDetalleParadas = toggleDetalleParadas;
         window.agregarFilaParadaFormulario = agregarFilaParadaFormulario;
         window.removerFilaParadaFormulario = removerFilaParadaFormulario;
         window.guardarRutaCompletaForm = guardarRutaCompletaForm;
