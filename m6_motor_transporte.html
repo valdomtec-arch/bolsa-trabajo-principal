@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Motor de Transporte - Ruteo Vial Real OSRM & Gestión Granular</title>
+    <title>Motor de Transporte - Ruteo Vial Real OSRM & Geocatálogo Maestro</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -99,11 +99,14 @@
         <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-cyber-border pb-5">
             <div>
                 <h1 class="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
-                    <span class="text-cyber-accent">⚡</span> Motor Logístico de Transporte <span class="text-xs bg-cyber-accent/20 text-cyber-accent px-2 py-0.5 rounded border border-cyber-accent/40 font-mono">v7.3 Intermunicipal Master</span>
+                    <span class="text-cyber-accent">⚡</span> Motor Logístico de Transporte <span class="text-xs bg-cyber-accent/20 text-cyber-accent px-2 py-0.5 rounded border border-cyber-accent/40 font-mono">v8.0 Master Catalogo</span>
                 </h1>
-                <p class="text-xs text-slate-400 mt-1">Geocodificación adaptativa por municipio, ruteo OSRM con Snap-to-Road y esterilización de servidor</p>
+                <p class="text-xs text-slate-400 mt-1">Integrado con Geocatálogos INEGI/KML, Ruteo OSRM con Snap-to-Road y autoaprendizaje permanente</p>
             </div>
             <div class="flex items-center gap-2 flex-wrap">
+                <a href="m6_extractor_coordenadas.html" class="bg-cyber-cyan/20 hover:bg-cyber-cyan/30 text-cyber-cyan border border-cyber-cyan/40 font-mono text-xs px-3.5 py-2 rounded-xl flex items-center gap-2 transition-all shadow-sm">
+                    <span>🛰️</span> Cosecha y Catálogos INEGI
+                </a>
                 <a href="m6_transporte.html" class="bg-cyber-card hover:bg-slate-800 text-slate-300 border border-cyber-border font-mono text-xs px-3.5 py-2 rounded-xl flex items-center gap-2 transition-all">
                     <span>←</span> Volver a M6 Logística
                 </a>
@@ -126,7 +129,7 @@
                         <h2 class="text-xs font-bold text-cyber-accent uppercase tracking-wider flex items-center gap-2">
                             <span>⚙️</span> Origen de Datos
                         </h2>
-                        <span class="text-[10px] text-cyber-cyan font-mono">KMZ / KML / IA / Firebase</span>
+                        <span class="text-[10px] text-cyber-cyan font-mono">INEGI / KMZ / IA / Firebase</span>
                     </div>
 
                     <div>
@@ -147,8 +150,8 @@
                     </div>
 
                     <div>
-                        <label class="block text-[11px] font-semibold text-slate-300 mb-1">Estado de Operación Base</label>
-                        <input type="text" id="estadoOperacionInput" value="Nuevo León" placeholder="Ej: Nuevo León, Chiapas" class="w-full bg-cyber-bg border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyber-accent">
+                        <label class="block text-[11px] font-semibold text-slate-300 mb-1">Entidad Federativa Base (Catálogo)</label>
+                        <input type="text" id="estadoOperacionInput" value="Nuevo León" placeholder="Ej: Nuevo León, Chiapas, Coahuila" class="w-full bg-cyber-bg border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyber-accent">
                     </div>
 
                     <div>
@@ -170,7 +173,7 @@
                     </button>
 
                     <button id="btnPaso2GeolocalizarTodos" onclick="ejecutarPaso2GeolocalizarTodas()" class="w-full bg-cyber-purple/20 hover:bg-cyber-purple/30 text-cyber-purple border border-cyber-purple/40 font-bold py-2.5 px-4 rounded-lg text-xs transition-all flex items-center justify-center gap-2">
-                        <span>🗺️</span> Geocodificar Paradas Pendientes
+                        <span>🗺️</span> Geocodificar Paradas (Prioridad Catálogo)
                     </button>
                     <div id="progresoGeocodificacion" class="hidden text-center text-[11px] font-mono text-cyber-cyan font-bold py-1 bg-slate-900/60 rounded border border-cyber-cyan/30"></div>
                 </div>
@@ -261,7 +264,7 @@
                         <tbody id="tablaResultadosPreCommit" class="divide-y divide-cyber-border/40 font-sans">
                             <tr>
                                 <td colspan="5" class="p-8 text-center text-slate-500 font-mono">
-                                    Carga un archivo KMZ, KML o imagen de croquis para procesar rutas automáticamente[cite: 1].
+                                    Carga un archivo KMZ, KML o imagen de croquis para procesar rutas automáticamente.
                                 </td>
                             </tr>
                         </tbody>
@@ -274,7 +277,7 @@
 
     </div>
 
-    <!-- MÓDULO JS BLINDADO: RUTEO LIMPIO, SNAP-TO-ROAD Y PURGA ATÓMICA -->
+    <!-- MÓDULO JS: FILTRO 0 CATÁLOGO MAESTRO, RUTEO SNAP-TO-ROAD & AUTO-APRENDIZAJE -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
@@ -383,6 +386,38 @@
                 .replace(/[^a-z0-9]/g, "_")
                 .replace(/_+/g, "_")
                 .replace(/^_|_$/g, "");
+        }
+
+        function generarClavePunto(texto, municipio) {
+            const munLimpio = sanitizarKey(municipio || "general");
+            const refLimpia = sanitizarKey(texto || "punto");
+            return refLimpia + "_" + munLimpio;
+        }
+
+        // =========================================================================
+        // APRENDIZAJE PERMANENTE: REGISTRAR EN GEOCATÁLOGO MAESTRO EN TIEMPO REAL
+        // =========================================================================
+        async function aprenderYGuardarEnGeocatalogo(textoReferencia, municipio, coordenadas, estado) {
+            if (!coordenadas || !coordenadas.includes(",")) return;
+            const partes = coordenadas.split(",");
+            const lat = parseFloat(partes[0].trim());
+            const lng = parseFloat(partes[1].trim());
+            if (isNaN(lat) || isNaN(lng)) return;
+
+            const estadoLimpio = sanitizarKey(estado || document.getElementById("estadoOperacionInput").value || "nuevo_leon");
+            const clave = generarClavePunto(textoReferencia, municipio);
+
+            try {
+                await set(ref(db, `geocodigos_maestros/${estadoLimpio}/${clave}`), {
+                    coordenadas: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+                    referenciaOriginal: textoReferencia,
+                    municipio: municipio || "General",
+                    fuente: "Motor M6 (Aprendizaje)",
+                    actualizadoEl: new Date().toISOString()
+                });
+            } catch (e) {
+                console.warn("No se pudo registrar en geocatálogo:", e);
+            }
         }
 
         function obtenerColorPorRutaIndex(index) {
@@ -517,7 +552,7 @@
                 for (const q of consultas) {
                     const urlNominatim = "https://nominatim.openstreetmap.org/search?format=json&q=" + encodeURIComponent(q) + "&countrycodes=mx&limit=1";
                     const res = await fetch(urlNominatim, {
-                        headers: { "User-Agent": "ERPTransportePro/7.3" }
+                        headers: { "User-Agent": "ERPTransportePro/8.0" }
                     });
                     const data = await res.json();
                     if (data && data.length > 0) {
@@ -834,7 +869,7 @@
         }
 
         // =========================================================================
-        // EXTRACTOR IA GEMINI CON MODELOS VIGENTES Y DETECCIÓN INTERMUNICIPAL
+        // EXTRACTOR IA GEMINI CON MODELOS VIGENTES
         // =========================================================================
         async function procesarArchivoPaso1(file, apiKey, empresa, estadoDefecto) {
             const contenido = await prepararContenidoArchivo(file);
@@ -882,7 +917,6 @@
                 }
             };
 
-            // Modelos vigentes y activos para generateContent en v1beta
             const modelos = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-pro"];
             let ultimoError = null;
 
@@ -905,7 +939,7 @@
                     let textoIA = jsonRes.candidates?.[0]?.content?.parts?.[0]?.text;
 
                     if (!textoIA) {
-                        throw new Error("El modelo devolvió una respuesta vacía o bloqueada por políticas de contenido.");
+                        throw new Error("El modelo devolvió una respuesta vacía o bloqueada.");
                     }
 
                     textoIA = textoIA.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
@@ -956,7 +990,7 @@
         }
 
         // =========================================================================
-        // MOTOR DE RUTEO CALLE POR CALLE OSRM (A PARES DE PARADAS CONSECUTIVAS)
+        // MOTOR DE RUTEO CALLE POR CALLE OSRM
         // =========================================================================
         async function calcularRutaVialOSRM(coordenadasLatLng) {
             if (!coordenadasLatLng || coordenadasLatLng.length < 2) return null;
@@ -995,7 +1029,6 @@
                         todosPuntosGeoJSON.push(pDestino);
                     }
                 } catch (e) {
-                    console.warn("Microtramo trazado directo por falta de acceso vial:", e);
                     todosPuntosGeoJSON.push(pOrigen);
                     todosPuntosGeoJSON.push(pDestino);
                 }
@@ -1021,7 +1054,7 @@
 
         async function consultarNominatimDirecto(url) {
             try {
-                const res = await fetch(url, { headers: { "User-Agent": "ERPTransportePro/7.3 (Logistica Industrial)" } });
+                const res = await fetch(url, { headers: { "User-Agent": "ERPTransportePro/8.0 (Logistica Industrial)" } });
                 if (!res.ok) return null;
                 const data = await res.json();
                 if (data && data.length > 0) {
@@ -1032,77 +1065,106 @@
         }
 
         // =========================================================================
-        // GEOCODIFICADOR EN CASCADA INTERMUNICIPAL (URLS LIMPIAS SIN MARKDOWN)
+        // GEOCODIFICADOR EN CASCADA CON FILTRO 0 (GEOCATÁLOGO MAESTRO INEGI/KML)
         // =========================================================================
         async function geocodificarParada(parada, municipioGlobal, estado) {
             if (parada.coordenadasAbordaje && parada.coordenadasAbordaje.includes(",")) {
                 return { coords: parada.coordenadasAbordaje.trim(), origen: "Exacta" };
             }
 
-            const cPrincipal = limpiarRuidoTexto(parada.callePrincipal || "");
-            const cInter = limpiarRuidoTexto(parada.cruceInterseccion || "");
-            const comercio = limpiarRuidoTexto(parada.referenciaComercio || "");
-            const col = limpiarRuidoTexto(parada.coloniaFraccionamiento || "");
-            const refCruda = limpiarRuidoTexto(parada.referenciaOriginal || "");
+            const estadoLimpio = sanitizarKey(estado || "nuevo_leon");
+            const munActual = parada.municipioParada || municipioGlobal || "general";
+            const refCruda = parada.referenciaOriginal || "";
+            const cPrincipal = parada.callePrincipal || "";
+            const comercio = parada.referenciaComercio || "";
+
+            // ---------------------------------------------------------------------
+            // FILTRO 0: CONSULTA PRIORITARIA AL CATÁLOGO MAESTRO EN FIREBASE (0 MS)
+            // ---------------------------------------------------------------------
+            const clavesCat = [];
+            if (refCruda) clavesCat.push(generarClavePunto(refCruda, munActual));
+            if (comercio) clavesCat.push(generarClavePunto(comercio, munActual));
+            if (cPrincipal) clavesCat.push(generarClavePunto(cPrincipal, munActual));
+
+            for (const c of clavesCat) {
+                try {
+                    const snapCat = await get(ref(db, `geocodigos_maestros/${estadoLimpio}/${c}`));
+                    if (snapCat.exists()) {
+                        const dataCat = snapCat.val();
+                        if (dataCat.coordenadas) {
+                            return { 
+                                coords: dataCat.coordenadas, 
+                                origen: `Catálogo Maestro (${dataCat.fuente || 'INEGI/KML'})` 
+                            };
+                        }
+                    }
+                } catch (e) {
+                    console.warn("Fallo lectura catálogo:", e);
+                }
+            }
+
+            // ---------------------------------------------------------------------
+            // SI NO ESTÁ EN EL CATÁLOGO: CONTINÚA CON LA CASCADA DE OPENSTREETMAP
+            // ---------------------------------------------------------------------
+            const cPrincipalLimpia = limpiarRuidoTexto(cPrincipal);
+            const cInterLimpia = limpiarRuidoTexto(parada.cruceInterseccion || "");
+            const comercioLimpio = limpiarRuidoTexto(comercio);
+            const colLimpia = limpiarRuidoTexto(parada.coloniaFraccionamiento || "");
 
             const listaMunicipios = [];
-            if (parada.municipioParada && parada.municipioParada !== "General") listaMunicipios.push(parada.municipioParada);
+            if (munActual && munActual !== "General") listaMunicipios.push(munActual);
             if (municipioGlobal && !listaMunicipios.includes(municipioGlobal) && municipioGlobal !== "General") listaMunicipios.push(municipioGlobal);
             if (listaMunicipios.length === 0) listaMunicipios.push("Monterrey");
 
-            for (const munActual of listaMunicipios) {
+            for (const m of listaMunicipios) {
                 const intentos = [];
 
-                // Nivel 1: Intersección Vial Pura OSM en el municipio
-                if (cPrincipal && cInter) {
-                    const qInter = cPrincipal + " and " + cInter + ", " + munActual + ", " + estado + ", Mexico";
+                if (cPrincipalLimpia && cInterLimpia) {
                     intentos.push({
-                        tipo: "Intersección Vial OSM (" + munActual + ")",
-                        url: "[https://nominatim.openstreetmap.org/search?format=json&q=](https://nominatim.openstreetmap.org/search?format=json&q=)" + encodeURIComponent(qInter) + "&countrycodes=mx&limit=1"
+                        tipo: "Intersección Vial OSM (" + m + ")",
+                        url: "[https://nominatim.openstreetmap.org/search?format=json&q=](https://nominatim.openstreetmap.org/search?format=json&q=)" + encodeURIComponent(cPrincipalLimpia + " and " + cInterLimpia + ", " + m + ", " + estado + ", Mexico") + "&countrycodes=mx&limit=1"
                     });
                 }
 
-                // Nivel 2: Comercio + Avenida en el municipio
-                if (comercio && cPrincipal) {
-                    const qComercio = comercio + ", " + cPrincipal + ", " + munActual + ", " + estado + ", Mexico";
+                if (comercioLimpio && cPrincipalLimpia) {
                     intentos.push({
-                        tipo: "Comercio en Avenida (" + munActual + ")",
-                        url: "[https://nominatim.openstreetmap.org/search?format=json&q=](https://nominatim.openstreetmap.org/search?format=json&q=)" + encodeURIComponent(qComercio) + "&countrycodes=mx&limit=1"
+                        tipo: "Comercio en Avenida (" + m + ")",
+                        url: "[https://nominatim.openstreetmap.org/search?format=json&q=](https://nominatim.openstreetmap.org/search?format=json&q=)" + encodeURIComponent(comercioLimpio + ", " + cPrincipalLimpia + ", " + m + ", " + estado + ", Mexico") + "&countrycodes=mx&limit=1"
                     });
                 }
 
-                // Nivel 3: Calle + Colonia en el municipio
-                if (cPrincipal && col) {
-                    const qCalleCol = cPrincipal + ", " + col + ", " + munActual + ", " + estado + ", Mexico";
+                if (cPrincipalLimpia && colLimpia) {
                     intentos.push({
-                        tipo: "Calle y Colonia (" + munActual + ")",
-                        url: "[https://nominatim.openstreetmap.org/search?format=json&q=](https://nominatim.openstreetmap.org/search?format=json&q=)" + encodeURIComponent(qCalleCol) + "&countrycodes=mx&limit=1"
+                        tipo: "Calle y Colonia (" + m + ")",
+                        url: "[https://nominatim.openstreetmap.org/search?format=json&q=](https://nominatim.openstreetmap.org/search?format=json&q=)" + encodeURIComponent(cPrincipalLimpia + ", " + colLimpia + ", " + m + ", " + estado + ", Mexico") + "&countrycodes=mx&limit=1"
                     });
                 }
 
-                // Nivel 4: Búsqueda Estructurada en Nominatim
-                if (cPrincipal) {
+                if (cPrincipalLimpia) {
                     intentos.push({
-                        tipo: "Estructurada (" + munActual + ")",
-                        url: "[https://nominatim.openstreetmap.org/search?format=json&street=](https://nominatim.openstreetmap.org/search?format=json&street=)" + encodeURIComponent(cPrincipal) + "&city=" + encodeURIComponent(munActual) + "&state=" + encodeURIComponent(estado) + "&country=Mexico&limit=1"
+                        tipo: "Estructurada (" + m + ")",
+                        url: "[https://nominatim.openstreetmap.org/search?format=json&street=](https://nominatim.openstreetmap.org/search?format=json&street=)" + encodeURIComponent(cPrincipalLimpia) + "&city=" + encodeURIComponent(m) + "&state=" + encodeURIComponent(estado) + "&country=Mexico&limit=1"
                     });
                 }
 
                 for (const intento of intentos) {
                     const coordsEncontradas = await consultarNominatimDirecto(intento.url);
                     if (coordsEncontradas) {
+                        // Al encontrarla por internet, la guardamos en el catálogo para nunca más consultarla
+                        await aprenderYGuardarEnGeocatalogo(refCruda || cPrincipal, m, coordsEncontradas, estado);
                         return { coords: coordsEncontradas, origen: "Nominatim (" + intento.tipo + ")" };
                     }
-                    await new Promise(r => setTimeout(r, 900));
+                    await new Promise(r => setTimeout(r, 850));
                 }
             }
 
-            // Nivel 5: Búsqueda de Respaldo Amplia en todo el Estado (Expansión Territorial)
-            if (refCruda || cPrincipal) {
-                const qExpansiva = (cPrincipal || refCruda) + ", " + estado + ", Mexico";
+            // Respaldo estatal
+            if (refCruda || cPrincipalLimpia) {
+                const qExpansiva = (cPrincipalLimpia || refCruda) + ", " + estado + ", Mexico";
                 const urlExpansiva = "[https://nominatim.openstreetmap.org/search?format=json&q=](https://nominatim.openstreetmap.org/search?format=json&q=)" + encodeURIComponent(qExpansiva) + "&countrycodes=mx&limit=1";
                 const coordsExpansivas = await consultarNominatimDirecto(urlExpansiva);
                 if (coordsExpansivas) {
+                    await aprenderYGuardarEnGeocatalogo(refCruda || cPrincipal, munActual, coordsExpansivas, estado);
                     return { coords: coordsExpansivas, origen: "Nominatim (Expansión Estatal)" };
                 }
             }
@@ -1225,7 +1287,7 @@
             const feedbackBar = document.getElementById("progresoGeocodificacion");
             
             btn.disabled = true;
-            btn.innerHTML = "<span>⏳</span> Geocodificando...";
+            btn.innerHTML = "<span>⏳</span> Consultando Catálogo...";
             feedbackBar.classList.remove("hidden");
 
             const estadoDefecto = document.getElementById("estadoOperacionInput").value.trim() || "Nuevo León";
@@ -1242,7 +1304,7 @@
                     if (!p.coordenadasAbordaje) {
                         procesadas++;
                         const munMuestra = p.municipioParada || r.municipio || 'General';
-                        feedbackBar.innerText = "🔍 Localizando " + procesadas + "/" + totalParadasPendientes + " [" + munMuestra + "]: " + (p.referenciaOriginal || 'Parada');
+                        feedbackBar.innerText = "🔍 Resolviendo " + procesadas + "/" + totalParadasPendientes + " [" + munMuestra + "]: " + (p.referenciaOriginal || 'Parada');
                         const geo = await geocodificarParada(p, r.municipio, r.estado || estadoDefecto);
                         p.coordenadasAbordaje = geo.coords;
                         p.estadoGeocodificacion = geo.origen;
@@ -1253,9 +1315,9 @@
 
             feedbackBar.classList.add("hidden");
             btn.disabled = false;
-            btn.innerHTML = "<span>🗺️</span> Geocodificar Paradas Pendientes";
+            btn.innerHTML = "<span>🗺️</span> Geocodificar Paradas (Prioridad Catálogo)";
             await renderizarTablaYMapa();
-            alert("✅ Proceso de geocodificación en cascada completado.");
+            alert("✅ Proceso completado. Se priorizó el Catálogo Maestro de Firebase.");
         }
 
         async function geolocalizarRutaSeleccionada() {
@@ -1357,6 +1419,9 @@
                 if (p) {
                     p.coordenadasAbordaje = nuevaCoord.trim();
                     p.estadoGeocodificacion = nuevaCoord.trim() ? "Ajuste Manual" : "Sin Geocodificar";
+                    
+                    // Auto-aprendizaje: se envía al geocatálogo
+                    aprenderYGuardarEnGeocatalogo(p.referenciaOriginal, p.municipioParada || r.municipio, nuevaCoord, r.estado);
                     renderizarTablaYMapa();
                 }
             }
@@ -1375,15 +1440,18 @@
 
             try {
                 await set(ref(db, "rutas/" + empKey + "/" + rutaId + "/paradas/" + pIdx), paradaObj);
-                alert("✅ Parada #" + numParada + ' de la ruta "' + nombreRuta + '" guardada exitosamente en Firebase.');
+                
+                // Guardar en el catálogo maestro
+                if (paradaObj.coordenadasAbordaje) {
+                    await aprenderYGuardarEnGeocatalogo(paradaObj.referenciaOriginal, paradaObj.municipioParada || r.municipio, paradaObj.coordenadasAbordaje, r.estado);
+                }
+
+                alert("✅ Parada #" + numParada + ' de la ruta "' + nombreRuta + '" guardada exitosamente en Firebase y Catálogo Maestro.');
             } catch (err) {
                 alert("Error al guardar la parada: " + err.message);
             }
         }
 
-        // =========================================================================
-        // AUDITORÍA REACTIVA (SCROLL AL MAPA + ZOOM 17 + APERTURA INMEDIATA POPUP)
-        // =========================================================================
         function auditarPuntoEnMapa(idCompuesta, lat, lng) {
             if (!mapObj || isNaN(lat) || isNaN(lng)) return;
 
@@ -1561,7 +1629,15 @@
             try {
                 const rutaNorm = normalizarRutaParaInyeccion(ruta);
                 await set(ref(db, "rutas/" + rutaNorm.empresaKey + "/" + rutaNorm.idRuta), rutaNorm);
-                alert('✅ Ruta "' + ruta.nombreRuta + '" guardada exitosamente en Firebase.');
+                
+                // Sembrado de todas las paradas en el catálogo maestro
+                for (const p of rutaNorm.paradas) {
+                    if (p.coordenadasAbordaje) {
+                        await aprenderYGuardarEnGeocatalogo(p.referenciaOriginal, p.municipioParada || rutaNorm.municipio, p.coordenadasAbordaje, rutaNorm.estado);
+                    }
+                }
+
+                alert('✅ Ruta "' + ruta.nombreRuta + '" guardada exitosamente en Firebase y sincronizada con el Catálogo Maestro.');
             } catch (err) {
                 alert("Error al subir a Firebase: " + err.message);
             } finally {
@@ -1580,8 +1656,14 @@
                 for (const ruta of coleccionRutas) {
                     const rutaNorm = normalizarRutaParaInyeccion(ruta);
                     await set(ref(db, "rutas/" + rutaNorm.empresaKey + "/" + rutaNorm.idRuta), rutaNorm);
+
+                    for (const p of rutaNorm.paradas) {
+                        if (p.coordenadasAbordaje) {
+                            await aprenderYGuardarEnGeocatalogo(p.referenciaOriginal, p.municipioParada || rutaNorm.municipio, p.coordenadasAbordaje, rutaNorm.estado);
+                        }
+                    }
                 }
-                alert("✅ Se inyectaron " + coleccionRutas.length + " rutas a Firebase exitosamente.");
+                alert("✅ Se inyectaron " + coleccionRutas.length + " rutas a Firebase y se consolidaron en el Catálogo Maestro.");
             } catch (err) {
                 alert("Error en inyección masiva: " + err.message);
             } finally {
@@ -1590,9 +1672,6 @@
             }
         }
 
-        // =========================================================================
-        // ESTERILIZADOR ATÓMICO: PURGA Y SANEAMIENTO DE FIREBASE
-        // =========================================================================
         async function purgarYSanitizarFirebase() {
             const empresaNombre = document.getElementById("empresaValidacionIA").value.trim();
             if (!empresaNombre) return alert("⚠️ Selecciona una empresa en la lista para realizar la purga en el servidor.");
