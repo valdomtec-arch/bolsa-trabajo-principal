@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Motor de Transporte - Ruteo Vial Real OSRM & Geocatálogo Maestro</title>
+    <title>Motor de Transporte - Extracción Masiva & Geocatálogo Maestro</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -45,11 +45,19 @@
         .custom-scrollbar::-webkit-scrollbar-track { background: #0a0d14; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #38bdf8; }
+
+        .leaflet-container { 
+            background-color: #f1f5f9 !important; 
+            font-family: inherit;
+        }
+
         .leaflet-popup-content-wrapper, .leaflet-popup-tip {
-            background: #121824 !important;
+            background: rgba(18, 24, 36, 0.95) !important;
+            backdrop-filter: blur(8px);
             color: #e2e8f0 !important;
-            border: 1px solid #1e293b;
+            border: 1px solid rgba(56, 189, 248, 0.4);
             box-shadow: 0 10px 25px -3px rgba(0, 0, 0, 0.7);
+            border-radius: 0.75rem;
         }
 
         .gps-pin-marker {
@@ -99,17 +107,22 @@
         <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-cyber-border pb-5">
             <div>
                 <h1 class="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
-                    <span class="text-cyber-accent">⚡</span> Motor Logístico de Transporte <span class="text-xs bg-cyber-accent/20 text-cyber-accent px-2 py-0.5 rounded border border-cyber-accent/40 font-mono">v8.0 Master Catalogo</span>
+                    <span class="text-cyber-accent">⚡</span> Motor Logístico de Transporte <span class="text-xs bg-cyber-accent/20 text-cyber-accent px-2 py-0.5 rounded border border-cyber-accent/40 font-mono">v9.0 Ultra-Batch</span>
                 </h1>
-                <p class="text-xs text-slate-400 mt-1">Integrado con Geocatálogos INEGI/KML, Ruteo OSRM con Snap-to-Road y autoaprendizaje permanente</p>
+                <p class="text-xs text-slate-400 mt-1">Extracción masiva multi-archivo, deduplicación en memoria, ruteo Lazy OSRM y geocatálogo maestro.</p>
             </div>
             <div class="flex items-center gap-2 flex-wrap">
                 <a href="m6_extractor_coordenadas.html" class="bg-cyber-cyan/20 hover:bg-cyber-cyan/30 text-cyber-cyan border border-cyber-cyan/40 font-mono text-xs px-3.5 py-2 rounded-xl flex items-center gap-2 transition-all shadow-sm">
-                    <span>🛰️</span> Cosecha y Catálogos INEGI
+                    <span>🛰️</span> Cosecha INEGI
                 </a>
                 <a href="m6_transporte.html" class="bg-cyber-card hover:bg-slate-800 text-slate-300 border border-cyber-border font-mono text-xs px-3.5 py-2 rounded-xl flex items-center gap-2 transition-all">
                     <span>←</span> Volver a M6 Logística
                 </a>
+                
+                <button onclick="ejecutarSanitizacionMotor()" title="Limpiar caché local de catálogo y memoria de ruteo" class="bg-rose-500/15 hover:bg-rose-500/30 text-rose-400 border border-rose-500/40 font-mono text-xs px-3 py-2 rounded-xl flex items-center gap-1.5 transition-all shadow-sm font-bold">
+                    <span>🧹</span> Limpiar Memoria
+                </button>
+
                 <span id="badgeRutasCount" class="bg-cyber-purple/20 border border-cyber-purple/40 text-cyber-purple text-xs font-bold px-3 py-1.5 rounded-lg">
                     0 Rutas
                 </span>
@@ -119,7 +132,7 @@
             </div>
         </header>
 
-        <!-- SECCIÓN SUPERIOR: CONFIGURACIÓN / IMPORTADOR + MAPA CON TRAZADO VIAL -->
+        <!-- SECCIÓN SUPERIOR: CONFIGURACIÓN / IMPORTADOR + MAPA CLARO -->
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
             
             <!-- PANEL DE EXTRACCIÓN E IMPORTACIÓN -->
@@ -127,15 +140,15 @@
                 <div class="space-y-3">
                     <div class="flex justify-between items-center">
                         <h2 class="text-xs font-bold text-cyber-accent uppercase tracking-wider flex items-center gap-2">
-                            <span>⚙️</span> Origen de Datos
+                            <span>⚙️</span> Ingesta Masiva de Datos
                         </h2>
-                        <span class="text-[10px] text-cyber-cyan font-mono">INEGI / KMZ / IA / Firebase</span>
+                        <span class="text-[10px] text-cyber-cyan font-mono" id="lblEstadoCache">Caché: Activo</span>
                     </div>
 
                     <div>
                         <label class="block text-[11px] font-semibold text-slate-300 mb-1">Empresa Operativa</label>
                         <div class="flex gap-2">
-                            <select id="empresaValidacionIA" class="flex-1 bg-cyber-bg border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyber-accent">
+                            <select id="empresaValidacionIA" class="flex-1 bg-cyber-bg border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyber-accent font-semibold">
                                 <option value="">-- Cargando Empresas... --</option>
                             </select>
                             <button onclick="importarRutasDesdeFirebase()" title="Descargar rutas existentes de esta empresa desde Firebase" class="bg-slate-800 hover:bg-slate-700 text-cyber-cyan border border-cyber-border px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0">
@@ -145,7 +158,7 @@
                     </div>
 
                     <div>
-                        <label class="block text-[11px] font-semibold text-slate-300 mb-1">Gemini API Key (Requerida para analizar Croquis)</label>
+                        <label class="block text-[11px] font-semibold text-slate-300 mb-1">Gemini API Key (Para Manifiestos y Croquis)</label>
                         <input type="password" id="apiKeyGemini" placeholder="AIzaSy..." class="w-full bg-cyber-bg border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyber-accent font-mono">
                     </div>
 
@@ -155,35 +168,35 @@
                     </div>
 
                     <div>
-                        <label class="block text-[11px] font-semibold text-slate-300 mb-1">Manifiesto o Ruta Satelital</label>
+                        <label class="block text-[11px] font-semibold text-slate-300 mb-1">Archivos KML, KMZ, PDF, Imágenes o TXT</label>
                         <div id="dropZone" class="border-2 border-dashed border-slate-700 hover:border-cyber-accent rounded-lg p-3 text-center cursor-pointer bg-cyber-bg/50 transition-colors">
                             <span class="text-xl">📁</span>
-                            <p class="text-[11px] text-slate-400">Arrastra KML/KMZ o Croquis (PDF / JPG / PNG)</p>
-                            <span class="text-[9px] text-emerald-400 font-mono block mt-0.5 font-bold">Soporta selección múltiple simultánea</span>
+                            <p class="text-[11px] text-slate-400">Arrastra archivos o haz clic aquí</p>
+                            <span class="text-[9px] text-emerald-400 font-mono block mt-0.5 font-bold">Procesamiento masivo multi-archivo activado</span>
                             <input type="file" id="fileInput" accept=".pdf,.png,.jpg,.jpeg,.txt,.docx,.kmz,.kml" multiple class="hidden">
                         </div>
-                        <div id="fileFeedback" class="mt-1 text-[10px] text-cyber-cyan font-mono max-h-12 overflow-y-auto hidden"></div>
+                        <div id="fileFeedback" class="mt-1 text-[10px] text-cyber-cyan font-mono max-h-16 overflow-y-auto hidden"></div>
                     </div>
                 </div>
 
                 <!-- ACCIONES DE EXTRACCIÓN Y GEOCODIFICACIÓN -->
                 <div class="space-y-2 pt-2 border-t border-cyber-border">
                     <button id="btnPaso1Extraer" onclick="ejecutarPaso1Extraccion()" class="w-full bg-cyber-accent hover:bg-sky-400 text-slate-950 font-bold py-2.5 px-4 rounded-lg text-xs transition-all flex items-center justify-center gap-2 shadow-lg shadow-cyber-accent/10">
-                        <span>🧠</span> Procesar y Extraer Rutas
+                        <span>🧠</span> Procesar Lote de Archivos
                     </button>
 
                     <button id="btnPaso2GeolocalizarTodos" onclick="ejecutarPaso2GeolocalizarTodas()" class="w-full bg-cyber-purple/20 hover:bg-cyber-purple/30 text-cyber-purple border border-cyber-purple/40 font-bold py-2.5 px-4 rounded-lg text-xs transition-all flex items-center justify-center gap-2">
-                        <span>🗺️</span> Geocodificar Paradas (Prioridad Catálogo)
+                        <span>🗺️</span> Geocodificar Lote (Deduplicación Activa)
                     </button>
                     <div id="progresoGeocodificacion" class="hidden text-center text-[11px] font-mono text-cyber-cyan font-bold py-1 bg-slate-900/60 rounded border border-cyber-cyan/30"></div>
                 </div>
             </div>
 
-            <!-- MAPA CON BUSCADOR UNIVERSAL Y TRAZADO VIAL OSRM -->
+            <!-- MAPA CLARO Y BUSCADOR UNIVERSAL -->
             <div class="lg:col-span-8 bg-cyber-card border border-cyber-border rounded-xl p-5 space-y-3 flex flex-col">
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <h2 class="text-xs font-bold text-cyber-amber uppercase tracking-wider flex items-center gap-2">
-                        <span>🛣️</span> Trazado Vial Real GPS (Calles OSRM)
+                        <span>🛣️</span> Trazado Vial Real GPS (OSM Claro / OSRM Asfalto)
                     </h2>
                     <div id="metricasRutaActiva" class="text-xs font-mono text-slate-300 flex items-center gap-3">
                         <span class="text-cyber-cyan">📍 Distancia: <b id="lblDistanciaKm">0.0</b> km</span>
@@ -201,15 +214,15 @@
                     </button>
                 </div>
 
-                <div id="mapaPreCommit" class="flex-1"></div>
+                <div id="mapaPreCommit" class="flex-1 shadow-md"></div>
             </div>
 
         </div>
 
-        <!-- SECCIÓN INFERIOR: VISOR JSON + TABLA DE AUDITORÍA Y EDICIÓN GRANULAR -->
+        <!-- SECCIÓN INFERIOR: VISOR JSON + TABLA DE AUDITORÍA -->
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
             
-            <!-- VISOR JSON NORMALIZADO -->
+            <!-- VISOR JSON -->
             <div class="lg:col-span-4 bg-cyber-card border border-cyber-border rounded-xl p-5 flex flex-col space-y-3">
                 <div class="flex items-center justify-between">
                     <h2 class="text-xs font-bold text-cyber-purple uppercase tracking-wider flex items-center gap-2">
@@ -222,14 +235,14 @@
                 <textarea id="jsonOutputViewer" readonly placeholder="El esquema limpio sin campos innecesarios se proyectará aquí..." class="w-full h-full min-h-[440px] bg-cyber-bg border border-slate-800 rounded-lg p-3 text-xs font-mono text-emerald-400 custom-scrollbar focus:outline-none resize-none"></textarea>
             </div>
 
-            <!-- CONTROLES POR BLOQUE DE RUTA Y TABLA DE EDICIÓN PARADA POR PARADA -->
+            <!-- TABLA GRANULAR DE PARADAS -->
             <div class="lg:col-span-8 bg-cyber-card border border-cyber-border rounded-xl p-5 space-y-4">
                 
                 <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-cyber-border pb-3">
                     <div class="flex items-center gap-3">
                         <label class="text-xs font-bold text-cyber-cyan uppercase tracking-wider">Ruta Activa:</label>
-                        <select id="filtroRutaActiva" onchange="cambiarRutaActiva(this.value)" class="bg-cyber-bg border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-cyber-accent">
-                            <option value="TODAS">-- Todas las Rutas --</option>
+                        <select id="filtroRutaActiva" onchange="cambiarRutaActiva(this.value)" class="bg-cyber-bg border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-cyber-accent font-semibold">
+                            <option value="TODAS">-- Todas las Rutas (Vista Rápida) --</option>
                         </select>
                     </div>
 
@@ -249,7 +262,6 @@
                     </div>
                 </div>
 
-                <!-- TABLA GRANULAR DE PARADAS -->
                 <div class="overflow-x-auto custom-scrollbar max-h-[400px]">
                     <table class="w-full text-left border-collapse text-xs">
                         <thead class="bg-cyber-bg sticky top-0 border-b border-cyber-border text-slate-400 z-10">
@@ -264,7 +276,7 @@
                         <tbody id="tablaResultadosPreCommit" class="divide-y divide-cyber-border/40 font-sans">
                             <tr>
                                 <td colspan="5" class="p-8 text-center text-slate-500 font-mono">
-                                    Carga un archivo KMZ, KML o imagen de croquis para procesar rutas automáticamente.
+                                    Carga archivos para procesar rutas automáticamente.
                                 </td>
                             </tr>
                         </tbody>
@@ -277,7 +289,7 @@
 
     </div>
 
-    <!-- MÓDULO JS: FILTRO 0 CATÁLOGO MAESTRO, RUTEO SNAP-TO-ROAD & AUTO-APRENDIZAJE -->
+    <!-- MÓDULO JS OPTIMIZADO: EXTRACCIÓN MASIVA, MAPA CLARO & DEDUPLICACIÓN EN MEMORIA -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
@@ -296,16 +308,8 @@
         const db = getDatabase(app);
 
         const PALETA_COLORES_RUTAS = [
-            '#06b6d4',
-            '#a855f7',
-            '#f59e0b',
-            '#10b981',
-            '#f43f5e',
-            '#eab308',
-            '#3b82f6',
-            '#14b8a6',
-            '#ec4899',
-            '#8b5cf6'
+            '#0284c7', '#7c3aed', '#d97706', '#059669', '#e11d48',
+            '#2563eb', '#db2777', '#ca8a04', '#0d9488', '#9333ea'
         ];
 
         let coleccionRutas = [];
@@ -316,8 +320,13 @@
         let pinBuscadorManual = null;
         let diccionarioMarcadores = {};
 
+        // MAPAS DE MEMORIA Y CACHÉ LOCAL
         const cacheSnappingVial = new Map();
+        const cacheRutasOSRM = new Map();
+        const cachePuntosCatalogoLocal = new Map();
+        const cacheDeduplicacionSesion = new Map();
 
+        // EXPOSICIÓN GLOBAL EXPLICITA
         window.ejecutarPaso1Extraccion = ejecutarPaso1Extraccion;
         window.ejecutarPaso2GeolocalizarTodas = ejecutarPaso2GeolocalizarTodas;
         window.geolocalizarRutaSeleccionada = geolocalizarRutaSeleccionada;
@@ -336,10 +345,20 @@
         window.importarRutasDesdeFirebase = importarRutasDesdeFirebase;
         window.guardarParadaIndividualAFirebase = guardarParadaIndividualAFirebase;
         window.purgarYSanitizarFirebase = purgarYSanitizarFirebase;
+        window.ejecutarSanitizacionMotor = ejecutarSanitizacionMotor;
 
         document.addEventListener("DOMContentLoaded", async () => {
+            inicializarMapaLeafletMotor();
+            await cargarEmpresasDesdeCacheOFirebase();
+        });
+
+        function inicializarMapaLeafletMotor() {
             try {
-                mapObj = L.map('mapaPreCommit').setView([25.6866, -100.3161], 11);
+                mapObj = L.map('mapaPreCommit', {
+                    zoomControl: true,
+                    attributionControl: false
+                }).setView([25.6866, -100.3161], 11);
+
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     maxZoom: 19,
                     attribution: '© OpenStreetMap'
@@ -351,15 +370,28 @@
                 mapObj.on('click', function(e) {
                     const lat = e.latlng.lat.toFixed(6);
                     const lng = e.latlng.lng.toFixed(6);
-                    colocarPinManualEnMapa(lat, lng, "Punto marcado directamente en el mapa");
+                    colocarPinManualEnMapa(lat, lng, "Punto marcado manualmente en mapa");
                 });
             } catch (err) {
                 console.error("Error inicializando Leaflet:", err);
             }
+        }
 
+        async function cargarEmpresasDesdeCacheOFirebase() {
             try {
-                const snapEmpresas = await get(ref(db, "empresas"));
-                const dataEmpresas = snapEmpresas.val() || {};
+                let dataEmpresas = null;
+                const cacheEmpresas = sessionStorage.getItem("cache_m6_empresas");
+
+                if (cacheEmpresas) {
+                    dataEmpresas = JSON.parse(cacheEmpresas);
+                    document.getElementById("lblEstadoCache").textContent = "Caché: Rápido (0ms)";
+                } else {
+                    const snapEmpresas = await get(ref(db, "empresas"));
+                    dataEmpresas = snapEmpresas.val() || {};
+                    sessionStorage.setItem("cache_m6_empresas", JSON.stringify(dataEmpresas));
+                    document.getElementById("lblEstadoCache").textContent = "Caché: Firebase Sincronizado";
+                }
+
                 const selectValidacion = document.getElementById("empresaValidacionIA");
                 selectValidacion.innerHTML = '<option value="">-- Selecciona Empresa --</option>';
                 
@@ -372,13 +404,13 @@
                     }
                 });
                 
-                listaNombres.sort().forEach(nom => {
+                listaNombres.sort((a, b) => a.localeCompare(b)).forEach(nom => {
                     selectValidacion.innerHTML += '<option value="' + nom + '">' + nom + '</option>';
                 });
             } catch (e) {
-                console.error("Error al cargar empresas desde Firebase:", e);
+                console.error("Error cargando empresas:", e);
             }
-        });
+        }
 
         function sanitizarKey(str) {
             return (str || "general").toLowerCase().trim()
@@ -394,41 +426,11 @@
             return refLimpia + "_" + munLimpio;
         }
 
-        // =========================================================================
-        // APRENDIZAJE PERMANENTE: REGISTRAR EN GEOCATÁLOGO MAESTRO EN TIEMPO REAL
-        // =========================================================================
-        async function aprenderYGuardarEnGeocatalogo(textoReferencia, municipio, coordenadas, estado) {
-            if (!coordenadas || !coordenadas.includes(",")) return;
-            const partes = coordenadas.split(",");
-            const lat = parseFloat(partes[0].trim());
-            const lng = parseFloat(partes[1].trim());
-            if (isNaN(lat) || isNaN(lng)) return;
-
-            const estadoLimpio = sanitizarKey(estado || document.getElementById("estadoOperacionInput").value || "nuevo_leon");
-            const clave = generarClavePunto(textoReferencia, municipio);
-
-            try {
-                await set(ref(db, `geocodigos_maestros/${estadoLimpio}/${clave}`), {
-                    coordenadas: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
-                    referenciaOriginal: textoReferencia,
-                    municipio: municipio || "General",
-                    fuente: "Motor M6 (Aprendizaje)",
-                    actualizadoEl: new Date().toISOString()
-                });
-            } catch (e) {
-                console.warn("No se pudo registrar en geocatálogo:", e);
-            }
-        }
-
-        function obtenerColorPorRutaIndex(index) {
-            return PALETA_COLORES_RUTAS[index % PALETA_COLORES_RUTAS.length];
-        }
-
         function crearIconoLagrimaGPS(numero, colorHex) {
             const svgHtml = '<div class="gps-pin-marker">' +
                 '<svg class="gps-pin-svg" viewBox="0 0 384 512" fill="' + colorHex + '" xmlns="http://www.w3.org/2000/svg">' +
-                '<path stroke="#0f172a" stroke-width="18" d="M172.268 501.67C26.97 291.031 0 269.413 0 192 0 85.961 85.961 0 192 0s192 85.961 192 192c0 77.413-26.97 99.031-172.268 309.67-9.535 13.774-29.93 13.773-39.464 0z"/>' +
-                '<circle cx="192" cy="192" r="95" fill="#0f172a" opacity="0.45"/>' +
+                '<path stroke="#ffffff" stroke-width="20" d="M172.268 501.67C26.97 291.031 0 269.413 0 192 0 85.961 85.961 0 192 0s192 85.961 192 192c0 77.413-26.97 99.031-172.268 309.67-9.535 13.774-29.93 13.773-39.464 0z"/>' +
+                '<circle cx="192" cy="192" r="95" fill="#0f172a" opacity="0.6"/>' +
                 '</svg>' +
                 '<span class="gps-pin-number">' + numero + '</span>' +
                 '</div>';
@@ -441,16 +443,44 @@
             });
         }
 
+        async function aprenderYGuardarEnGeocatalogo(textoReferencia, municipio, coordenadas, estado) {
+            if (!coordenadas || !coordenadas.includes(",")) return;
+            const partes = coordenadas.split(",");
+            const lat = parseFloat(partes[0].trim());
+            const lng = parseFloat(partes[1].trim());
+            if (isNaN(lat) || isNaN(lng)) return;
+
+            const estadoLimpio = sanitizarKey(estado || document.getElementById("estadoOperacionInput").value || "nuevo_leon");
+            const clave = generarClavePunto(textoReferencia, municipio);
+
+            const payload = {
+                coordenadas: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+                referenciaOriginal: textoReferencia,
+                municipio: municipio || "General",
+                fuente: "Motor M6 (Aprendizaje)",
+                actualizadoEl: new Date().toISOString()
+            };
+
+            cachePuntosCatalogoLocal.set(`${estadoLimpio}_${clave}`, payload.coordenadas);
+            cacheDeduplicacionSesion.set(`${sanitizarKey(textoReferencia)}_${sanitizarKey(municipio)}`, payload.coordenadas);
+
+            try {
+                await set(ref(db, `geocodigos_maestros/${estadoLimpio}/${clave}`), payload);
+            } catch (e) {}
+        }
+
+        function obtenerColorPorRutaIndex(index) {
+            return PALETA_COLORES_RUTAS[index % PALETA_COLORES_RUTAS.length];
+        }
+
         async function importarRutasDesdeFirebase() {
             const empresaNombre = document.getElementById("empresaValidacionIA").value.trim();
-            if (!empresaNombre) return alert("⚠️ Selecciona una empresa en la lista para cargar sus rutas.");
+            if (!empresaNombre) return alert("⚠️ Selecciona una empresa.");
 
             const empresaKey = sanitizarKey(empresaNombre);
             try {
                 const snap = await get(ref(db, "rutas/" + empresaKey));
-                if (!snap.exists()) {
-                    return alert('No se encontraron rutas registradas para "' + empresaNombre + '" en Firebase.');
-                }
+                if (!snap.exists()) return alert('No se encontraron rutas registradas.');
 
                 const rutasData = snap.val();
                 coleccionRutas = [];
@@ -470,21 +500,6 @@
                             coordenadasAbordaje: p.coordenadasAbordaje || "",
                             estadoGeocodificacion: p.coordenadasAbordaje ? "Exacta" : "Sin Geocodificar",
                             horarios: p.horarios || []
-                        }));
-                    } else if (r.puntosAbordaje) {
-                        const puntosArr = r.puntosAbordaje.split(",").map(p => p.trim());
-                        paradasNormalizadas = puntosArr.map((pto, idx) => ({
-                            numeroParada: idx + 1,
-                            referenciaOriginal: pto,
-                            cruceVialEnriquecido: pto,
-                            callePrincipal: pto,
-                            cruceInterseccion: "",
-                            referenciaComercio: "",
-                            coloniaFraccionamiento: "",
-                            municipioParada: r.municipio || "General",
-                            coordenadasAbordaje: (idx === 0) ? (r.coordenadasAbordaje || "") : "",
-                            estadoGeocodificacion: (idx === 0 && r.coordenadasAbordaje) ? "Exacta" : "Sin Geocodificar",
-                            horarios: []
                         }));
                     }
 
@@ -507,10 +522,9 @@
 
                 actualizarSelectRutas();
                 await renderizarTablaYMapa();
-                alert('✅ Se cargaron ' + coleccionRutas.length + ' rutas desde Firebase para "' + empresaNombre + '".');
-
+                alert(`✅ Se cargaron ${coleccionRutas.length} rutas de "${empresaNombre}".`);
             } catch (err) {
-                alert("Error al cargar rutas de Firebase: " + err.message);
+                alert("Error al cargar rutas: " + err.message);
             }
         }
 
@@ -519,57 +533,28 @@
             const estadoDefecto = document.getElementById("estadoOperacionInput").value.trim() || "Nuevo León";
             const btn = document.getElementById("btnBuscarMapaUniversal");
 
-            if (!query) return alert("Ingresa un destino, planta, coordenadas o enlace de Google Maps.");
+            if (!query) return alert("Ingresa coordenadas o dirección.");
 
             btn.disabled = true;
             btn.innerHTML = "<span>⏳</span> Buscando...";
 
             try {
-                const regexMapsUrl = /@(-?\d+\.\d+),(-?\d+\.\d+)|q=(-?\d+\.\d+),(-?\d+\.\d+)|destination=(-?\d+\.\d+),(-?\d+\.\d+)/;
-                const matchUrl = query.match(regexMapsUrl);
-                if (matchUrl) {
-                    const lat = parseFloat(matchUrl[1] || matchUrl[3] || matchUrl[5]).toFixed(6);
-                    const lng = parseFloat(matchUrl[2] || matchUrl[4] || matchUrl[6]).toFixed(6);
-                    colocarPinManualEnMapa(lat, lng, "Ubicación extraída de enlace Maps");
-                    return;
-                }
-
                 const partes = query.split(",");
                 if (partes.length === 2 && !isNaN(parseFloat(partes[0])) && !isNaN(parseFloat(partes[1]))) {
-                    const lat = parseFloat(partes[0]).toFixed(6);
-                    const lng = parseFloat(partes[1]).toFixed(6);
-                    colocarPinManualEnMapa(lat, lng, "Coordenadas directas ingresadas");
+                    colocarPinManualEnMapa(parseFloat(partes[0]).toFixed(6), parseFloat(partes[1]).toFixed(6), "Coordenadas directas");
                     return;
                 }
 
-                const consultas = [
-                    query + ", " + estadoDefecto + ", Mexico",
-                    query + ", Mexico",
-                    query
-                ];
-
-                let localizado = false;
-                for (const q of consultas) {
-                    const urlNominatim = "https://nominatim.openstreetmap.org/search?format=json&q=" + encodeURIComponent(q) + "&countrycodes=mx&limit=1";
-                    const res = await fetch(urlNominatim, {
-                        headers: { "User-Agent": "ERPTransportePro/8.0" }
-                    });
-                    const data = await res.json();
-                    if (data && data.length > 0) {
-                        const lat = parseFloat(data[0].lat).toFixed(6);
-                        const lng = parseFloat(data[0].lon).toFixed(6);
-                        colocarPinManualEnMapa(lat, lng, data[0].display_name);
-                        localizado = true;
-                        break;
-                    }
+                const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ", " + estadoDefecto + ", Mexico")}&countrycodes=mx&limit=1`;
+                const res = await fetch(url);
+                const data = await res.json();
+                if (data && data.length > 0) {
+                    colocarPinManualEnMapa(parseFloat(data[0].lat).toFixed(6), parseFloat(data[0].lon).toFixed(6), data[0].display_name);
+                } else {
+                    alert("No se encontró ubicación exacta.");
                 }
-
-                if (!localizado) {
-                    alert("No se localizó el lugar exacto. Haz clic directo sobre el mapa para fijar el punto.");
-                }
-
             } catch (err) {
-                alert("Error al buscar en el mapa: " + err.message);
+                alert("Error: " + err.message);
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = "<span>🔍</span> Buscar";
@@ -581,12 +566,12 @@
                 mapObj.removeLayer(pinBuscadorManual);
             }
 
-            mapObj.flyTo([lat, lng], 17, { duration: 1.2 });
+            mapObj.flyTo([lat, lng], 17, { duration: 1.0 });
 
-            let opcionesSelectRutas = "";
+            let opcionesSelect = "";
             coleccionRutas.forEach(r => {
                 r.paradas.forEach(p => {
-                    opcionesSelectRutas += '<option value="' + r.nombreRuta + '||' + p.numeroParada + '">' + r.nombreRuta + ' - Parada #' + p.numeroParada + ' (' + p.referenciaOriginal + ')</option>';
+                    opcionesSelect += `<option value="${r.nombreRuta}||${p.numeroParada}">${r.nombreRuta} - #${p.numeroParada} (${p.referenciaOriginal})</option>`;
                 });
             });
 
@@ -595,61 +580,44 @@
                 draggable: true 
             }).addTo(mapObj);
             
-            let htmlAsignacion = '';
-            if (coleccionRutas.length > 0) {
-                htmlAsignacion = '<div class="pt-2 border-t border-slate-700 space-y-1">' +
-                    '<label class="block text-[10px] text-slate-400 font-semibold uppercase">Asignar a parada de la tabla:</label>' +
-                    '<select id="selectParadaAsignar" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-[11px] text-white focus:outline-none">' +
-                    opcionesSelectRutas +
-                    '</select>' +
-                    '<button onclick="asignarCoordenadaBuscadorAParada(\'' + lat + '\', \'' + lng + '\')" class="w-full bg-cyber-emerald hover:bg-emerald-400 text-slate-950 font-bold py-1 px-2 rounded text-xs mt-1 transition-all">' +
-                    '✅ Asignar a esta Parada' +
-                    '</button>' +
-                    '</div>';
-            }
+            let htmlAsignacion = coleccionRutas.length > 0 ? `
+                <div class="pt-2 border-t border-slate-700 space-y-1">
+                    <label class="block text-[10px] text-slate-400 font-semibold uppercase">Asignar a parada:</label>
+                    <select id="selectParadaAsignar" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-[11px] text-white focus:outline-none">
+                        ${opcionesSelect}
+                    </select>
+                    <button onclick="asignarCoordenadaBuscadorAParada('${lat}', '${lng}')" class="w-full bg-cyber-emerald hover:bg-emerald-400 text-slate-950 font-bold py-1 px-2 rounded text-xs mt-1 transition-all">
+                        ✅ Asignar Coordenada
+                    </button>
+                </div>` : '';
 
-            const popupContent = '<div class="font-sans text-xs space-y-2 p-1" style="min-width: 220px;">' +
-                '<b class="text-cyber-rose font-bold">🎯 Punto Localizado / Marcado</b>' +
-                '<p class="text-slate-300 text-[11px] leading-tight">' + descripcion + '</p>' +
-                '<div class="font-mono text-emerald-400 font-bold bg-slate-900 px-2 py-1 rounded border border-slate-800 text-center">' + lat + ', ' + lng + '</div>' +
-                htmlAsignacion +
-                '</div>';
-
-            pinBuscadorManual.bindPopup(popupContent).openPopup();
+            pinBuscadorManual.bindPopup(`
+                <div class="font-sans text-xs space-y-1.5 p-1" style="min-width: 220px;">
+                    <b class="text-cyber-rose font-bold">🎯 Punto Localizado</b>
+                    <p class="text-slate-300 text-[11px] leading-tight">${descripcion}</p>
+                    <div class="font-mono text-emerald-400 font-bold bg-slate-900 px-2 py-1 rounded text-center">${lat}, ${lng}</div>
+                    ${htmlAsignacion}
+                </div>
+            `).openPopup();
         }
 
         function asignarCoordenadaBuscadorAParada(lat, lng) {
             const select = document.getElementById("selectParadaAsignar");
             if (!select) return;
 
-            const partes = select.value.split("||");
-            const nombreRuta = partes[0];
-            const numParada = parseInt(partes[1]);
-
-            actualizarCoordManual(nombreRuta, numParada, lat + ", " + lng);
+            const [nombreRuta, numParada] = select.value.split("||");
+            actualizarCoordManual(nombreRuta, parseInt(numParada), `${lat}, ${lng}`);
             if (pinBuscadorManual) mapObj.removeLayer(pinBuscadorManual);
-            alert('✅ Coordenadas asignadas a la Parada #' + numParada + ' de la ruta "' + nombreRuta + '".');
+            alert(`✅ Asignado a Parada #${numParada} (${nombreRuta}).`);
         }
 
         function normalizarRutaParaInyeccion(r) {
             const paradas = r.paradas || [];
-            
-            const listaParadasTexto = paradas
-                .map(p => (p.referenciaOriginal || "").trim())
-                .filter(Boolean)
-                .join(", ");
-
+            const listaTexto = paradas.map(p => (p.referenciaOriginal || "").trim()).filter(Boolean).join(", ");
             const setHorarios = new Set();
-            paradas.forEach(p => {
-                (p.horarios || []).forEach(h => {
-                    if (h.formatoCivil) setHorarios.add(h.formatoCivil);
-                });
-            });
-            const horarioPaso = Array.from(setHorarios).join(" / ") || (r.horarioPaso || "No especificado");
+            paradas.forEach(p => (p.horarios || []).forEach(h => { if (h.formatoCivil) setHorarios.add(h.formatoCivil); }));
 
-            const primeraParadaConGPS = paradas.find(p => p.coordenadasAbordaje && p.coordenadasAbordaje.includes(","));
-            const coordenadasAbordaje = primeraParadaConGPS ? primeraParadaConGPS.coordenadasAbordaje : (r.coordenadasAbordaje || "");
-
+            const primeraGPS = paradas.find(p => p.coordenadasAbordaje && p.coordenadasAbordaje.includes(","));
             const mun = r.municipio || "General";
             const est = r.estado || "Nuevo León";
 
@@ -660,10 +628,10 @@
                 empresaKey: sanitizarKey(r.empresaDestino),
                 municipio: mun,
                 estado: est,
-                estadoMunicipio: mun + ", " + est,
-                puntosAbordaje: listaParadasTexto || "Sin paradas definidas",
-                horarioPaso: horarioPaso,
-                coordenadasAbordaje: coordenadasAbordaje,
+                estadoMunicipio: `${mun}, ${est}`,
+                puntosAbordaje: listaTexto || "Sin paradas definidas",
+                horarioPaso: Array.from(setHorarios).join(" / ") || (r.horarioPaso || "No especificado"),
+                coordenadasAbordaje: primeraGPS ? primeraGPS.coordenadasAbordaje : (r.coordenadasAbordaje || ""),
                 distanciaTotalKm: r.distanciaTotalKm || "0.0",
                 tiempoEstimadoMin: r.tiempoEstimadoMin || 0,
                 paradas: paradas.map((p, idx) => ({
@@ -689,76 +657,44 @@
 
             if (extension === 'kmz') {
                 const zip = new JSZip();
-                let contenidoZip;
-                try {
-                    contenidoZip = await zip.loadAsync(file);
-                } catch (e) {
-                    throw new Error("El archivo .kmz está dañado o no es un paquete válido.");
-                }
-
-                const kmlFileKey = Object.keys(contenidoZip.files).find(nombre => nombre.toLowerCase().endsWith('.kml'));
-                if (!kmlFileKey) throw new Error("No se encontró ningún archivo .kml dentro del paquete .kmz.");
-                kmlTexto = await contenidoZip.files[kmlFileKey].async("text");
-            } else if (extension === 'kml') {
+                const contenidoZip = await zip.loadAsync(file);
+                const kmlKey = Object.keys(contenidoZip.files).find(n => n.toLowerCase().endsWith('.kml'));
+                if (!kmlKey) throw new Error("No hay .kml en el paquete KMZ.");
+                kmlTexto = await contenidoZip.files[kmlKey].async("text");
+            } else {
                 kmlTexto = await file.text();
             }
 
-            if (!kmlTexto || kmlTexto.trim().length === 0) {
-                throw new Error("El archivo KML está vacío.");
-            }
-
-            if (kmlTexto.includes("<NetworkLink>") && kmlTexto.includes("<href>")) {
-                const matchHref = kmlTexto.match(/<href>(.*?)<\/href>/i);
-                const urlEnlace = matchHref ? matchHref[1].replace(/&amp;/g, '&') : '';
-                const urlForzada = urlEnlace ? (urlEnlace + '&forcekml=1') : '';
-                throw new Error(
-                    "Este archivo es un enlace de red virtual y no contiene coordenadas directas.\n\n" +
-                    "Descarga el archivo físico abriendo este enlace:\n" + urlForzada
-                );
-            }
-
-            const kmlLimpio = kmlTexto
-                .replace(/xmlns(:\w+)?="[^"]*"/g, '')
-                .replace(/<(\/)?(\w+):/g, '<$1');
-
+            const kmlLimpio = kmlTexto.replace(/xmlns(:\w+)?="[^"]*"/g, '').replace(/<(\/)?(\w+):/g, '<$1');
             const parser = new DOMParser();
             const xmlDoc = parser.parseFromString(kmlLimpio, "text/xml");
-
             const nombreDoc = xmlDoc.getElementsByTagName("Document")[0]?.getElementsByTagName("name")[0]?.textContent?.trim();
-            const nombreRutaFinal = nombreDoc || file.name.replace(/\.[^/.]+$/, "").replace(/[-_]+/g, " ").toUpperCase().trim();
+            const nombreFinal = nombreDoc || file.name.replace(/\.[^/.]+$/, "").replace(/[-_]+/g, " ").toUpperCase().trim();
 
             const placemarks = Array.from(xmlDoc.getElementsByTagName("Placemark"));
-            if (placemarks.length === 0) {
-                throw new Error("No se encontraron elementos <Placemark> dentro del KML.");
-            }
-
             const paradasExtraidas = [];
             let contador = 1;
 
             placemarks.forEach(pm => {
                 const pointTag = pm.getElementsByTagName("Point")[0];
                 if (pointTag) {
-                    const nombre = pm.getElementsByTagName("name")[0]?.textContent?.trim() || ('Parada #' + contador);
-                    const desc = pm.getElementsByTagName("description")[0]?.textContent?.trim() || "";
+                    const nombre = pm.getElementsByTagName("name")[0]?.textContent?.trim() || (`Parada #${contador}`);
                     const coordTexto = pointTag.getElementsByTagName("coordinates")[0]?.textContent?.trim();
-
                     if (coordTexto) {
-                        const primerPunto = coordTexto.split(/\s+/)[0];
-                        const partes = primerPunto.split(",");
-                        const lng = partes[0]?.trim();
+                        const partes = coordTexto.split(/\s+/)[0].split(",");
                         const lat = partes[1]?.trim();
-
+                        const lng = partes[0]?.trim();
                         if (lat && lng && !isNaN(parseFloat(lat)) && !isNaN(parseFloat(lng))) {
                             paradasExtraidas.push({
                                 numeroParada: contador++,
                                 referenciaOriginal: nombre,
-                                cruceVialEnriquecido: desc || nombre,
+                                cruceVialEnriquecido: nombre,
                                 callePrincipal: nombre,
                                 cruceInterseccion: "",
                                 referenciaComercio: "",
                                 coloniaFraccionamiento: "",
                                 municipioParada: "General",
-                                coordenadasAbordaje: lat + ", " + lng,
+                                coordenadasAbordaje: `${lat}, ${lng}`,
                                 estadoGeocodificacion: "Exacta (KML Satelital)",
                                 horarios: []
                             });
@@ -767,544 +703,276 @@
                 }
             });
 
-            if (paradasExtraidas.length === 0) {
-                placemarks.forEach(pm => {
-                    const lineTag = pm.getElementsByTagName("LineString")[0];
-                    if (lineTag) {
-                        const nombre = pm.getElementsByTagName("name")[0]?.textContent?.trim() || "Punto de Ruta";
-                        const coordTexto = lineTag.getElementsByTagName("coordinates")[0]?.textContent?.trim();
-                        if (coordTexto) {
-                            const bloques = coordTexto.split(/\s+/).filter(Boolean);
-                            const salto = bloques.length > 40 ? Math.ceil(bloques.length / 30) : 1;
-                            
-                            for (let i = 0; i < bloques.length; i += salto) {
-                                const partes = bloques[i].split(",");
-                                const lng = partes[0]?.trim();
-                                const lat = partes[1]?.trim();
-
-                                if (lat && lng && !isNaN(parseFloat(lat)) && !isNaN(parseFloat(lng))) {
-                                    paradasExtraidas.push({
-                                        numeroParada: contador++,
-                                        referenciaOriginal: nombre + " (Vértice " + (contador - 1) + ")",
-                                        cruceVialEnriquecido: "Punto de trazado",
-                                        callePrincipal: nombre,
-                                        cruceInterseccion: "",
-                                        referenciaComercio: "",
-                                        coloniaFraccionamiento: "",
-                                        municipioParada: "General",
-                                        coordenadasAbordaje: lat + ", " + lng,
-                                        estadoGeocodificacion: "Exacta (KML Trazado)",
-                                        horarios: []
-                                    });
-                                }
-                            }
-                        }
-                    }
-                });
-            }
-
-            if (paradasExtraidas.length === 0) {
-                throw new Error("No se detectaron coordenadas válidas dentro del archivo KML.");
-            }
-
-            return [{
-                nombreRuta: nombreRutaFinal,
-                paradas: paradasExtraidas
-            }];
-        }
-
-        async function optimizarImagenSiEsPesada(file) {
-            return new Promise((resolve) => {
-                const img = new Image();
-                img.src = URL.createObjectURL(file);
-                img.onload = () => {
-                    URL.revokeObjectURL(img.src);
-                    const maxDim = 1920;
-                    let w = img.width;
-                    let h = img.height;
-
-                    if (w > maxDim || h > maxDim) {
-                        if (w > h) {
-                            h = Math.round((h * maxDim) / w);
-                            w = maxDim;
-                        } else {
-                            w = Math.round((w * maxDim) / h);
-                            h = maxDim;
-                        }
-                    }
-
-                    const canvas = document.createElement("canvas");
-                    canvas.width = w;
-                    canvas.height = h;
-                    const ctx = canvas.getContext("2d");
-                    ctx.drawImage(img, 0, 0, w, h);
-
-                    canvas.toBlob((blob) => {
-                        resolve(blob || file);
-                    }, "image/jpeg", 0.82);
-                };
-                img.onerror = () => resolve(file);
-            });
+            return [{ nombreRuta: nombreFinal, paradas: paradasExtraidas }];
         }
 
         async function prepararContenidoArchivo(file) {
-            const extension = file.name.split('.').pop().toLowerCase();
-            if (extension === 'txt') return { tipo: 'texto', payload: { text: await file.text() } };
-            if (extension === 'docx') {
+            const ext = file.name.split('.').pop().toLowerCase();
+            if (ext === 'txt') return { tipo: 'texto', payload: { text: await file.text() } };
+            if (ext === 'docx') {
                 const res = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
                 return { tipo: 'texto', payload: { text: res.value } };
             }
 
-            let archivoFinal = file;
-            if (['png', 'jpg', 'jpeg'].includes(extension) && file.size > 2 * 1024 * 1024) {
-                archivoFinal = await optimizarImagenSiEsPesada(file);
-            }
-
-            const base64Data = await transformarArchivoABase64(archivoFinal);
+            const base64Data = await transformarArchivoABase64(file);
             const parts = base64Data.split(",");
-            let mimeType = "application/pdf";
-            if (extension === 'png') mimeType = "image/png";
-            if (extension === 'jpg' || extension === 'jpeg') mimeType = "image/jpeg";
-            return { tipo: 'media', payload: { inlineData: { mimeType: mimeType, data: parts[1] } } };
+            let mimeType = ext === 'png' ? "image/png" : (ext === 'pdf' ? "application/pdf" : "image/jpeg");
+            return { tipo: 'media', payload: { inlineData: { mimeType, data: parts[1] } } };
         }
 
-        // =========================================================================
-        // EXTRACTOR IA GEMINI CON MODELOS VIGENTES
-        // =========================================================================
+        // EXTRACCIÓN CON FALLBACK Y PROTECCIÓN DE TOKENS
         async function procesarArchivoPaso1(file, apiKey, empresa, estadoDefecto) {
             const contenido = await prepararContenidoArchivo(file);
             
-            const promptTexto = 'Eres un Ingeniero Experto en Rutas de Transporte de Personal para "' + empresa + '" en ' + estadoDefecto + ', México.\n' +
-'Analiza minuciosamente este croquis de transporte (tabla de paradas, mapa esquemático, nombres de avenidas y comercios).\n\n' +
-'REGLAS DE ORO INTERMUNICIPALES Y DE RESOLUCIÓN:\n' +
-'1. ATRIBUCIÓN DE MUNICIPIO INDIVIDUAL: Muchas rutas cruzan más de un municipio (ej. inician en Zuazua/Ciénega/Pesquería y terminan en Apodaca/San Nicolás). Deduce para cada parada el campo "municipioParada" exacto según la colonia, carretera o tramo correspondiente.\n' +
-'2. DESCOMPÓN CADA PARADA EN SUS 4 CAMPOS:\n' +
-'   - callePrincipal: La avenida o calle donde transita el camión (ej. "Av. San Francisco", "Av. del Renacimiento", "Av. Santa Elena", "Carr. Zuazua", "Carr. Laredo").\n' +
-'   - cruceInterseccion: La calle transversal o esquina que corta (ej. "Av. Monarquía", "Chihuahua", "Av. San Fernando", "Rio Pilon"). Si no hay cruce explícito, déjalo vacío "".\n' +
-'   - referenciaComercio: El comercio o hito visual exacto (ej. "Bodega Aurrera", "Oxxo", "First Cash", "Tacos Gabino", "Farmacia Guadalajara", "Parabús").\n' +
-'   - coloniaFraccionamiento: El sector o fraccionamiento deducible (ej. "Villas de Alcalá", "Colinas del Aeropuerto", "Héroes Monterrey", "Cantoral", "Toscana").\n' +
-'3. Extrae secuencialmente cada parada con sus horarios de Día y Noche/Tarde.\n\n' +
-'RESPONDE EXCLUSIVAMENTE UN ARREGLO JSON VÁLIDO (sin markdown exterior, sin explicaciones):\n' +
-'[\n' +
-'  {\n' +
-'    "nombreRuta": "Nombre de la Ruta detectado",\n' +
-'    "empresaDestino": "' + empresa + '",\n' +
-'    "municipio": "Municipio principal de la base",\n' +
-'    "estado": "' + estadoDefecto + '",\n' +
-'    "paradas": [\n' +
-'      {\n' +
-'        "numeroParada": 1,\n' +
-'        "referenciaOriginal": "Texto tal cual aparece en el croquis",\n' +
-'        "callePrincipal": "Avenida o calle principal",\n' +
-'        "cruceInterseccion": "Calle transversal o esquina",\n' +
-'        "referenciaComercio": "Comercio o punto de interés",\n' +
-'        "coloniaFraccionamiento": "Colonia o sector",\n' +
-'        "municipioParada": "Municipio específico de esta parada",\n' +
-'        "horarios": [\n' +
-'          { "etiquetaTurno": "Día", "formatoCivil": "06:30 AM", "formatoMilitar": "06:30" },\n' +
-'          { "etiquetaTurno": "Noche", "formatoCivil": "06:30 PM", "formatoMilitar": "18:30" }\n' +
-'        ]\n' +
-'      }\n' +
-'    ]\n' +
-'  }\n' +
-']';
+            const promptTexto = `Eres un Ingeniero en Transporte para "${empresa}" en ${estadoDefecto}, México.
+Analiza este croquis o manifiesto y extrae las rutas con todas sus paradas secuenciales.
+Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
+[
+  {
+    "nombreRuta": "Nombre de la Ruta",
+    "empresaDestino": "${empresa}",
+    "municipio": "Municipio base",
+    "estado": "${estadoDefecto}",
+    "paradas": [
+      {
+        "numeroParada": 1,
+        "referenciaOriginal": "Nombre de la parada",
+        "callePrincipal": "Avenida principal",
+        "cruceInterseccion": "Cruce o esquina",
+        "referenciaComercio": "Hito o tienda",
+        "coloniaFraccionamiento": "Colonia",
+        "municipioParada": "Municipio de la parada",
+        "horarios": [
+          { "etiquetaTurno": "Día", "formatoCivil": "06:30 AM", "formatoMilitar": "06:30" }
+        ]
+      }
+    ]
+  }
+]`;
 
-            const payloadBase = {
+            const payload = {
                 contents: [{ parts: [{ text: promptTexto }, contenido.payload] }],
-                generationConfig: {
-                    temperature: 0.1,
-                    responseMimeType: "application/json"
-                }
+                generationConfig: { temperature: 0.1, responseMimeType: "application/json" }
             };
 
             const modelos = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-pro"];
-            let ultimoError = null;
-
             for (const modelo of modelos) {
                 try {
-                    const urlApi = "https://generativelanguage.googleapis.com/v1beta/models/" + modelo + ":generateContent?key=" + apiKey;
-                    const res = await fetch(urlApi, {
+                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${apiKey}`, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(payloadBase)
+                        body: JSON.stringify(payload)
                     });
 
-                    if (!res.ok) {
-                        const errorJson = await res.json().catch(() => ({}));
-                        const mensajeDetalle = errorJson.error?.message || ("HTTP " + res.status + " " + res.statusText);
-                        throw new Error("[" + modelo + "] " + mensajeDetalle);
+                    if (res.ok) {
+                        const jsonRes = await res.json();
+                        let textoIA = jsonRes.candidates?.[0]?.content?.parts?.[0]?.text;
+                        if (textoIA) {
+                            textoIA = textoIA.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
+                            const parsed = JSON.parse(textoIA);
+                            return Array.isArray(parsed) ? parsed : [parsed];
+                        }
                     }
-
-                    const jsonRes = await res.json();
-                    let textoIA = jsonRes.candidates?.[0]?.content?.parts?.[0]?.text;
-
-                    if (!textoIA) {
-                        throw new Error("El modelo devolvió una respuesta vacía o bloqueada.");
-                    }
-
-                    textoIA = textoIA.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
-
-                    const resultado = JSON.parse(textoIA);
-                    if (Array.isArray(resultado)) {
-                        return resultado;
-                    } else if (resultado && typeof resultado === 'object') {
-                        const arregloDetectado = Object.values(resultado).find(v => Array.isArray(v));
-                        if (arregloDetectado) return arregloDetectado;
-                        return [resultado];
-                    }
-                } catch (err) {
-                    console.warn("Fallo con " + modelo + ":", err.message);
-                    ultimoError = err;
-                }
+                } catch (err) {}
             }
-
-            throw new Error(ultimoError ? ultimoError.message : "No se pudo extraer la información del croquis.");
+            throw new Error("No se pudo procesar el croquis.");
         }
 
-        // =========================================================================
-        // SNAP-TO-ROAD (PROYECCIÓN MAGNÉTICA A LA VÍA TRANSITABLE MÁS CERCANA)
-        // =========================================================================
         async function proyectarPuntoAlAsfalto(lat, lng) {
-            const claveCache = lat + "," + lng;
-            if (cacheSnappingVial.has(claveCache)) {
-                return cacheSnappingVial.get(claveCache);
-            }
+            const claveCache = `${lat},${lng}`;
+            if (cacheSnappingVial.has(claveCache)) return cacheSnappingVial.get(claveCache);
 
-            const urlNearest = "[https://router.project-osrm.org/nearest/v1/driving/](https://router.project-osrm.org/nearest/v1/driving/)" + lng + "," + lat + "?number=1";
             try {
-                const res = await fetch(urlNearest);
-                if (!res.ok) throw new Error("HTTP " + res.status);
-                const data = await res.json();
-                if (data.code === 'Ok' && data.waypoints && data.waypoints.length > 0) {
-                    const snappedLng = data.waypoints[0].location[0];
-                    const snappedLat = data.waypoints[0].location[1];
-                    const resFinal = [snappedLat, snappedLng];
-                    cacheSnappingVial.set(claveCache, resFinal);
-                    return resFinal;
+                const res = await fetch(`[https://router.project-osrm.org/nearest/v1/driving/$](https://router.project-osrm.org/nearest/v1/driving/$){lng},${lat}?number=1`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.code === 'Ok' && data.waypoints?.length > 0) {
+                        const snapped = [data.waypoints[0].location[1], data.waypoints[0].location[0]];
+                        cacheSnappingVial.set(claveCache, snapped);
+                        return snapped;
+                    }
                 }
             } catch (e) {}
 
-            const coordOriginal = [lat, lng];
-            cacheSnappingVial.set(claveCache, coordOriginal);
-            return coordOriginal;
+            const fallback = [lat, lng];
+            cacheSnappingVial.set(claveCache, fallback);
+            return fallback;
         }
 
-        // =========================================================================
-        // MOTOR DE RUTEO CALLE POR CALLE OSRM
-        // =========================================================================
-        async function calcularRutaVialOSRM(coordenadasLatLng) {
+        async function calcularRutaVialOSRM(coordenadasLatLng, claveCache = null) {
             if (!coordenadasLatLng || coordenadasLatLng.length < 2) return null;
+            if (claveCache && cacheRutasOSRM.has(claveCache)) return cacheRutasOSRM.get(claveCache);
 
             let distanciaTotalMetros = 0;
             let duracionTotalSegundos = 0;
             const todosPuntosGeoJSON = [];
 
-            const coordenadasAjustadas = [];
-            for (let i = 0; i < coordenadasLatLng.length; i++) {
-                const pt = coordenadasLatLng[i];
-                const ptAjustado = await proyectarPuntoAlAsfalto(pt[0], pt[1]);
-                coordenadasAjustadas.push(ptAjustado);
+            const ajustados = [];
+            for (const pt of coordenadasLatLng) {
+                ajustados.push(await proyectarPuntoAlAsfalto(pt[0], pt[1]));
             }
 
-            for (let i = 0; i < coordenadasAjustadas.length - 1; i++) {
-                const pOrigen = coordenadasAjustadas[i];
-                const pDestino = coordenadasAjustadas[i + 1];
-
-                const coordString = pOrigen[1] + ',' + pOrigen[0] + ';' + pDestino[1] + ',' + pDestino[0];
-                const urlOsrm = "[https://router.project-osrm.org/route/v1/driving/](https://router.project-osrm.org/route/v1/driving/)" + coordString + "?overview=full&geometries=geojson";
+            for (let i = 0; i < ajustados.length - 1; i++) {
+                const p1 = ajustados[i];
+                const p2 = ajustados[i + 1];
+                const url = `[https://router.project-osrm.org/route/v1/driving/$](https://router.project-osrm.org/route/v1/driving/$){p1[1]},${p1[0]};${p2[1]},${p2[0]}?overview=full&geometries=geojson`;
 
                 try {
-                    const res = await fetch(urlOsrm);
-                    if (!res.ok) throw new Error("HTTP " + res.status);
-                    const data = await res.json();
-
-                    if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
-                        distanciaTotalMetros += data.routes[0].distance;
-                        duracionTotalSegundos += data.routes[0].duration;
-
-                        const coordsSegmento = data.routes[0].geometry.coordinates;
-                        coordsSegmento.forEach(pt => todosPuntosGeoJSON.push([pt[1], pt[0]]));
-                    } else {
-                        todosPuntosGeoJSON.push(pOrigen);
-                        todosPuntosGeoJSON.push(pDestino);
+                    const res = await fetch(url);
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.code === 'Ok' && data.routes?.length > 0) {
+                            distanciaTotalMetros += data.routes[0].distance;
+                            duracionTotalSegundos += data.routes[0].duration;
+                            data.routes[0].geometry.coordinates.forEach(pt => todosPuntosGeoJSON.push([pt[1], pt[0]]));
+                        } else {
+                            todosPuntosGeoJSON.push(p1, p2);
+                        }
                     }
                 } catch (e) {
-                    todosPuntosGeoJSON.push(pOrigen);
-                    todosPuntosGeoJSON.push(pDestino);
+                    todosPuntosGeoJSON.push(p1, p2);
                 }
-
-                await new Promise(r => setTimeout(r, 60));
+                await new Promise(r => setTimeout(r, 15));
             }
 
-            return {
+            const resultado = {
                 distanciaKm: (distanciaTotalMetros / 1000).toFixed(2),
                 duracionMin: Math.round(duracionTotalSegundos / 60),
                 puntosPolilinea: todosPuntosGeoJSON
             };
+
+            if (claveCache) cacheRutasOSRM.set(claveCache, resultado);
+            return resultado;
         }
 
         function limpiarRuidoTexto(str) {
             if (!str) return "";
-            return str
-                .replace(/\b(parab[uú]s|parada|frente a|enfrente|fte|esq|esquina|cruce con|puente|retorno|puerta|port[oó]n|tienda|km|kil[oó]metro)\b/gi, ' ')
-                .replace(/[#\-\(\)\/\\]/g, ' ')
-                .replace(/\s+/g, ' ')
-                .trim();
+            return str.replace(/\b(parab[uú]s|parada|frente a|enfrente|fte|esq|esquina|cruce con|puente|retorno|puerta|port[oó]n|tienda|km)\b/gi, ' ').replace(/[#\-\(\)\/\\]/g, ' ').replace(/\s+/g, ' ').trim();
         }
 
-        async function consultarNominatimDirecto(url) {
-            try {
-                const res = await fetch(url, { headers: { "User-Agent": "ERPTransportePro/8.0 (Logistica Industrial)" } });
-                if (!res.ok) return null;
-                const data = await res.json();
-                if (data && data.length > 0) {
-                    return data[0].lat + ", " + data[0].lon;
-                }
-            } catch (e) {}
-            return null;
-        }
-
-        // =========================================================================
-        // GEOCODIFICADOR EN CASCADA CON FILTRO 0 (GEOCATÁLOGO MAESTRO INEGI/KML)
-        // =========================================================================
+        // GEOCODIFICACIÓN CON DEDUPLICACIÓN EN MEMORIA Y CERO PETICIONES REDUNDANTES
         async function geocodificarParada(parada, municipioGlobal, estado) {
             if (parada.coordenadasAbordaje && parada.coordenadasAbordaje.includes(",")) {
                 return { coords: parada.coordenadasAbordaje.trim(), origen: "Exacta" };
             }
 
-            const estadoLimpio = sanitizarKey(estado || "nuevo_leon");
             const munActual = parada.municipioParada || municipioGlobal || "general";
             const refCruda = parada.referenciaOriginal || "";
             const cPrincipal = parada.callePrincipal || "";
-            const comercio = parada.referenciaComercio || "";
+            const claveDeduplicacion = `${sanitizarKey(refCruda || cPrincipal)}_${sanitizarKey(munActual)}`;
 
-            // ---------------------------------------------------------------------
-            // FILTRO 0: CONSULTA PRIORITARIA AL CATÁLOGO MAESTRO EN FIREBASE (0 MS)
-            // ---------------------------------------------------------------------
-            const clavesCat = [];
-            if (refCruda) clavesCat.push(generarClavePunto(refCruda, munActual));
-            if (comercio) clavesCat.push(generarClavePunto(comercio, munActual));
-            if (cPrincipal) clavesCat.push(generarClavePunto(cPrincipal, munActual));
+            // 1. Verificar si ya se resolvió en este lote
+            if (cacheDeduplicacionSesion.has(claveDeduplicacion)) {
+                return { coords: cacheDeduplicacionSesion.get(claveDeduplicacion), origen: "Deduplicación Lote (0ms)" };
+            }
 
-            for (const c of clavesCat) {
+            // 2. Verificar Catálogo Maestro en Firebase
+            const estadoLimpio = sanitizarKey(estado || "nuevo_leon");
+            const claveCat = generarClavePunto(refCruda || cPrincipal, munActual);
+            const claveLocal = `${estadoLimpio}_${claveCat}`;
+
+            if (cachePuntosCatalogoLocal.has(claveLocal)) {
+                const coords = cachePuntosCatalogoLocal.get(claveLocal);
+                cacheDeduplicacionSesion.set(claveDeduplicacion, coords);
+                return { coords, origen: "Catálogo Maestro (0ms)" };
+            }
+
+            try {
+                const snapCat = await get(ref(db, `geocodigos_maestros/${estadoLimpio}/${claveCat}`));
+                if (snapCat.exists() && snapCat.val().coordenadas) {
+                    const coords = snapCat.val().coordenadas;
+                    cachePuntosCatalogoLocal.set(claveLocal, coords);
+                    cacheDeduplicacionSesion.set(claveDeduplicacion, coords);
+                    return { coords, origen: "Catálogo Firebase" };
+                }
+            } catch (e) {}
+
+            // 3. Consulta externa Nominatim con delay de cortesía
+            const cleanStreet = limpiarRuidoTexto(cPrincipal);
+            if (cleanStreet) {
+                const url = `[https://nominatim.openstreetmap.org/search?format=json&street=$](https://nominatim.openstreetmap.org/search?format=json&street=$){encodeURIComponent(cleanStreet)}&city=${encodeURIComponent(munActual)}&state=${encodeURIComponent(estado)}&country=Mexico&limit=1`;
                 try {
-                    const snapCat = await get(ref(db, `geocodigos_maestros/${estadoLimpio}/${c}`));
-                    if (snapCat.exists()) {
-                        const dataCat = snapCat.val();
-                        if (dataCat.coordenadas) {
-                            return { 
-                                coords: dataCat.coordenadas, 
-                                origen: `Catálogo Maestro (${dataCat.fuente || 'INEGI/KML'})` 
-                            };
+                    const res = await fetch(url);
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data?.length > 0) {
+                            const coords = `${data[0].lat}, ${data[0].lon}`;
+                            await aprenderYGuardarEnGeocatalogo(refCruda || cPrincipal, munActual, coords, estado);
+                            return { coords, origen: "Nominatim (Nuevo)" };
                         }
                     }
-                } catch (e) {
-                    console.warn("Fallo lectura catálogo:", e);
-                }
-            }
-
-            // ---------------------------------------------------------------------
-            // SI NO ESTÁ EN EL CATÁLOGO: CONTINÚA CON LA CASCADA DE OPENSTREETMAP
-            // ---------------------------------------------------------------------
-            const cPrincipalLimpia = limpiarRuidoTexto(cPrincipal);
-            const cInterLimpia = limpiarRuidoTexto(parada.cruceInterseccion || "");
-            const comercioLimpio = limpiarRuidoTexto(comercio);
-            const colLimpia = limpiarRuidoTexto(parada.coloniaFraccionamiento || "");
-
-            const listaMunicipios = [];
-            if (munActual && munActual !== "General") listaMunicipios.push(munActual);
-            if (municipioGlobal && !listaMunicipios.includes(municipioGlobal) && municipioGlobal !== "General") listaMunicipios.push(municipioGlobal);
-            if (listaMunicipios.length === 0) listaMunicipios.push("Monterrey");
-
-            for (const m of listaMunicipios) {
-                const intentos = [];
-
-                if (cPrincipalLimpia && cInterLimpia) {
-                    intentos.push({
-                        tipo: "Intersección Vial OSM (" + m + ")",
-                        url: "[https://nominatim.openstreetmap.org/search?format=json&q=](https://nominatim.openstreetmap.org/search?format=json&q=)" + encodeURIComponent(cPrincipalLimpia + " and " + cInterLimpia + ", " + m + ", " + estado + ", Mexico") + "&countrycodes=mx&limit=1"
-                    });
-                }
-
-                if (comercioLimpio && cPrincipalLimpia) {
-                    intentos.push({
-                        tipo: "Comercio en Avenida (" + m + ")",
-                        url: "[https://nominatim.openstreetmap.org/search?format=json&q=](https://nominatim.openstreetmap.org/search?format=json&q=)" + encodeURIComponent(comercioLimpio + ", " + cPrincipalLimpia + ", " + m + ", " + estado + ", Mexico") + "&countrycodes=mx&limit=1"
-                    });
-                }
-
-                if (cPrincipalLimpia && colLimpia) {
-                    intentos.push({
-                        tipo: "Calle y Colonia (" + m + ")",
-                        url: "[https://nominatim.openstreetmap.org/search?format=json&q=](https://nominatim.openstreetmap.org/search?format=json&q=)" + encodeURIComponent(cPrincipalLimpia + ", " + colLimpia + ", " + m + ", " + estado + ", Mexico") + "&countrycodes=mx&limit=1"
-                    });
-                }
-
-                if (cPrincipalLimpia) {
-                    intentos.push({
-                        tipo: "Estructurada (" + m + ")",
-                        url: "[https://nominatim.openstreetmap.org/search?format=json&street=](https://nominatim.openstreetmap.org/search?format=json&street=)" + encodeURIComponent(cPrincipalLimpia) + "&city=" + encodeURIComponent(m) + "&state=" + encodeURIComponent(estado) + "&country=Mexico&limit=1"
-                    });
-                }
-
-                for (const intento of intentos) {
-                    const coordsEncontradas = await consultarNominatimDirecto(intento.url);
-                    if (coordsEncontradas) {
-                        // Al encontrarla por internet, la guardamos en el catálogo para nunca más consultarla
-                        await aprenderYGuardarEnGeocatalogo(refCruda || cPrincipal, m, coordsEncontradas, estado);
-                        return { coords: coordsEncontradas, origen: "Nominatim (" + intento.tipo + ")" };
-                    }
-                    await new Promise(r => setTimeout(r, 850));
-                }
-            }
-
-            // Respaldo estatal
-            if (refCruda || cPrincipalLimpia) {
-                const qExpansiva = (cPrincipalLimpia || refCruda) + ", " + estado + ", Mexico";
-                const urlExpansiva = "[https://nominatim.openstreetmap.org/search?format=json&q=](https://nominatim.openstreetmap.org/search?format=json&q=)" + encodeURIComponent(qExpansiva) + "&countrycodes=mx&limit=1";
-                const coordsExpansivas = await consultarNominatimDirecto(urlExpansiva);
-                if (coordsExpansivas) {
-                    await aprenderYGuardarEnGeocatalogo(refCruda || cPrincipal, munActual, coordsExpansivas, estado);
-                    return { coords: coordsExpansivas, origen: "Nominatim (Expansión Estatal)" };
-                }
+                } catch (e) {}
+                await new Promise(r => setTimeout(r, 600));
             }
 
             return { coords: "", origen: "Sin Geocodificar" };
         }
 
-        // =========================================================================
-        // EXTRACCIÓN Y FUSIÓN HÍBRIDA
-        // =========================================================================
+        // EXTRACCIÓN MASIVA MULTI-ARCHIVO
         async function ejecutarPaso1Extraccion() {
             const apiKey = document.getElementById("apiKeyGemini").value.trim();
             const empresa = document.getElementById("empresaValidacionIA").value.trim();
             const estadoDefecto = document.getElementById("estadoOperacionInput").value.trim() || "Nuevo León";
             const fileInput = document.getElementById("fileInput");
 
-            if (!empresa || !fileInput.files.length) return alert("⚠️ Selecciona una Empresa y adjunta los archivos.");
+            if (!empresa || !fileInput.files.length) return alert("⚠️ Selecciona Empresa y adjunta archivos.");
 
             const btn = document.getElementById("btnPaso1Extraer");
             btn.disabled = true;
 
             try {
                 const archivos = Array.from(fileInput.files);
-                const archivoKML = archivos.find(f => {
+                coleccionRutas = [];
+
+                for (let i = 0; i < archivos.length; i++) {
+                    const f = archivos[i];
                     const ext = f.name.split('.').pop().toLowerCase();
-                    return ext === 'kml' || ext === 'kmz';
-                });
-                const archivoDoc = archivos.find(f => {
-                    const ext = f.name.split('.').pop().toLowerCase();
-                    return ['pdf', 'png', 'jpg', 'jpeg', 'txt', 'docx'].includes(ext);
-                });
+                    btn.innerHTML = `<span>⏳</span> Procesando (${i + 1}/${archivos.length}) ${f.name}...`;
 
-                if (archivoKML && archivoDoc) {
-                    if (!apiKey) throw new Error("Se requiere Gemini API Key para procesar los horarios del PDF/Imagen.");
+                    let rutasExtraidas = [];
+                    if (ext === 'kmz' || ext === 'kml') {
+                        rutasExtraidas = await procesarArchivoKMZoKML(f);
+                    } else {
+                        if (!apiKey) throw new Error("Se requiere Gemini API Key para archivos de texto/imagen.");
+                        rutasExtraidas = await procesarArchivoPaso1(f, apiKey, empresa, estadoDefecto);
+                    }
 
-                    btn.innerHTML = "<span>🛰️</span> 1/2: Leyendo coordenadas KML...";
-                    const rutasKml = await procesarArchivoKMZoKML(archivoKML);
-
-                    btn.innerHTML = "<span>🧠</span> 2/2: Extrayendo horarios del Croquis...";
-                    const rutasDoc = await procesarArchivoPaso1(archivoDoc, apiKey, empresa, estadoDefecto);
-
-                    btn.innerHTML = "<span>⚡</span> Fusionando Coordenadas + Horarios...";
-                    
-                    const rutaFusionada = rutasKml[0];
-                    const rutaDocInfo = rutasDoc[0] || {};
-
-                    rutaFusionada.paradas.forEach((paradaKml, index) => {
-                        const paradaDoc = rutaDocInfo.paradas?.[index];
-                        if (paradaDoc) {
-                            if (!paradaKml.referenciaOriginal || /^PARADA\s*\d+$/i.test(paradaKml.referenciaOriginal.trim())) {
-                                paradaKml.referenciaOriginal = paradaDoc.referenciaOriginal || paradaKml.referenciaOriginal;
-                            }
-                            paradaKml.cruceVialEnriquecido = paradaDoc.callePrincipal + (paradaDoc.cruceInterseccion ? (' y ' + paradaDoc.cruceInterseccion) : '');
-                            paradaKml.callePrincipal = paradaDoc.callePrincipal || "";
-                            paradaKml.cruceInterseccion = paradaDoc.cruceInterseccion || "";
-                            paradaKml.referenciaComercio = paradaDoc.referenciaComercio || "";
-                            paradaKml.coloniaFraccionamiento = paradaDoc.coloniaFraccionamiento || "";
-                            paradaKml.municipioParada = paradaDoc.municipioParada || rutaDocInfo.municipio || "General";
-                            paradaKml.horarios = paradaDoc.horarios || [];
-                        }
+                    rutasExtraidas.forEach(r => {
+                        r.empresaDestino = empresa;
+                        r.estado = r.estado || estadoDefecto;
+                        coleccionRutas.push(normalizarRutaParaInyeccion(r));
                     });
-
-                    if (rutaDocInfo.nombreRuta && !rutaDocInfo.nombreRuta.includes("Sin Nombre")) {
-                        rutaFusionada.nombreRuta = rutaDocInfo.nombreRuta;
-                    }
-
-                    rutaFusionada.empresaDestino = empresa;
-                    rutaFusionada.estado = estadoDefecto;
-
-                    coleccionRutas = [normalizarRutaParaInyeccion(rutaFusionada)];
-                    alert("✅ ¡Fusión Híbrida Exitosa! Se combinaron las " + rutaFusionada.paradas.length + " paradas satelitales con los nombres y horarios.");
-
-                } else {
-                    coleccionRutas = [];
-                    for (const f of archivos) {
-                        const ext = f.name.split('.').pop().toLowerCase();
-                        let rutas = [];
-
-                        if (ext === 'kmz' || ext === 'kml') {
-                            btn.innerHTML = "<span>🛰️</span> Parseando Satelital " + f.name + "...";
-                            rutas = await procesarArchivoKMZoKML(f);
-                        } else {
-                            if (!apiKey) throw new Error("Se requiere Gemini API Key para procesar documentos o imágenes.");
-                            btn.innerHTML = "<span>🧠</span> Extrayendo con IA " + f.name + "...";
-                            rutas = await procesarArchivoPaso1(f, apiKey, empresa, estadoDefecto);
-                        }
-
-                        rutas.forEach(r => {
-                            r.empresaDestino = empresa;
-                            r.estado = r.estado || estadoDefecto;
-                            r.paradas.forEach(p => {
-                                if (!p.cruceVialEnriquecido && p.callePrincipal) {
-                                    p.cruceVialEnriquecido = p.callePrincipal + (p.cruceInterseccion ? (' y ' + p.cruceInterseccion) : '');
-                                }
-                                if (!p.coordenadasAbordaje) {
-                                    p.coordenadasAbordaje = p.coordenadaDetectadaDirecta || "";
-                                    p.estadoGeocodificacion = p.coordenadasAbordaje ? "Exacta (Texto)" : "Sin Geocodificar";
-                                }
-                            });
-                            coleccionRutas.push(normalizarRutaParaInyeccion(r));
-                        });
-                    }
-                    alert("✅ Se procesaron " + coleccionRutas.length + " rutas.");
                 }
 
                 actualizarSelectRutas();
                 await renderizarTablaYMapa();
-
+                alert(`✅ Lote completado: ${coleccionRutas.length} rutas extraídas.`);
             } catch (err) {
-                alert("Error en la extracción / fusión: " + err.message);
+                alert("Error: " + err.message);
             } finally {
                 btn.disabled = false;
-                btn.innerHTML = "<span>🧠</span> Procesar y Extraer Rutas";
+                btn.innerHTML = "<span>🧠</span> Procesar Lote de Archivos";
             }
         }
 
+        // GEOCODIFICACIÓN MASIVA DEDUPLICADA
         async function ejecutarPaso2GeolocalizarTodas() {
             if (coleccionRutas.length === 0) return alert("⚠️ Carga o extrae rutas primero.");
             const btn = document.getElementById("btnPaso2GeolocalizarTodos");
-            const feedbackBar = document.getElementById("progresoGeocodificacion");
+            const bar = document.getElementById("progresoGeocodificacion");
             
             btn.disabled = true;
-            btn.innerHTML = "<span>⏳</span> Consultando Catálogo...";
-            feedbackBar.classList.remove("hidden");
+            bar.classList.remove("hidden");
 
             const estadoDefecto = document.getElementById("estadoOperacionInput").value.trim() || "Nuevo León";
-            
-            let totalParadasPendientes = 0;
-            coleccionRutas.forEach(r => {
-                r.paradas.forEach(p => { if (!p.coordenadasAbordaje) totalParadasPendientes++; });
-            });
+            let resueltas = 0;
 
-            let procesadas = 0;
             for (let i = 0; i < coleccionRutas.length; i++) {
                 const r = coleccionRutas[i];
                 for (const p of r.paradas) {
                     if (!p.coordenadasAbordaje) {
-                        procesadas++;
-                        const munMuestra = p.municipioParada || r.municipio || 'General';
-                        feedbackBar.innerText = "🔍 Resolviendo " + procesadas + "/" + totalParadasPendientes + " [" + munMuestra + "]: " + (p.referenciaOriginal || 'Parada');
+                        resueltas++;
+                        bar.innerText = `🔍 Deduciendo (${resueltas}): ${p.referenciaOriginal || 'Parada'}`;
                         const geo = await geocodificarParada(p, r.municipio, r.estado || estadoDefecto);
                         p.coordenadasAbordaje = geo.coords;
                         p.estadoGeocodificacion = geo.origen;
@@ -1313,11 +981,10 @@
                 coleccionRutas[i] = normalizarRutaParaInyeccion(r);
             }
 
-            feedbackBar.classList.add("hidden");
+            bar.classList.add("hidden");
             btn.disabled = false;
-            btn.innerHTML = "<span>🗺️</span> Geocodificar Paradas (Prioridad Catálogo)";
             await renderizarTablaYMapa();
-            alert("✅ Proceso completado. Se priorizó el Catálogo Maestro de Firebase.");
+            alert("✅ Geocodificación por lote completada con deduplicación activa.");
         }
 
         async function geolocalizarRutaSeleccionada() {
@@ -1327,19 +994,15 @@
 
             const r = coleccionRutas[idx];
             const btn = document.getElementById("btnPaso2RutaActual");
-            const feedbackBar = document.getElementById("progresoGeocodificacion");
+            const bar = document.getElementById("progresoGeocodificacion");
 
             btn.disabled = true;
-            btn.innerHTML = "<span>⏳</span> Geocodificando...";
-            feedbackBar.classList.remove("hidden");
+            bar.classList.remove("hidden");
 
             const estadoDefecto = document.getElementById("estadoOperacionInput").value.trim() || "Nuevo León";
-            let procesadas = 0;
-
             for (const p of r.paradas) {
                 if (!p.coordenadasAbordaje) {
-                    procesadas++;
-                    feedbackBar.innerText = "🔍 Deduciendo parada #" + p.numeroParada + " [" + (p.municipioParada || r.municipio) + "]: " + (p.referenciaOriginal || '');
+                    bar.innerText = `🔍 Deduciendo: ${p.referenciaOriginal || ''}`;
                     const geo = await geocodificarParada(p, r.municipio, r.estado || estadoDefecto);
                     p.coordenadasAbordaje = geo.coords;
                     p.estadoGeocodificacion = geo.origen;
@@ -1347,17 +1010,16 @@
             }
 
             coleccionRutas[idx] = normalizarRutaParaInyeccion(r);
-            feedbackBar.classList.add("hidden");
+            bar.classList.add("hidden");
             btn.disabled = false;
-            btn.innerHTML = "🗺️ Geocodificar Bloque";
             await renderizarTablaYMapa();
         }
 
         function actualizarSelectRutas() {
             const select = document.getElementById("filtroRutaActiva");
-            select.innerHTML = '<option value="TODAS">-- Todas las Rutas --</option>';
+            select.innerHTML = '<option value="TODAS">-- Todas las Rutas (Vista Rápida) --</option>';
             coleccionRutas.forEach(r => {
-                select.innerHTML += '<option value="' + r.nombreRuta + '">' + r.nombreRuta + '</option>';
+                select.innerHTML += `<option value="${r.nombreRuta}">${r.nombreRuta}</option>`;
             });
             rutaSeleccionadaFiltro = "TODAS";
         }
@@ -1419,8 +1081,6 @@
                 if (p) {
                     p.coordenadasAbordaje = nuevaCoord.trim();
                     p.estadoGeocodificacion = nuevaCoord.trim() ? "Ajuste Manual" : "Sin Geocodificar";
-                    
-                    // Auto-aprendizaje: se envía al geocatálogo
                     aprenderYGuardarEnGeocatalogo(p.referenciaOriginal, p.municipioParada || r.municipio, nuevaCoord, r.estado);
                     renderizarTablaYMapa();
                 }
@@ -1439,37 +1099,28 @@
             const empKey = r.empresaKey || sanitizarKey(r.empresaDestino);
 
             try {
-                await set(ref(db, "rutas/" + empKey + "/" + rutaId + "/paradas/" + pIdx), paradaObj);
-                
-                // Guardar en el catálogo maestro
+                await set(ref(db, `rutas/${empKey}/${rutaId}/paradas/${pIdx}`), paradaObj);
                 if (paradaObj.coordenadasAbordaje) {
                     await aprenderYGuardarEnGeocatalogo(paradaObj.referenciaOriginal, paradaObj.municipioParada || r.municipio, paradaObj.coordenadasAbordaje, r.estado);
                 }
-
-                alert("✅ Parada #" + numParada + ' de la ruta "' + nombreRuta + '" guardada exitosamente en Firebase y Catálogo Maestro.');
+                alert("✅ Parada individual guardada en Firebase.");
             } catch (err) {
-                alert("Error al guardar la parada: " + err.message);
+                alert("Error: " + err.message);
             }
         }
 
         function auditarPuntoEnMapa(idCompuesta, lat, lng) {
             if (!mapObj || isNaN(lat) || isNaN(lng)) return;
-
-            const mapaContenedor = document.getElementById('mapaPreCommit');
-            if (mapaContenedor) {
-                mapaContenedor.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
+            const contenedor = document.getElementById('mapaPreCommit');
+            if (contenedor) contenedor.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
             mapObj.flyTo([lat, lng], 17, { duration: 0.8 });
-
             setTimeout(() => {
-                const marker = diccionarioMarcadores[idCompuesta];
-                if (marker) {
-                    marker.openPopup();
-                }
+                if (diccionarioMarcadores[idCompuesta]) diccionarioMarcadores[idCompuesta].openPopup();
             }, 450);
         }
 
+        // RENDERIZADO VISUAL OPTIMIZADO CON LAZY OSRM
         async function renderizarTablaYMapa() {
             const tbody = document.getElementById("tablaResultadosPreCommit");
             tbody.innerHTML = "";
@@ -1481,21 +1132,22 @@
                 ? coleccionRutas 
                 : coleccionRutas.filter(r => r.nombreRuta === rutaSeleccionadaFiltro);
 
-            document.getElementById("badgeRutasCount").innerText = coleccionRutas.length + " Rutas";
+            document.getElementById("badgeRutasCount").innerText = `${coleccionRutas.length} Rutas`;
 
             if (rutasFiltradas.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-slate-500 font-mono">No hay paradas bajo el filtro seleccionado.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-slate-500 font-mono">No hay rutas cargadas.</td></tr>';
                 return;
             }
 
             const latLngsGlobales = [];
             let distanciaTotalAcumulada = 0;
+            const esVistaGeneral = (rutaSeleccionadaFiltro === "TODAS");
+            const fragment = document.createDocumentFragment();
 
             for (let rIdx = 0; rIdx < rutasFiltradas.length; rIdx++) {
                 const ruta = rutasFiltradas[rIdx];
                 const indiceColorGlobal = coleccionRutas.findIndex(cr => cr.nombreRuta === ruta.nombreRuta);
                 const colorRutaActual = obtenerColorPorRutaIndex(indiceColorGlobal >= 0 ? indiceColorGlobal : rIdx);
-
                 const puntosRuta = [];
 
                 ruta.paradas.forEach((parada) => {
@@ -1503,7 +1155,7 @@
                     const lat = parseFloat(coords[0]);
                     const lng = parseFloat(coords[1]);
                     const valida = !isNaN(lat) && !isNaN(lng);
-                    const idParadaCompuesta = ruta.nombreRuta + "_" + parada.numeroParada;
+                    const idCompuesta = `${ruta.nombreRuta}_${parada.numeroParada}`;
 
                     if (valida) {
                         puntosRuta.push([lat, lng]);
@@ -1511,110 +1163,90 @@
 
                         const marker = L.marker([lat, lng], {
                             icon: crearIconoLagrimaGPS(parada.numeroParada, colorRutaActual),
-                            title: ruta.nombreRuta + " - #" + parada.numeroParada
+                            title: `${ruta.nombreRuta} - #${parada.numeroParada}`
                         }).addTo(markersGroup);
 
-                        diccionarioMarcadores[idParadaCompuesta] = marker;
+                        diccionarioMarcadores[idCompuesta] = marker;
 
-                        const popupHtml = '<div class="font-sans text-xs space-y-1.5 p-1" style="min-width: 220px;">' +
-                            '<div class="flex items-center justify-between border-b border-slate-700 pb-1">' +
-                            '<span class="font-bold text-white uppercase text-[11px]">' + ruta.nombreRuta + '</span>' +
-                            '<span class="px-1.5 py-0.5 rounded text-[10px] font-bold font-mono text-slate-950" style="background-color: ' + colorRutaActual + ';">' +
-                            '#' + parada.numeroParada +
-                            '</span>' +
-                            '</div>' +
-                            '<p class="text-slate-200"><b>Referencia:</b> ' + (parada.referenciaOriginal || 'Sin nombre') + '</p>' +
-                            '<p class="text-slate-400 text-[11px]"><b>Municipio:</b> ' + (parada.municipioParada || ruta.municipio || 'General') + '</p>' +
-                            '<p class="text-slate-400 text-[11px]"><b>Cruce:</b> ' + (parada.cruceVialEnriquecido || 'Sin especificar') + '</p>' +
-                            '<div class="font-mono text-emerald-400 font-bold bg-slate-900 px-2 py-1 rounded border border-slate-800 text-center mt-1">' +
-                            lat.toFixed(6) + ', ' + lng.toFixed(6) +
-                            '</div>' +
-                            '<div class="text-[10px] text-cyber-cyan font-mono text-right pt-0.5">' +
-                            'Origen: ' + (parada.estadoGeocodificacion || 'Manual') +
-                            '</div>' +
-                            '</div>';
-                        marker.bindPopup(popupHtml);
+                        marker.bindPopup(`
+                            <div class="font-sans text-xs space-y-1.5 p-1" style="min-width: 220px;">
+                                <div class="flex items-center justify-between border-b border-slate-700 pb-1">
+                                    <span class="font-bold text-white uppercase text-[11px]">${ruta.nombreRuta}</span>
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold font-mono text-slate-950" style="background-color: ${colorRutaActual};">
+                                        #${parada.numeroParada}
+                                    </span>
+                                </div>
+                                <p class="text-slate-200"><b>Referencia:</b> ${parada.referenciaOriginal || 'Sin nombre'}</p>
+                                <p class="text-slate-400 text-[11px]"><b>Municipio:</b> ${parada.municipioParada || ruta.municipio || 'General'}</p>
+                                <p class="text-slate-400 text-[11px]"><b>Cruce:</b> ${parada.cruceVialEnriquecido || 'Sin especificar'}</p>
+                                <div class="font-mono text-emerald-400 font-bold bg-slate-900 px-2 py-1 rounded text-center">${lat.toFixed(6)}, ${lng.toFixed(6)}</div>
+                                <div class="text-[10px] text-cyber-cyan font-mono text-right pt-0.5">Origen: ${parada.estadoGeocodificacion || 'Manual'}</div>
+                            </div>
+                        `);
                     }
 
                     const textoHorarios = (parada.horarios || []).map(h => h.formatoCivil).join(" / ");
-
                     const tr = document.createElement("tr");
                     tr.className = "hover:bg-slate-800/40 border-b border-cyber-border/40 text-slate-300";
-                    
-                    let botonAuditar = '<span class="text-[10px] text-slate-500 font-mono italic">Sin GPS</span>';
-                    if (valida) {
-                        botonAuditar = '<button type="button" onclick="auditarPuntoEnMapa(\'' + idParadaCompuesta + '\', ' + lat + ', ' + lng + ')" title="Auditar en mapa: vuelo suave y apertura automática" class="btn-audit-press inline-flex items-center justify-center bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/50 text-cyber-cyan px-2.5 py-1.5 rounded-md text-xs font-bold">' +
-                            '<span>🎯 Ver</span>' +
-                            '</button>';
-                    }
 
-                    tr.innerHTML = '<td class="p-2.5 whitespace-nowrap">' +
-                        '<div class="flex items-center gap-2">' +
-                        '<span class="w-2.5 h-2.5 rounded-full inline-block shrink-0 shadow-sm" style="background-color: ' + colorRutaActual + ';"></span>' +
-                        '<span class="font-bold text-white">' + ruta.nombreRuta + '</span>' +
-                        '</div>' +
-                        '<div class="text-[10px] font-mono font-bold ml-4.5" style="color: ' + colorRutaActual + ';">Parada #' + parada.numeroParada + '</div>' +
-                        '</td>' +
-                        '<td class="p-2.5">' +
-                        '<input type="text" value="' + (parada.referenciaOriginal || '') + '" onchange="actualizarReferenciaParada(\'' + ruta.nombreRuta + '\', ' + parada.numeroParada + ', this.value)" placeholder="Referencia" class="w-full bg-cyber-bg border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-cyber-accent mb-1">' +
-                        '<div class="grid grid-cols-2 gap-1">' +
-                        '<input type="text" value="' + (parada.cruceVialEnriquecido || '') + '" onchange="actualizarCruceParada(\'' + ruta.nombreRuta + '\', ' + parada.numeroParada + ', this.value)" placeholder="Cruce vial" class="bg-cyber-bg border border-slate-700 rounded px-2 py-1 text-[11px] text-slate-400 focus:outline-none">' +
-                        '<input type="text" value="' + (parada.municipioParada || ruta.municipio || '') + '" onchange="actualizarMunicipioParada(\'' + ruta.nombreRuta + '\', ' + parada.numeroParada + ', this.value)" placeholder="Municipio" class="bg-cyber-bg border border-slate-700 rounded px-2 py-1 text-[11px] text-cyber-cyan focus:outline-none">' +
-                        '</div>' +
-                        '</td>' +
-                        '<td class="p-2.5 font-mono">' +
-                        '<input type="text" value="' + textoHorarios + '" onchange="actualizarHorariosTexto(\'' + ruta.nombreRuta + '\', ' + parada.numeroParada + ', this.value)" placeholder="Ej: 06:30 AM / 06:30 PM" class="w-full bg-cyber-bg border border-slate-700 rounded px-2 py-1 text-xs text-cyber-amber focus:outline-none">' +
-                        '</td>' +
-                        '<td class="p-2.5 font-mono">' +
-                        '<input type="text" value="' + (parada.coordenadasAbordaje || '') + '" onchange="actualizarCoordManual(\'' + ruta.nombreRuta + '\', ' + parada.numeroParada + ', this.value)" placeholder="Lat, Lng" class="w-full bg-cyber-bg border border-slate-700 rounded px-2 py-1 text-xs text-cyber-cyan focus:outline-none">' +
-                        '</td>' +
-                        '<td class="p-2.5 text-center whitespace-nowrap space-x-1.5">' +
-                        botonAuditar +
-                        '<button type="button" onclick="guardarParadaIndividualAFirebase(\'' + ruta.nombreRuta + '\', ' + parada.numeroParada + ')" title="Guardar parada individual en Firebase" class="btn-audit-press inline-flex items-center justify-center bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/50 text-emerald-400 px-2.5 py-1.5 rounded-md text-xs font-bold">' +
-                        '<span>💾</span>' +
-                        '</button>' +
-                        '</td>';
-                    tbody.appendChild(tr);
+                    let botonAuditar = valida ? `
+                        <button type="button" onclick="auditarPuntoEnMapa('${idCompuesta}', ${lat}, ${lng})" title="Auditar en mapa" class="btn-audit-press inline-flex items-center justify-center bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/50 text-cyber-cyan px-2.5 py-1.5 rounded-md text-xs font-bold">
+                            <span>🎯 Ver</span>
+                        </button>` : '<span class="text-[10px] text-slate-500 font-mono italic">Sin GPS</span>';
+
+                    tr.innerHTML = `
+                        <td class="p-2.5 whitespace-nowrap">
+                            <div class="flex items-center gap-2">
+                                <span class="w-2.5 h-2.5 rounded-full inline-block shrink-0 shadow-sm" style="background-color: ${colorRutaActual};"></span>
+                                <span class="font-bold text-white">${ruta.nombreRuta}</span>
+                            </div>
+                            <div class="text-[10px] font-mono font-bold ml-4.5" style="color: ${colorRutaActual};">Parada #${parada.numeroParada}</div>
+                        </td>
+                        <td class="p-2.5">
+                            <input type="text" value="${parada.referenciaOriginal || ''}" onchange="actualizarReferenciaParada('${ruta.nombreRuta}', ${parada.numeroParada}, this.value)" placeholder="Referencia" class="w-full bg-cyber-bg border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-cyber-accent mb-1">
+                            <div class="grid grid-cols-2 gap-1">
+                                <input type="text" value="${parada.cruceVialEnriquecido || ''}" onchange="actualizarCruceParada('${ruta.nombreRuta}', ${parada.numeroParada}, this.value)" placeholder="Cruce vial" class="bg-cyber-bg border border-slate-700 rounded px-2 py-1 text-[11px] text-slate-400 focus:outline-none">
+                                <input type="text" value="${parada.municipioParada || ruta.municipio || ''}" onchange="actualizarMunicipioParada('${ruta.nombreRuta}', ${parada.numeroParada}, this.value)" placeholder="Municipio" class="bg-cyber-bg border border-slate-700 rounded px-2 py-1 text-[11px] text-cyber-cyan focus:outline-none">
+                            </div>
+                        </td>
+                        <td class="p-2.5 font-mono">
+                            <input type="text" value="${textoHorarios}" onchange="actualizarHorariosTexto('${ruta.nombreRuta}', ${parada.numeroParada}, this.value)" placeholder="Ej: 06:30 AM / 06:30 PM" class="w-full bg-cyber-bg border border-slate-700 rounded px-2 py-1 text-xs text-cyber-amber focus:outline-none">
+                        </td>
+                        <td class="p-2.5 font-mono">
+                            <input type="text" value="${parada.coordenadasAbordaje || ''}" onchange="actualizarCoordManual('${ruta.nombreRuta}', ${parada.numeroParada}, this.value)" placeholder="Lat, Lng" class="w-full bg-cyber-bg border border-slate-700 rounded px-2 py-1 text-xs text-cyber-cyan focus:outline-none">
+                        </td>
+                        <td class="p-2.5 text-center whitespace-nowrap space-x-1.5">
+                            ${botonAuditar}
+                            <button type="button" onclick="guardarParadaIndividualAFirebase('${ruta.nombreRuta}', ${parada.numeroParada})" title="Guardar parada en Firebase" class="btn-audit-press inline-flex items-center justify-center bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/50 text-emerald-400 px-2.5 py-1.5 rounded-md text-xs font-bold">
+                                <span>💾</span>
+                            </button>
+                        </td>
+                    `;
+                    fragment.appendChild(tr);
                 });
 
-                if (puntosRuta.length >= 2) {
-                    const routingRes = await calcularRutaVialOSRM(puntosRuta);
-                    if (routingRes && routingRes.puntosPolilinea.length > 0) {
+                // Solo trazar asfalto para la ruta activa en pantalla
+                if (!esVistaGeneral && puntosRuta.length >= 2) {
+                    const routingRes = await calcularRutaVialOSRM(puntosRuta, `${ruta.empresaKey}_${ruta.idRuta}`);
+                    if (routingRes && routingRes.puntosPolilinea?.length > 0) {
                         ruta.distanciaTotalKm = routingRes.distanciaKm;
                         ruta.tiempoEstimadoMin = routingRes.duracionMin;
                         distanciaTotalAcumulada += parseFloat(routingRes.distanciaKm);
 
-                        L.polyline(routingRes.puntosPolilinea, {
-                            color: '#020617',
-                            weight: 7,
-                            opacity: 0.9,
-                            lineCap: 'round',
-                            lineJoin: 'round'
-                        }).addTo(polylineGroup);
+                        L.polyline(routingRes.puntosPolilinea, { color: '#020617', weight: 7, opacity: 0.85, lineCap: 'round' }).addTo(polylineGroup);
+                        L.polyline(routingRes.puntosPolilinea, { color: colorRutaActual, weight: 4.5, opacity: 1, lineCap: 'round', smoothFactor: 1 }).addTo(polylineGroup);
 
-                        L.polyline(routingRes.puntosPolilinea, {
-                            color: colorRutaActual,
-                            weight: 4.5,
-                            opacity: 0.95,
-                            lineCap: 'round',
-                            lineJoin: 'round',
-                            smoothFactor: 1
-                        }).addTo(polylineGroup);
-
-                        if (rutaSeleccionadaFiltro === ruta.nombreRuta || rutaSeleccionadaFiltro === "TODAS") {
-                            document.getElementById("lblDistanciaKm").innerText = routingRes.distanciaKm;
-                            document.getElementById("lblTiempoMin").innerText = routingRes.duracionMin;
-                        }
+                        document.getElementById("lblDistanciaKm").innerText = routingRes.distanciaKm;
+                        document.getElementById("lblTiempoMin").innerText = routingRes.duracionMin;
                     }
                 }
             }
 
-            document.getElementById("badgeDistanciaTotal").innerText = distanciaTotalAcumulada.toFixed(1) + " Km OSRM";
+            tbody.appendChild(fragment);
+            document.getElementById("badgeDistanciaTotal").innerText = distanciaTotalAcumulada > 0 ? `${distanciaTotalAcumulada.toFixed(1)} Km OSRM` : "Bajo Demanda";
             document.getElementById("jsonOutputViewer").value = JSON.stringify(coleccionRutas, null, 2);
 
-            if (latLngsGlobales.length > 0) {
-                mapObj.fitBounds(latLngsGlobales, { padding: [35, 35] });
-            }
+            if (latLngsGlobales.length > 0) mapObj.fitBounds(latLngsGlobales, { padding: [35, 35] });
         }
 
         async function inyectarRutaSeleccionadaAFirebase() {
@@ -1628,18 +1260,17 @@
 
             try {
                 const rutaNorm = normalizarRutaParaInyeccion(ruta);
-                await set(ref(db, "rutas/" + rutaNorm.empresaKey + "/" + rutaNorm.idRuta), rutaNorm);
+                await set(ref(db, `rutas/${rutaNorm.empresaKey}/${rutaNorm.idRuta}`), rutaNorm);
                 
-                // Sembrado de todas las paradas en el catálogo maestro
                 for (const p of rutaNorm.paradas) {
                     if (p.coordenadasAbordaje) {
                         await aprenderYGuardarEnGeocatalogo(p.referenciaOriginal, p.municipioParada || rutaNorm.municipio, p.coordenadasAbordaje, rutaNorm.estado);
                     }
                 }
 
-                alert('✅ Ruta "' + ruta.nombreRuta + '" guardada exitosamente en Firebase y sincronizada con el Catálogo Maestro.');
+                alert(`✅ Ruta "${ruta.nombreRuta}" guardada exitosamente en Firebase y Catálogo.`);
             } catch (err) {
-                alert("Error al subir a Firebase: " + err.message);
+                alert("Error: " + err.message);
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = "💾 Subir Bloque";
@@ -1655,7 +1286,7 @@
             try {
                 for (const ruta of coleccionRutas) {
                     const rutaNorm = normalizarRutaParaInyeccion(ruta);
-                    await set(ref(db, "rutas/" + rutaNorm.empresaKey + "/" + rutaNorm.idRuta), rutaNorm);
+                    await set(ref(db, `rutas/${rutaNorm.empresaKey}/${rutaNorm.idRuta}`), rutaNorm);
 
                     for (const p of rutaNorm.paradas) {
                         if (p.coordenadasAbordaje) {
@@ -1663,9 +1294,9 @@
                         }
                     }
                 }
-                alert("✅ Se inyectaron " + coleccionRutas.length + " rutas a Firebase y se consolidaron en el Catálogo Maestro.");
+                alert(`✅ Se inyectaron ${coleccionRutas.length} rutas a Firebase y Catálogo Maestro.`);
             } catch (err) {
-                alert("Error en inyección masiva: " + err.message);
+                alert("Error masivo: " + err.message);
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = "⚡ Subir Todas";
@@ -1674,9 +1305,9 @@
 
         async function purgarYSanitizarFirebase() {
             const empresaNombre = document.getElementById("empresaValidacionIA").value.trim();
-            if (!empresaNombre) return alert("⚠️ Selecciona una empresa en la lista para realizar la purga en el servidor.");
+            if (!empresaNombre) return alert("⚠️ Selecciona una empresa en la lista.");
 
-            const confirmar = confirm("¿Deseas escanear y purgar datos corruptos (Markdown, URLs rotas, coordenadas defectuosas) para \"" + empresaNombre + "\" en Firebase?");
+            const confirmar = confirm(`¿Deseas purgar datos corruptos para "${empresaNombre}" en Firebase?`);
             if (!confirmar) return;
 
             const btn = document.getElementById("btnLimpiarServidor");
@@ -1686,29 +1317,14 @@
             const empresaKey = sanitizarKey(empresaNombre);
 
             try {
-                const snap = await get(ref(db, "rutas/" + empresaKey));
-                if (!snap.exists()) {
-                    alert("No hay rutas registradas para esta empresa en Firebase.");
-                    return;
-                }
+                const snap = await get(ref(db, `rutas/${empresaKey}`));
+                if (!snap.exists()) return alert("No hay rutas registradas para esta empresa.");
 
                 const dataRutas = snap.val();
-                let rutasLimpiadas = 0;
-                let paradasCorregidas = 0;
-
-                const limpiarTextoPuro = (str) => {
-                    if (!str || typeof str !== 'string') return "";
-                    return str
-                        .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1')
-                        .replace(/[\[\]\(\)\{\}\<\>\$\*]/g, ' ')
-                        .replace(/\s+/g, ' ')
-                        .trim();
-                };
-
+                const limpiarTextoPuro = (str) => (!str || typeof str !== 'string') ? "" : str.replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1').replace(/[\[\]\(\)\{\}\<\>\$\*]/g, ' ').replace(/\s+/g, ' ').trim();
                 const rutasSaneadas = {};
 
                 Object.entries(dataRutas).forEach(([idRuta, r]) => {
-                    rutasLimpiadas++;
                     const paradasLimpias = (r.paradas || []).map((p, idx) => {
                         let coordsValidadas = "";
                         if (p.coordenadasAbordaje && typeof p.coordenadasAbordaje === 'string') {
@@ -1716,13 +1332,7 @@
                             if (partes.length === 2) {
                                 const lat = parseFloat(partes[0].trim());
                                 const lng = parseFloat(partes[1].trim());
-                                if (!isNaN(lat) && !isNaN(lng)) {
-                                    coordsValidadas = lat + ", " + lng;
-                                } else {
-                                    paradasCorregidas++;
-                                }
-                            } else {
-                                paradasCorregidas++;
+                                if (!isNaN(lat) && !isNaN(lng)) coordsValidadas = `${lat}, ${lng}`;
                             }
                         }
 
@@ -1754,22 +1364,32 @@
                     };
                 });
 
-                await set(ref(db, "rutas/" + empresaKey), rutasSaneadas);
-                alert("✅ Purga completada:\n- " + rutasLimpiadas + " rutas auditadas.\n- " + paradasCorregidas + " paradas defectuosas saneadas.");
-
+                await set(ref(db, `rutas/${empresaKey}`), rutasSaneadas);
+                alert("✅ Servidor purgado exitosamente.");
                 await importarRutasDesdeFirebase();
-
             } catch (err) {
-                alert("Error durante la purga en Firebase: " + err.message);
+                alert("Error: " + err.message);
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = "<span>🧹</span> Purgar Servidor";
             }
         }
 
+        function ejecutarSanitizacionMotor() {
+            sessionStorage.removeItem("cache_m6_empresas");
+            cacheSnappingVial.clear();
+            cacheRutasOSRM.clear();
+            cachePuntosCatalogoLocal.clear();
+            cacheDeduplicacionSesion.clear();
+            if (markersGroup) markersGroup.clearLayers();
+            if (polylineGroup) polylineGroup.clearLayers();
+            cargarEmpresasDesdeCacheOFirebase();
+            alert("🧹 Memoria RAM liberada y caché del motor restablecido.");
+        }
+
         function copiarJsonAlPortapapeles() {
             const area = document.getElementById("jsonOutputViewer");
-            if (!area.value) return alert("No hay datos disponibles.");
+            if (!area.value) return alert("No hay datos para copiar.");
             area.select();
             navigator.clipboard.writeText(area.value);
             alert("📋 JSON copiado al portapapeles.");
@@ -1788,7 +1408,7 @@
         const fileInput = document.getElementById("fileInput");
         fileInput.addEventListener("change", (e) => {
             if (e.target.files.length) {
-                document.getElementById("fileFeedback").innerHTML = Array.from(e.target.files).map(f => ('<div>📄 ' + f.name + '</div>')).join('');
+                document.getElementById("fileFeedback").innerHTML = Array.from(e.target.files).map(f => (`<div>📄 ${f.name}</div>`)).join('');
                 document.getElementById("fileFeedback").classList.remove("hidden");
             }
         });
