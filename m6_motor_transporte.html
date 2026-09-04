@@ -107,9 +107,9 @@
         <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-cyber-border pb-5">
             <div>
                 <h1 class="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
-                    <span class="text-cyber-accent">⚡</span> Motor Logístico de Transporte <span class="text-xs bg-cyber-accent/20 text-cyber-accent px-2 py-0.5 rounded border border-cyber-accent/40 font-mono">v9.8 Multi-Server OSRM</span>
+                    <span class="text-cyber-accent">⚡</span> Motor Logístico de Transporte <span class="text-xs bg-cyber-accent/20 text-cyber-accent px-2 py-0.5 rounded border border-cyber-accent/40 font-mono">v10.0 Enterprise</span>
                 </h1>
-                <p class="text-xs text-slate-400 mt-1">Extracción masiva multi-archivo, deduplicación en memoria, trazado vial redundante y geocatálogo maestro.</p>
+                <p class="text-xs text-slate-400 mt-1">Extracción masiva multi-archivo, geocatálogo maestro, trazado vial OSRM persistente en Firebase.</p>
             </div>
             <div class="flex items-center gap-2 flex-wrap">
                 <a href="m6_extractor_coordenadas.html" class="bg-cyber-cyan/20 hover:bg-cyber-cyan/30 text-cyber-cyan border border-cyber-cyan/40 font-mono text-xs px-3.5 py-2 rounded-xl flex items-center gap-2 transition-all shadow-sm">
@@ -119,7 +119,7 @@
                     <span>←</span> Volver a M6 Logística
                 </a>
                 
-                <button onclick="ejecutarSanitizacionMotor()" title="Limpiar caché local de catálogo y memoria de ruteo" class="bg-rose-500/15 hover:bg-rose-500/30 text-rose-400 border border-rose-500/40 font-mono text-xs px-3 py-2 rounded-xl flex items-center gap-1.5 transition-all shadow-sm font-bold">
+                <button onclick="ejecutarSanitizacionMotor()" title="Limpiar caché local y memoria de ruteo" class="bg-rose-500/15 hover:bg-rose-500/30 text-rose-400 border border-rose-500/40 font-mono text-xs px-3 py-2 rounded-xl flex items-center gap-1.5 transition-all shadow-sm font-bold">
                     <span>🧹</span> Limpiar Memoria
                 </button>
 
@@ -196,7 +196,7 @@
             <div class="lg:col-span-8 bg-cyber-card border border-cyber-border rounded-xl p-5 space-y-3 flex flex-col">
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <h2 class="text-xs font-bold text-cyber-amber uppercase tracking-wider flex items-center gap-2">
-                        <span>🛣️</span> Trazado Vial Real GPS (OSM Claro / Servidor Redundante)
+                        <span>🛣️</span> Trazado Vial Real GPS (OSM Claro / OSRM Asfalto)
                     </h2>
                     <div id="metricasRutaActiva" class="text-xs font-mono text-slate-300 flex items-center gap-3">
                         <span class="text-cyber-cyan">📍 Distancia: <b id="lblDistanciaKm">0.0</b> km</span>
@@ -292,7 +292,7 @@
 
     </div>
 
-    <!-- MÓDULO JS: OSRM RESILIENTE CON DOBLE SERVIDOR -->
+    <!-- MÓDULO JS: OSRM VIAL NATIVO, PERSISTENCIA EN FIREBASE Y RESILIENCIA TOTAL -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
@@ -502,21 +502,6 @@
                             estadoGeocodificacion: p.coordenadasAbordaje ? "Exacta" : "Sin Geocodificar",
                             horarios: p.horarios || []
                         }));
-                    } else if (r.puntosAbordaje) {
-                        const puntosArr = r.puntosAbordaje.split(",").map(p => p.trim());
-                        paradasNormalizadas = puntosArr.map((pto, idx) => ({
-                            numeroParada: idx + 1,
-                            referenciaOriginal: pto,
-                            cruceVialEnriquecido: pto,
-                            callePrincipal: pto,
-                            cruceInterseccion: "",
-                            referenciaComercio: "",
-                            coloniaFraccionamiento: "",
-                            municipioParada: r.municipio || "General",
-                            coordenadasAbordaje: (idx === 0) ? (r.coordenadasAbordaje || "") : "",
-                            estadoGeocodificacion: (idx === 0 && r.coordenadasAbordaje) ? "Exacta" : "Sin Geocodificar",
-                            horarios: []
-                        }));
                     }
 
                     coleccionRutas.push({
@@ -532,7 +517,8 @@
                         coordenadasAbordaje: r.coordenadasAbordaje || "",
                         distanciaTotalKm: r.distanciaTotalKm || "0.0",
                         tiempoEstimadoMin: r.tiempoEstimadoMin || 0,
-                        paradas: paradasNormalizadas
+                        paradas: paradasNormalizadas,
+                        trazadoVial: Array.isArray(r.trazadoVial) ? r.trazadoVial : null
                     });
                 });
 
@@ -667,6 +653,7 @@
                     estadoGeocodificacion: p.estadoGeocodificacion || (p.coordenadasAbordaje ? "Exacta" : "Sin Geocodificar"),
                     horarios: p.horarios || []
                 })),
+                trazadoVial: Array.isArray(r.trazadoVial) ? r.trazadoVial : null,
                 fechaActualizacion: new Date().toISOString()
             };
         }
@@ -702,9 +689,9 @@
                     const coordTexto = pointTag.getElementsByTagName("coordinates")[0]?.textContent?.trim();
                     if (coordTexto) {
                         const partes = coordTexto.split(/\s+/)[0].split(",");
-                        const lat = partes[1]?.trim();
-                        const lng = partes[0]?.trim();
-                        if (lat && lng && !isNaN(parseFloat(lat)) && !isNaN(parseFloat(lng))) {
+                        const lng = parseFloat(partes[0]?.trim());
+                        const lat = parseFloat(partes[1]?.trim());
+                        if (!isNaN(lat) && !isNaN(lng)) {
                             paradasExtraidas.push({
                                 numeroParada: contador++,
                                 referenciaOriginal: nombre,
@@ -714,7 +701,7 @@
                                 referenciaComercio: "",
                                 coloniaFraccionamiento: "",
                                 municipioParada: "General",
-                                coordenadasAbordaje: lat + ", " + lng,
+                                coordenadasAbordaje: lat.toFixed(6) + ", " + lng.toFixed(6),
                                 estadoGeocodificacion: "Exacta (KML Satelital)",
                                 horarios: []
                             });
@@ -798,7 +785,7 @@
         }
 
         // =============================================================
-        // MOTOR DE RUTEO CON FALLBACK DUAL (OSM OFICIAL + OSRM PROJECT)
+        // MOTOR DE RUTEO OSRM LIMPIO (CONCATENACIÓN SEGURA A 6 DECIMALES)
         // =============================================================
         async function calcularRutaVialOSRM(coordenadasLatLng) {
             if (!coordenadasLatLng || coordenadasLatLng.length < 2) return null;
@@ -807,58 +794,40 @@
             let duracionTotalSegundos = 0;
             const todosPuntosGeoJSON = [];
 
-            // Petición segmento por segmento para garantizar trazado punto a punto
             for (let i = 0; i < coordenadasLatLng.length - 1; i++) {
-                const pOrigen = coordenadasLatLng[i];
-                const pDestino = coordenadasLatLng[i + 1];
+                const p1 = coordenadasLatLng[i];
+                const p2 = coordenadasLatLng[i + 1];
 
-                const coordString = pOrigen[1] + "," + pOrigen[0] + ";" + pDestino[1] + "," + pDestino[0];
+                const lng1 = parseFloat(p1[1]).toFixed(6);
+                const lat1 = parseFloat(p1[0]).toFixed(6);
+                const lng2 = parseFloat(p2[1]).toFixed(6);
+                const lat2 = parseFloat(p2[0]).toFixed(6);
 
-                // SERVIDOR 1 (Principal): OSM Routing Oficial
-                const urlPrimaria = "[https://routing.openstreetmap.de/routed-car/route/v1/driving/](https://routing.openstreetmap.de/routed-car/route/v1/driving/)" + coordString + "?overview=full&geometries=geojson";
-                // SERVIDOR 2 (Fallback): OSRM Project
-                const urlSecundaria = "[https://router.project-osrm.org/route/v1/driving/](https://router.project-osrm.org/route/v1/driving/)" + coordString + "?overview=full&geometries=geojson";
+                const coordString = lng1 + "," + lat1 + ";" + lng2 + "," + lat2;
+                const urlOsrm = "[https://router.project-osrm.org/route/v1/driving/](https://router.project-osrm.org/route/v1/driving/)" + coordString + "?overview=full&geometries=geojson";
 
-                let ruteoExitoso = false;
-
-                // Intento 1: Servidor de OpenStreetMap Alemania
                 try {
-                    const res = await fetch(urlPrimaria);
+                    const res = await fetch(urlOsrm);
                     if (res.ok) {
                         const data = await res.json();
                         if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
                             distanciaTotalMetros += data.routes[0].distance;
                             duracionTotalSegundos += data.routes[0].duration;
-                            data.routes[0].geometry.coordinates.forEach(pt => todosPuntosGeoJSON.push([pt[1], pt[0]]));
-                            ruteoExitoso = true;
+
+                            data.routes[0].geometry.coordinates.forEach(pt => {
+                                todosPuntosGeoJSON.push([pt[1], pt[0]]);
+                            });
+                        } else {
+                            todosPuntosGeoJSON.push([parseFloat(lat1), parseFloat(lng1)], [parseFloat(lat2), parseFloat(lng2)]);
                         }
+                    } else {
+                        todosPuntosGeoJSON.push([parseFloat(lat1), parseFloat(lng1)], [parseFloat(lat2), parseFloat(lng2)]);
                     }
-                } catch (e) {}
-
-                // Intento 2 (Fallback): Si falló el primario, prueba el secundario
-                if (!ruteoExitoso) {
-                    try {
-                        const res2 = await fetch(urlSecundaria);
-                        if (res2.ok) {
-                            const data2 = await res2.json();
-                            if (data2.code === 'Ok' && data2.routes && data2.routes.length > 0) {
-                                distanciaTotalMetros += data2.routes[0].distance;
-                                duracionTotalSegundos += data2.routes[0].duration;
-                                data2.routes[0].geometry.coordinates.forEach(pt => todosPuntosGeoJSON.push([pt[1], pt[0]]));
-                                ruteoExitoso = true;
-                            }
-                        }
-                    } catch (e) {}
+                } catch (e) {
+                    todosPuntosGeoJSON.push([parseFloat(lat1), parseFloat(lng1)], [parseFloat(lat2), parseFloat(lng2)]);
                 }
 
-                // Si ambos fallaron para este tramo, traza línea recta temporal para ese par
-                if (!ruteoExitoso) {
-                    todosPuntosGeoJSON.push(pOrigen);
-                    todosPuntosGeoJSON.push(pDestino);
-                }
-
-                // Pausa de cortesía para no saturar servidores
-                await new Promise(r => setTimeout(r, 60));
+                await new Promise(r => setTimeout(r, 45));
             }
 
             return {
@@ -868,6 +837,9 @@
             };
         }
 
+        // =============================================================
+        // BOTÓN: TRAZADO ASFÁLTICO CON PERSISTENCIA DIRECTA EN FIREBASE
+        // =============================================================
         async function toggleTrazadoAsfalto() {
             const btn = document.getElementById("btnTrazarAsfalto");
             const lbl = document.getElementById("lblBtnTrazarAsfalto");
@@ -889,7 +861,7 @@
             if (rutasATrazar.length === 0) return alert("⚠️ No hay rutas cargadas para trazar.");
 
             btn.disabled = true;
-            if (lbl) lbl.innerText = "Calculando OSRM...";
+            if (lbl) lbl.innerText = "Calculando...";
             polylineGroup.clearLayers();
 
             let distanciaTotalAcumulada = 0;
@@ -899,6 +871,32 @@
                 const indiceColorGlobal = coleccionRutas.findIndex(cr => cr.nombreRuta === ruta.nombreRuta);
                 const colorRutaActual = obtenerColorPorRutaIndex(indiceColorGlobal >= 0 ? indiceColorGlobal : rIdx);
 
+                // REGLA 1: Si la ruta ya tiene su trazadoVial guardado en Firebase, usarlo directo en 0ms
+                if (Array.isArray(ruta.trazadoVial) && ruta.trazadoVial.length > 0) {
+                    L.polyline(ruta.trazadoVial, {
+                        color: '#0f172a',
+                        weight: 7,
+                        opacity: 0.85,
+                        lineCap: 'round',
+                        lineJoin: 'round'
+                    }).addTo(polylineGroup);
+
+                    L.polyline(ruta.trazadoVial, {
+                        color: colorRutaActual,
+                        weight: 4.5,
+                        opacity: 1,
+                        lineCap: 'round',
+                        lineJoin: 'round',
+                        smoothFactor: 1
+                    }).addTo(polylineGroup);
+
+                    distanciaTotalAcumulada += parseFloat(ruta.distanciaTotalKm || 0);
+                    document.getElementById("lblDistanciaKm").innerText = ruta.distanciaTotalKm || "0.0";
+                    document.getElementById("lblTiempoMin").innerText = ruta.tiempoEstimadoMin || "0";
+                    continue;
+                }
+
+                // REGLA 2: Si no lo tiene, calcularlo por OSRM
                 const puntosValidos = [];
                 ruta.paradas.forEach(p => {
                     if (p.coordenadasAbordaje && p.coordenadasAbordaje.includes(",")) {
@@ -917,6 +915,7 @@
                     if (routingRes && routingRes.puntosPolilinea && routingRes.puntosPolilinea.length > 0) {
                         ruta.distanciaTotalKm = routingRes.distanciaKm;
                         ruta.tiempoEstimadoMin = routingRes.duracionMin;
+                        ruta.trazadoVial = routingRes.puntosPolilinea; // Almacenado en memoria
                         distanciaTotalAcumulada += parseFloat(routingRes.distanciaKm || 0);
 
                         L.polyline(routingRes.puntosPolilinea, {
@@ -938,6 +937,9 @@
 
                         document.getElementById("lblDistanciaKm").innerText = routingRes.distanciaKm;
                         document.getElementById("lblTiempoMin").innerText = routingRes.duracionMin;
+
+                        // Actualizar automáticamente en el JSON y en Firebase si ya existe
+                        document.getElementById("jsonOutputViewer").value = JSON.stringify(coleccionRutas, null, 2);
                     }
                 }
             }
@@ -1082,7 +1084,7 @@
             bar.classList.add("hidden");
             btn.disabled = false;
             await renderizarTablaYMapa();
-            alert("✅ Geocodificación por lote completada con deduplicación activa.");
+            alert("✅ Geocodificación completada.");
         }
 
         async function geolocalizarRutaSeleccionada() {
@@ -1350,7 +1352,7 @@
                     }
                 }
 
-                alert("✅ Ruta \"" + ruta.nombreRuta + "\" guardada exitosamente en Firebase y Catálogo.");
+                alert("✅ Ruta \"" + ruta.nombreRuta + "\" guardada exitosamente en Firebase con trazado asfáltico permanente.");
             } catch (err) {
                 alert("Error: " + err.message);
             } finally {
@@ -1376,7 +1378,7 @@
                         }
                     }
                 }
-                alert("✅ Se inyectaron " + coleccionRutas.length + " rutas a Firebase y Catálogo Maestro.");
+                alert("✅ Se inyectaron " + coleccionRutas.length + " rutas a Firebase con trazado permanente.");
             } catch (err) {
                 alert("Error masivo: " + err.message);
             } finally {
@@ -1414,7 +1416,7 @@
                             if (partes.length === 2) {
                                 const lat = parseFloat(partes[0].trim());
                                 const lng = parseFloat(partes[1].trim());
-                                if (!isNaN(lat) && !isNaN(lng)) coordsValidadas = lat + ", " + lng;
+                                if (!isNaN(lat) && !isNaN(lng)) coordsValidadas = lat.toFixed(6) + ", " + lng.toFixed(6);
                             }
                         }
 
@@ -1442,6 +1444,7 @@
                         municipio: limpiarTextoPuro(r.municipio || "General"),
                         estado: limpiarTextoPuro(r.estado || "Nuevo León"),
                         paradas: paradasLimpias,
+                        trazadoVial: Array.isArray(r.trazadoVial) ? r.trazadoVial : null,
                         fechaSaneamiento: new Date().toISOString()
                     };
                 });
@@ -1464,7 +1467,7 @@
             if (markersGroup) markersGroup.clearLayers();
             if (polylineGroup) polylineGroup.clearLayers();
             cargarEmpresasDesdeCacheOFirebase();
-            alert("🧹 Memoria RAM liberada y caché del motor restablecido.");
+            alert("🧹 Memoria RAM liberada y caché restablecido.");
         }
 
         function copiarJsonAlPortapapeles() {
