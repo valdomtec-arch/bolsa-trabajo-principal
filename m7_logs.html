@@ -24,7 +24,8 @@
                             cyan: '#06b6d4',
                             amber: '#f59e0b',
                             emerald: '#10b981',
-                            rose: '#ef4444'
+                            rose: '#ef4444',
+                            purple: '#a855f7'
                         }
                     }
                 }
@@ -65,10 +66,13 @@
                     </span>
                 </div>
                 <h1 class="text-xl sm:text-2xl md:text-3xl font-extrabold text-white tracking-tight">Centro Forense & Mantenimiento de BD</h1>
-                <p class="text-slate-400 text-xs sm:text-sm mt-0.5">Auditoría inalterable de eventos, acuses de candidatos y saneamiento de nodos residuales.</p>
+                <p class="text-slate-400 text-xs sm:text-sm mt-0.5">Auditoría inalterable de eventos, cosechas INEGI, acuses y saneamiento de nodos residuales.</p>
             </div>
             
             <div class="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
+                <a href="m6_extractor_coordenadas.html" class="bg-cyan-950/40 hover:bg-cyan-900/60 text-cyber-cyan border border-cyan-500/40 font-mono text-xs px-3 py-2 rounded-xl flex items-center gap-1.5 transition-all shadow-sm">
+                    <i class="fas fa-satellite"></i> <span>M6.2 Extractor Geo</span>
+                </a>
                 <button onclick="exportarCSV()" class="bg-cyber-cardAlt hover:bg-slate-800 text-slate-200 border border-slate-700 font-mono text-xs px-3 py-2 rounded-xl flex items-center gap-1.5 transition-all">
                     <i class="fas fa-file-csv text-emerald-400"></i> Exportar CSV
                 </button>
@@ -103,12 +107,13 @@
                     <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1 font-bold">Filtrar por Módulo</label>
                     <select id="filtroModulo" onchange="filtrarEventosLogs()" class="w-full bg-[#06101e] border border-slate-700 rounded-lg p-2 text-white focus:outline-none focus:border-[#ff6600]">
                         <option value="TODOS">-- Todos los Módulos --</option>
+                        <option value="M6_EXTRACTOR_GEO">M6.2: Extractor y Catálogos INEGI</option>
+                        <option value="M6_TRANSPORTE">M6.1: Logística de Transporte</option>
+                        <option value="M5_STAFF">M5: Gobernanza y Staff RBAC</option>
                         <option value="M1_EMPRESAS">M1: Empresas y Semáforos</option>
                         <option value="M2_VACANTES">M2: Control de Vacantes</option>
                         <option value="M3_AGENDA">M3: Agenda y Candidatos</option>
                         <option value="M4_METRICAS">M4: Inteligencia y Rendimiento</option>
-                        <option value="M5_STAFF">M5: Gobernanza y Staff RBAC</option>
-                        <option value="M6_TRANSPORTE">M6: Logística de Transporte</option>
                         <option value="M7_LOGS">M7: Centro Forense</option>
                     </select>
                 </div>
@@ -117,6 +122,9 @@
                     <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1 font-bold">Tipo de Acción / Evento</label>
                     <select id="filtroEvento" onchange="filtrarEventosLogs()" class="w-full bg-[#06101e] border border-slate-700 rounded-lg p-2 text-white focus:outline-none focus:border-[#ff6600]">
                         <option value="TODOS">-- Todos los Eventos --</option>
+                        <option value="PURGA_CATALOGO">Purgas de Catálogo Geo (Crítico)</option>
+                        <option value="COSECHA_INEGI">Cosechas Oficiales INEGI</option>
+                        <option value="IMPORTACION_KML">Importaciones Satelitales KML</option>
                         <option value="ALTA">Altas y Registros</option>
                         <option value="MODIFICACION">Modificaciones y Edición</option>
                         <option value="ELIMINACION">Bajas y Eliminaciones</option>
@@ -127,7 +135,7 @@
 
                 <div>
                     <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1 font-bold">Buscar en Detalle / Operador</label>
-                    <input type="text" id="busquedaTextoLog" onkeyup="filtrarEventosLogs()" placeholder="Ej: Valladares, Arcoiris, eliminado..." class="w-full bg-[#06101e] border border-slate-700 rounded-lg p-2 text-white focus:outline-none focus:border-[#ff6600]">
+                    <input type="text" id="busquedaTextoLog" onkeyup="filtrarEventosLogs()" placeholder="Ej: Nuevo León, INEGI, Apodaca, eliminado..." class="w-full bg-[#06101e] border border-slate-700 rounded-lg p-2 text-white focus:outline-none focus:border-[#ff6600]">
                 </div>
 
                 <div class="flex items-end">
@@ -202,7 +210,7 @@
                         Herramienta de Limpieza en Cliente
                     </span>
                     <h3 class="text-base font-bold text-white mt-0.5">Sanitizador Automático de Firebase</h3>
-                    <p class="text-xs text-slate-300 mt-1">Escanea nodos huérfanos, registros duplicados antiguos y subárboles burocráticos sin tocar tus datos operativos válidos.</p>
+                    <p class="text-xs text-slate-300 mt-1">Escanea nodos huérfanos, subárboles obsoletos y coordenadas maestras corruptas en /geocodigos_maestros/ sin tocar datos válidos.</p>
                 </div>
                 <div class="flex gap-2 w-full md:w-auto">
                     <button onclick="ejecutarEscaneoDiagnostico()" id="btnEscanear" class="bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition shadow-lg">
@@ -338,7 +346,7 @@
             });
         }
 
-        // 2. RENDERIZADO DE LA CAJA NEGRA
+        // 2. RENDERIZADO DE LA CAJA NEGRA CON ESTILOS GEO
         function renderizarTablaLogs(lista) {
             const tbody = document.getElementById("tablaLogsBody");
             tbody.innerHTML = "";
@@ -354,10 +362,32 @@
                 const fechaTxt = log.timestamp ? (typeof log.timestamp === 'string' ? new Date(log.timestamp).toLocaleString('es-MX') : new Date(log.timestamp).toLocaleString('es-MX')) : '—';
                 
                 let badgeEvento = "bg-slate-800 text-slate-300 border-slate-700";
-                if (log.evento.includes("ELIMINACION") || log.evento.includes("BAJA")) badgeEvento = "bg-rose-500/10 text-rose-400 border-rose-500/30";
-                else if (log.evento.includes("MODIFICACION") || log.evento.includes("EDICION")) badgeEvento = "bg-amber-500/10 text-amber-400 border-amber-500/30";
-                else if (log.evento.includes("ALTA") || log.evento.includes("CREAR")) badgeEvento = "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
-                else if (log.evento.includes("SEMAFORO")) badgeEvento = "bg-cyan-500/10 text-cyan-400 border-cyan-500/30";
+                const evUpper = log.evento.toUpperCase();
+                const modUpper = log.modulo.toUpperCase();
+
+                // Detección visual especializada
+                if (evUpper.includes("PURGA") || evUpper.includes("ELIMINACION") || evUpper.includes("BAJA")) {
+                    badgeEvento = "bg-rose-500/10 text-rose-400 border-rose-500/30 font-bold";
+                } else if (evUpper.includes("INEGI")) {
+                    badgeEvento = "bg-cyan-500/15 text-cyan-300 border-cyan-500/40 font-bold";
+                } else if (evUpper.includes("KML") || evUpper.includes("KMZ")) {
+                    badgeEvento = "bg-emerald-500/15 text-emerald-300 border-emerald-500/40 font-bold";
+                } else if (evUpper.includes("MODIFICACION") || evUpper.includes("EDICION")) {
+                    badgeEvento = "bg-amber-500/10 text-amber-400 border-amber-500/30";
+                } else if (evUpper.includes("ALTA") || evUpper.includes("CREAR")) {
+                    badgeEvento = "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
+                } else if (evUpper.includes("SEMAFORO")) {
+                    badgeEvento = "bg-cyan-500/10 text-cyan-400 border-cyan-500/30";
+                }
+
+                let badgeModulo = `<span class="text-white font-bold block text-[11px]">${log.modulo}</span>`;
+                if (modUpper.includes("M6_EXTRACTOR")) {
+                    badgeModulo = `<span class="text-cyan-400 font-bold block text-[11px]"><i class="fas fa-satellite me-1"></i>M6.2 Extractor</span>`;
+                } else if (modUpper.includes("M5_STAFF")) {
+                    badgeModulo = `<span class="text-purple-400 font-bold block text-[11px]"><i class="fas fa-users-cog me-1"></i>M5 Staff</span>`;
+                } else if (modUpper.includes("M6_TRANSPORTE")) {
+                    badgeModulo = `<span class="text-amber-400 font-bold block text-[11px]"><i class="fas fa-bus me-1"></i>M6 Transporte</span>`;
+                }
 
                 const tieneDiff = log.datosPrevios || log.datosNuevos;
 
@@ -365,7 +395,7 @@
                     <tr class="hover:bg-slate-900/60 border-b border-slate-800/40 transition">
                         <td class="p-3 text-[11px] text-slate-400 whitespace-nowrap">${fechaTxt}</td>
                         <td class="p-3">
-                            <span class="text-white font-bold block text-[11px]">${log.modulo}</span>
+                            ${badgeModulo}
                             <span class="border px-1.5 py-0.5 rounded text-[9px] font-mono ${badgeEvento}">${log.evento}</span>
                         </td>
                         <td class="p-3 text-cyan-400 font-medium text-[11px] truncate max-w-xs" title="${log.usuario}">
@@ -412,7 +442,7 @@
             });
         }
 
-        // 4. MOTOR DIAGNÓSTICO Y SANITIZACIÓN EN CLIENTE
+        // 4. MOTOR DIAGNÓSTICO Y SANITIZACIÓN EN CLIENTE (CON AUDITORÍA DE GEOCATÁLOGOS)
         async function ejecutarEscaneoDiagnostico() {
             const btn = document.getElementById("btnEscanear");
             btn.disabled = true;
@@ -480,6 +510,24 @@
                     });
                 }
 
+                // 3. Saneamiento en Geocatálogos Maestros
+                if (root.geocodigos_maestros) {
+                    Object.entries(root.geocodigos_maestros).forEach(([estadoKey, puntos]) => {
+                        if (typeof puntos === 'object' && puntos) {
+                            Object.entries(puntos).forEach(([clavePunto, pto]) => {
+                                if (!pto.coordenadas || !pto.coordenadas.includes(",") || pto.coordenadas.includes("NaN")) {
+                                    elementosBasuraDetectados.push({
+                                        path: `geocodigos_maestros/${estadoKey}/${clavePunto}`,
+                                        tipo: "Coordenada Maestra Corrupta",
+                                        descripcion: `Punto sin lat/lng válida (${pto.referenciaOriginal || clavePunto}) en ${estadoKey}`,
+                                        impacto: "Fallo potencial de ruteo OSRM"
+                                    });
+                                }
+                            });
+                        }
+                    });
+                }
+
                 // Renderizar hallazgos
                 if (elementosBasuraDetectados.length === 0) {
                     tbody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-emerald-400 font-bold"><i class="fas fa-check-circle me-1"></i> Tu base de datos se encuentra limpia y 100% canónica.</td></tr>`;
@@ -530,7 +578,7 @@
 
             const updates = {};
             elementosBasuraDetectados.forEach(item => {
-                updates[item.path] = null; // En Firebase update a null elimina el nodo
+                updates[item.path] = null;
             });
 
             try {
@@ -603,7 +651,7 @@
             document.getElementById("modalDiffSnapshot").classList.add("hidden");
         }
 
-        // 6. FILTRADO Y EXPORTACIÓN
+        // 6. FILTRADO Y EXPORTACIÓN CON SOPORTE GEO
         function filtrarEventosLogs() {
             const mod = document.getElementById("filtroModulo").value;
             const ev = document.getElementById("filtroEvento").value;
@@ -612,7 +660,7 @@
             const filtrados = globalLogs.filter(l => {
                 const coincideMod = (mod === "TODOS" || l.modulo.includes(mod));
                 const coincideEv = (ev === "TODOS" || l.evento.includes(ev));
-                const coincideTxt = (!txt || l.detalle.toLowerCase().includes(txt) || l.usuario.toLowerCase().includes(txt));
+                const coincideTxt = (!txt || l.detalle.toLowerCase().includes(txt) || l.usuario.toLowerCase().includes(txt) || l.modulo.toLowerCase().includes(txt));
                 return coincideMod && coincideEv && coincideTxt;
             });
 
