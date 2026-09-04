@@ -870,7 +870,6 @@
       select.innerHTML = '<option value="">Sin reasignación (Quedan en Bolsa General)</option>';
       Object.keys(globalStaff).forEach(k => {
         if (k !== idBaja && globalStaff[k].estatus === 'Activo') {
-          // Priorizar aquellos que operan como reclutadores
           const operaTxt = globalStaff[k].operaComoReclutador ? ' (Operativo)' : '';
           select.innerHTML += `<option value="${k}">${sanitize(globalStaff[k].nombre)}${operaTxt}</option>`;
         }
@@ -1042,7 +1041,7 @@
       window.open(`https://wa.me/52${tel}?text=${msg}`, '_blank');
     };
 
-    // 13. RENDERIZADO DEL DIRECTORIO CON DISTINCIÓN DIRECTIVA
+    // 13. RENDERIZADO DEL DIRECTORIO CON EVALUACIÓN ROBUSTA DE COBERTURA
     onValue(staffRef, (snapshot) => {
       document.getElementById('statusDot').className = "status-dot status-connected";
       document.getElementById('connectionText').textContent = "Conexión en línea con Firebase Realtime";
@@ -1052,6 +1051,8 @@
       if (snapshot.exists()) {
         globalStaff = snapshot.val();
         let total = 0;
+        const totalEmpresasSistema = Object.keys(globalEmpresas).length;
+
         Object.keys(globalStaff).forEach(key => {
           total++;
           const u = globalStaff[key];
@@ -1067,11 +1068,18 @@
             }
           }
 
+          // EVALUACIÓN ROBUSTA DE COBERTURA
+          const esScopeGlobal = (u.scope || '').toLowerCase() === 'global' || 
+                                (rol.scope || '').toLowerCase() === 'global';
+          const listaEmpresasUsuario = Array.isArray(u.empresas) ? u.empresas : [];
+          const tieneEtiquetaTodas = listaEmpresasUsuario.includes("TODAS");
+          const tieneTodasManuales = totalEmpresasSistema > 0 && listaEmpresasUsuario.length >= totalEmpresasSistema;
+
           let coberturaTxt = '';
-          if (u.scope === 'global' || (Array.isArray(u.empresas) && u.empresas.includes("TODAS"))) {
-            coberturaTxt = `<span class="badge bg-success"><i class="fas fa-globe me-1"></i>Todas las Empresas</span>`;
-          } else if (Array.isArray(u.empresas) && u.empresas.length > 0) {
-            coberturaTxt = `<small class="text-light">${sanitize(u.empresas.slice(0, 2).join(', '))}${u.empresas.length > 2 ? '...' : ''}</small>`;
+          if (esScopeGlobal || tieneEtiquetaTodas || tieneTodasManuales) {
+            coberturaTxt = `<span class="badge bg-success py-1 px-2.5 shadow-sm"><i class="fas fa-globe me-1"></i>Todas las Empresas</span>`;
+          } else if (listaEmpresasUsuario.length > 0) {
+            coberturaTxt = `<small class="text-light">${sanitize(listaEmpresasUsuario.slice(0, 2).join(', '))}${listaEmpresasUsuario.length > 2 ? '...' : ''}</small>`;
           } else {
             coberturaTxt = `<small class="text-muted">Sin cobertura directa</small>`;
           }
