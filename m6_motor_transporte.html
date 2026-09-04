@@ -107,9 +107,9 @@
         <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-cyber-border pb-5">
             <div>
                 <h1 class="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
-                    <span class="text-cyber-accent">⚡</span> Motor Logístico de Transporte <span class="text-xs bg-cyber-accent/20 text-cyber-accent px-2 py-0.5 rounded border border-cyber-accent/40 font-mono">v9.7 Ultra-Road</span>
+                    <span class="text-cyber-accent">⚡</span> Motor Logístico de Transporte <span class="text-xs bg-cyber-accent/20 text-cyber-accent px-2 py-0.5 rounded border border-cyber-accent/40 font-mono">v9.8 Multi-Server OSRM</span>
                 </h1>
-                <p class="text-xs text-slate-400 mt-1">Extracción masiva multi-archivo, deduplicación en memoria, trazado vial OSRM estricto y geocatálogo maestro.</p>
+                <p class="text-xs text-slate-400 mt-1">Extracción masiva multi-archivo, deduplicación en memoria, trazado vial redundante y geocatálogo maestro.</p>
             </div>
             <div class="flex items-center gap-2 flex-wrap">
                 <a href="m6_extractor_coordenadas.html" class="bg-cyber-cyan/20 hover:bg-cyber-cyan/30 text-cyber-cyan border border-cyber-cyan/40 font-mono text-xs px-3.5 py-2 rounded-xl flex items-center gap-2 transition-all shadow-sm">
@@ -196,7 +196,7 @@
             <div class="lg:col-span-8 bg-cyber-card border border-cyber-border rounded-xl p-5 space-y-3 flex flex-col">
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <h2 class="text-xs font-bold text-cyber-amber uppercase tracking-wider flex items-center gap-2">
-                        <span>🛣️</span> Trazado Vial Real GPS (OSM Claro / OSRM Asfalto)
+                        <span>🛣️</span> Trazado Vial Real GPS (OSM Claro / Servidor Redundante)
                     </h2>
                     <div id="metricasRutaActiva" class="text-xs font-mono text-slate-300 flex items-center gap-3">
                         <span class="text-cyber-cyan">📍 Distancia: <b id="lblDistanciaKm">0.0</b> km</span>
@@ -292,7 +292,7 @@
 
     </div>
 
-    <!-- MÓDULO JS: OSRM CONCATENADO ESTRICTO (IDÉNTICO A M6 TRANSPORTE) -->
+    <!-- MÓDULO JS: OSRM RESILIENTE CON DOBLE SERVIDOR -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
@@ -324,7 +324,6 @@
         let diccionarioMarcadores = {};
         let asfaltoTrazadoActivo = false;
 
-        const cacheSnappingVial = new Map();
         const cachePuntosCatalogoLocal = new Map();
         const cacheDeduplicacionSesion = new Map();
 
@@ -799,33 +798,8 @@
         }
 
         // =============================================================
-        // MOTOR SNAP-TO-ROAD Y OSRM CON CONCATENACIÓN ESTRICTA
+        // MOTOR DE RUTEO CON FALLBACK DUAL (OSM OFICIAL + OSRM PROJECT)
         // =============================================================
-        async function proyectarPuntoAlAsfalto(lat, lng) {
-            const claveCache = lat + "," + lng;
-            if (cacheSnappingVial.has(claveCache)) {
-                return cacheSnappingVial.get(claveCache);
-            }
-
-            const urlNearest = "[https://router.project-osrm.org/nearest/v1/driving/](https://router.project-osrm.org/nearest/v1/driving/)" + lng + "," + lat + "?number=1";
-            try {
-                const res = await fetch(urlNearest);
-                if (!res.ok) throw new Error("HTTP " + res.status);
-                const data = await res.json();
-                if (data.code === 'Ok' && data.waypoints && data.waypoints.length > 0) {
-                    const snappedLng = data.waypoints[0].location[0];
-                    const snappedLat = data.waypoints[0].location[1];
-                    const resFinal = [snappedLat, snappedLng];
-                    cacheSnappingVial.set(claveCache, resFinal);
-                    return resFinal;
-                }
-            } catch (e) {}
-
-            const coordOriginal = [lat, lng];
-            cacheSnappingVial.set(claveCache, coordOriginal);
-            return coordOriginal;
-        }
-
         async function calcularRutaVialOSRM(coordenadasLatLng) {
             if (!coordenadasLatLng || coordenadasLatLng.length < 2) return null;
 
@@ -833,41 +807,58 @@
             let duracionTotalSegundos = 0;
             const todosPuntosGeoJSON = [];
 
-            const coordenadasAjustadas = [];
-            for (let i = 0; i < coordenadasLatLng.length; i++) {
-                const pt = coordenadasLatLng[i];
-                const ptAjustado = await proyectarPuntoAlAsfalto(pt[0], pt[1]);
-                coordenadasAjustadas.push(ptAjustado);
-            }
-
-            for (let i = 0; i < coordenadasAjustadas.length - 1; i++) {
-                const pOrigen = coordenadasAjustadas[i];
-                const pDestino = coordenadasAjustadas[i + 1];
+            // Petición segmento por segmento para garantizar trazado punto a punto
+            for (let i = 0; i < coordenadasLatLng.length - 1; i++) {
+                const pOrigen = coordenadasLatLng[i];
+                const pDestino = coordenadasLatLng[i + 1];
 
                 const coordString = pOrigen[1] + "," + pOrigen[0] + ";" + pDestino[1] + "," + pDestino[0];
-                const urlOsrm = "[https://router.project-osrm.org/route/v1/driving/](https://router.project-osrm.org/route/v1/driving/)" + coordString + "?overview=full&geometries=geojson";
 
+                // SERVIDOR 1 (Principal): OSM Routing Oficial
+                const urlPrimaria = "[https://routing.openstreetmap.de/routed-car/route/v1/driving/](https://routing.openstreetmap.de/routed-car/route/v1/driving/)" + coordString + "?overview=full&geometries=geojson";
+                // SERVIDOR 2 (Fallback): OSRM Project
+                const urlSecundaria = "[https://router.project-osrm.org/route/v1/driving/](https://router.project-osrm.org/route/v1/driving/)" + coordString + "?overview=full&geometries=geojson";
+
+                let ruteoExitoso = false;
+
+                // Intento 1: Servidor de OpenStreetMap Alemania
                 try {
-                    const res = await fetch(urlOsrm);
-                    if (!res.ok) throw new Error("HTTP " + res.status);
-                    const data = await res.json();
-
-                    if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
-                        distanciaTotalMetros += data.routes[0].distance;
-                        duracionTotalSegundos += data.routes[0].duration;
-
-                        const coordsSegmento = data.routes[0].geometry.coordinates;
-                        coordsSegmento.forEach(pt => todosPuntosGeoJSON.push([pt[1], pt[0]]));
-                    } else {
-                        todosPuntosGeoJSON.push(pOrigen);
-                        todosPuntosGeoJSON.push(pDestino);
+                    const res = await fetch(urlPrimaria);
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+                            distanciaTotalMetros += data.routes[0].distance;
+                            duracionTotalSegundos += data.routes[0].duration;
+                            data.routes[0].geometry.coordinates.forEach(pt => todosPuntosGeoJSON.push([pt[1], pt[0]]));
+                            ruteoExitoso = true;
+                        }
                     }
-                } catch (e) {
+                } catch (e) {}
+
+                // Intento 2 (Fallback): Si falló el primario, prueba el secundario
+                if (!ruteoExitoso) {
+                    try {
+                        const res2 = await fetch(urlSecundaria);
+                        if (res2.ok) {
+                            const data2 = await res2.json();
+                            if (data2.code === 'Ok' && data2.routes && data2.routes.length > 0) {
+                                distanciaTotalMetros += data2.routes[0].distance;
+                                duracionTotalSegundos += data2.routes[0].duration;
+                                data2.routes[0].geometry.coordinates.forEach(pt => todosPuntosGeoJSON.push([pt[1], pt[0]]));
+                                ruteoExitoso = true;
+                            }
+                        }
+                    } catch (e) {}
+                }
+
+                // Si ambos fallaron para este tramo, traza línea recta temporal para ese par
+                if (!ruteoExitoso) {
                     todosPuntosGeoJSON.push(pOrigen);
                     todosPuntosGeoJSON.push(pDestino);
                 }
 
-                await new Promise(r => setTimeout(r, 40));
+                // Pausa de cortesía para no saturar servidores
+                await new Promise(r => setTimeout(r, 60));
             }
 
             return {
@@ -1468,7 +1459,6 @@
 
         function ejecutarSanitizacionMotor() {
             sessionStorage.removeItem("cache_m6_empresas");
-            cacheSnappingVial.clear();
             cachePuntosCatalogoLocal.clear();
             cacheDeduplicacionSesion.clear();
             if (markersGroup) markersGroup.clearLayers();
