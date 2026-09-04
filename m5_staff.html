@@ -105,6 +105,9 @@
           <a href="m5_2_cobertura.html" class="btn btn-outline-info btn-sm rounded-pill px-3">
             <i class="fas fa-sitemap me-1"></i> M5.2 Cobertura
           </a>
+          <a href="m6_extractor_coordenadas.html" class="btn btn-outline-warning btn-sm rounded-pill px-3">
+            <i class="fas fa-satellite me-1"></i> M6.2 Extractor INEGI
+          </a>
           <a href="admin.html" class="btn btn-outline-light btn-sm rounded-pill px-3">
             <i class="fas fa-home me-1"></i> Panel
           </a>
@@ -202,6 +205,26 @@
                   <label class="form-check-label small text-light" for="chkEnviarResetMail">
                     Enviar link de cambio de clave por correo
                   </label>
+                </div>
+              </div>
+
+              <!-- SECCIÓN DIRECTIVA: ¿OPERARÁ COMO RECLUTADOR? (NIVEL 3 O SUPERIOR) -->
+              <div class="col-12 d-none" id="groupOperaComoReclutador">
+                <div class="p-3 rounded-3 border border-warning bg-warning bg-opacity-10 d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+                  <div>
+                    <span class="fw-bold text-warning d-block">
+                      <i class="fas fa-user-shield me-1"></i> Asignación Operativa Directiva (Nivel 3+)
+                    </span>
+                    <small class="text-light">
+                      ¿Este mando directivo o supervisor gestionará candidatos directamente y aparecerá en las listas de asignación como asesor/reclutador en el sistema?
+                    </small>
+                  </div>
+                  <div class="form-check form-switch m-0 shrink-0">
+                    <input class="form-check-input" type="checkbox" id="chkOperaComoReclutador" style="width: 2.8em; height: 1.4em;">
+                    <label class="form-check-label fw-bold text-light ms-2" for="chkOperaComoReclutador" id="lblOperaComoReclutador">
+                      No (Solo Supervisión)
+                    </label>
+                  </div>
                 </div>
               </div>
 
@@ -371,8 +394,8 @@
         </div>
         <div class="modal-body">
           <p class="small text-light mb-3">
-            El colaborador <strong id="bajaNombreColaborador" class="text-warning"></strong> cambiará su estado a <strong>Inactivo</strong> y su sesión será desautorizada.
-            Selecciona a quién se le transferirá la cartera de candidatos en la Agenda (M3):
+            El colaborador <strong id="bajaNombreColaborador" class="text-warning"></strong> cambiará su estado a <strong>Inactivo</strong> y su sesión será desautorizada[cite: 2].
+            Selecciona a quién se le transferirá la cartera de candidatos en la Agenda (M3)[cite: 2]:
           </p>
           <div class="mb-3">
             <label for="selectNuevoReceptor" class="form-label fw-bold text-warning">Receptor de Candidatos:</label>
@@ -427,7 +450,7 @@
     const agendaRef = ref(db, 'modulo_3_agenda');
     const logsRef = ref(db, 'modulo_7_logs');
 
-    // CATÁLOGO DE MÓDULOS DEL SISTEMA: INCLUYE LOS SUBMÓDULOS M3.2 Y M5.2
+    // CATÁLOGO DE MÓDULOS DEL SISTEMA: INCLUYE M6.2 EXTRACTOR INEGI
     const MODULOS_SISTEMA = [
       { id: 'm1_empresas', label: 'M1: Empresas y Cuentas' },
       { id: 'm2_vacantes', label: 'M2: Extracción Vacantes (IA)' },
@@ -436,7 +459,8 @@
       { id: 'm4_metricas', label: 'M4: Métricas Demográficas' },
       { id: 'm5_staff', label: 'M5.1: Gobernanza y Staff' },
       { id: 'm5_2_cobertura', label: 'M5.2: Cobertura & Cuotas' },
-      { id: 'm6_transporte', label: 'M6: Rutas y Transporte' },
+      { id: 'm6_transporte', label: 'M6.1: Rutas y Transporte' },
+      { id: 'm6_extractor', label: 'M6.2: Extractor y Geocatálogos INEGI' },
       { id: 'm7_logs', label: 'M7: Auditoría y Logs' },
       { id: 'm8_creador', label: 'M8: Creador de Módulos' }
     ];
@@ -653,7 +677,21 @@
       }
     };
 
-    // 6. LÓGICA DEDUCTIVA: AL CAMBIAR DE ROL SE AJUSTA EL FORMULARIO
+    // CONTROL DEL SWITCH DIRECTIVO
+    const chkOperaReclutador = document.getElementById('chkOperaComoReclutador');
+    const lblOperaReclutador = document.getElementById('lblOperaComoReclutador');
+
+    chkOperaReclutador.addEventListener('change', () => {
+      if (chkOperaReclutador.checked) {
+        lblOperaReclutador.textContent = "Sí (Opera como Reclutador y Asesor)";
+        lblOperaReclutador.className = "form-check-label fw-bold text-success ms-2";
+      } else {
+        lblOperaReclutador.textContent = "No (Solo Supervisión y Dirección)";
+        lblOperaReclutador.className = "form-check-label fw-bold text-light ms-2";
+      }
+    });
+
+    // 6. LÓGICA DEDUCTIVA: AJUSTES AL CAMBIAR DE ROL
     document.getElementById('staffRol').addEventListener('change', (e) => {
       const rolKey = e.target.value;
       const rol = globalRoles[rolKey];
@@ -662,6 +700,7 @@
       const groupCoord = document.getElementById('groupCoordinadorPadre');
       const containerEmpresas = document.getElementById('empresasContainer');
       const badgeScope = document.getElementById('scopeBadge');
+      const groupOpera = document.getElementById('groupOperaComoReclutador');
 
       if (rol.scope === 'global') {
         badgeScope.className = "badge bg-success";
@@ -677,9 +716,20 @@
       if (rol.nivelJerarquico < 3) {
         groupCoord.classList.remove('d-none');
         cargarCoordinadoresSelect();
+        
+        // Niveles 1 y 2 son operativos por naturaleza
+        groupOpera.classList.add('d-none');
+        chkOperaReclutador.checked = true;
+        lblOperaReclutador.textContent = "Sí (Operativo)";
       } else {
         groupCoord.classList.add('d-none');
         document.getElementById('staffCoordinadorPadre').value = '';
+        
+        // Niveles 3, 4 y 5 muestran la pregunta directiva
+        groupOpera.classList.remove('d-none');
+        chkOperaReclutador.checked = false;
+        lblOperaReclutador.textContent = "No (Solo Supervisión y Dirección)";
+        lblOperaReclutador.className = "form-check-label fw-bold text-light ms-2";
       }
     });
 
@@ -749,6 +799,11 @@
       let uidColaborador = id;
       const isNew = !id;
 
+      // Bandera de operatividad
+      const operaComoReclutadorFinal = rol.nivelJerarquico < 3 
+        ? true 
+        : document.getElementById('chkOperaComoReclutador').checked;
+
       try {
         if (isNew) {
           if (!password || password.length < 6) {
@@ -777,6 +832,7 @@
           nombreRol: rol.nombre,
           nivel: rol.nivelJerarquico,
           scope: rol.scope,
+          operaComoReclutador: operaComoReclutadorFinal,
           coordinadorPadreId: document.getElementById('staffCoordinadorPadre').value || null,
           empresas: empresasSeleccionadas,
           estatus: document.getElementById('staffEstatus').value,
@@ -792,7 +848,7 @@
 
         await registrarLog(
           isNew ? "ALTA_COLABORADOR_AUTH" : "MODIFICACION_COLABORADOR",
-          `Colaborador ${payload.nombre} (${payload.email}) procesado con éxito.`,
+          `Colaborador ${payload.nombre} (${payload.email}) procesado con éxito. Opera como reclutador: ${operaComoReclutadorFinal ? 'SÍ' : 'NO'}.`,
           id ? globalStaff[id] : null,
           payload
         );
@@ -814,7 +870,9 @@
       select.innerHTML = '<option value="">Sin reasignación (Quedan en Bolsa General)</option>';
       Object.keys(globalStaff).forEach(k => {
         if (k !== idBaja && globalStaff[k].estatus === 'Activo') {
-          select.innerHTML += `<option value="${k}">${sanitize(globalStaff[k].nombre)}</option>`;
+          // Priorizar aquellos que operan como reclutadores
+          const operaTxt = globalStaff[k].operaComoReclutador ? ' (Operativo)' : '';
+          select.innerHTML += `<option value="${k}">${sanitize(globalStaff[k].nombre)}${operaTxt}</option>`;
         }
       });
       modalBajaInstance.show();
@@ -860,10 +918,7 @@
     // 10. PREPARAR Y CANCELAR EDICIÓN
     window.prepararEdicionStaff = (id) => {
       const u = globalStaff[id];
-      if (!u) {
-        console.error("Colaborador no encontrado con ID:", id);
-        return;
-      }
+      if (!u) return;
 
       const tabTrigger = document.querySelector('#tab-staff-link');
       if (tabTrigger) {
@@ -886,6 +941,11 @@
       const groupCoord = document.getElementById('groupCoordinadorPadre');
       const containerEmpresas = document.getElementById('empresasContainer');
       const badgeScope = document.getElementById('scopeBadge');
+      const groupOpera = document.getElementById('groupOperaComoReclutador');
+      const chkOpera = document.getElementById('chkOperaComoReclutador');
+      const lblOpera = document.getElementById('lblOperaComoReclutador');
+
+      const nivelJerarquico = rol ? rol.nivelJerarquico : (u.nivel || 1);
 
       if (rol) {
         if (rol.scope === 'global' || u.scope === 'global') {
@@ -898,12 +958,24 @@
           containerEmpresas.classList.remove('opacity-50', 'pe-none');
         }
 
-        if (rol.nivelJerarquico < 3) {
+        if (nivelJerarquico < 3) {
           groupCoord.classList.remove('d-none');
           cargarCoordinadoresSelect(u.coordinadorPadreId || '');
+          groupOpera.classList.add('d-none');
+          chkOpera.checked = true;
         } else {
           groupCoord.classList.add('d-none');
           document.getElementById('staffCoordinadorPadre').value = '';
+          
+          groupOpera.classList.remove('d-none');
+          chkOpera.checked = u.operaComoReclutador === true;
+          if (chkOpera.checked) {
+            lblOpera.textContent = "Sí (Opera como Reclutador y Asesor)";
+            lblOpera.className = "form-check-label fw-bold text-success ms-2";
+          } else {
+            lblOpera.textContent = "No (Solo Supervisión y Dirección)";
+            lblOpera.className = "form-check-label fw-bold text-light ms-2";
+          }
         }
       }
 
@@ -933,6 +1005,7 @@
       
       document.getElementById('btnSubmitStaff').innerHTML = `<i class="bi bi-shield-check me-1"></i> Guardar y Aplicar Reglas`;
       document.getElementById('groupCoordinadorPadre').classList.add('d-none');
+      document.getElementById('groupOperaComoReclutador').classList.add('d-none');
       
       const containerEmpresas = document.getElementById('empresasContainer');
       containerEmpresas.classList.remove('opacity-50', 'pe-none');
@@ -969,7 +1042,7 @@
       window.open(`https://wa.me/52${tel}?text=${msg}`, '_blank');
     };
 
-    // 13. RENDERIZADO DEL DIRECTORIO
+    // 13. RENDERIZADO DEL DIRECTORIO CON DISTINCIÓN DIRECTIVA
     onValue(staffRef, (snapshot) => {
       document.getElementById('statusDot').className = "status-dot status-connected";
       document.getElementById('connectionText').textContent = "Conexión en línea con Firebase Realtime";
@@ -983,6 +1056,16 @@
           total++;
           const u = globalStaff[key];
           const rol = globalRoles[u.rolId] || {};
+          const nivel = u.nivel || rol.nivelJerarquico || 1;
+
+          let badgeOperatividad = '';
+          if (nivel >= 3) {
+            if (u.operaComoReclutador === true) {
+              badgeOperatividad = `<div class="mt-1"><span class="badge bg-success bg-opacity-75 text-white" style="font-size: 0.68rem;"><i class="fas fa-headset me-1"></i>Asesor Activo</span></div>`;
+            } else {
+              badgeOperatividad = `<div class="mt-1"><span class="badge bg-secondary text-light" style="font-size: 0.68rem;"><i class="fas fa-eye me-1"></i>Solo Supervisión</span></div>`;
+            }
+          }
 
           let coberturaTxt = '';
           if (u.scope === 'global' || (Array.isArray(u.empresas) && u.empresas.includes("TODAS"))) {
@@ -1001,7 +1084,8 @@
               </td>
               <td>
                 <span class="badge bg-warning text-dark">${sanitize(rol.nombre || u.nombreRol || 'Sin Rol')}</span>
-                <span class="badge bg-dark border border-secondary ms-1">N${u.nivel || 1}</span>
+                <span class="badge bg-dark border border-secondary ms-1">N${nivel}</span>
+                ${badgeOperatividad}
               </td>
               <td>
                 <button class="btn btn-wa btn-sm rounded-pill py-0 px-2" onclick="enviarWhatsAppAcceso('${u.telefono}', '${sanitize(u.nombre)}', '${sanitize(u.email)}')">
