@@ -99,9 +99,9 @@
         <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-cyber-border pb-5">
             <div>
                 <h1 class="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
-                    <span class="text-cyber-accent">⚡</span> Motor Logístico de Transporte <span class="text-xs bg-cyber-accent/20 text-cyber-accent px-2 py-0.5 rounded border border-cyber-accent/40 font-mono">v7.0 Intermunicipal Pro</span>
+                    <span class="text-cyber-accent">⚡</span> Motor Logístico de Transporte <span class="text-xs bg-cyber-accent/20 text-cyber-accent px-2 py-0.5 rounded border border-cyber-accent/40 font-mono">v7.2 Intermunicipal Master</span>
                 </h1>
-                <p class="text-xs text-slate-400 mt-1">Geocodificación adaptativa por municipio, ruteo OSRM con Snap-to-Road y auditoría reactiva</p>
+                <p class="text-xs text-slate-400 mt-1">Geocodificación adaptativa por municipio, ruteo OSRM con Snap-to-Road y esterilización de servidor</p>
             </div>
             <div class="flex items-center gap-2 flex-wrap">
                 <a href="m6_transporte.html" class="bg-cyber-card hover:bg-slate-800 text-slate-300 border border-cyber-border font-mono text-xs px-3.5 py-2 rounded-xl flex items-center gap-2 transition-all">
@@ -240,6 +240,9 @@
                         <button id="btnSubirTodo" onclick="inyectarTodoAFirebase()" class="bg-cyber-emerald/20 hover:bg-cyber-emerald/40 text-cyber-emerald border border-cyber-emerald/40 px-3 py-1.5 rounded-lg text-xs font-bold transition-all">
                             ⚡ Subir Todas
                         </button>
+                        <button id="btnLimpiarServidor" onclick="purgarYSanitizarFirebase()" title="Escanear y esterilizar rutas en Firebase para esta empresa" class="bg-cyber-rose/20 hover:bg-cyber-rose/40 text-cyber-rose border border-cyber-rose/40 px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1">
+                            <span>🧹</span> Purgar Servidor
+                        </button>
                     </div>
                 </div>
 
@@ -249,7 +252,7 @@
                         <thead class="bg-cyber-bg sticky top-0 border-b border-cyber-border text-slate-400 z-10">
                             <tr>
                                 <th class="p-2.5"># & Ruta</th>
-                                <th class="p-2.5">Referencia & Municipio</th>
+                                <th class="p-2.5">Referencia & Cruce</th>
                                 <th class="p-2.5">Horarios (Dual)</th>
                                 <th class="p-2.5">Coordenadas (Lat, Lng)</th>
                                 <th class="p-2.5 text-center">Auditar & Guardar</th>
@@ -258,7 +261,7 @@
                         <tbody id="tablaResultadosPreCommit" class="divide-y divide-cyber-border/40 font-sans">
                             <tr>
                                 <td colspan="5" class="p-8 text-center text-slate-500 font-mono">
-                                    Carga un archivo KMZ, KML o imagen de croquis para procesar rutas automáticamente[cite: 3].
+                                    Carga un archivo KMZ, KML o imagen de croquis para procesar rutas automáticamente[cite: 1].
                                 </td>
                             </tr>
                         </tbody>
@@ -271,7 +274,7 @@
 
     </div>
 
-    <!-- MÓDULO JS LIMPIO Y BLINDADO -->
+    <!-- MÓDULO JS BLINDADO: RUTEO LIMPIO, SNAP-TO-ROAD Y PURGA ATÓMICA -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
@@ -329,6 +332,7 @@
         window.asignarCoordenadaBuscadorAParada = asignarCoordenadaBuscadorAParada;
         window.importarRutasDesdeFirebase = importarRutasDesdeFirebase;
         window.guardarParadaIndividualAFirebase = guardarParadaIndividualAFirebase;
+        window.purgarYSanitizarFirebase = purgarYSanitizarFirebase;
 
         document.addEventListener("DOMContentLoaded", async () => {
             try {
@@ -513,7 +517,7 @@
                 for (const q of consultas) {
                     const urlNominatim = "https://nominatim.openstreetmap.org/search?format=json&q=" + encodeURIComponent(q) + "&countrycodes=mx&limit=1";
                     const res = await fetch(urlNominatim, {
-                        headers: { "User-Agent": "ERPTransportePro/7.0" }
+                        headers: { "User-Agent": "ERPTransportePro/7.2" }
                     });
                     const data = await res.json();
                     if (data && data.length > 0) {
@@ -923,7 +927,7 @@
         }
 
         // =========================================================================
-        // ALGORITMO SNAP-TO-ROAD (PROYECCIÓN MAGNÉTICA A LA VÍA TRANSITABLE OSRM)
+        // SNAP-TO-ROAD (PROYECCIÓN MAGNÉTICA A LA VÍA TRANSITABLE MÁS CERCANA)
         // =========================================================================
         async function proyectarPuntoAlAsfalto(lat, lng) {
             const claveCache = lat + "," + lng;
@@ -951,7 +955,7 @@
         }
 
         // =========================================================================
-        // MOTOR DE RUTEO CALLE POR CALLE CONTINUO A PARES
+        // MOTOR DE RUTEO CALLE POR CALLE OSRM (A PARES DE PARADAS CONSECUTIVAS)
         // =========================================================================
         async function calcularRutaVialOSRM(coordenadasLatLng) {
             if (!coordenadasLatLng || coordenadasLatLng.length < 2) return null;
@@ -1016,7 +1020,7 @@
 
         async function consultarNominatimDirecto(url) {
             try {
-                const res = await fetch(url, { headers: { "User-Agent": "ERPTransportePro/7.0 (Logistica Industrial)" } });
+                const res = await fetch(url, { headers: { "User-Agent": "ERPTransportePro/7.2 (Logistica Industrial)" } });
                 if (!res.ok) return null;
                 const data = await res.json();
                 if (data && data.length > 0) {
@@ -1027,7 +1031,7 @@
         }
 
         // =========================================================================
-        // GEOCODIFICADOR EN CASCADA INTERMUNICIPAL CON RESILIENCIA DE EXPANSIÓN
+        // GEOCODIFICADOR EN CASCADA INTERMUNICIPAL (URLS LIMPIAS SIN MARKDOWN)
         // =========================================================================
         async function geocodificarParada(parada, municipioGlobal, estado) {
             if (parada.coordenadasAbordaje && parada.coordenadasAbordaje.includes(",")) {
@@ -1040,7 +1044,6 @@
             const col = limpiarRuidoTexto(parada.coloniaFraccionamiento || "");
             const refCruda = limpiarRuidoTexto(parada.referenciaOriginal || "");
 
-            // Lista priorizada de municipios a consultar (municipio de parada -> municipio de ruta)
             const listaMunicipios = [];
             if (parada.municipioParada && parada.municipioParada !== "General") listaMunicipios.push(parada.municipioParada);
             if (municipioGlobal && !listaMunicipios.includes(municipioGlobal) && municipioGlobal !== "General") listaMunicipios.push(municipioGlobal);
@@ -1583,6 +1586,104 @@
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = "⚡ Subir Todas";
+            }
+        }
+
+        // =========================================================================
+        // ESTERILIZADOR ATÓMICO: PURGA Y SANEAMIENTO DE FIREBASE
+        // =========================================================================
+        async function purgarYSanitizarFirebase() {
+            const empresaNombre = document.getElementById("empresaValidacionIA").value.trim();
+            if (!empresaNombre) return alert("⚠️ Selecciona una empresa en la lista para realizar la purga en el servidor.");
+
+            const confirmar = confirm("¿Deseas escanear y purgar datos corruptos (Markdown, URLs rotas, coordenadas defectuosas) para \"" + empresaNombre + "\" en Firebase?");
+            if (!confirmar) return;
+
+            const btn = document.getElementById("btnLimpiarServidor");
+            btn.disabled = true;
+            btn.innerHTML = "<span>⏳</span> Purgando...";
+
+            const empresaKey = sanitizarKey(empresaNombre);
+
+            try {
+                const snap = await get(ref(db, "rutas/" + empresaKey));
+                if (!snap.exists()) {
+                    alert("No hay rutas registradas para esta empresa en Firebase.");
+                    return;
+                }
+
+                const dataRutas = snap.val();
+                let rutasLimpiadas = 0;
+                let paradasCorregidas = 0;
+
+                const limpiarTextoPuro = (str) => {
+                    if (!str || typeof str !== 'string') return "";
+                    return str
+                        .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1')
+                        .replace(/[\[\]\(\)\{\}\<\>\$\*]/g, ' ')
+                        .replace(/\s+/g, ' ')
+                        .trim();
+                };
+
+                const rutasSaneadas = {};
+
+                Object.entries(dataRutas).forEach(([idRuta, r]) => {
+                    rutasLimpiadas++;
+                    const paradasLimpias = (r.paradas || []).map((p, idx) => {
+                        let coordsValidadas = "";
+                        if (p.coordenadasAbordaje && typeof p.coordenadasAbordaje === 'string') {
+                            const partes = p.coordenadasAbordaje.split(",");
+                            if (partes.length === 2) {
+                                const lat = parseFloat(partes[0].trim());
+                                const lng = parseFloat(partes[1].trim());
+                                if (!isNaN(lat) && !isNaN(lng)) {
+                                    coordsValidadas = lat + ", " + lng;
+                                } else {
+                                    paradasCorregidas++;
+                                }
+                            } else {
+                                paradasCorregidas++;
+                            }
+                        }
+
+                        return {
+                            numeroParada: p.numeroParada || (idx + 1),
+                            referenciaOriginal: limpiarTextoPuro(p.referenciaOriginal || p.nombre || ""),
+                            cruceVialEnriquecido: limpiarTextoPuro(p.cruceVialEnriquecido || ""),
+                            callePrincipal: limpiarTextoPuro(p.callePrincipal || ""),
+                            cruceInterseccion: limpiarTextoPuro(p.cruceInterseccion || ""),
+                            referenciaComercio: limpiarTextoPuro(p.referenciaComercio || ""),
+                            coloniaFraccionamiento: limpiarTextoPuro(p.coloniaFraccionamiento || ""),
+                            municipioParada: limpiarTextoPuro(p.municipioParada || r.municipio || "General"),
+                            coordenadasAbordaje: coordsValidadas,
+                            estadoGeocodificacion: coordsValidadas ? (p.estadoGeocodificacion || "Exacta") : "Sin Geocodificar",
+                            horarios: Array.isArray(p.horarios) ? p.horarios : []
+                        };
+                    });
+
+                    rutasSaneadas[idRuta] = {
+                        ...r,
+                        idRuta: idRuta,
+                        nombreRuta: limpiarTextoPuro(r.nombreRuta || idRuta),
+                        empresaDestino: empresaNombre,
+                        empresaKey: empresaKey,
+                        municipio: limpiarTextoPuro(r.municipio || "General"),
+                        estado: limpiarTextoPuro(r.estado || "Nuevo León"),
+                        paradas: paradasLimpias,
+                        fechaSaneamiento: new Date().toISOString()
+                    };
+                });
+
+                await set(ref(db, "rutas/" + empresaKey), rutasSaneadas);
+                alert("✅ Purga completada:\n- " + rutasLimpiadas + " rutas auditadas.\n- " + paradasCorregidas + " paradas defectuosas saneadas.");
+
+                await importarRutasDesdeFirebase();
+
+            } catch (err) {
+                alert("Error durante la purga en Firebase: " + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = "<span>🧹</span> Purgar Servidor";
             }
         }
 
