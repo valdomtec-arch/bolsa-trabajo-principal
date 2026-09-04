@@ -107,9 +107,9 @@
         <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-cyber-border pb-5">
             <div>
                 <h1 class="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
-                    <span class="text-cyber-accent">⚡</span> Motor Logístico de Transporte <span class="text-xs bg-cyber-accent/20 text-cyber-accent px-2 py-0.5 rounded border border-cyber-accent/40 font-mono">v9.5 On-Demand</span>
+                    <span class="text-cyber-accent">⚡</span> Motor Logístico de Transporte <span class="text-xs bg-cyber-accent/20 text-cyber-accent px-2 py-0.5 rounded border border-cyber-accent/40 font-mono">v9.6 OSRM Pro</span>
                 </h1>
-                <p class="text-xs text-slate-400 mt-1">Extracción masiva multi-archivo, deduplicación en memoria, trazado vial OSRM opcional y geocatálogo maestro.</p>
+                <p class="text-xs text-slate-400 mt-1">Extracción masiva multi-archivo, deduplicación en memoria, trazado vial OSRM idéntico a M6 y geocatálogo maestro.</p>
             </div>
             <div class="flex items-center gap-2 flex-wrap">
                 <a href="m6_extractor_coordenadas.html" class="bg-cyber-cyan/20 hover:bg-cyber-cyan/30 text-cyber-cyan border border-cyber-cyan/40 font-mono text-xs px-3.5 py-2 rounded-xl flex items-center gap-2 transition-all shadow-sm">
@@ -292,7 +292,7 @@
 
     </div>
 
-    <!-- MÓDULO JS: EXTRACCIÓN MASIVA, MAPA CLARO, OSRM REAL & DEDUPLICACIÓN EN MEMORIA -->
+    <!-- MÓDULO JS: EXTRACCIÓN MASIVA, MAPA CLARO, OSRM REAL (IDÉNTICO A M6 TRANSPORTE) & DEDUPLICACIÓN EN MEMORIA -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
@@ -326,7 +326,6 @@
 
         // MAPAS DE MEMORIA Y CACHÉ LOCAL
         const cacheSnappingVial = new Map();
-        const cacheRutasOSRM = new Map();
         const cachePuntosCatalogoLocal = new Map();
         const cacheDeduplicacionSesion = new Map();
 
@@ -797,100 +796,83 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
             throw new Error("No se pudo procesar el croquis.");
         }
 
+        // =============================================================
+        // MOTOR SNAP-TO-ROAD Y OSRM IDÉNTICO A M6 TRANSPORTE
+        // =============================================================
         async function proyectarPuntoAlAsfalto(lat, lng) {
-            const latNum = parseFloat(lat);
-            const lngNum = parseFloat(lng);
-            if (isNaN(latNum) || isNaN(lngNum)) return [lat, lng];
+            const claveCache = `${lat},${lng}`;
+            if (cacheSnappingVial.has(claveCache)) {
+                return cacheSnappingVial.get(claveCache);
+            }
 
-            const claveCache = `${latNum.toFixed(6)},${lngNum.toFixed(6)}`;
-            if (cacheSnappingVial.has(claveCache)) return cacheSnappingVial.get(claveCache);
-
-            const urlNearest = `[https://router.project-osrm.org/nearest/v1/driving/$](https://router.project-osrm.org/nearest/v1/driving/$){lngNum},${latNum}?number=1`;
+            const urlNearest = `[https://router.project-osrm.org/nearest/v1/driving/$](https://router.project-osrm.org/nearest/v1/driving/$){lng},${lat}?number=1`;
             try {
                 const res = await fetch(urlNearest);
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.code === 'Ok' && data.waypoints && data.waypoints.length > 0) {
-                        const snapped = [data.waypoints[0].location[1], data.waypoints[0].location[0]];
-                        cacheSnappingVial.set(claveCache, snapped);
-                        return snapped;
-                    }
+                if (!res.ok) throw new Error("HTTP " + res.status);
+                const data = await res.json();
+                if (data.code === 'Ok' && data.waypoints && data.waypoints.length > 0) {
+                    const snappedLng = data.waypoints[0].location[0];
+                    const snappedLat = data.waypoints[0].location[1];
+                    const resFinal = [snappedLat, snappedLng];
+                    cacheSnappingVial.set(claveCache, resFinal);
+                    return resFinal;
                 }
-            } catch (e) {
-                console.warn("Fallo snap-to-road, usando coordenada original:", e);
-            }
+            } catch (e) {}
 
-            const fallback = [latNum, lngNum];
-            cacheSnappingVial.set(claveCache, fallback);
-            return fallback;
+            const coordOriginal = [lat, lng];
+            cacheSnappingVial.set(claveCache, coordOriginal);
+            return coordOriginal;
         }
 
-        // MOTOR OSRM VIAL REAL (CALLE POR CALLE SIN ERRORES DE SINTAXIS)
-        async function calcularRutaVialOSRM(coordenadasLatLng, claveCache = null) {
+        async function calcularRutaVialOSRM(coordenadasLatLng) {
             if (!coordenadasLatLng || coordenadasLatLng.length < 2) return null;
-
-            const puntosValidados = coordenadasLatLng
-                .map(pt => [parseFloat(pt[0]), parseFloat(pt[1])])
-                .filter(pt => !isNaN(pt[0]) && !isNaN(pt[1]));
-
-            if (puntosValidados.length < 2) return null;
-
-            if (claveCache && cacheRutasOSRM.has(claveCache)) {
-                const enCache = cacheRutasOSRM.get(claveCache);
-                if (enCache?.puntosPolilinea?.length > 0) return enCache;
-            }
 
             let distanciaTotalMetros = 0;
             let duracionTotalSegundos = 0;
             const todosPuntosGeoJSON = [];
 
-            const ajustados = [];
-            for (const pt of puntosValidados) {
-                try {
-                    ajustados.push(await proyectarPuntoAlAsfalto(pt[0], pt[1]));
-                } catch (e) {
-                    ajustados.push(pt);
-                }
+            const coordenadasAjustadas = [];
+            for (let i = 0; i < coordenadasLatLng.length; i++) {
+                const pt = coordenadasLatLng[i];
+                const ptAjustado = await proyectarPuntoAlAsfalto(pt[0], pt[1]);
+                coordenadasAjustadas.push(ptAjustado);
             }
 
-            for (let i = 0; i < ajustados.length - 1; i++) {
-                const p1 = ajustados[i];
-                const p2 = ajustados[i + 1];
-                const coordString = `${p1[1]},${p1[0]};${p2[1]},${p2[0]}`;
-                const url = `[https://router.project-osrm.org/route/v1/driving/$](https://router.project-osrm.org/route/v1/driving/$){coordString}?overview=full&geometries=geojson`;
+            for (let i = 0; i < coordenadasAjustadas.length - 1; i++) {
+                const pOrigen = coordenadasAjustadas[i];
+                const pDestino = coordenadasAjustadas[i + 1];
+
+                const coordString = `${pOrigen[1]},${pOrigen[0]};${pDestino[1]},${pDestino[0]}`;
+                const urlOsrm = `[https://router.project-osrm.org/route/v1/driving/$](https://router.project-osrm.org/route/v1/driving/$){coordString}?overview=full&geometries=geojson`;
 
                 try {
-                    const res = await fetch(url);
-                    if (res.ok) {
-                        const data = await res.json();
-                        if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
-                            distanciaTotalMetros += data.routes[0].distance;
-                            duracionTotalSegundos += data.routes[0].duration;
-                            data.routes[0].geometry.coordinates.forEach(c => todosPuntosGeoJSON.push([c[1], c[0]]));
-                        } else {
-                            todosPuntosGeoJSON.push(p1, p2);
-                        }
+                    const res = await fetch(urlOsrm);
+                    if (!res.ok) throw new Error("HTTP " + res.status);
+                    const data = await res.json();
+
+                    if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+                        distanciaTotalMetros += data.routes[0].distance;
+                        duracionTotalSegundos += data.routes[0].duration;
+
+                        const coordsSegmento = data.routes[0].geometry.coordinates;
+                        coordsSegmento.forEach(pt => todosPuntosGeoJSON.push([pt[1], pt[0]]));
                     } else {
-                        todosPuntosGeoJSON.push(p1, p2);
+                        todosPuntosGeoJSON.push(pOrigen);
+                        todosPuntosGeoJSON.push(pDestino);
                     }
                 } catch (e) {
-                    console.error("Error al consultar OSRM segmento:", e);
-                    todosPuntosGeoJSON.push(p1, p2);
+                    todosPuntosGeoJSON.push(pOrigen);
+                    todosPuntosGeoJSON.push(pDestino);
                 }
-                await new Promise(r => setTimeout(r, 35));
+
+                await new Promise(r => setTimeout(r, 40));
             }
 
-            const resultado = {
+            return {
                 distanciaKm: (distanciaTotalMetros / 1000).toFixed(2),
                 duracionMin: Math.round(duracionTotalSegundos / 60),
                 puntosPolilinea: todosPuntosGeoJSON
             };
-
-            if (claveCache && todosPuntosGeoJSON.length > 0) {
-                cacheRutasOSRM.set(claveCache, resultado);
-            }
-
-            return resultado;
         }
 
         // CONTROLADOR DE TRAZADO MANUAL OPCIONAL (BOTÓN)
@@ -925,26 +907,39 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
                 const indiceColorGlobal = coleccionRutas.findIndex(cr => cr.nombreRuta === ruta.nombreRuta);
                 const colorRutaActual = obtenerColorPorRutaIndex(indiceColorGlobal >= 0 ? indiceColorGlobal : rIdx);
 
-                const puntosValidos = ruta.paradas
-                    .map(p => (p.coordenadasAbordaje || "").split(","))
-                    .filter(coords => coords.length === 2 && !isNaN(parseFloat(coords[0])) && !isNaN(parseFloat(coords[1])))
-                    .map(coords => [parseFloat(coords[0]), parseFloat(coords[1])]);
+                const puntosValidos = [];
+                ruta.paradas.forEach(p => {
+                    if (p.coordenadasAbordaje && p.coordenadasAbordaje.includes(",")) {
+                        const [lat, lng] = p.coordenadasAbordaje.split(",").map(Number);
+                        if (!isNaN(lat) && !isNaN(lng)) {
+                            puntosValidos.push([lat, lng]);
+                        }
+                    }
+                });
 
                 if (puntosValidos.length >= 2) {
-                    const claveCache = `${ruta.empresaKey || 'emp'}_${ruta.idRuta || ruta.nombreRuta}`;
-                    const routingRes = await calcularRutaVialOSRM(puntosValidos, claveCache);
+                    const routingRes = await calcularRutaVialOSRM(puntosValidos);
 
-                    if (routingRes && routingRes.puntosPolilinea?.length > 0) {
+                    if (routingRes && routingRes.puntosPolilinea && routingRes.puntosPolilinea.length > 0) {
                         ruta.distanciaTotalKm = routingRes.distanciaKm;
                         ruta.tiempoEstimadoMin = routingRes.duracionMin;
                         distanciaTotalAcumulada += parseFloat(routingRes.distanciaKm || 0);
 
-                        L.polyline(routingRes.puntosPolilinea, { 
-                            color: '#0f172a', weight: 7, opacity: 0.85, lineCap: 'round', lineJoin: 'round' 
+                        L.polyline(routingRes.puntosPolilinea, {
+                            color: '#0f172a',
+                            weight: 7,
+                            opacity: 0.85,
+                            lineCap: 'round',
+                            lineJoin: 'round'
                         }).addTo(polylineGroup);
 
-                        L.polyline(routingRes.puntosPolilinea, { 
-                            color: colorRutaActual, weight: 4.5, opacity: 1, lineCap: 'round', lineJoin: 'round', smoothFactor: 1 
+                        L.polyline(routingRes.puntosPolilinea, {
+                            color: colorRutaActual,
+                            weight: 4.5,
+                            opacity: 1,
+                            lineCap: 'round',
+                            lineJoin: 'round',
+                            smoothFactor: 1
                         }).addTo(polylineGroup);
 
                         document.getElementById("lblDistanciaKm").innerText = routingRes.distanciaKm;
@@ -1229,7 +1224,7 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
             }, 450);
         }
 
-        // RENDERIZADO VISUAL INSTANTÁNEO (SIN BLOQUEOS DE RED)
+        // RENDERIZADO VISUAL INSTANTÁNEO
         async function renderizarTablaYMapa() {
             const tbody = document.getElementById("tablaResultadosPreCommit");
             tbody.innerHTML = "";
@@ -1473,7 +1468,6 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
         function ejecutarSanitizacionMotor() {
             sessionStorage.removeItem("cache_m6_empresas");
             cacheSnappingVial.clear();
-            cacheRutasOSRM.clear();
             cachePuntosCatalogoLocal.clear();
             cacheDeduplicacionSesion.clear();
             if (markersGroup) markersGroup.clearLayers();
