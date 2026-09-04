@@ -107,9 +107,9 @@
         <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-cyber-border pb-5">
             <div>
                 <h1 class="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
-                    <span class="text-cyber-accent">⚡</span> Motor Logístico de Transporte <span class="text-xs bg-cyber-accent/20 text-cyber-accent px-2 py-0.5 rounded border border-cyber-accent/40 font-mono">v9.6 OSRM Pro</span>
+                    <span class="text-cyber-accent">⚡</span> Motor Logístico de Transporte <span class="text-xs bg-cyber-accent/20 text-cyber-accent px-2 py-0.5 rounded border border-cyber-accent/40 font-mono">v9.7 Ultra-Road</span>
                 </h1>
-                <p class="text-xs text-slate-400 mt-1">Extracción masiva multi-archivo, deduplicación en memoria, trazado vial OSRM idéntico a M6 y geocatálogo maestro.</p>
+                <p class="text-xs text-slate-400 mt-1">Extracción masiva multi-archivo, deduplicación en memoria, trazado vial OSRM estricto y geocatálogo maestro.</p>
             </div>
             <div class="flex items-center gap-2 flex-wrap">
                 <a href="m6_extractor_coordenadas.html" class="bg-cyber-cyan/20 hover:bg-cyber-cyan/30 text-cyber-cyan border border-cyber-cyan/40 font-mono text-xs px-3.5 py-2 rounded-xl flex items-center gap-2 transition-all shadow-sm">
@@ -292,7 +292,7 @@
 
     </div>
 
-    <!-- MÓDULO JS: EXTRACCIÓN MASIVA, MAPA CLARO, OSRM REAL (IDÉNTICO A M6 TRANSPORTE) & DEDUPLICACIÓN EN MEMORIA -->
+    <!-- MÓDULO JS: OSRM CONCATENADO ESTRICTO (IDÉNTICO A M6 TRANSPORTE) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
@@ -324,12 +324,10 @@
         let diccionarioMarcadores = {};
         let asfaltoTrazadoActivo = false;
 
-        // MAPAS DE MEMORIA Y CACHÉ LOCAL
         const cacheSnappingVial = new Map();
         const cachePuntosCatalogoLocal = new Map();
         const cacheDeduplicacionSesion = new Map();
 
-        // EXPOSICIÓN GLOBAL
         window.ejecutarPaso1Extraccion = ejecutarPaso1Extraccion;
         window.ejecutarPaso2GeolocalizarTodas = ejecutarPaso2GeolocalizarTodas;
         window.geolocalizarRutaSeleccionada = geolocalizarRutaSeleccionada;
@@ -409,7 +407,7 @@
                 });
                 
                 listaNombres.sort((a, b) => a.localeCompare(b)).forEach(nom => {
-                    selectValidacion.innerHTML += `<option value="${nom}">${nom}</option>`;
+                    selectValidacion.innerHTML += '<option value="' + nom + '">' + nom + '</option>';
                 });
             } catch (e) {
                 console.error("Error cargando empresas:", e);
@@ -431,13 +429,13 @@
         }
 
         function crearIconoLagrimaGPS(numero, colorHex) {
-            const svgHtml = `<div class="gps-pin-marker">
-                <svg class="gps-pin-svg" viewBox="0 0 384 512" fill="${colorHex}" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke="#ffffff" stroke-width="20" d="M172.268 501.67C26.97 291.031 0 269.413 0 192 0 85.961 85.961 0 192 0s192 85.961 192 192c0 77.413-26.97 99.031-172.268 309.67-9.535 13.774-29.93 13.773-39.464 0z"/>
-                    <circle cx="192" cy="192" r="95" fill="#0f172a" opacity="0.6"/>
-                </svg>
-                <span class="gps-pin-number">${numero}</span>
-            </div>`;
+            const svgHtml = '<div class="gps-pin-marker">' +
+                '<svg class="gps-pin-svg" viewBox="0 0 384 512" fill="' + colorHex + '" xmlns="http://www.w3.org/2000/svg">' +
+                '<path stroke="#ffffff" stroke-width="20" d="M172.268 501.67C26.97 291.031 0 269.413 0 192 0 85.961 85.961 0 192 0s192 85.961 192 192c0 77.413-26.97 99.031-172.268 309.67-9.535 13.774-29.93 13.773-39.464 0z"/>' +
+                '<circle cx="192" cy="192" r="95" fill="#0f172a" opacity="0.6"/>' +
+                '</svg>' +
+                '<span class="gps-pin-number">' + numero + '</span>' +
+                '</div>';
             return L.divIcon({
                 className: 'custom-gps-pin',
                 html: svgHtml,
@@ -458,18 +456,18 @@
             const clave = generarClavePunto(textoReferencia, municipio);
 
             const payload = {
-                coordenadas: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+                coordenadas: lat.toFixed(6) + ", " + lng.toFixed(6),
                 referenciaOriginal: textoReferencia,
                 municipio: municipio || "General",
                 fuente: "Motor M6 (Aprendizaje)",
                 actualizadoEl: new Date().toISOString()
             };
 
-            cachePuntosCatalogoLocal.set(`${estadoLimpio}_${clave}`, payload.coordenadas);
-            cacheDeduplicacionSesion.set(`${sanitizarKey(textoReferencia)}_${sanitizarKey(municipio)}`, payload.coordenadas);
+            cachePuntosCatalogoLocal.set(estadoLimpio + "_" + clave, payload.coordenadas);
+            cacheDeduplicacionSesion.set(sanitizarKey(textoReferencia) + "_" + sanitizarKey(municipio), payload.coordenadas);
 
             try {
-                await set(ref(db, `geocodigos_maestros/${estadoLimpio}/${clave}`), payload);
+                await set(ref(db, "geocodigos_maestros/" + estadoLimpio + "/" + clave), payload);
             } catch (e) {}
         }
 
@@ -483,8 +481,8 @@
 
             const empresaKey = sanitizarKey(empresaNombre);
             try {
-                const snap = await get(ref(db, `rutas/${empresaKey}`));
-                if (!snap.exists()) return alert('No se encontraron rutas registradas.');
+                const snap = await get(ref(db, "rutas/" + empresaKey));
+                if (!snap.exists()) return alert("No se encontraron rutas registradas.");
 
                 const rutasData = snap.val();
                 coleccionRutas = [];
@@ -529,7 +527,7 @@
                         empresaKey: empresaKey,
                         municipio: r.municipio || "General",
                         estado: r.estado || "Nuevo León",
-                        estadoMunicipio: r.estadoMunicipio || (`${r.municipio || 'General'}, ${r.estado || 'Nuevo León'}`),
+                        estadoMunicipio: r.estadoMunicipio || ((r.municipio || 'General') + ', ' + (r.estado || 'Nuevo León')),
                         puntosAbordaje: r.puntosAbordaje || "",
                         horarioPaso: r.horarioPaso || "",
                         coordenadasAbordaje: r.coordenadasAbordaje || "",
@@ -541,7 +539,7 @@
 
                 actualizarSelectRutas();
                 await renderizarTablaYMapa();
-                alert(`✅ Se cargaron ${coleccionRutas.length} rutas de "${empresaNombre}".`);
+                alert("✅ Se cargaron " + coleccionRutas.length + " rutas de \"" + empresaNombre + "\".");
             } catch (err) {
                 alert("Error al cargar rutas: " + err.message);
             }
@@ -564,7 +562,7 @@
                     return;
                 }
 
-                const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ", " + estadoDefecto + ", Mexico")}&countrycodes=mx&limit=1`;
+                const url = "https://nominatim.openstreetmap.org/search?format=json&q=" + encodeURIComponent(query + ", " + estadoDefecto + ", Mexico") + "&countrycodes=mx&limit=1";
                 const res = await fetch(url);
                 const data = await res.json();
                 if (data && data.length > 0) {
@@ -590,7 +588,7 @@
             let opcionesSelect = "";
             coleccionRutas.forEach(r => {
                 r.paradas.forEach(p => {
-                    opcionesSelect += `<option value="${r.nombreRuta}||${p.numeroParada}">${r.nombreRuta} - #${p.numeroParada} (${p.referenciaOriginal})</option>`;
+                    opcionesSelect += '<option value="' + r.nombreRuta + '||' + p.numeroParada + '">' + r.nombreRuta + ' - #' + p.numeroParada + ' (' + p.referenciaOriginal + ')</option>';
                 });
             });
 
@@ -599,35 +597,39 @@
                 draggable: true 
             }).addTo(mapObj);
             
-            let htmlAsignacion = coleccionRutas.length > 0 ? `
-                <div class="pt-2 border-t border-slate-700 space-y-1">
-                    <label class="block text-[10px] text-slate-400 font-semibold uppercase">Asignar a parada:</label>
-                    <select id="selectParadaAsignar" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-[11px] text-white focus:outline-none">
-                        ${opcionesSelect}
-                    </select>
-                    <button onclick="asignarCoordenadaBuscadorAParada('${lat}', '${lng}')" class="w-full bg-cyber-emerald hover:bg-emerald-400 text-slate-950 font-bold py-1 px-2 rounded text-xs mt-1 transition-all">
-                        ✅ Asignar Coordenada
-                    </button>
-                </div>` : '';
+            let htmlAsignacion = '';
+            if (coleccionRutas.length > 0) {
+                htmlAsignacion = '<div class="pt-2 border-t border-slate-700 space-y-1">' +
+                    '<label class="block text-[10px] text-slate-400 font-semibold uppercase">Asignar a parada:</label>' +
+                    '<select id="selectParadaAsignar" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-[11px] text-white focus:outline-none">' +
+                    opcionesSelect +
+                    '</select>' +
+                    '<button onclick="asignarCoordenadaBuscadorAParada(\'' + lat + '\', \'' + lng + '\')" class="w-full bg-cyber-emerald hover:bg-emerald-400 text-slate-950 font-bold py-1 px-2 rounded text-xs mt-1 transition-all">' +
+                    '✅ Asignar Coordenada' +
+                    '</button>' +
+                    '</div>';
+            }
 
-            pinBuscadorManual.bindPopup(`
-                <div class="font-sans text-xs space-y-1.5 p-1" style="min-width: 220px;">
-                    <b class="text-cyber-rose font-bold">🎯 Punto Localizado</b>
-                    <p class="text-slate-300 text-[11px] leading-tight">${descripcion}</p>
-                    <div class="font-mono text-emerald-400 font-bold bg-slate-900 px-2 py-1 rounded text-center">${lat}, ${lng}</div>
-                    ${htmlAsignacion}
-                </div>
-            `).openPopup();
+            pinBuscadorManual.bindPopup(
+                '<div class="font-sans text-xs space-y-1.5 p-1" style="min-width: 220px;">' +
+                '<b class="text-cyber-rose font-bold">🎯 Punto Localizado</b>' +
+                '<p class="text-slate-300 text-[11px] leading-tight">' + descripcion + '</p>' +
+                '<div class="font-mono text-emerald-400 font-bold bg-slate-900 px-2 py-1 rounded text-center">' + lat + ', ' + lng + '</div>' +
+                htmlAsignacion +
+                '</div>'
+            ).openPopup();
         }
 
         function asignarCoordenadaBuscadorAParada(lat, lng) {
             const select = document.getElementById("selectParadaAsignar");
             if (!select) return;
 
-            const [nombreRuta, numParada] = select.value.split("||");
-            actualizarCoordManual(nombreRuta, parseInt(numParada), `${lat}, ${lng}`);
+            const partes = select.value.split("||");
+            const nombreRuta = partes[0];
+            const numParada = parseInt(partes[1]);
+            actualizarCoordManual(nombreRuta, numParada, lat + ", " + lng);
             if (pinBuscadorManual) mapObj.removeLayer(pinBuscadorManual);
-            alert(`✅ Asignado a Parada #${numParada} (${nombreRuta}).`);
+            alert("✅ Asignado a Parada #" + numParada + " (" + nombreRuta + ").");
         }
 
         function normalizarRutaParaInyeccion(r) {
@@ -647,7 +649,7 @@
                 empresaKey: sanitizarKey(r.empresaDestino),
                 municipio: mun,
                 estado: est,
-                estadoMunicipio: `${mun}, ${est}`,
+                estadoMunicipio: mun + ", " + est,
                 puntosAbordaje: listaTexto || "Sin paradas definidas",
                 horarioPaso: Array.from(setHorarios).join(" / ") || (r.horarioPaso || "No especificado"),
                 coordenadasAbordaje: primeraGPS ? primeraGPS.coordenadasAbordaje : (r.coordenadasAbordaje || ""),
@@ -697,7 +699,7 @@
             placemarks.forEach(pm => {
                 const pointTag = pm.getElementsByTagName("Point")[0];
                 if (pointTag) {
-                    const nombre = pm.getElementsByTagName("name")[0]?.textContent?.trim() || (`Parada #${contador}`);
+                    const nombre = pm.getElementsByTagName("name")[0]?.textContent?.trim() || ("Parada #" + contador);
                     const coordTexto = pointTag.getElementsByTagName("coordinates")[0]?.textContent?.trim();
                     if (coordTexto) {
                         const partes = coordTexto.split(/\s+/)[0].split(",");
@@ -713,7 +715,7 @@
                                 referenciaComercio: "",
                                 coloniaFraccionamiento: "",
                                 municipioParada: "General",
-                                coordenadasAbordaje: `${lat}, ${lng}`,
+                                coordenadasAbordaje: lat + ", " + lng,
                                 estadoGeocodificacion: "Exacta (KML Satelital)",
                                 horarios: []
                             });
@@ -736,37 +738,37 @@
             const base64Data = await transformarArchivoABase64(file);
             const parts = base64Data.split(",");
             let mimeType = ext === 'png' ? "image/png" : (ext === 'pdf' ? "application/pdf" : "image/jpeg");
-            return { tipo: 'media', payload: { inlineData: { mimeType, data: parts[1] } } };
+            return { tipo: 'media', payload: { inlineData: { mimeType: mimeType, data: parts[1] } } };
         }
 
         async function procesarArchivoPaso1(file, apiKey, empresa, estadoDefecto) {
             const contenido = await prepararContenidoArchivo(file);
             
-            const promptTexto = `Eres un Ingeniero en Transporte para "${empresa}" en ${estadoDefecto}, México.
-Analiza este croquis o manifiesto y extrae las rutas con todas sus paradas secuenciales.
-Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
-[
-  {
-    "nombreRuta": "Nombre de la Ruta",
-    "empresaDestino": "${empresa}",
-    "municipio": "Municipio base",
-    "estado": "${estadoDefecto}",
-    "paradas": [
-      {
-        "numeroParada": 1,
-        "referenciaOriginal": "Nombre de la parada",
-        "callePrincipal": "Avenida principal",
-        "cruceInterseccion": "Cruce o esquina",
-        "referenciaComercio": "Hito o tienda",
-        "coloniaFraccionamiento": "Colonia",
-        "municipioParada": "Municipio de la parada",
-        "horarios": [
-          { "etiquetaTurno": "Día", "formatoCivil": "06:30 AM", "formatoMilitar": "06:30" }
-        ]
-      }
-    ]
-  }
-]`;
+            const promptTexto = 'Eres un Ingeniero en Transporte para "' + empresa + '" en ' + estadoDefecto + ', México.\n' +
+                'Analiza este croquis o manifiesto y extrae las rutas con todas sus paradas secuenciales.\n' +
+                'Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:\n' +
+                '[\n' +
+                '  {\n' +
+                '    "nombreRuta": "Nombre de la Ruta",\n' +
+                '    "empresaDestino": "' + empresa + '",\n' +
+                '    "municipio": "Municipio base",\n' +
+                '    "estado": "' + estadoDefecto + '",\n' +
+                '    "paradas": [\n' +
+                '      {\n' +
+                '        "numeroParada": 1,\n' +
+                '        "referenciaOriginal": "Nombre de la parada",\n' +
+                '        "callePrincipal": "Avenida principal",\n' +
+                '        "cruceInterseccion": "Cruce o esquina",\n' +
+                '        "referenciaComercio": "Hito o tienda",\n' +
+                '        "coloniaFraccionamiento": "Colonia",\n' +
+                '        "municipioParada": "Municipio de la parada",\n' +
+                '        "horarios": [\n' +
+                '          { "etiquetaTurno": "Día", "formatoCivil": "06:30 AM", "formatoMilitar": "06:30" }\n' +
+                '        ]\n' +
+                '      }\n' +
+                '    ]\n' +
+                '  }\n' +
+                ']';
 
             const payload = {
                 contents: [{ parts: [{ text: promptTexto }, contenido.payload] }],
@@ -776,7 +778,7 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
             const modelos = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-pro"];
             for (const modelo of modelos) {
                 try {
-                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${apiKey}`, {
+                    const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/" + modelo + ":generateContent?key=" + apiKey, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify(payload)
@@ -797,15 +799,15 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
         }
 
         // =============================================================
-        // MOTOR SNAP-TO-ROAD Y OSRM IDÉNTICO A M6 TRANSPORTE
+        // MOTOR SNAP-TO-ROAD Y OSRM CON CONCATENACIÓN ESTRICTA
         // =============================================================
         async function proyectarPuntoAlAsfalto(lat, lng) {
-            const claveCache = `${lat},${lng}`;
+            const claveCache = lat + "," + lng;
             if (cacheSnappingVial.has(claveCache)) {
                 return cacheSnappingVial.get(claveCache);
             }
 
-            const urlNearest = `[https://router.project-osrm.org/nearest/v1/driving/$](https://router.project-osrm.org/nearest/v1/driving/$){lng},${lat}?number=1`;
+            const urlNearest = "[https://router.project-osrm.org/nearest/v1/driving/](https://router.project-osrm.org/nearest/v1/driving/)" + lng + "," + lat + "?number=1";
             try {
                 const res = await fetch(urlNearest);
                 if (!res.ok) throw new Error("HTTP " + res.status);
@@ -842,8 +844,8 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
                 const pOrigen = coordenadasAjustadas[i];
                 const pDestino = coordenadasAjustadas[i + 1];
 
-                const coordString = `${pOrigen[1]},${pOrigen[0]};${pDestino[1]},${pDestino[0]}`;
-                const urlOsrm = `[https://router.project-osrm.org/route/v1/driving/$](https://router.project-osrm.org/route/v1/driving/$){coordString}?overview=full&geometries=geojson`;
+                const coordString = pOrigen[1] + "," + pOrigen[0] + ";" + pDestino[1] + "," + pDestino[0];
+                const urlOsrm = "[https://router.project-osrm.org/route/v1/driving/](https://router.project-osrm.org/route/v1/driving/)" + coordString + "?overview=full&geometries=geojson";
 
                 try {
                     const res = await fetch(urlOsrm);
@@ -875,7 +877,6 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
             };
         }
 
-        // CONTROLADOR DE TRAZADO MANUAL OPCIONAL (BOTÓN)
         async function toggleTrazadoAsfalto() {
             const btn = document.getElementById("btnTrazarAsfalto");
             const lbl = document.getElementById("lblBtnTrazarAsfalto");
@@ -910,7 +911,9 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
                 const puntosValidos = [];
                 ruta.paradas.forEach(p => {
                     if (p.coordenadasAbordaje && p.coordenadasAbordaje.includes(",")) {
-                        const [lat, lng] = p.coordenadasAbordaje.split(",").map(Number);
+                        const partes = p.coordenadasAbordaje.split(",");
+                        const lat = parseFloat(partes[0].trim());
+                        const lng = parseFloat(partes[1].trim());
                         if (!isNaN(lat) && !isNaN(lng)) {
                             puntosValidos.push([lat, lng]);
                         }
@@ -948,7 +951,7 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
                 }
             }
 
-            document.getElementById("badgeDistanciaTotal").innerText = `${distanciaTotalAcumulada.toFixed(1)} Km OSRM`;
+            document.getElementById("badgeDistanciaTotal").innerText = distanciaTotalAcumulada.toFixed(1) + " Km OSRM";
             asfaltoTrazadoActivo = true;
             btn.disabled = false;
             if (btn) btn.className = "bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 border border-rose-500/40 px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm";
@@ -968,7 +971,7 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
             const munActual = parada.municipioParada || municipioGlobal || "general";
             const refCruda = parada.referenciaOriginal || "";
             const cPrincipal = parada.callePrincipal || "";
-            const claveDeduplicacion = `${sanitizarKey(refCruda || cPrincipal)}_${sanitizarKey(munActual)}`;
+            const claveDeduplicacion = sanitizarKey(refCruda || cPrincipal) + "_" + sanitizarKey(munActual);
 
             if (cacheDeduplicacionSesion.has(claveDeduplicacion)) {
                 return { coords: cacheDeduplicacionSesion.get(claveDeduplicacion), origen: "Deduplicación Lote (0ms)" };
@@ -976,35 +979,35 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
 
             const estadoLimpio = sanitizarKey(estado || "nuevo_leon");
             const claveCat = generarClavePunto(refCruda || cPrincipal, munActual);
-            const claveLocal = `${estadoLimpio}_${claveCat}`;
+            const claveLocal = estadoLimpio + "_" + claveCat;
 
             if (cachePuntosCatalogoLocal.has(claveLocal)) {
                 const coords = cachePuntosCatalogoLocal.get(claveLocal);
                 cacheDeduplicacionSesion.set(claveDeduplicacion, coords);
-                return { coords, origen: "Catálogo Maestro (0ms)" };
+                return { coords: coords, origen: "Catálogo Maestro (0ms)" };
             }
 
             try {
-                const snapCat = await get(ref(db, `geocodigos_maestros/${estadoLimpio}/${claveCat}`));
+                const snapCat = await get(ref(db, "geocodigos_maestros/" + estadoLimpio + "/" + claveCat));
                 if (snapCat.exists() && snapCat.val().coordenadas) {
                     const coords = snapCat.val().coordenadas;
                     cachePuntosCatalogoLocal.set(claveLocal, coords);
                     cacheDeduplicacionSesion.set(claveDeduplicacion, coords);
-                    return { coords, origen: "Catálogo Firebase" };
+                    return { coords: coords, origen: "Catálogo Firebase" };
                 }
             } catch (e) {}
 
             const cleanStreet = limpiarRuidoTexto(cPrincipal);
             if (cleanStreet) {
-                const url = `[https://nominatim.openstreetmap.org/search?format=json&street=$](https://nominatim.openstreetmap.org/search?format=json&street=$){encodeURIComponent(cleanStreet)}&city=${encodeURIComponent(munActual)}&state=${encodeURIComponent(estado)}&country=Mexico&limit=1`;
+                const url = "[https://nominatim.openstreetmap.org/search?format=json&street=](https://nominatim.openstreetmap.org/search?format=json&street=)" + encodeURIComponent(cleanStreet) + "&city=" + encodeURIComponent(munActual) + "&state=" + encodeURIComponent(estado) + "&country=Mexico&limit=1";
                 try {
                     const res = await fetch(url);
                     if (res.ok) {
                         const data = await res.json();
-                        if (data?.length > 0) {
-                            const coords = `${data[0].lat}, ${data[0].lon}`;
+                        if (data && data.length > 0) {
+                            const coords = data[0].lat + ", " + data[0].lon;
                             await aprenderYGuardarEnGeocatalogo(refCruda || cPrincipal, munActual, coords, estado);
-                            return { coords, origen: "Nominatim (Nuevo)" };
+                            return { coords: coords, origen: "Nominatim (Nuevo)" };
                         }
                     }
                 } catch (e) {}
@@ -1032,7 +1035,7 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
                 for (let i = 0; i < archivos.length; i++) {
                     const f = archivos[i];
                     const ext = f.name.split('.').pop().toLowerCase();
-                    btn.innerHTML = `<span>⏳</span> Procesando (${i + 1}/${archivos.length}) ${f.name}...`;
+                    btn.innerHTML = "<span>⏳</span> Procesando (" + (i + 1) + "/" + archivos.length + ") " + f.name + "...";
 
                     let rutasExtraidas = [];
                     if (ext === 'kmz' || ext === 'kml') {
@@ -1051,7 +1054,7 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
 
                 actualizarSelectRutas();
                 await renderizarTablaYMapa();
-                alert(`✅ Lote completado: ${coleccionRutas.length} rutas extraídas.`);
+                alert("✅ Lote completado: " + coleccionRutas.length + " rutas extraídas.");
             } catch (err) {
                 alert("Error: " + err.message);
             } finally {
@@ -1076,7 +1079,7 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
                 for (const p of r.paradas) {
                     if (!p.coordenadasAbordaje) {
                         resueltas++;
-                        bar.innerText = `🔍 Deduciendo (${resueltas}): ${p.referenciaOriginal || 'Parada'}`;
+                        bar.innerText = "🔍 Deduciendo (" + resueltas + "): " + (p.referenciaOriginal || 'Parada');
                         const geo = await geocodificarParada(p, r.municipio, r.estado || estadoDefecto);
                         p.coordenadasAbordaje = geo.coords;
                         p.estadoGeocodificacion = geo.origen;
@@ -1106,7 +1109,7 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
             const estadoDefecto = document.getElementById("estadoOperacionInput").value.trim() || "Nuevo León";
             for (const p of r.paradas) {
                 if (!p.coordenadasAbordaje) {
-                    bar.innerText = `🔍 Deduciendo: ${p.referenciaOriginal || ''}`;
+                    bar.innerText = "🔍 Deduciendo: " + (p.referenciaOriginal || '');
                     const geo = await geocodificarParada(p, r.municipio, r.estado || estadoDefecto);
                     p.coordenadasAbordaje = geo.coords;
                     p.estadoGeocodificacion = geo.origen;
@@ -1123,7 +1126,7 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
             const select = document.getElementById("filtroRutaActiva");
             select.innerHTML = '<option value="TODAS">-- Todas las Rutas (Vista Rápida) --</option>';
             coleccionRutas.forEach(r => {
-                select.innerHTML += `<option value="${r.nombreRuta}">${r.nombreRuta}</option>`;
+                select.innerHTML += '<option value="' + r.nombreRuta + '">' + r.nombreRuta + '</option>';
             });
             rutaSeleccionadaFiltro = "TODAS";
         }
@@ -1203,7 +1206,7 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
             const empKey = r.empresaKey || sanitizarKey(r.empresaDestino);
 
             try {
-                await set(ref(db, `rutas/${empKey}/${rutaId}/paradas/${pIdx}`), paradaObj);
+                await set(ref(db, "rutas/" + empKey + "/" + rutaId + "/paradas/" + pIdx), paradaObj);
                 if (paradaObj.coordenadasAbordaje) {
                     await aprenderYGuardarEnGeocatalogo(paradaObj.referenciaOriginal, paradaObj.municipioParada || r.municipio, paradaObj.coordenadasAbordaje, r.estado);
                 }
@@ -1224,7 +1227,6 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
             }, 450);
         }
 
-        // RENDERIZADO VISUAL INSTANTÁNEO
         async function renderizarTablaYMapa() {
             const tbody = document.getElementById("tablaResultadosPreCommit");
             tbody.innerHTML = "";
@@ -1242,7 +1244,7 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
                 ? coleccionRutas 
                 : coleccionRutas.filter(r => r.nombreRuta === rutaSeleccionadaFiltro);
 
-            document.getElementById("badgeRutasCount").innerText = `${coleccionRutas.length} Rutas`;
+            document.getElementById("badgeRutasCount").innerText = coleccionRutas.length + " Rutas";
 
             if (rutasFiltradas.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-slate-500 font-mono">No hay rutas cargadas.</td></tr>';
@@ -1262,72 +1264,71 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
                     const lat = parseFloat(coords[0]);
                     const lng = parseFloat(coords[1]);
                     const valida = !isNaN(lat) && !isNaN(lng);
-                    const idCompuesta = `${ruta.nombreRuta}_${parada.numeroParada}`;
+                    const idCompuesta = ruta.nombreRuta + "_" + parada.numeroParada;
 
                     if (valida) {
                         latLngsGlobales.push([lat, lng]);
 
                         const marker = L.marker([lat, lng], {
                             icon: crearIconoLagrimaGPS(parada.numeroParada, colorRutaActual),
-                            title: `${ruta.nombreRuta} - #${parada.numeroParada}`
+                            title: ruta.nombreRuta + " - #" + parada.numeroParada
                         }).addTo(markersGroup);
 
                         diccionarioMarcadores[idCompuesta] = marker;
 
-                        marker.bindPopup(`
-                            <div class="font-sans text-xs space-y-1.5 p-1" style="min-width: 220px;">
-                                <div class="flex items-center justify-between border-b border-slate-700 pb-1">
-                                    <span class="font-bold text-white uppercase text-[11px]">${ruta.nombreRuta}</span>
-                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold font-mono text-slate-950" style="background-color: ${colorRutaActual};">
-                                        #${parada.numeroParada}
-                                    </span>
-                                </div>
-                                <p class="text-slate-200"><b>Referencia:</b> ${parada.referenciaOriginal || 'Sin nombre'}</p>
-                                <p class="text-slate-400 text-[11px]"><b>Municipio:</b> ${parada.municipioParada || ruta.municipio || 'General'}</p>
-                                <p class="text-slate-400 text-[11px]"><b>Cruce:</b> ${parada.cruceVialEnriquecido || 'Sin especificar'}</p>
-                                <div class="font-mono text-emerald-400 font-bold bg-slate-900 px-2 py-1 rounded text-center">${lat.toFixed(6)}, ${lng.toFixed(6)}</div>
-                                <div class="text-[10px] text-cyber-cyan font-mono text-right pt-0.5">Origen: ${parada.estadoGeocodificacion || 'Manual'}</div>
-                            </div>
-                        `);
+                        marker.bindPopup(
+                            '<div class="font-sans text-xs space-y-1.5 p-1" style="min-width: 220px;">' +
+                            '<div class="flex items-center justify-between border-b border-slate-700 pb-1">' +
+                            '<span class="font-bold text-white uppercase text-[11px]">' + ruta.nombreRuta + '</span>' +
+                            '<span class="px-2 py-0.5 rounded text-[10px] font-bold font-mono text-slate-950" style="background-color: ' + colorRutaActual + ';">' +
+                            '#' + parada.numeroParada +
+                            '</span>' +
+                            '</div>' +
+                            '<p class="text-slate-200"><b>Referencia:</b> ' + (parada.referenciaOriginal || 'Sin nombre') + '</p>' +
+                            '<p class="text-slate-400 text-[11px]"><b>Municipio:</b> ' + (parada.municipioParada || ruta.municipio || 'General') + '</p>' +
+                            '<p class="text-slate-400 text-[11px]"><b>Cruce:</b> ' + (parada.cruceVialEnriquecido || 'Sin especificar') + '</p>' +
+                            '<div class="font-mono text-emerald-400 font-bold bg-slate-900 px-2 py-1 rounded text-center">' + lat.toFixed(6) + ', ' + lng.toFixed(6) + '</div>' +
+                            '<div class="text-[10px] text-cyber-cyan font-mono text-right pt-0.5">Origen: ' + (parada.estadoGeocodificacion || 'Manual') + '</div>' +
+                            '</div>'
+                        );
                     }
 
                     const textoHorarios = (parada.horarios || []).map(h => h.formatoCivil).join(" / ");
                     const tr = document.createElement("tr");
                     tr.className = "hover:bg-slate-800/40 border-b border-cyber-border/40 text-slate-300";
 
-                    let botonAuditar = valida ? `
-                        <button type="button" onclick="auditarPuntoEnMapa('${idCompuesta}', ${lat}, ${lng})" title="Auditar en mapa" class="btn-audit-press inline-flex items-center justify-center bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/50 text-cyber-cyan px-2.5 py-1.5 rounded-md text-xs font-bold">
-                            <span>🎯 Ver</span>
-                        </button>` : '<span class="text-[10px] text-slate-500 font-mono italic">Sin GPS</span>';
+                    let botonAuditar = valida ? 
+                        '<button type="button" onclick="auditarPuntoEnMapa(\'' + idCompuesta + '\', ' + lat + ', ' + lng + ')" title="Auditar en mapa" class="btn-audit-press inline-flex items-center justify-center bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/50 text-cyber-cyan px-2.5 py-1.5 rounded-md text-xs font-bold">' +
+                        '<span>🎯 Ver</span>' +
+                        '</button>' : '<span class="text-[10px] text-slate-500 font-mono italic">Sin GPS</span>';
 
-                    tr.innerHTML = `
-                        <td class="p-2.5 whitespace-nowrap">
-                            <div class="flex items-center gap-2">
-                                <span class="w-2.5 h-2.5 rounded-full inline-block shrink-0 shadow-sm" style="background-color: ${colorRutaActual};"></span>
-                                <span class="font-bold text-white">${ruta.nombreRuta}</span>
-                            </div>
-                            <div class="text-[10px] font-mono font-bold ml-4.5" style="color: ${colorRutaActual};">Parada #${parada.numeroParada}</div>
-                        </td>
-                        <td class="p-2.5">
-                            <input type="text" value="${parada.referenciaOriginal || ''}" onchange="actualizarReferenciaParada('${ruta.nombreRuta}', ${parada.numeroParada}, this.value)" placeholder="Referencia" class="w-full bg-cyber-bg border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-cyber-accent mb-1">
-                            <div class="grid grid-cols-2 gap-1">
-                                <input type="text" value="${parada.cruceVialEnriquecido || ''}" onchange="actualizarCruceParada('${ruta.nombreRuta}', ${parada.numeroParada}, this.value)" placeholder="Cruce vial" class="bg-cyber-bg border border-slate-700 rounded px-2 py-1 text-[11px] text-slate-400 focus:outline-none">
-                                <input type="text" value="${parada.municipioParada || ruta.municipio || ''}" onchange="actualizarMunicipioParada('${ruta.nombreRuta}', ${parada.numeroParada}, this.value)" placeholder="Municipio" class="bg-cyber-bg border border-slate-700 rounded px-2 py-1 text-[11px] text-cyber-cyan focus:outline-none">
-                            </div>
-                        </td>
-                        <td class="p-2.5 font-mono">
-                            <input type="text" value="${textoHorarios}" onchange="actualizarHorariosTexto('${ruta.nombreRuta}', ${parada.numeroParada}, this.value)" placeholder="Ej: 06:30 AM / 06:30 PM" class="w-full bg-cyber-bg border border-slate-700 rounded px-2 py-1 text-xs text-cyber-amber focus:outline-none">
-                        </td>
-                        <td class="p-2.5 font-mono">
-                            <input type="text" value="${parada.coordenadasAbordaje || ''}" onchange="actualizarCoordManual('${ruta.nombreRuta}', ${parada.numeroParada}, this.value)" placeholder="Lat, Lng" class="w-full bg-cyber-bg border border-slate-700 rounded px-2 py-1 text-xs text-cyber-cyan focus:outline-none">
-                        </td>
-                        <td class="p-2.5 text-center whitespace-nowrap space-x-1.5">
-                            ${botonAuditar}
-                            <button type="button" onclick="guardarParadaIndividualAFirebase('${ruta.nombreRuta}', ${parada.numeroParada})" title="Guardar parada en Firebase" class="btn-audit-press inline-flex items-center justify-center bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/50 text-emerald-400 px-2.5 py-1.5 rounded-md text-xs font-bold">
-                                <span>💾</span>
-                            </button>
-                        </td>
-                    `;
+                    tr.innerHTML = 
+                        '<td class="p-2.5 whitespace-nowrap">' +
+                        '<div class="flex items-center gap-2">' +
+                        '<span class="w-2.5 h-2.5 rounded-full inline-block shrink-0 shadow-sm" style="background-color: ' + colorRutaActual + ';"></span>' +
+                        '<span class="font-bold text-white">' + ruta.nombreRuta + '</span>' +
+                        '</div>' +
+                        '<div class="text-[10px] font-mono font-bold ml-4.5" style="color: ' + colorRutaActual + ';">Parada #' + parada.numeroParada + '</div>' +
+                        '</td>' +
+                        '<td class="p-2.5">' +
+                        '<input type="text" value="' + (parada.referenciaOriginal || '') + '" onchange="actualizarReferenciaParada(\'' + ruta.nombreRuta + '\', ' + parada.numeroParada + ', this.value)" placeholder="Referencia" class="w-full bg-cyber-bg border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-cyber-accent mb-1">' +
+                        '<div class="grid grid-cols-2 gap-1">' +
+                        '<input type="text" value="' + (parada.cruceVialEnriquecido || '') + '" onchange="actualizarCruceParada(\'' + ruta.nombreRuta + '\', ' + parada.numeroParada + ', this.value)" placeholder="Cruce vial" class="bg-cyber-bg border border-slate-700 rounded px-2 py-1 text-[11px] text-slate-400 focus:outline-none">' +
+                        '<input type="text" value="' + (parada.municipioParada || ruta.municipio || '') + '" onchange="actualizarMunicipioParada(\'' + ruta.nombreRuta + '\', ' + parada.numeroParada + ', this.value)" placeholder="Municipio" class="bg-cyber-bg border border-slate-700 rounded px-2 py-1 text-[11px] text-cyber-cyan focus:outline-none">' +
+                        '</div>' +
+                        '</td>' +
+                        '<td class="p-2.5 font-mono">' +
+                        '<input type="text" value="' + textoHorarios + '" onchange="actualizarHorariosTexto(\'' + ruta.nombreRuta + '\', ' + parada.numeroParada + ', this.value)" placeholder="Ej: 06:30 AM / 06:30 PM" class="w-full bg-cyber-bg border border-slate-700 rounded px-2 py-1 text-xs text-cyber-amber focus:outline-none">' +
+                        '</td>' +
+                        '<td class="p-2.5 font-mono">' +
+                        '<input type="text" value="' + (parada.coordenadasAbordaje || '') + '" onchange="actualizarCoordManual(\'' + ruta.nombreRuta + '\', ' + parada.numeroParada + ', this.value)" placeholder="Lat, Lng" class="w-full bg-cyber-bg border border-slate-700 rounded px-2 py-1 text-xs text-cyber-cyan focus:outline-none">' +
+                        '</td>' +
+                        '<td class="p-2.5 text-center whitespace-nowrap space-x-1.5">' +
+                        botonAuditar +
+                        '<button type="button" onclick="guardarParadaIndividualAFirebase(\'' + ruta.nombreRuta + '\', ' + parada.numeroParada + ')" title="Guardar parada en Firebase" class="btn-audit-press inline-flex items-center justify-center bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/50 text-emerald-400 px-2.5 py-1.5 rounded-md text-xs font-bold">' +
+                        '<span>💾</span>' +
+                        '</button>' +
+                        '</td>';
                     fragment.appendChild(tr);
                 });
             }
@@ -1350,7 +1351,7 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
 
             try {
                 const rutaNorm = normalizarRutaParaInyeccion(ruta);
-                await set(ref(db, `rutas/${rutaNorm.empresaKey}/${rutaNorm.idRuta}`), rutaNorm);
+                await set(ref(db, "rutas/" + rutaNorm.empresaKey + "/" + rutaNorm.idRuta), rutaNorm);
                 
                 for (const p of rutaNorm.paradas) {
                     if (p.coordenadasAbordaje) {
@@ -1358,7 +1359,7 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
                     }
                 }
 
-                alert(`✅ Ruta "${ruta.nombreRuta}" guardada exitosamente en Firebase y Catálogo.`);
+                alert("✅ Ruta \"" + ruta.nombreRuta + "\" guardada exitosamente en Firebase y Catálogo.");
             } catch (err) {
                 alert("Error: " + err.message);
             } finally {
@@ -1376,7 +1377,7 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
             try {
                 for (const ruta of coleccionRutas) {
                     const rutaNorm = normalizarRutaParaInyeccion(ruta);
-                    await set(ref(db, `rutas/${rutaNorm.empresaKey}/${rutaNorm.idRuta}`), rutaNorm);
+                    await set(ref(db, "rutas/" + rutaNorm.empresaKey + "/" + rutaNorm.idRuta), rutaNorm);
 
                     for (const p of rutaNorm.paradas) {
                         if (p.coordenadasAbordaje) {
@@ -1384,7 +1385,7 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
                         }
                     }
                 }
-                alert(`✅ Se inyectaron ${coleccionRutas.length} rutas a Firebase y Catálogo Maestro.`);
+                alert("✅ Se inyectaron " + coleccionRutas.length + " rutas a Firebase y Catálogo Maestro.");
             } catch (err) {
                 alert("Error masivo: " + err.message);
             } finally {
@@ -1397,7 +1398,7 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
             const empresaNombre = document.getElementById("empresaValidacionIA").value.trim();
             if (!empresaNombre) return alert("⚠️ Selecciona una empresa en la lista.");
 
-            const confirmar = confirm(`¿Deseas purgar datos corruptos para "${empresaNombre}" en Firebase?`);
+            const confirmar = confirm("¿Deseas purgar datos corruptos para \"" + empresaNombre + "\" en Firebase?");
             if (!confirmar) return;
 
             const btn = document.getElementById("btnLimpiarServidor");
@@ -1407,7 +1408,7 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
             const empresaKey = sanitizarKey(empresaNombre);
 
             try {
-                const snap = await get(ref(db, `rutas/${empresaKey}`));
+                const snap = await get(ref(db, "rutas/" + empresaKey));
                 if (!snap.exists()) return alert("No hay rutas registradas para esta empresa.");
 
                 const dataRutas = snap.val();
@@ -1422,7 +1423,7 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
                             if (partes.length === 2) {
                                 const lat = parseFloat(partes[0].trim());
                                 const lng = parseFloat(partes[1].trim());
-                                if (!isNaN(lat) && !isNaN(lng)) coordsValidadas = `${lat}, ${lng}`;
+                                if (!isNaN(lat) && !isNaN(lng)) coordsValidadas = lat + ", " + lng;
                             }
                         }
 
@@ -1454,7 +1455,7 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
                     };
                 });
 
-                await set(ref(db, `rutas/${empresaKey}`), rutasSaneadas);
+                await set(ref(db, "rutas/" + empresaKey), rutasSaneadas);
                 alert("✅ Servidor purgado exitosamente.");
                 await importarRutasDesdeFirebase();
             } catch (err) {
@@ -1497,7 +1498,7 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
         const fileInput = document.getElementById("fileInput");
         fileInput.addEventListener("change", (e) => {
             if (e.target.files.length) {
-                document.getElementById("fileFeedback").innerHTML = Array.from(e.target.files).map(f => (`<div>📄 ${f.name}</div>`)).join('');
+                document.getElementById("fileFeedback").innerHTML = Array.from(e.target.files).map(f => ("<div>📄 " + f.name + "</div>")).join('');
                 document.getElementById("fileFeedback").classList.remove("hidden");
             }
         });
