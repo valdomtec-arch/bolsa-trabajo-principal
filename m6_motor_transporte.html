@@ -107,9 +107,9 @@
         <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-cyber-border pb-5">
             <div>
                 <h1 class="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
-                    <span class="text-cyber-accent">⚡</span> Motor Logístico de Transporte <span class="text-xs bg-cyber-accent/20 text-cyber-accent px-2 py-0.5 rounded border border-cyber-accent/40 font-mono">v9.0 Ultra-Batch</span>
+                    <span class="text-cyber-accent">⚡</span> Motor Logístico de Transporte <span class="text-xs bg-cyber-accent/20 text-cyber-accent px-2 py-0.5 rounded border border-cyber-accent/40 font-mono">v9.5 On-Demand</span>
                 </h1>
-                <p class="text-xs text-slate-400 mt-1">Extracción masiva multi-archivo, deduplicación en memoria, ruteo Lazy OSRM y geocatálogo maestro.</p>
+                <p class="text-xs text-slate-400 mt-1">Extracción masiva multi-archivo, deduplicación en memoria, trazado vial OSRM opcional y geocatálogo maestro.</p>
             </div>
             <div class="flex items-center gap-2 flex-wrap">
                 <a href="m6_extractor_coordenadas.html" class="bg-cyber-cyan/20 hover:bg-cyber-cyan/30 text-cyber-cyan border border-cyber-cyan/40 font-mono text-xs px-3.5 py-2 rounded-xl flex items-center gap-2 transition-all shadow-sm">
@@ -247,6 +247,11 @@
                     </div>
 
                     <div class="flex flex-wrap items-center gap-2">
+                        <!-- BOTÓN PARA TRAZAR ASFALTO O LIMPIAR A DEMANDA -->
+                        <button id="btnTrazarAsfalto" onclick="toggleTrazadoAsfalto()" class="bg-cyber-amber/20 hover:bg-cyber-amber/40 text-cyber-amber border border-cyber-amber/40 px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm">
+                            <span>🛣️</span> <span id="lblBtnTrazarAsfalto">Trazar Asfalto (OSRM)</span>
+                        </button>
+
                         <button id="btnPaso2RutaActual" onclick="geolocalizarRutaSeleccionada()" class="bg-cyber-purple/20 hover:bg-cyber-purple/40 text-cyber-purple border border-cyber-purple/40 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all">
                             🗺️ Geocodificar Bloque
                         </button>
@@ -319,6 +324,7 @@
         let polylineGroup = null;
         let pinBuscadorManual = null;
         let diccionarioMarcadores = {};
+        let asfaltoTrazadoActivo = false;
 
         // MAPAS DE MEMORIA Y CACHÉ LOCAL
         const cacheSnappingVial = new Map();
@@ -326,7 +332,7 @@
         const cachePuntosCatalogoLocal = new Map();
         const cacheDeduplicacionSesion = new Map();
 
-        // EXPOSICIÓN GLOBAL EXPLICITA
+        // EXPOSICIÓN GLOBAL
         window.ejecutarPaso1Extraccion = ejecutarPaso1Extraccion;
         window.ejecutarPaso2GeolocalizarTodas = ejecutarPaso2GeolocalizarTodas;
         window.geolocalizarRutaSeleccionada = geolocalizarRutaSeleccionada;
@@ -346,6 +352,7 @@
         window.guardarParadaIndividualAFirebase = guardarParadaIndividualAFirebase;
         window.purgarYSanitizarFirebase = purgarYSanitizarFirebase;
         window.ejecutarSanitizacionMotor = ejecutarSanitizacionMotor;
+        window.toggleTrazadoAsfalto = toggleTrazadoAsfalto;
 
         document.addEventListener("DOMContentLoaded", async () => {
             inicializarMapaLeafletMotor();
@@ -500,6 +507,21 @@
                             coordenadasAbordaje: p.coordenadasAbordaje || "",
                             estadoGeocodificacion: p.coordenadasAbordaje ? "Exacta" : "Sin Geocodificar",
                             horarios: p.horarios || []
+                        }));
+                    } else if (r.puntosAbordaje) {
+                        const puntosArr = r.puntosAbordaje.split(",").map(p => p.trim());
+                        paradasNormalizadas = puntosArr.map((pto, idx) => ({
+                            numeroParada: idx + 1,
+                            referenciaOriginal: pto,
+                            cruceVialEnriquecido: pto,
+                            callePrincipal: pto,
+                            cruceInterseccion: "",
+                            referenciaComercio: "",
+                            coloniaFraccionamiento: "",
+                            municipioParada: r.municipio || "General",
+                            coordenadasAbordaje: (idx === 0) ? (r.coordenadasAbordaje || "") : "",
+                            estadoGeocodificacion: (idx === 0 && r.coordenadasAbordaje) ? "Exacta" : "Sin Geocodificar",
+                            horarios: []
                         }));
                     }
 
@@ -720,7 +742,6 @@
             return { tipo: 'media', payload: { inlineData: { mimeType, data: parts[1] } } };
         }
 
-        // EXTRACCIÓN CON FALLBACK Y PROTECCIÓN DE TOKENS
         async function procesarArchivoPaso1(file, apiKey, empresa, estadoDefecto) {
             const contenido = await prepararContenidoArchivo(file);
             
@@ -799,17 +820,32 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
             return fallback;
         }
 
+        // MOTOR OSRM CON MANEJO NUMÉRICO ROBUSTO
         async function calcularRutaVialOSRM(coordenadasLatLng, claveCache = null) {
             if (!coordenadasLatLng || coordenadasLatLng.length < 2) return null;
-            if (claveCache && cacheRutasOSRM.has(claveCache)) return cacheRutasOSRM.get(claveCache);
+
+            const puntosValidados = coordenadasLatLng
+                .map(pt => [parseFloat(pt[0]), parseFloat(pt[1])])
+                .filter(pt => !isNaN(pt[0]) && !isNaN(pt[1]));
+
+            if (puntosValidados.length < 2) return null;
+
+            if (claveCache && cacheRutasOSRM.has(claveCache)) {
+                const enCache = cacheRutasOSRM.get(claveCache);
+                if (enCache?.puntosPolilinea?.length > 0) return enCache;
+            }
 
             let distanciaTotalMetros = 0;
             let duracionTotalSegundos = 0;
             const todosPuntosGeoJSON = [];
 
             const ajustados = [];
-            for (const pt of coordenadasLatLng) {
-                ajustados.push(await proyectarPuntoAlAsfalto(pt[0], pt[1]));
+            for (const pt of puntosValidados) {
+                try {
+                    ajustados.push(await proyectarPuntoAlAsfalto(pt[0], pt[1]));
+                } catch (e) {
+                    ajustados.push(pt);
+                }
             }
 
             for (let i = 0; i < ajustados.length - 1; i++) {
@@ -824,15 +860,17 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
                         if (data.code === 'Ok' && data.routes?.length > 0) {
                             distanciaTotalMetros += data.routes[0].distance;
                             duracionTotalSegundos += data.routes[0].duration;
-                            data.routes[0].geometry.coordinates.forEach(pt => todosPuntosGeoJSON.push([pt[1], pt[0]]));
+                            data.routes[0].geometry.coordinates.forEach(c => todosPuntosGeoJSON.push([c[1], c[0]]));
                         } else {
                             todosPuntosGeoJSON.push(p1, p2);
                         }
+                    } else {
+                        todosPuntosGeoJSON.push(p1, p2);
                     }
                 } catch (e) {
                     todosPuntosGeoJSON.push(p1, p2);
                 }
-                await new Promise(r => setTimeout(r, 15));
+                await new Promise(r => setTimeout(r, 20));
             }
 
             const resultado = {
@@ -841,8 +879,78 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
                 puntosPolilinea: todosPuntosGeoJSON
             };
 
-            if (claveCache) cacheRutasOSRM.set(claveCache, resultado);
+            if (claveCache && todosPuntosGeoJSON.length > 0) {
+                cacheRutasOSRM.set(claveCache, resultado);
+            }
+
             return resultado;
+        }
+
+        // CONTROLADOR DE TRAZADO MANUAL OPCIONAL (BOTÓN)
+        async function toggleTrazadoAsfalto() {
+            const btn = document.getElementById("btnTrazarAsfalto");
+            const lbl = document.getElementById("lblBtnTrazarAsfalto");
+
+            if (asfaltoTrazadoActivo) {
+                polylineGroup.clearLayers();
+                asfaltoTrazadoActivo = false;
+                if (btn) btn.className = "bg-cyber-amber/20 hover:bg-cyber-amber/40 text-cyber-amber border border-cyber-amber/40 px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm";
+                if (lbl) lbl.innerText = "Trazar Asfalto (OSRM)";
+                document.getElementById("lblDistanciaKm").innerText = "0.0";
+                document.getElementById("lblTiempoMin").innerText = "0";
+                return;
+            }
+
+            const rutasATrazar = rutaSeleccionadaFiltro === "TODAS" 
+                ? coleccionRutas 
+                : coleccionRutas.filter(r => r.nombreRuta === rutaSeleccionadaFiltro);
+
+            if (rutasATrazar.length === 0) return alert("⚠️ No hay rutas cargadas para trazar.");
+
+            btn.disabled = true;
+            if (lbl) lbl.innerText = "Calculando OSRM...";
+            polylineGroup.clearLayers();
+
+            let distanciaTotalAcumulada = 0;
+
+            for (let rIdx = 0; rIdx < rutasATrazar.length; rIdx++) {
+                const ruta = rutasATrazar[rIdx];
+                const indiceColorGlobal = coleccionRutas.findIndex(cr => cr.nombreRuta === ruta.nombreRuta);
+                const colorRutaActual = obtenerColorPorRutaIndex(indiceColorGlobal >= 0 ? indiceColorGlobal : rIdx);
+
+                const puntosValidos = ruta.paradas
+                    .map(p => (p.coordenadasAbordaje || "").split(","))
+                    .filter(coords => coords.length === 2 && !isNaN(parseFloat(coords[0])) && !isNaN(parseFloat(coords[1])))
+                    .map(coords => [parseFloat(coords[0]), parseFloat(coords[1])]);
+
+                if (puntosValidos.length >= 2) {
+                    const claveCache = `${ruta.empresaKey || 'emp'}_${ruta.idRuta || ruta.nombreRuta}`;
+                    const routingRes = await calcularRutaVialOSRM(puntosValidos, claveCache);
+
+                    if (routingRes && routingRes.puntosPolilinea?.length > 0) {
+                        ruta.distanciaTotalKm = routingRes.distanciaKm;
+                        ruta.tiempoEstimadoMin = routingRes.duracionMin;
+                        distanciaTotalAcumulada += parseFloat(routingRes.distanciaKm || 0);
+
+                        L.polyline(routingRes.puntosPolilinea, { 
+                            color: '#0f172a', weight: 7, opacity: 0.85, lineCap: 'round', lineJoin: 'round' 
+                        }).addTo(polylineGroup);
+
+                        L.polyline(routingRes.puntosPolilinea, { 
+                            color: colorRutaActual, weight: 4.5, opacity: 1, lineCap: 'round', lineJoin: 'round', smoothFactor: 1 
+                        }).addTo(polylineGroup);
+
+                        document.getElementById("lblDistanciaKm").innerText = routingRes.distanciaKm;
+                        document.getElementById("lblTiempoMin").innerText = routingRes.duracionMin;
+                    }
+                }
+            }
+
+            document.getElementById("badgeDistanciaTotal").innerText = `${distanciaTotalAcumulada.toFixed(1)} Km OSRM`;
+            asfaltoTrazadoActivo = true;
+            btn.disabled = false;
+            if (btn) btn.className = "bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 border border-rose-500/40 px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm";
+            if (lbl) lbl.innerText = "Limpiar Asfalto";
         }
 
         function limpiarRuidoTexto(str) {
@@ -850,7 +958,6 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
             return str.replace(/\b(parab[uú]s|parada|frente a|enfrente|fte|esq|esquina|cruce con|puente|retorno|puerta|port[oó]n|tienda|km)\b/gi, ' ').replace(/[#\-\(\)\/\\]/g, ' ').replace(/\s+/g, ' ').trim();
         }
 
-        // GEOCODIFICACIÓN CON DEDUPLICACIÓN EN MEMORIA Y CERO PETICIONES REDUNDANTES
         async function geocodificarParada(parada, municipioGlobal, estado) {
             if (parada.coordenadasAbordaje && parada.coordenadasAbordaje.includes(",")) {
                 return { coords: parada.coordenadasAbordaje.trim(), origen: "Exacta" };
@@ -861,12 +968,10 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
             const cPrincipal = parada.callePrincipal || "";
             const claveDeduplicacion = `${sanitizarKey(refCruda || cPrincipal)}_${sanitizarKey(munActual)}`;
 
-            // 1. Verificar si ya se resolvió en este lote
             if (cacheDeduplicacionSesion.has(claveDeduplicacion)) {
                 return { coords: cacheDeduplicacionSesion.get(claveDeduplicacion), origen: "Deduplicación Lote (0ms)" };
             }
 
-            // 2. Verificar Catálogo Maestro en Firebase
             const estadoLimpio = sanitizarKey(estado || "nuevo_leon");
             const claveCat = generarClavePunto(refCruda || cPrincipal, munActual);
             const claveLocal = `${estadoLimpio}_${claveCat}`;
@@ -887,7 +992,6 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
                 }
             } catch (e) {}
 
-            // 3. Consulta externa Nominatim con delay de cortesía
             const cleanStreet = limpiarRuidoTexto(cPrincipal);
             if (cleanStreet) {
                 const url = `[https://nominatim.openstreetmap.org/search?format=json&street=$](https://nominatim.openstreetmap.org/search?format=json&street=$){encodeURIComponent(cleanStreet)}&city=${encodeURIComponent(munActual)}&state=${encodeURIComponent(estado)}&country=Mexico&limit=1`;
@@ -908,7 +1012,6 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
             return { coords: "", origen: "Sin Geocodificar" };
         }
 
-        // EXTRACCIÓN MASIVA MULTI-ARCHIVO
         async function ejecutarPaso1Extraccion() {
             const apiKey = document.getElementById("apiKeyGemini").value.trim();
             const empresa = document.getElementById("empresaValidacionIA").value.trim();
@@ -955,7 +1058,6 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
             }
         }
 
-        // GEOCODIFICACIÓN MASIVA DEDUPLICADA
         async function ejecutarPaso2GeolocalizarTodas() {
             if (coleccionRutas.length === 0) return alert("⚠️ Carga o extrae rutas primero.");
             const btn = document.getElementById("btnPaso2GeolocalizarTodos");
@@ -1120,13 +1222,20 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
             }, 450);
         }
 
-        // RENDERIZADO VISUAL OPTIMIZADO CON LAZY OSRM
+        // RENDERIZADO VISUAL INSTANTÁNEO (SIN BLOQUEOS DE RED)
         async function renderizarTablaYMapa() {
             const tbody = document.getElementById("tablaResultadosPreCommit");
             tbody.innerHTML = "";
             markersGroup.clearLayers();
             polylineGroup.clearLayers();
             diccionarioMarcadores = {};
+
+            // Reiniciar estado del botón de asfalto
+            asfaltoTrazadoActivo = false;
+            const btnAsfalto = document.getElementById("btnTrazarAsfalto");
+            const lblAsfalto = document.getElementById("lblBtnTrazarAsfalto");
+            if (btnAsfalto) btnAsfalto.className = "bg-cyber-amber/20 hover:bg-cyber-amber/40 text-cyber-amber border border-cyber-amber/40 px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm";
+            if (lblAsfalto) lblAsfalto.innerText = "Trazar Asfalto (OSRM)";
 
             const rutasFiltradas = rutaSeleccionadaFiltro === "TODAS" 
                 ? coleccionRutas 
@@ -1140,15 +1249,12 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
             }
 
             const latLngsGlobales = [];
-            let distanciaTotalAcumulada = 0;
-            const esVistaGeneral = (rutaSeleccionadaFiltro === "TODAS");
             const fragment = document.createDocumentFragment();
 
             for (let rIdx = 0; rIdx < rutasFiltradas.length; rIdx++) {
                 const ruta = rutasFiltradas[rIdx];
                 const indiceColorGlobal = coleccionRutas.findIndex(cr => cr.nombreRuta === ruta.nombreRuta);
                 const colorRutaActual = obtenerColorPorRutaIndex(indiceColorGlobal >= 0 ? indiceColorGlobal : rIdx);
-                const puntosRuta = [];
 
                 ruta.paradas.forEach((parada) => {
                     const coords = (parada.coordenadasAbordaje || "").split(",");
@@ -1158,7 +1264,6 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
                     const idCompuesta = `${ruta.nombreRuta}_${parada.numeroParada}`;
 
                     if (valida) {
-                        puntosRuta.push([lat, lng]);
                         latLngsGlobales.push([lat, lng]);
 
                         const marker = L.marker([lat, lng], {
@@ -1224,26 +1329,10 @@ Devuelve EXCLUSIVAMENTE un JSON con este formato exacto:
                     `;
                     fragment.appendChild(tr);
                 });
-
-                // Solo trazar asfalto para la ruta activa en pantalla
-                if (!esVistaGeneral && puntosRuta.length >= 2) {
-                    const routingRes = await calcularRutaVialOSRM(puntosRuta, `${ruta.empresaKey}_${ruta.idRuta}`);
-                    if (routingRes && routingRes.puntosPolilinea?.length > 0) {
-                        ruta.distanciaTotalKm = routingRes.distanciaKm;
-                        ruta.tiempoEstimadoMin = routingRes.duracionMin;
-                        distanciaTotalAcumulada += parseFloat(routingRes.distanciaKm);
-
-                        L.polyline(routingRes.puntosPolilinea, { color: '#020617', weight: 7, opacity: 0.85, lineCap: 'round' }).addTo(polylineGroup);
-                        L.polyline(routingRes.puntosPolilinea, { color: colorRutaActual, weight: 4.5, opacity: 1, lineCap: 'round', smoothFactor: 1 }).addTo(polylineGroup);
-
-                        document.getElementById("lblDistanciaKm").innerText = routingRes.distanciaKm;
-                        document.getElementById("lblTiempoMin").innerText = routingRes.duracionMin;
-                    }
-                }
             }
 
             tbody.appendChild(fragment);
-            document.getElementById("badgeDistanciaTotal").innerText = distanciaTotalAcumulada > 0 ? `${distanciaTotalAcumulada.toFixed(1)} Km OSRM` : "Bajo Demanda";
+            document.getElementById("badgeDistanciaTotal").innerText = "Bajo Demanda";
             document.getElementById("jsonOutputViewer").value = JSON.stringify(coleccionRutas, null, 2);
 
             if (latLngsGlobales.length > 0) mapObj.fitBounds(latLngsGlobales, { padding: [35, 35] });
