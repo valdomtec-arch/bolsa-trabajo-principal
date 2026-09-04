@@ -47,13 +47,13 @@
         ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: #ea580c; }
         
-        /* Contenedor del mapa: fondo neutro y nítido */
+        /* Contenedor del mapa: fondo claro, limpio y neutral */
         .leaflet-container { 
-            background-color: #e5e7eb !important; 
+            background-color: #f1f5f9 !important; 
             font-family: inherit;
         }
 
-        /* Popups con diseño elegante de alto contraste */
+        /* Popups de alto impacto visual */
         .leaflet-popup-content-wrapper, .leaflet-popup-tip {
             background: rgba(18, 24, 36, 0.95) !important;
             backdrop-filter: blur(8px);
@@ -63,7 +63,7 @@
             border-radius: 0.75rem;
         }
 
-        /* Marcadores en forma de gota/lágrima GPS de alto impacto visual */
+        /* Marcadores en forma de gota/lágrima GPS */
         .gps-pin-marker {
             position: relative;
             cursor: pointer;
@@ -206,14 +206,14 @@
             </div>
         </div>
 
-        <!-- SECCIÓN DE BUSCADOR GEOGRÁFICO Y MAPA LEAFLET EN MODO CLARO -->
+        <!-- SECCIÓN DE BUSCADOR GEOGRÁFICO Y MAPA LEAFLET CLARO -->
         <div class="bg-cyber-card rounded-xl border border-cyber-border p-4 sm:p-5 shadow-xl space-y-4">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-cyber-border pb-3">
                 <div>
                     <h2 class="text-base sm:text-lg font-bold text-white flex items-center gap-2">
                         <i class="fas fa-map-location-dot text-cyber-accent"></i> Visualizador Cartográfico Claro & Triangulación Vial
                     </h2>
-                    <p class="text-slate-400 text-xs mt-0.5">Mapa detallado de calles, avenidas y áreas públicas con trazado sobre asfalto (OSM/OSRM).</p>
+                    <p class="text-slate-400 text-xs mt-0.5">Mapa detallado de avenidas, parques y calles con trazado continuo sobre el asfalto (OSM/OSRM).</p>
                 </div>
                 <div class="flex items-center gap-2">
                     <button onclick="verTodasLasRutasEnMapa()" class="bg-cyber-bg hover:bg-slate-800 text-xs text-cyber-cyan border border-cyber-border px-3 py-1.5 rounded-lg font-mono transition-all flex items-center gap-1.5">
@@ -505,33 +505,9 @@
 
         const cacheSnappingVial = new Map();
 
-        window.sincronizarInicialBajoDemanda = sincronizarInicialBajoDemanda;
-        window.alSeleccionarEmpresaExplorador = alSeleccionarEmpresaExplorador;
-        window.verTodasLasRutasEnMapa = verTodasLasRutasEnMapa;
-        window.obtenerUbicacionGPS = obtenerUbicacionGPS;
-        window.ejecutarTriangulacionGeografica = ejecutarTriangulacionGeografica;
-        window.renderizarCatalogoRutasGranular = renderizarCatalogoRutasGranular;
-        window.agregarFilaParadaFormulario = agregarFilaParadaFormulario;
-        window.removerFilaParadaFormulario = removerFilaParadaFormulario;
-        window.guardarRutaCompletaForm = guardarRutaCompletaForm;
-        window.cargarRutaEnFormulario = cargarRutaEnFormulario;
-        window.cancelarEdicion = cancelarEdicion;
-        window.eliminarRuta = eliminarRuta;
-        window.eliminarRutasPorEmpresaSeleccionada = eliminarRutasPorEmpresaSeleccionada;
-        window.abrirModalEdicionParada = abrirModalEdicionParada;
-        window.cerrarModalEdicionParada = cerrarModalEdicionParada;
-        window.guardarParadaIndividualDesdeModal = guardarParadaIndividualDesdeModal;
-        window.centrarParadaEnMapa = centrarParadaEnMapa;
-        window.abrirModalAcusePorId = abrirModalAcusePorId;
-        window.abrirModalAcuseDirecto = abrirModalAcuseDirecto;
-        window.cerrarModalAcuse = cerrarModalAcuse;
-        window.compartirWhatsAppPorId = compartirWhatsAppPorId;
-
-        document.addEventListener("DOMContentLoaded", () => {
-            inicializarMapaLeaflet();
-            sincronizarInicialBajoDemanda();
-        });
-
+        // -------------------------------------------------------------
+        // DECLARACIONES DE FUNCIONES BASE
+        // -------------------------------------------------------------
         function sanitizarKey(str) {
             return (str || "general").toLowerCase().trim()
                 .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
@@ -544,6 +520,22 @@
             if (!str || typeof str !== "string") return true;
             const limpio = str.trim();
             return limpio.startsWith("-") || /^[a-z0-9_]{16,}$/i.test(limpio);
+        }
+
+        function tieneCoordenadasValidas(coords) {
+            if (!coords || typeof coords !== "string") return false;
+            const p = coords.split(",");
+            return p.length === 2 && !isNaN(parseFloat(p[0])) && !isNaN(parseFloat(p[1]));
+        }
+
+        function calcularDistanciaKm(lat1, lon1, lat2, lon2) {
+            const R = 6371;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
         }
 
         function crearIconoLagrimaGPS(numero, colorHex) {
@@ -573,7 +565,7 @@
                     attributionControl: false
                 }).setView([25.6866, -100.3161], 11);
 
-                // MAPA CLARO, NÍTIDO Y TOTALMENTE PÚBLICO (SIN MARCAS DE AGUA)
+                // MAPA CLARO NATURAL TOTALMENTE LIBRE DE MARCAS DE AGUA
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     maxZoom: 19,
                     attribution: '© OpenStreetMap'
@@ -582,6 +574,11 @@
                 markersLayerGroup = L.featureGroup().addTo(leafletMap);
                 polylineLayerGroup = L.featureGroup().addTo(leafletMap);
             }
+        }
+
+        function limpiarCapasMapa() {
+            if (markersLayerGroup) markersLayerGroup.clearLayers();
+            if (polylineLayerGroup) polylineLayerGroup.clearLayers();
         }
 
         async function proyectarPuntoAlAsfalto(lat, lng) {
@@ -660,152 +657,121 @@
             };
         }
 
-        async function sincronizarInicialBajoDemanda() {
-            const badge = document.getElementById("badgeEstadoServer");
-            badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span> Sincronizando...';
+        // -------------------------------------------------------------
+        // RENDERIZADO GRANULAR DE RUTAS (FUNCIÓN GLOBAL)
+        // -------------------------------------------------------------
+        function renderizarCatalogoRutasGranular() {
+            const contenedor = document.getElementById("contenedorRutasAcordeon");
+            const selectFiltro = document.getElementById("filtroEmpresaTabla");
+            if (!contenedor) return;
 
-            try {
-                const snapEmpresas = await get(ref(db, "empresas"));
-                const snapRutas = await get(ref(db, "rutas"));
+            const filtro = selectFiltro ? selectFiltro.value : "TODAS";
+            contenedor.innerHTML = "";
 
-                const dataEmp = snapEmpresas.exists() ? snapEmpresas.val() : {};
-                diccionarioEmpresas = {};
-                listaEmpresasNombres = [];
+            const rutasFiltradas = cacheTodasLasRutas.filter(r => {
+                if (filtro === "TODAS") return true;
+                return r.empresaNombre === filtro || r.empresaKey === sanitizarKey(filtro);
+            });
 
-                Object.entries(dataEmp).forEach(([key, emp]) => {
-                    let nombreComercial = typeof emp === "object" && emp !== null ? (emp.nombreComercial || emp.nombre || emp.razonSocial || "") : emp;
-                    if (nombreComercial && !esIdTecnico(nombreComercial)) {
-                        nombreComercial = String(nombreComercial).replace(/_/g, " ").trim();
-                        diccionarioEmpresas[sanitizarKey(nombreComercial)] = nombreComercial;
-                        diccionarioEmpresas[key] = nombreComercial;
-                        if (!listaEmpresasNombres.includes(nombreComercial)) listaEmpresasNombres.push(nombreComercial);
-                    }
+            const lblConteo = document.getElementById("txtTotalRutasEnLista");
+            if (lblConteo) lblConteo.innerText = `${rutasFiltradas.length} rutas registradas`;
+
+            if (rutasFiltradas.length === 0) {
+                contenedor.innerHTML = `<div class="p-6 text-center text-slate-500 font-mono text-xs">No hay rutas registradas bajo este filtro.</div>`;
+                return;
+            }
+
+            rutasFiltradas.forEach(r => {
+                const totalParadas = r.paradas.length;
+                const paradasConGps = r.paradas.filter(p => tieneCoordenadasValidas(p.coordenadasAbordaje)).length;
+
+                let filasParadasHtml = "";
+                r.paradas.forEach((p, idx) => {
+                    const coordsValidas = tieneCoordenadasValidas(p.coordenadasAbordaje);
+                    const horariosTxt = (p.horarios || []).map(h => h.formatoCivil).join(" / ") || "Sin horario";
+
+                    filasParadasHtml += `
+                        <tr class="hover:bg-slate-800/40 border-b border-cyber-border/40 text-slate-300">
+                            <td class="p-2 font-mono text-cyber-purple font-bold">#${p.numeroParada}</td>
+                            <td class="p-2">
+                                <div class="font-semibold text-white">${p.referenciaOriginal}</div>
+                                <div class="text-[10px] text-slate-400">${p.cruceVialEnriquecido || ''}</div>
+                            </td>
+                            <td class="p-2 font-mono text-amber-400 text-[11px]">${horariosTxt}</td>
+                            <td class="p-2 font-mono text-[11px]">
+                                ${coordsValidas 
+                                    ? `<span class="text-cyber-cyan">${p.coordenadasAbordaje}</span>` 
+                                    : `<span class="text-rose-400">Sin GPS</span>`}
+                            </td>
+                            <td class="p-2 text-center whitespace-nowrap space-x-1">
+                                ${coordsValidas ? `
+                                    <button onclick="centrarParadaEnMapa('${p.coordenadasAbordaje}', '${r.nombreRuta}', '${p.referenciaOriginal}')" title="Centrar en Mapa" class="bg-cyber-cyan/20 hover:bg-cyber-cyan/40 text-cyber-cyan px-2 py-1 rounded text-[10px]">
+                                        📍
+                                    </button>` : ''}
+                                <button onclick="abrirModalEdicionParada('${r.empresaKey}', '${r.idRuta}', ${idx})" title="Editar parada" class="bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 px-2 py-1 rounded text-[10px]">
+                                    ✏️
+                                </button>
+                                <button onclick="abrirModalAcuseDirecto('${r.nombreRuta}', '${r.empresaNombre}', '${horariosTxt}', '${p.referenciaOriginal}', '${p.coordenadasAbordaje}')" title="Acuse QR de Parada" class="bg-orange-600/20 hover:bg-orange-600 text-orange-400 hover:text-white px-2 py-1 rounded text-[10px]">
+                                    <i class="fas fa-qrcode"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
                 });
 
-                listaEmpresasNombres.sort((a, b) => a.localeCompare(b));
-                poblarSelectsEmpresas();
+                const divRuta = document.createElement("div");
+                divRuta.className = "bg-cyber-bg border border-cyber-border rounded-xl overflow-hidden";
+                divRuta.innerHTML = `
+                    <div class="p-3 bg-cyber-card flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-cyber-border">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <h3 class="font-bold text-white text-sm">${r.nombreRuta}</h3>
+                                <span class="bg-cyber-purple/10 text-cyber-purple border border-cyber-purple/20 text-[10px] px-2 py-0.5 rounded font-mono font-bold">${r.empresaNombre}</span>
+                            </div>
+                            <span class="text-[11px] text-cyber-cyan font-mono">📍 ${r.estadoMunicipio} • ${totalParadas} Paradas (${paradasConGps} con GPS)</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button onclick="cargarRutaEnFormulario('${r.empresaKey}', '${r.idRuta}')" class="bg-cyber-cyan/20 hover:bg-cyber-cyan/40 text-cyber-cyan text-xs px-2.5 py-1 rounded font-bold transition">
+                                <i class="fas fa-pen me-1"></i>Editar Toda
+                            </button>
+                            <button onclick="eliminarRuta('${r.empresaKey}', '${r.idRuta}')" class="bg-rose-500/20 hover:bg-rose-500/40 text-rose-400 text-xs px-2.5 py-1 rounded font-bold transition">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
 
-                const dataRutas = snapRutas.exists() ? snapRutas.val() : {};
-                aplanarRutasParaCache(dataRutas);
-
-                actualizarMetricasGerenciales();
-                renderizarCatalogoRutasGranular();
-                alSeleccionarEmpresaExplorador();
-
-                badge.className = "bg-emerald-500/10 text-emerald-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-emerald-500/20 flex items-center gap-1.5";
-                badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Conectado (Universal Sync)';
-
-            } catch (error) {
-                console.error("Error sincronizando:", error);
-                badge.className = "bg-red-500/10 text-red-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-red-500/20 flex items-center gap-1.5";
-                badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-400"></span> Error de sincronización';
-            }
-        }
-
-        function aplanarRutasParaCache(rutasNodo) {
-            cacheTodasLasRutas = [];
-            Object.entries(rutasNodo).forEach(([empresaKey, rutasEmpresa]) => {
-                if (typeof rutasEmpresa === 'object' && rutasEmpresa) {
-                    Object.entries(rutasEmpresa).forEach(([idRuta, r]) => {
-                        let nombreEmpresa = diccionarioEmpresas[empresaKey] || diccionarioEmpresas[sanitizarKey(r.empresaDestino)] || r.empresaDestino || "";
-                        if (esIdTecnico(nombreEmpresa)) {
-                            nombreEmpresa = empresaKey.replace(/_/g, ' ').toUpperCase();
-                        }
-
-                        let paradasNormalizadas = [];
-                        if (Array.isArray(r.paradas) && r.paradas.length > 0) {
-                            paradasNormalizadas = r.paradas.map((p, idx) => ({
-                                numeroParada: p.numeroParada || (idx + 1),
-                                referenciaOriginal: p.referenciaOriginal || p.nombre || "",
-                                cruceVialEnriquecido: p.cruceVialEnriquecido || "",
-                                coordenadasAbordaje: p.coordenadasAbordaje || "",
-                                horarios: p.horarios || []
-                            }));
-                        } else if (r.puntosAbordaje) {
-                            const puntos = r.puntosAbordaje.split(",").map(x => x.trim()).filter(Boolean);
-                            paradasNormalizadas = puntos.map((p, idx) => ({
-                                numeroParada: idx + 1,
-                                referenciaOriginal: p,
-                                cruceVialEnriquecido: p,
-                                coordenadasAbordaje: idx === 0 ? (r.coordenadasAbordaje || "") : "",
-                                horarios: []
-                            }));
-                        }
-
-                        cacheTodasLasRutas.push({
-                            idRuta: idRuta,
-                            empresaKey: empresaKey,
-                            empresaNombre: nombreEmpresa,
-                            nombreRuta: r.nombreRuta || idRuta,
-                            estadoMunicipio: r.estadoMunicipio || "General, Nuevo León",
-                            distanciaTotalKm: r.distanciaTotalKm || "0.0",
-                            tiempoEstimadoMin: r.tiempoEstimadoMin || 0,
-                            paradas: paradasNormalizadas
-                        });
-                    });
-                }
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead class="bg-slate-900/80 border-b border-cyber-border text-slate-400">
+                                <tr>
+                                    <th class="p-2 w-10">#</th>
+                                    <th class="p-2">Referencia / Cruce</th>
+                                    <th class="p-2">Horarios de Paso</th>
+                                    <th class="p-2">GPS</th>
+                                    <th class="p-2 text-center w-28">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-cyber-border/30 font-sans">
+                                ${filasParadasHtml || '<tr><td colspan="5" class="p-3 text-center text-slate-500">Sin paradas definidas.</td></tr>'}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+                contenedor.appendChild(divRuta);
             });
         }
 
-        function poblarSelectsEmpresas() {
-            const selectExplorador = document.getElementById("selectEmpresaExplorador");
-            const selectForm = document.getElementById("empresaDestino");
-            const selectFiltro = document.getElementById("filtroEmpresaTabla");
-
-            selectExplorador.innerHTML = '<option value="">-- Todas las Empresas --</option>';
-            selectForm.innerHTML = '<option value="">-- Selecciona Empresa --</option>';
-            selectFiltro.innerHTML = '<option value="TODAS">-- Todas las Empresas --</option>';
-
-            listaEmpresasNombres.forEach(nombre => {
-                selectExplorador.innerHTML += `<option value="${nombre}">${nombre}</option>`;
-                selectForm.innerHTML += `<option value="${nombre}">${nombre}</option>`;
-                selectFiltro.innerHTML += `<option value="${nombre}">${nombre}</option>`;
-            });
-        }
-
-        function actualizarMetricasGerenciales() {
-            const totalEmpresas = listaEmpresasNombres.length;
-            const empresasConRutaSet = new Set();
-            let totalRutasConCoords = 0;
-
-            cacheTodasLasRutas.forEach(r => {
-                if (r.empresaNombre) empresasConRutaSet.add(r.empresaNombre);
-                if (r.paradas && r.paradas.some(p => tieneCoordenadasValidas(p.coordenadasAbordaje))) {
-                    totalRutasConCoords++;
-                }
-            });
-
-            const cantConRuta = empresasConRutaSet.size;
-            const cantSinRuta = Math.max(0, totalEmpresas - cantConRuta);
-            const porcentajeCobertura = totalEmpresas > 0 ? Math.round((cantConRuta / totalEmpresas) * 100) : 0;
-            const totalRutas = cacheTodasLasRutas.length;
-            const porcentajeCoords = totalRutas > 0 ? Math.round((totalRutasConCoords / totalRutas) * 100) : 0;
-
-            document.getElementById("txtTotalEmpresas").innerText = totalEmpresas;
-            document.getElementById("txtEmpresasConRuta").innerText = `${cantConRuta} Con Ruta`;
-            document.getElementById("txtEmpresasSinRuta").innerText = `${cantSinRuta} Sin Ruta`;
-            document.getElementById("txtPorcentajeCobertura").innerText = `${porcentajeCobertura}%`;
-            document.getElementById("txtCalidadCoords").innerText = `${porcentajeCoords}%`;
-            document.getElementById("txtDetalleCoords").innerText = `${totalRutasConCoords} de ${totalRutas} rutas con GPS`;
-        }
-
-        function tieneCoordenadasValidas(coords) {
-            if (!coords || typeof coords !== "string") return false;
-            const p = coords.split(",");
-            return p.length === 2 && !isNaN(parseFloat(p[0])) && !isNaN(parseFloat(p[1]));
-        }
-
-        function limpiarCapasMapa() {
-            if (markersLayerGroup) markersLayerGroup.clearLayers();
-            if (polylineLayerGroup) polylineLayerGroup.clearLayers();
-        }
-
+        // -------------------------------------------------------------
+        // EXPLORADOR EN VIVO Y MAPA CLARO
+        // -------------------------------------------------------------
         async function alSeleccionarEmpresaExplorador() {
             if (!leafletMap) inicializarMapaLeaflet();
-            const empresaSeleccionada = document.getElementById("selectEmpresaExplorador").value;
+            const selectEmpresa = document.getElementById("selectEmpresaExplorador");
             const contenedorResultados = document.getElementById("listaMatchRutas");
             const badgeConteo = document.getElementById("badgeConteoMatches");
-            contenedorResultados.innerHTML = "";
+            
+            const empresaSeleccionada = selectEmpresa ? selectEmpresa.value : "";
+            if (contenedorResultados) contenedorResultados.innerHTML = "";
 
             limpiarCapasMapa();
 
@@ -814,10 +780,10 @@
                 return r.empresaNombre === empresaSeleccionada;
             });
 
-            badgeConteo.innerText = `${rutasFiltradas.length} rutas`;
+            if (badgeConteo) badgeConteo.innerText = `${rutasFiltradas.length} rutas`;
 
             if (rutasFiltradas.length === 0) {
-                contenedorResultados.innerHTML = `<p class="text-slate-500 text-xs italic">No hay rutas registradas para ${empresaSeleccionada || 'el sistema'}.</p>`;
+                if (contenedorResultados) contenedorResultados.innerHTML = `<p class="text-slate-500 text-xs italic">No hay rutas registradas para ${empresaSeleccionada || 'el sistema'}.</p>`;
                 return;
             }
 
@@ -867,7 +833,6 @@
                 if (puntosRutaValidos.length >= 2) {
                     const routing = await calcularRutaVialOSRM(puntosRutaValidos);
                     if (routing && routing.puntosPolilinea.length > 0) {
-                        // Sombra inferior de contraste sobre mapa claro
                         L.polyline(routing.puntosPolilinea, {
                             color: '#0f172a',
                             weight: 7,
@@ -876,7 +841,6 @@
                             lineJoin: 'round'
                         }).addTo(polylineLayerGroup);
 
-                        // Trazo vial con color nítido
                         L.polyline(routing.puntosPolilinea, {
                             color: colorRuta,
                             weight: 4.5,
@@ -888,19 +852,21 @@
                     }
                 }
 
-                const card = document.createElement("div");
-                card.className = "flex flex-col bg-cyber-bg p-3 rounded-lg border border-cyber-border text-xs gap-1.5 hover:border-cyber-accent/40 transition shadow-sm";
-                card.innerHTML = `
-                    <div class="flex justify-between items-start">
-                        <div class="flex items-center gap-2">
-                            <span class="w-2.5 h-2.5 rounded-full inline-block shrink-0 shadow-sm" style="background-color: ${colorRuta};"></span>
-                            <span class="font-bold text-white">${r.nombreRuta}</span>
+                if (contenedorResultados) {
+                    const card = document.createElement("div");
+                    card.className = "flex flex-col bg-cyber-bg p-3 rounded-lg border border-cyber-border text-xs gap-1.5 hover:border-cyber-accent/40 transition shadow-sm";
+                    card.innerHTML = `
+                        <div class="flex justify-between items-start">
+                            <div class="flex items-center gap-2">
+                                <span class="w-2.5 h-2.5 rounded-full inline-block shrink-0 shadow-sm" style="background-color: ${colorRuta};"></span>
+                                <span class="font-bold text-white">${r.nombreRuta}</span>
+                            </div>
+                            <span class="text-[10px] text-cyber-purple font-mono font-bold">${r.empresaNombre}</span>
                         </div>
-                        <span class="text-[10px] text-cyber-purple font-mono font-bold">${r.empresaNombre}</span>
-                    </div>
-                    <div class="text-slate-400 text-[11px]">📍 ${r.paradas.length} paradas configuradas • ${r.estadoMunicipio}</div>
-                `;
-                contenedorResultados.appendChild(card);
+                        <div class="text-slate-400 text-[11px]">📍 ${r.paradas.length} paradas configuradas • ${r.estadoMunicipio}</div>
+                    `;
+                    contenedorResultados.appendChild(card);
+                }
             }
 
             if (leafletMap && boundsCoords.length > 0) {
@@ -908,8 +874,163 @@
             }
         }
 
+        // -------------------------------------------------------------
+        // SINCRONIZACIÓN MAESTRA FIREBASE
+        // -------------------------------------------------------------
+        async function sincronizarInicialBajoDemanda() {
+            const badge = document.getElementById("badgeEstadoServer");
+            if (badge) {
+                badge.className = "bg-amber-500/10 text-amber-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-amber-500/20 flex items-center gap-1.5";
+                badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span> Sincronizando...';
+            }
+
+            try {
+                const [snapEmpresas, snapRutas] = await Promise.all([
+                    get(ref(db, "empresas")),
+                    get(ref(db, "rutas"))
+                ]);
+
+                const dataEmp = snapEmpresas.exists() ? snapEmpresas.val() : {};
+                diccionarioEmpresas = {};
+                listaEmpresasNombres = [];
+
+                if (typeof dataEmp === 'object' && dataEmp !== null) {
+                    Object.entries(dataEmp).forEach(([key, emp]) => {
+                        let nombreComercial = typeof emp === "object" && emp !== null 
+                            ? (emp.nombreComercial || emp.nombre || emp.razonSocial || "") 
+                            : emp;
+                        if (nombreComercial && !esIdTecnico(nombreComercial)) {
+                            nombreComercial = String(nombreComercial).replace(/_/g, " ").trim();
+                            diccionarioEmpresas[sanitizarKey(nombreComercial)] = nombreComercial;
+                            diccionarioEmpresas[key] = nombreComercial;
+                            if (!listaEmpresasNombres.includes(nombreComercial)) listaEmpresasNombres.push(nombreComercial);
+                        }
+                    });
+                }
+
+                listaEmpresasNombres.sort((a, b) => a.localeCompare(b));
+                poblarSelectsEmpresas();
+
+                const dataRutas = snapRutas.exists() ? snapRutas.val() : {};
+                aplanarRutasParaCache(dataRutas);
+
+                actualizarMetricasGerenciales();
+                renderizarCatalogoRutasGranular();
+                await alSeleccionarEmpresaExplorador();
+
+                if (badge) {
+                    badge.className = "bg-emerald-500/10 text-emerald-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-emerald-500/20 flex items-center gap-1.5";
+                    badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Conectado (Universal Sync)';
+                }
+
+            } catch (error) {
+                console.error("Error en sincronización:", error);
+                if (badge) {
+                    badge.className = "bg-red-500/10 text-red-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-red-500/20 flex items-center gap-1.5";
+                    badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-400"></span> Error de sincronización';
+                }
+            }
+        }
+
+        function aplanarRutasParaCache(rutasNodo) {
+            cacheTodasLasRutas = [];
+            if (typeof rutasNodo !== 'object' || rutasNodo === null) return;
+
+            Object.entries(rutasNodo).forEach(([empresaKey, rutasEmpresa]) => {
+                if (typeof rutasEmpresa === 'object' && rutasEmpresa) {
+                    Object.entries(rutasEmpresa).forEach(([idRuta, r]) => {
+                        let nombreEmpresa = diccionarioEmpresas[empresaKey] || diccionarioEmpresas[sanitizarKey(r.empresaDestino)] || r.empresaDestino || "";
+                        if (esIdTecnico(nombreEmpresa)) {
+                            nombreEmpresa = empresaKey.replace(/_/g, ' ').toUpperCase();
+                        }
+
+                        let paradasNormalizadas = [];
+                        if (Array.isArray(r.paradas) && r.paradas.length > 0) {
+                            paradasNormalizadas = r.paradas.map((p, idx) => ({
+                                numeroParada: p.numeroParada || (idx + 1),
+                                referenciaOriginal: p.referenciaOriginal || p.nombre || "",
+                                cruceVialEnriquecido: p.cruceVialEnriquecido || "",
+                                coordenadasAbordaje: p.coordenadasAbordaje || "",
+                                horarios: p.horarios || []
+                            }));
+                        } else if (r.puntosAbordaje) {
+                            const puntos = r.puntosAbordaje.split(",").map(x => x.trim()).filter(Boolean);
+                            paradasNormalizadas = puntos.map((p, idx) => ({
+                                numeroParada: idx + 1,
+                                referenciaOriginal: p,
+                                cruceVialEnriquecido: p,
+                                coordenadasAbordaje: idx === 0 ? (r.coordenadasAbordaje || "") : "",
+                                horarios: []
+                            }));
+                        }
+
+                        cacheTodasLasRutas.push({
+                            idRuta: idRuta,
+                            empresaKey: empresaKey,
+                            empresaNombre: nombreEmpresa,
+                            nombreRuta: r.nombreRuta || idRuta,
+                            estadoMunicipio: r.estadoMunicipio || "General, Nuevo León",
+                            distanciaTotalKm: r.distanciaTotalKm || "0.0",
+                            tiempoEstimadoMin: r.tiempoEstimadoMin || 0,
+                            paradas: paradasNormalizadas
+                        });
+                    });
+                }
+            });
+        }
+
+        function poblarSelectsEmpresas() {
+            const selectExplorador = document.getElementById("selectEmpresaExplorador");
+            const selectForm = document.getElementById("empresaDestino");
+            const selectFiltro = document.getElementById("filtroEmpresaTabla");
+
+            if (selectExplorador) selectExplorador.innerHTML = '<option value="">-- Todas las Empresas --</option>';
+            if (selectForm) selectForm.innerHTML = '<option value="">-- Selecciona Empresa --</option>';
+            if (selectFiltro) selectFiltro.innerHTML = '<option value="TODAS">-- Todas las Empresas --</option>';
+
+            listaEmpresasNombres.forEach(nombre => {
+                if (selectExplorador) selectExplorador.innerHTML += `<option value="${nombre}">${nombre}</option>`;
+                if (selectForm) selectForm.innerHTML += `<option value="${nombre}">${nombre}</option>`;
+                if (selectFiltro) selectFiltro.innerHTML += `<option value="${nombre}">${nombre}</option>`;
+            });
+        }
+
+        function actualizarMetricasGerenciales() {
+            const totalEmpresas = listaEmpresasNombres.length;
+            const empresasConRutaSet = new Set();
+            let totalRutasConCoords = 0;
+
+            cacheTodasLasRutas.forEach(r => {
+                if (r.empresaNombre) empresasConRutaSet.add(r.empresaNombre);
+                if (r.paradas && r.paradas.some(p => tieneCoordenadasValidas(p.coordenadasAbordaje))) {
+                    totalRutasConCoords++;
+                }
+            });
+
+            const cantConRuta = empresasConRutaSet.size;
+            const cantSinRuta = Math.max(0, totalEmpresas - cantConRuta);
+            const porcentajeCobertura = totalEmpresas > 0 ? Math.round((cantConRuta / totalEmpresas) * 100) : 0;
+            const totalRutas = cacheTodasLasRutas.length;
+            const porcentajeCoords = totalRutas > 0 ? Math.round((totalRutasConCoords / totalRutas) * 100) : 0;
+
+            const elTotal = document.getElementById("txtTotalEmpresas");
+            const elConRuta = document.getElementById("txtEmpresasConRuta");
+            const elSinRuta = document.getElementById("txtEmpresasSinRuta");
+            const elPorc = document.getElementById("txtPorcentajeCobertura");
+            const elCal = document.getElementById("txtCalidadCoords");
+            const elDet = document.getElementById("txtDetalleCoords");
+
+            if (elTotal) elTotal.innerText = totalEmpresas;
+            if (elConRuta) elConRuta.innerText = `${cantConRuta} Con Ruta`;
+            if (elSinRuta) elSinRuta.innerText = `${cantSinRuta} Sin Ruta`;
+            if (elPorc) elPorc.innerText = `${porcentajeCobertura}%`;
+            if (elCal) elCal.innerText = `${porcentajeCoords}%`;
+            if (elDet) elDet.innerText = `${totalRutasConCoords} de ${totalRutas} rutas con GPS`;
+        }
+
         function verTodasLasRutasEnMapa() {
-            document.getElementById("selectEmpresaExplorador").value = "";
+            const selectEmpresa = document.getElementById("selectEmpresaExplorador");
+            if (selectEmpresa) selectEmpresa.value = "";
             alSeleccionarEmpresaExplorador();
         }
 
@@ -976,7 +1097,7 @@
 
                 limpiarCapasMapa();
                 const contenedor = document.getElementById("listaMatchRutas");
-                contenedor.innerHTML = "";
+                if (contenedor) contenedor.innerHTML = "";
 
                 const candMarker = L.marker([latCand, lngCand], {
                     icon: crearIconoLagrimaGPS("👤", "#059669")
@@ -1007,10 +1128,11 @@
                 });
 
                 matches.sort((a, b) => a.dist - b.dist);
-                document.getElementById("badgeConteoMatches").innerText = `${matches.length} matches`;
+                const badgeMatches = document.getElementById("badgeConteoMatches");
+                if (badgeMatches) badgeMatches.innerText = `${matches.length} matches`;
 
                 if (matches.length === 0) {
-                    contenedor.innerHTML = `<p class="text-slate-500 text-xs italic">No hay paradas registradas cerca para este filtro.</p>`;
+                    if (contenedor) contenedor.innerHTML = `<p class="text-slate-500 text-xs italic">No hay paradas registradas cerca para este filtro.</p>`;
                     return;
                 }
 
@@ -1030,20 +1152,22 @@
                         dashArray: '5, 5' 
                     }).addTo(polylineLayerGroup);
 
-                    const item = document.createElement("div");
-                    item.className = "bg-cyber-bg p-2.5 rounded-lg border border-cyber-border text-xs";
-                    item.innerHTML = `
-                        <div class="flex justify-between font-bold">
-                            <span class="text-white">${m.ruta}</span>
-                            <span class="text-emerald-400 font-mono">${m.score}%</span>
-                        </div>
-                        <div class="text-slate-300">${m.parada}</div>
-                        <div class="text-[11px] text-slate-400">📏 ${m.dist.toFixed(2)} km • ⏱️ ${m.horario}</div>
-                        <button onclick="abrirModalAcuseDirecto('${m.ruta}', '${m.empresa}', '${m.horario}', '${m.parada}', '${m.coords}')" class="mt-1 bg-orange-600/20 hover:bg-orange-600 text-orange-400 hover:text-white px-2 py-0.5 rounded text-[10px] font-bold transition">
-                            <i class="fas fa-qrcode me-1"></i>Acuse QR
-                        </button>
-                    `;
-                    contenedor.appendChild(item);
+                    if (contenedor) {
+                        const item = document.createElement("div");
+                        item.className = "bg-cyber-bg p-2.5 rounded-lg border border-cyber-border text-xs";
+                        item.innerHTML = `
+                            <div class="flex justify-between font-bold">
+                                <span class="text-white">${m.ruta}</span>
+                                <span class="text-emerald-400 font-mono">${m.score}%</span>
+                            </div>
+                            <div class="text-slate-300">${m.parada}</div>
+                            <div class="text-[11px] text-slate-400">📏 ${m.dist.toFixed(2)} km • ⏱️ ${m.horario}</div>
+                            <button onclick="abrirModalAcuseDirecto('${m.ruta}', '${m.empresa}', '${m.horario}', '${m.parada}', '${m.coords}')" class="mt-1 bg-orange-600/20 hover:bg-orange-600 text-orange-400 hover:text-white px-2 py-0.5 rounded text-[10px] font-bold transition">
+                                <i class="fas fa-qrcode me-1"></i>Acuse QR
+                            </button>
+                        `;
+                        contenedor.appendChild(item);
+                    }
                 });
 
                 leafletMap.fitBounds(bounds, { padding: [35, 35] });
@@ -1056,18 +1180,9 @@
             }
         }
 
-        function calcularDistanciaKm(lat1, lon1, lat2, lon2) {
-            const R = 6371;
-            const dLat = (lat2 - lat1) * Math.PI / 180;
-            const dLon = (lon2 - lon1) * Math.PI / 180;
-            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                      Math.sin(dLon / 2) * Math.sin(dLon / 2);
-            return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
-        }
-
         function agregarFilaParadaFormulario(nombre = "", cruce = "", horario = "", coords = "") {
             const contenedor = document.getElementById("contenedorParadasDinamicasForm");
+            if (!contenedor) return;
             const index = contenedor.children.length + 1;
 
             const div = document.createElement("div");
@@ -1157,7 +1272,7 @@
             document.getElementById("estadoMunicipio").value = r.estadoMunicipio;
 
             const contenedor = document.getElementById("contenedorParadasDinamicasForm");
-            contenedor.innerHTML = "";
+            if (contenedor) contenedor.innerHTML = "";
 
             r.paradas.forEach(p => {
                 const hTxt = (p.horarios || []).map(h => h.formatoCivil).join(" / ");
@@ -1173,7 +1288,8 @@
             document.getElementById("editRutaId").value = "";
             document.getElementById("editEmpresaAnterior").value = "";
             document.getElementById("formRuta").reset();
-            document.getElementById("contenedorParadasDinamicasForm").innerHTML = "";
+            const contenedor = document.getElementById("contenedorParadasDinamicasForm");
+            if (contenedor) contenedor.innerHTML = "";
             document.getElementById("btnSubmitForm").innerText = "Guardar Ruta Completa";
             document.getElementById("btnCancelarEdicion").classList.add("hidden");
         }
@@ -1288,6 +1404,36 @@
                         `📍 *Ubicación GPS:* ${url}`;
             window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msj)}`, '_blank');
         }
+
+        // -------------------------------------------------------------
+        // EXPOSICIÓN GLOBAL COMPLETA
+        // -------------------------------------------------------------
+        window.sincronizarInicialBajoDemanda = sincronizarInicialBajoDemanda;
+        window.alSeleccionarEmpresaExplorador = alSeleccionarEmpresaExplorador;
+        window.verTodasLasRutasEnMapa = verTodasLasRutasEnMapa;
+        window.obtenerUbicacionGPS = obtenerUbicacionGPS;
+        window.ejecutarTriangulacionGeografica = ejecutarTriangulacionGeografica;
+        window.renderizarCatalogoRutasGranular = renderizarCatalogoRutasGranular;
+        window.agregarFilaParadaFormulario = agregarFilaParadaFormulario;
+        window.removerFilaParadaFormulario = removerFilaParadaFormulario;
+        window.guardarRutaCompletaForm = guardarRutaCompletaForm;
+        window.cargarRutaEnFormulario = cargarRutaEnFormulario;
+        window.cancelarEdicion = cancelarEdicion;
+        window.eliminarRuta = eliminarRuta;
+        window.eliminarRutasPorEmpresaSeleccionada = eliminarRutasPorEmpresaSeleccionada;
+        window.abrirModalEdicionParada = abrirModalEdicionParada;
+        window.cerrarModalEdicionParada = cerrarModalEdicionParada;
+        window.guardarParadaIndividualDesdeModal = guardarParadaIndividualDesdeModal;
+        window.centrarParadaEnMapa = centrarParadaEnMapa;
+        window.abrirModalAcusePorId = abrirModalAcusePorId;
+        window.abrirModalAcuseDirecto = abrirModalAcuseDirecto;
+        window.cerrarModalAcuse = cerrarModalAcuse;
+        window.compartirWhatsAppPorId = compartirWhatsAppPorId;
+
+        document.addEventListener("DOMContentLoaded", () => {
+            inicializarMapaLeaflet();
+            sincronizarInicialBajoDemanda();
+        });
     </script>
 </body>
 </html>
