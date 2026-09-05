@@ -50,7 +50,7 @@
 
     <div class="p-3 sm:p-5 md:p-6 max-w-7xl mx-auto space-y-6">
 
-        <!-- HEADER PRINCIPAL -->
+        <!-- HEADER PRINCIPAL CON IDENTIDAD RBAC -->
         <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-cyber-border pb-5 gap-4">
             <div>
                 <div class="flex items-center gap-2 mb-1 flex-wrap">
@@ -60,14 +60,19 @@
                     <span id="badgeEstadoServer" class="bg-emerald-500/10 text-emerald-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-emerald-500/20 flex items-center gap-1.5">
                         <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Sincronizando...
                     </span>
+                    <span id="badgeScopeM2" class="bg-cyber-cardAlt text-cyber-cyan text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-cyber-border">
+                        Scope: Evaluando...
+                    </span>
                 </div>
                 <h1 class="text-xl sm:text-2xl md:text-3xl font-extrabold text-white tracking-tight">Catálogo de Vacantes & Motor IA</h1>
-                <p class="text-slate-400 text-xs md:text-sm mt-1">Estructuración inteligente, banners corporativos centralizados y gobernanza de vacantes.</p>
+                <div id="userInfoM2" class="text-xs text-cyber-amber font-mono font-medium mt-1">
+                    <i class="fas fa-user-shield"></i> Validando credenciales de acceso...
+                </div>
             </div>
 
-            <!-- COFRE DE SEGURIDAD API KEY GEMINI (PERSISTENTE) -->
+            <!-- COFRE DE SEGURIDAD API KEY GEMINI (RESTRINGIDO A MANDO DIRECTIVO) -->
             <div class="w-full md:w-auto flex flex-col sm:flex-row gap-2 items-end sm:items-center">
-                <details id="detailsApiKey" class="bg-cyber-card border border-cyber-border rounded-xl p-2 sm:p-2.5 w-full sm:w-auto group">
+                <details id="detailsApiKey" class="bg-cyber-card border border-cyber-border rounded-xl p-2 sm:p-2.5 w-full sm:w-auto group hidden">
                     <summary class="text-xs font-mono text-slate-300 flex items-center justify-between gap-3 cursor-pointer select-none">
                         <span class="flex items-center gap-2">
                             <i class="fas fa-key text-cyber-accent"></i>
@@ -87,6 +92,10 @@
                         </button>
                     </div>
                 </details>
+
+                <a href="admin.html" class="bg-cyber-card hover:bg-slate-800 text-slate-300 border border-cyber-border font-mono text-xs px-3.5 py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all shrink-0 w-full sm:w-auto">
+                    <i class="fas fa-arrow-left"></i> <span>Panel Central</span>
+                </a>
 
                 <button onclick="sincronizarTodoBajoDemanda()" class="bg-cyber-card hover:bg-slate-800 text-slate-300 border border-cyber-border font-mono text-xs px-3.5 py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all shrink-0 w-full sm:w-auto">
                     <i class="fas fa-rotate"></i> <span>Actualizar</span>
@@ -151,9 +160,9 @@
                     </div>
 
                     <div>
-                        <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Empresa Cliente</label>
+                        <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Empresa Cliente Autorizada</label>
                         <select id="selectEmpresa" onchange="alCambiarEmpresaSeleccionada()" class="w-full bg-cyber-bg border border-cyber-border rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-cyber-accent font-medium">
-                            <option value="">-- Cargando empresas... --</option>
+                            <option value="">-- Cargando empresas autorizadas... --</option>
                         </select>
                     </div>
 
@@ -161,13 +170,13 @@
                     <div class="bg-cyber-bg p-3.5 rounded-xl border border-cyber-border/70 space-y-2.5">
                         <label class="block text-[10px] font-mono text-slate-400 uppercase">Vacantes Registradas de esta Empresa</label>
                         <select id="selectVacante" class="w-full bg-slate-900 border border-cyber-border rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-cyber-cyan">
-                            <option value="">-- Selecciona vacante para editar/borrar --</option>
+                            <option value="">-- Selecciona vacante para consultar/editar --</option>
                         </select>
                         <div class="grid grid-cols-3 gap-2 pt-1">
                             <button type="button" onclick="cargarVacanteSeleccionadaAlFormulario()" class="py-2 px-2 bg-amber-600 hover:bg-amber-500 text-white font-semibold rounded-lg text-xs flex items-center justify-center gap-1 transition">
                                 <i class="fas fa-edit"></i> Cargar
                             </button>
-                            <button type="button" onclick="eliminarVacanteSeleccionada()" class="py-2 px-2 bg-rose-600 hover:bg-rose-500 text-white font-semibold rounded-lg text-xs flex items-center justify-center gap-1 transition">
+                            <button type="button" id="btnBorrarVacante" onclick="eliminarVacanteSeleccionada()" class="py-2 px-2 bg-rose-600 hover:bg-rose-500 text-white font-semibold rounded-lg text-xs flex items-center justify-center gap-1 transition hidden">
                                 <i class="fas fa-trash"></i> Borrar
                             </button>
                             <button type="button" onclick="resetFormularioVacante()" class="py-2 px-2 bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold rounded-lg text-xs flex items-center justify-center gap-1 transition">
@@ -177,8 +186,8 @@
                     </div>
                 </div>
 
-                <!-- 2. MOTOR EXTRACTOR INTELIGENTE IA (GEMINI 2.5 FLASH) -->
-                <div class="bg-cyber-card p-4 sm:p-5 rounded-xl border-l-4 border-l-cyber-purple border border-cyber-border shadow-xl space-y-4">
+                <!-- 2. MOTOR EXTRACTOR INTELIGENTE IA (RESTRINGIDO A NIVEL >= 3) -->
+                <div id="panelExtractorIA" class="bg-cyber-card p-4 sm:p-5 rounded-xl border-l-4 border-l-cyber-purple border border-cyber-border shadow-xl space-y-4 hidden">
                     <div class="flex items-center justify-between border-b border-cyber-border pb-3">
                         <span class="text-xs font-bold text-cyber-purple uppercase tracking-wider flex items-center gap-2">
                             <i class="fas fa-wand-magic-sparkles"></i> 2. Extractor IA Ultra
@@ -208,6 +217,16 @@
                     <button id="btnExtract" type="button" onclick="ejecutarExtraccionIA()" class="w-full py-2.5 bg-cyber-purple hover:bg-purple-600 text-white font-bold rounded-lg shadow-lg transition flex items-center justify-center gap-2 text-xs uppercase tracking-wider">
                         <i class="fas fa-microchip"></i> Extraer y Clasificar con IA
                     </button>
+                </div>
+
+                <!-- AVISO VISUAL PARA USUARIOS EN MODO AUDITORÍA / LECTURA -->
+                <div id="bannerSoloLectura" class="bg-cyber-cardAlt p-4 rounded-xl border border-cyber-cyan/30 text-xs text-slate-300 space-y-1.5 hidden">
+                    <span class="text-cyber-cyan font-bold font-mono uppercase flex items-center gap-1.5">
+                        <i class="fas fa-eye"></i> Modo Consulta Operativa
+                    </span>
+                    <p class="text-slate-400 text-[11px]">
+                        Tu perfil cuenta con permisos de lectura para consultar perfiles y orientar a tus postulantes. La publicación y edición de vacantes corresponde a tu coordinación.
+                    </p>
                 </div>
 
                 <!-- 3. CUADRO VERDE JSON -->
@@ -258,7 +277,7 @@
                                 <span class="text-xs font-bold text-cyber-accent uppercase tracking-wider flex items-center gap-2">
                                     <i class="fas fa-layer-group"></i> Mazorca de Banners (10 Ranuras)
                                 </span>
-                                <div class="flex items-center gap-2">
+                                <div class="flex items-center gap-2" id="botonesBannersContainer">
                                     <button type="button" onclick="guardarBannersComoDefectoEmpresa()" title="Fijar estos banners para todas las vacantes de esta empresa" class="text-[10px] bg-cyber-accent/20 hover:bg-cyber-accent text-cyber-accent hover:text-white border border-cyber-accent/40 px-2 py-1 rounded transition-all font-mono">
                                         <i class="fas fa-thumbtack"></i> Fijar a Empresa
                                     </button>
@@ -272,7 +291,7 @@
                                 <label class="block text-[10px] font-mono text-amber-400 uppercase mb-1 flex items-center gap-1">
                                     <i class="fas fa-image"></i> Banner Principal de la Vacante (Ranura #1)
                                 </label>
-                                <input type="url" id="bannerUrl1" placeholder="https://ejemplo.com/banner-principal.jpg (Opcional, si se deja vacío hereda el corporativo)" class="banner-slot w-full bg-cyber-bg border border-cyber-border rounded-lg p-2 text-xs font-mono text-slate-200 focus:outline-none focus:border-cyber-accent">
+                                <input type="url" id="bannerUrl1" placeholder="https://ejemplo.com/banner-principal.jpg" class="banner-slot w-full bg-cyber-bg border border-cyber-border rounded-lg p-2 text-xs font-mono text-slate-200 focus:outline-none focus:border-cyber-accent">
                             </div>
 
                             <details class="bg-cyber-bg rounded-lg border border-cyber-border p-3 group">
@@ -417,9 +436,9 @@
                         </div>
                     </div>
 
-                    <!-- BOTONES DE ACCIÓN -->
+                    <!-- BOTONES DE ACCIÓN (CON CANDADO RBAC) -->
                     <div class="flex flex-col sm:flex-row items-center justify-end gap-3 border-t border-cyber-border pt-4">
-                        <button type="submit" class="w-full sm:w-auto px-6 py-2.5 bg-cyber-accent hover:bg-cyber-accentHover text-white font-bold rounded-lg text-xs uppercase tracking-wider transition-all shadow-lg flex items-center justify-center gap-2">
+                        <button type="submit" id="btnGuardarVacanteSubmit" class="w-full sm:w-auto px-6 py-2.5 bg-cyber-accent hover:bg-cyber-accentHover text-white font-bold rounded-lg text-xs uppercase tracking-wider transition-all shadow-lg flex items-center justify-center gap-2">
                             <i class="fas fa-cloud-arrow-up"></i> Publicar / Guardar Vacante
                         </button>
                     </div>
@@ -460,10 +479,11 @@
         </div>
     </div>
 
-    <!-- FIREBASE V10 SDK (MODULAR) -->
+    <!-- FIREBASE V10 SDK (MODULAR) CON AUTH & RTDB -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, get, set, remove, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getDatabase, ref, get, set, push, remove, onValue, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDxgP1YnycCEqkQ2vr3SPkwc9QMhtG8Zqw",
@@ -477,9 +497,20 @@
         };
 
         const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
         const db = getDatabase(app);
 
-        // ESTADO GLOBAL LOCAL
+        // ESTADO GLOBAL DE SEGURIDAD Y PERFIL RBAC
+        let usuarioSesion = {
+            uid: null,
+            nombre: "Cargando...",
+            rol: "Operativo",
+            nivel: 1,
+            scope: "personal",
+            todasLasEmpresas: false,
+            empresas: []
+        };
+
         let diccionarioEmpresas = {};
         let cacheVacantesEmpresa = {};
         let cacheEmpresaActual = null;
@@ -505,10 +536,101 @@
         window.guardarVacanteFormulario = guardarVacanteFormulario;
 
         document.addEventListener("DOMContentLoaded", () => {
-            inicializarGestionApiKey();
-            sincronizarTodoBajoDemanda();
+            inicializarPerfilSeguridadM2();
             escucharEstadoConexionFirebase();
         });
+
+        // 1. RESOLUCIÓN DE IDENTIDAD AUTÉNTICA Y APLICACIÓN DE GOBERNANZA RBAC
+        function inicializarPerfilSeguridadM2() {
+            onAuthStateChanged(auth, async (user) => {
+                if (!user) {
+                    window.location.href = "acceso.html";
+                    return;
+                }
+
+                try {
+                    const snapUser = await get(ref(db, `usuarios_reclutadores/${user.uid}`));
+                    if (!snapUser.exists()) {
+                        alert("No tienes perfil asignado en el sistema.");
+                        await signOut(auth);
+                        window.location.href = "acceso.html";
+                        return;
+                    }
+
+                    const val = snapUser.val();
+                    if (val.estatus !== 'Activo') {
+                        alert("Tu cuenta se encuentra suspendida o inactiva.");
+                        await signOut(auth);
+                        window.location.href = "acceso.html";
+                        return;
+                    }
+
+                    const nivelNum = parseInt(val.nivel) || 2;
+
+                    usuarioSesion = {
+                        uid: user.uid,
+                        nombre: val.nombre || user.email,
+                        email: user.email,
+                        rol: val.nombreRol || "Colaborador",
+                        nivel: nivelNum,
+                        scope: val.scope || "personal",
+                        todasLasEmpresas: nivelNum >= 4 || val.scope === 'global' || (Array.isArray(val.empresas) && val.empresas.includes("TODAS")),
+                        empresas: Array.isArray(val.empresas) ? val.empresas.map(e => sanitizarKey(e)) : []
+                    };
+
+                    aplicarGobernanzaInterfazM2();
+                    inicializarGestionApiKey();
+                    await sincronizarTodoBajoDemanda();
+
+                } catch (e) {
+                    console.error("Error verificando perfil RBAC:", e);
+                    alert("Error validando permisos de acceso.");
+                }
+            });
+        }
+
+        // 2. ADAPTACIÓN DE LA INTERFAZ SEGÚN NIVEL DE MANDO
+        function aplicarGobernanzaInterfazM2() {
+            document.getElementById("userInfoM2").innerHTML = `
+                <i class="fas fa-user-shield"></i> Usuario: <b>${usuarioSesion.nombre}</b> | Rol: <b>${usuarioSesion.rol}</b> (Nivel ${usuarioSesion.nivel})
+            `;
+
+            const badgeScope = document.getElementById("badgeScopeM2");
+            const detailsApiKey = document.getElementById("detailsApiKey");
+            const panelExtractor = document.getElementById("panelExtractorIA");
+            const bannerLectura = document.getElementById("bannerSoloLectura");
+            const btnSubmit = document.getElementById("btnGuardarVacanteSubmit");
+            const btnBorrar = document.getElementById("btnBorrarVacante");
+            const formInputs = document.querySelectorAll("#vacanteForm input, #vacanteForm textarea, #vacanteForm select");
+
+            if (usuarioSesion.nivel >= 4 || usuarioSesion.scope === 'global') {
+                badgeScope.className = "bg-emerald-500/10 text-emerald-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-emerald-500/20";
+                badgeScope.textContent = "Scope: Global Corporativo (Total)";
+                detailsApiKey.classList.remove("hidden");
+                panelExtractor.classList.remove("hidden");
+                btnBorrar.classList.remove("hidden");
+            } else if (usuarioSesion.nivel === 3) {
+                badgeScope.className = "bg-amber-500/10 text-amber-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-amber-500/20";
+                badgeScope.textContent = `Scope: Coordinación (${usuarioSesion.empresas.length} Empresas)`;
+                panelExtractor.classList.remove("hidden");
+                // Los coordinadores publican y editan, pero el borrado definitivo se reserva a dirección
+                btnBorrar.classList.add("hidden");
+            } else {
+                // Niveles 1 y 2: Reclutadores Operativos (Modo Consulta)
+                badgeScope.className = "bg-cyber-cardAlt text-slate-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-cyber-border";
+                badgeScope.textContent = "Scope: Modo Consulta de Perfiles";
+                bannerLectura.classList.remove("hidden");
+                btnSubmit.classList.add("hidden");
+                btnBorrar.classList.add("hidden");
+                document.getElementById("botonesBannersContainer")?.classList.add("hidden");
+
+                // Congelar campos del formulario para prevenir edición accidental
+                formInputs.forEach(input => {
+                    input.setAttribute("disabled", "true");
+                    input.classList.add("opacity-75", "cursor-not-allowed");
+                });
+            }
+        }
 
         function sanitizarKey(str) {
             return (str || "general").toLowerCase().trim()
@@ -537,6 +659,7 @@
         }
 
         function inicializarGestionApiKey() {
+            if (usuarioSesion.nivel < 4) return;
             const keyGuardada = localStorage.getItem("GEMINI_API_KEY_VACANTES");
             const badge = document.getElementById("badgeKeyGuardada");
             const input = document.getElementById("apiKeyInput");
@@ -549,6 +672,9 @@
         }
 
         function guardarApiKeyPersistente() {
+            if (usuarioSesion.nivel < 4) {
+                return alert("Acción restringida exclusivamente a directores o SuperAdmin.");
+            }
             const key = document.getElementById("apiKeyInput").value.trim();
             const badge = document.getElementById("badgeKeyGuardada");
 
@@ -583,10 +709,10 @@
                 const badge = document.getElementById("badgeEstadoServer");
                 if (snap.val() === true) {
                     badge.className = "bg-emerald-500/10 text-emerald-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-emerald-500/20 flex items-center gap-1.5";
-                    badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Conectado (v10 Modular)';
+                    badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Conectado';
                 } else {
                     badge.className = "bg-red-500/10 text-red-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-red-500/20 flex items-center gap-1.5";
-                    badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-400"></span> Desconectado';
+                    badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span> Desconectado';
                 }
             });
         }
@@ -599,6 +725,7 @@
             }
         }
 
+        // 3. POBLAR SELECT DE EMPRESAS RESTRINGIDO POR PERMISOS DE STAFF
         async function cargarEmpresasSelect() {
             const select = document.getElementById('selectEmpresa');
             select.innerHTML = '<option value="">-- Selecciona Empresa --</option>';
@@ -609,16 +736,20 @@
 
             const listaNombres = [];
             Object.entries(data).forEach(([k, emp]) => {
-                const nombreLimpio = obtenerNombreComercialReal(emp);
-                if (nombreLimpio) {
+                const keyLimpia = sanitizarKey(k);
+                // Candado RBAC: Si no tiene alcance global, verificar si está en su lista autorizada
+                const tienePermiso = usuarioSesion.todasLasEmpresas || usuarioSesion.empresas.includes(keyLimpia);
+
+                if (tienePermiso) {
+                    const nombreLimpio = obtenerNombreComercialReal(emp) || k.replace(/_/g, ' ').toUpperCase();
                     diccionarioEmpresas[k] = nombreLimpio;
-                    diccionarioEmpresas[sanitizarKey(k)] = nombreLimpio;
+                    diccionarioEmpresas[keyLimpia] = nombreLimpio;
                     listaNombres.push({ key: k, nombre: nombreLimpio });
                 }
             });
 
             if (listaNombres.length === 0) {
-                select.innerHTML = '<option value="">-- Sin empresas en catálogo --</option>';
+                select.innerHTML = '<option value="">-- Sin empresas asignadas a tu cuenta --</option>';
                 return;
             }
 
@@ -647,7 +778,6 @@
 
             if (!empKey) return;
 
-            // 1. Obtener Datos Empresa y Banners Heredados
             const snapEmp = await get(ref(db, `empresas/${empKey}`));
             const empData = snapEmp.val() || {};
             cacheEmpresaActual = empData;
@@ -657,14 +787,12 @@
             document.getElementById('lugarOrigen').value = direccionFisica.startsWith('http') ? "" : direccionFisica;
             document.getElementById('mapaUrl').value = mapaUrlRaw || (direccionFisica.startsWith('http') ? direccionFisica : "");
 
-            // 2. Cargar Mazorca de Banners Guardada en Empresa
             if (empData.bannersCorporativos) {
                 cargarCadenaBannersEnFormulario(empData.bannersCorporativos);
             } else {
                 limpiarRanurasBanners();
             }
 
-            // 3. Obtener Rutas del Módulo 6 para esta Empresa
             const snapRutas = await get(ref(db, `rutas/${sanitizarKey(empKey)}`));
             const rutasData = snapRutas.val();
             if (rutasData) {
@@ -676,7 +804,6 @@
                 document.getElementById('rutasTransporte').value = "";
             }
 
-            // 4. Poblar Select de Vacantes Existentes
             const snapVac = await get(ref(db, `vacantes_detalles/${sanitizarKey(empKey)}`));
             const vacData = snapVac.val();
             if (vacData) {
@@ -721,6 +848,10 @@
         }
 
         async function guardarBannersComoDefectoEmpresa() {
+            if (usuarioSesion.nivel < 3) {
+                return alert("No tienes permisos para modificar banners corporativos.");
+            }
+
             const empKey = document.getElementById('selectEmpresa').value.trim();
             if (!empKey) return alert("Selecciona primero una empresa destino.");
 
@@ -746,7 +877,11 @@
             let conteoPorEmpresa = {};
 
             Object.entries(data).forEach(([empKey, vacs]) => {
-                if (vacs && typeof vacs === 'object') {
+                const keyLimpia = sanitizarKey(empKey);
+                // Si el usuario tiene scope limitado, filtrar KPIs únicamente a sus empresas asignadas
+                const esVisible = usuarioSesion.todasLasEmpresas || usuarioSesion.empresas.includes(keyLimpia);
+
+                if (esVisible && vacs && typeof vacs === 'object') {
                     Object.entries(vacs).forEach(([idV, v]) => {
                         if (v && typeof v === 'object') {
                             todasLasVacantesGlobales.push({ empKey, idV, ...v });
@@ -847,11 +982,15 @@
         });
 
         async function ejecutarExtraccionIA() {
+            if (usuarioSesion.nivel < 3) {
+                return alert("Acceso restringido. La extracción IA está reservada para coordinadores y dirección.");
+            }
+
             const empKey = document.getElementById('selectEmpresa').value.trim();
             if (!empKey) return alert("⚠️ Selecciona primero la Empresa Destino.");
 
             const key = document.getElementById('apiKeyInput').value.trim() || localStorage.getItem("GEMINI_API_KEY_VACANTES");
-            if (!key) return alert("Ingresa tu API Key de Gemini en el cofre superior.");
+            if (!key) return alert("No se ha configurado la API Key de Gemini en el sistema.");
 
             const rawText = document.getElementById('rawText').value.trim();
             if (!rawText && !extractedFileText && !attachedFileBase64) {
@@ -992,6 +1131,10 @@ ESQUEMA JSON OBLIGATORIO:
         }
 
         async function guardarTodasLasVacantesLote() {
+            if (usuarioSesion.nivel < 3) {
+                return alert("No tienes permisos para publicar vacantes.");
+            }
+
             const empKey = document.getElementById('selectEmpresa').value.trim();
             if (!empKey || !tempVacantesExtraidas.length) return;
 
@@ -1023,7 +1166,9 @@ ESQUEMA JSON OBLIGATORIO:
                     infoGeneral: item.infoGeneral || "",
                     actividades: item.actividades || "",
                     beneficios: item.beneficios || "",
-                    visitas: 1
+                    visitas: 1,
+                    actualizadoPor: usuarioSesion.nombre,
+                    fechaPublicacion: new Date().toISOString()
                 };
 
                 try {
@@ -1034,6 +1179,16 @@ ESQUEMA JSON OBLIGATORIO:
                     console.error("Error guardando vacante en lote:", err);
                 }
             }
+
+            // Auditoría M7
+            await push(ref(db, 'modulo_7_logs'), {
+                modulo: "M2_VACANTES",
+                evento: "PUBLICACION_LOTE_IA",
+                ejecutadoPor: usuarioSesion.nombre,
+                uidEjecutor: usuarioSesion.uid,
+                detalle: `Se publicaron ${guardadas} vacantes en lote mediante IA para ${diccionarioEmpresas[empKey] || empKey}.`,
+                timestamp: serverTimestamp()
+            });
 
             btn.disabled = false;
             btn.innerHTML = `<i class="fas fa-upload"></i> Subir Lote Completo`;
@@ -1099,14 +1254,32 @@ ESQUEMA JSON OBLIGATORIO:
             alert("Vacante cargada al formulario ✅");
         }
 
+        // 4. ELIMINACIÓN RESTRINGIDA A MANDO DIRECTIVO (NIVEL >= 4)
         async function eliminarVacanteSeleccionada() {
+            if (usuarioSesion.nivel < 4) {
+                return alert("Acción restringida. El borrado definitivo de vacantes está reservado para la Dirección General.");
+            }
+
             const empKey = document.getElementById('selectEmpresa').value;
             const key = document.getElementById('selectVacante').value;
             if (!empKey || !key) return alert("Selecciona empresa y vacante.");
 
-            if (confirm(`¿Eliminar definitivamente la vacante '${key}'?`)) {
+            const nombreVac = cacheVacantesEmpresa[key]?.nombreVacante || key;
+
+            if (confirm(`¿Eliminar definitivamente la vacante '${nombreVac}'? Esta acción no se puede deshacer.`)) {
                 await remove(ref(db, `vacantes_detalles/${sanitizarKey(empKey)}/${key}`));
-                alert("Vacante eliminada.");
+
+                // Auditoría en M7
+                await push(ref(db, 'modulo_7_logs'), {
+                    modulo: "M2_VACANTES",
+                    evento: "ELIMINACION_VACANTE",
+                    ejecutadoPor: usuarioSesion.nombre,
+                    uidEjecutor: usuarioSesion.uid,
+                    detalle: `Se eliminó la vacante ${nombreVac} (${key}) de ${diccionarioEmpresas[empKey] || empKey}.`,
+                    timestamp: serverTimestamp()
+                });
+
+                alert("Vacante eliminada del catálogo.");
                 resetFormularioVacante();
                 alCambiarEmpresaSeleccionada();
                 calcularMetricasGlobalesVacantes();
@@ -1125,10 +1298,21 @@ ESQUEMA JSON OBLIGATORIO:
             document.getElementById('jsonOutput').innerText = JSON.stringify(data, null, 2);
         }
 
+        // 5. PUBLICACIÓN Y GUARDADO DE VACANTE (RESTRINGIDO A NIVEL >= 3)
         async function guardarVacanteFormulario(e) {
             e.preventDefault();
+
+            if (usuarioSesion.nivel < 3) {
+                return alert("No tienes permisos para modificar o publicar vacantes. Consulta a tu coordinador.");
+            }
+
             const empKey = document.getElementById('selectEmpresa').value.trim();
             if (!empKey) return alert("Selecciona la Empresa Destino.");
+
+            // Validar que el coordinador tenga asignada la empresa
+            if (!usuarioSesion.todasLasEmpresas && !usuarioSesion.empresas.includes(sanitizarKey(empKey))) {
+                return alert("No tienes autorización para administrar vacantes de esta empresa.");
+            }
 
             const nombreVac = document.getElementById('nombreVacante').value.trim();
             if (!nombreVac) return alert("Ingresa el Nombre Comercial de la Vacante.");
@@ -1157,13 +1341,26 @@ ESQUEMA JSON OBLIGATORIO:
                 infoGeneral: document.getElementById('infoGeneral').value.trim(),
                 actividades: document.getElementById('actividades').value.trim(),
                 beneficios: document.getElementById('beneficios').value.trim(),
-                visitas: (cacheVacantesEmpresa[pid] && cacheVacantesEmpresa[pid].visitas) ? cacheVacantesEmpresa[pid].visitas : 1
+                visitas: (cacheVacantesEmpresa[pid] && cacheVacantesEmpresa[pid].visitas) ? cacheVacantesEmpresa[pid].visitas : 1,
+                actualizadoPor: usuarioSesion.nombre,
+                ultimaModificacion: new Date().toISOString()
             };
 
             actualizarVistaJSON(datos);
 
             try {
                 await set(ref(db, `vacantes_detalles/${sanitizarKey(empKey)}/${pid}`), datos);
+
+                // Auditoría en M7
+                await push(ref(db, 'modulo_7_logs'), {
+                    modulo: "M2_VACANTES",
+                    evento: "GUARDADO_VACANTE",
+                    ejecutadoPor: usuarioSesion.nombre,
+                    uidEjecutor: usuarioSesion.uid,
+                    detalle: `Se publicó/actualizó la vacante ${nombreVac} para ${diccionarioEmpresas[empKey] || empKey}. Estatus: ${datos.estatus}.`,
+                    timestamp: serverTimestamp()
+                });
+
                 alert(`¡Vacante guardada exitosamente en ${diccionarioEmpresas[empKey] || empKey}!`);
                 alCambiarEmpresaSeleccionada();
                 calcularMetricasGlobalesVacantes();
