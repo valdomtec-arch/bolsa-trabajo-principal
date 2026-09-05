@@ -89,7 +89,7 @@
             <div class="bg-[#0b1329] p-4 rounded-xl border border-blue-900/40 shadow-lg">
                 <span class="text-[10px] font-mono uppercase text-slate-400 font-bold block">Cartera Auditada</span>
                 <div class="text-2xl font-black text-white font-mono mt-1" id="kpiCarteraTotal">0</div>
-                <span class="text-[10px] text-slate-500">Postulantes en tu célula</span>
+                <span class="text-[10px] text-slate-500">Postulantes con asesores activos</span>
             </div>
             <div class="bg-[#0b1329] p-4 rounded-xl border border-emerald-500/30 shadow-lg">
                 <span class="text-[10px] font-mono uppercase text-emerald-400 font-bold block">Al Día (&lt;24H)</span>
@@ -121,7 +121,7 @@
 
             <div class="lg:col-span-2 bg-[#0b1329] p-4 rounded-xl border border-white/10 flex flex-col items-center">
                 <h3 class="text-xs font-bold text-slate-300 mb-2 uppercase tracking-wider flex items-center gap-2">
-                    <i class="fas fa-chart-bar text-[#ff6600]"></i> Carga Activa y Rezago por Operador
+                    <i class="fas fa-chart-bar text-[#ff6600]"></i> Carga Activa y Rezago por Reclutador
                 </h3>
                 <div class="w-full h-48 flex justify-center">
                     <canvas id="chartCargaBarras"></canvas>
@@ -133,7 +133,7 @@
         <div class="bg-[#0b1329] rounded-xl border border-white/10 overflow-hidden shadow-2xl">
             <div class="p-3.5 border-b border-white/10 flex justify-between items-center bg-[#06101e] flex-wrap gap-2">
                 <span class="text-xs font-mono text-slate-300 font-semibold" id="txtTotalReclutadoresAuditoria">
-                    Supervisando 0 operadores
+                    Supervisando 0 asesores
                 </span>
                 <span class="text-[11px] text-slate-400">
                     <i class="fas fa-info-circle text-amber-400 me-1"></i> Pulsa en cualquier cifra para auditarla directamente en la agenda.
@@ -304,7 +304,7 @@
             });
         }
 
-        // 3. VALIDADOR UNIVERSAL RBAC: VERIFICA SI UN USUARIO PUEDE RECIBIR CANDIDATOS
+        // 3. VALIDADOR UNIVERSAL RBAC: VERIFICA SI UN USUARIO TIENE FACULTAD PARA RECLUTAR
         function esReceptorReclutadorValido(uId) {
             const u = catalogoUsuarios[uId];
             if (!u || u.estatus !== 'Activo') return false;
@@ -312,32 +312,39 @@
             const rolInfo = catalogoRoles[u.rolId] || {};
             const nivel = u.nivel !== undefined ? parseInt(u.nivel) : (rolInfo.nivelJerarquico || 2);
 
-            // Regla Directiva: Nivel < 3 opera por defecto; Nivel 3+ depende de la bandera explícita
-            return u.operaComoReclutador === true || (u.operaComoReclutador === undefined && nivel < 3);
+            // Regla Directiva: Nivel >= 3 DEBE tener operaComoReclutador === true
+            if (nivel >= 3) {
+                return u.operaComoReclutador === true;
+            }
+
+            // Niveles 1 y 2 son operativos por naturaleza
+            return u.operaComoReclutador !== false;
         }
 
-        // 4. CONSTRUIR CÉLULA OPERATIVA SEGÚN GOBERNANZA M5
+        // 4. CONSTRUIR CÉLULA OPERATIVA EXCLUYENDO MANDOS DE SOLO SUPERVISIÓN
         function construirEquipoAuditable() {
             equipoAuditableIds = [];
 
             if (usuarioSesion.nivel >= 4 || usuarioSesion.scope === 'global') {
-                equipoAuditableIds = Object.keys(catalogoUsuarios);
-                document.getElementById("badgeJerarquia").textContent = "Célula: Toda la Empresa (Global)";
+                // Dirección y SuperAdmin: auditan a toda la fuerza que realmente atiende candidatos
+                equipoAuditableIds = Object.keys(catalogoUsuarios).filter(id => esReceptorReclutadorValido(id));
+                document.getElementById("badgeJerarquia").textContent = `Célula: Toda la Fuerza Operativa (${equipoAuditableIds.length} Asesores)`;
             } else {
-                // Coordinador (Nivel 3): Incluye su propio ID solo si él mismo opera como reclutador o tiene candidatos asignados
-                const arrayPostulantes = Object.values(todosPostulantes);
-                const tieneCandidatosPropios = arrayPostulantes.some(p => (p.reclutadorId === usuarioSesion.uid || p.agenteId === usuarioSesion.uid));
-
-                if (esReceptorReclutadorValido(usuarioSesion.uid) || tieneCandidatosPropios) {
-                    equipoAuditableIds.push(usuarioSesion.uid);
-                }
-
+                // Coordinador (Nivel 3): Solo lista subordinados facultados para reclutar
                 Object.entries(catalogoUsuarios).forEach(([uId, uVal]) => {
                     if (uVal && uVal.coordinadorPadreId === usuarioSesion.uid) {
-                        if (!equipoAuditableIds.includes(uId)) equipoAuditableIds.push(uId);
+                        if (esReceptorReclutadorValido(uId) && !equipoAuditableIds.includes(uId)) {
+                            equipoAuditableIds.push(uId);
+                        }
                     }
                 });
-                document.getElementById("badgeJerarquia").textContent = `Célula: Equipo Directo (${equipoAuditableIds.length} Ejecutivos)`;
+
+                // Si el coordinador también recluta, se incluye a sí mismo
+                if (esReceptorReclutadorValido(usuarioSesion.uid)) {
+                    equipoAuditableIds.unshift(usuarioSesion.uid);
+                }
+
+                document.getElementById("badgeJerarquia").textContent = `Célula: Asesores a Cargo (${equipoAuditableIds.length} Asesores)`;
             }
         }
 
@@ -363,7 +370,6 @@
 
                 const uNombre = uVal.nombre || uVal.email || uId;
                 const uTel = uVal.telefono || "";
-                const esOperativoActivo = esReceptorReclutadorValido(uId);
 
                 const cands = arrayPostulantes.filter(p => (p.reclutadorId === uId || p.agenteId === uId));
                 const total = cands.length;
@@ -391,9 +397,7 @@
                 chartDataR.push(r);
 
                 let badgeCarga = `<span class="status-pill-green text-xs font-mono font-bold px-2 py-0.5 rounded-full">Óptima (${activos})</span>`;
-                if (!esOperativoActivo) {
-                    badgeCarga = `<span class="bg-slate-800 text-slate-400 border border-slate-700 text-xs font-mono px-2 py-0.5 rounded-full">Solo Supervisión</span>`;
-                } else if (activos > 35) {
+                if (activos > 35) {
                     badgeCarga = `<span class="status-pill-red text-xs font-mono font-bold px-2 py-0.5 rounded-full animate-pulse">Saturado (${activos})</span>`;
                 } else if (activos >= 20) {
                     badgeCarga = `<span class="status-pill-amber text-xs font-mono font-bold px-2 py-0.5 rounded-full">Carga Alta (${activos})</span>`;
@@ -443,7 +447,7 @@
             document.getElementById("kpiAlDia").textContent = globalV;
             document.getElementById("kpiAlerta").textContent = globalA;
             document.getElementById("kpiCriticos").textContent = globalR;
-            document.getElementById("txtTotalReclutadoresAuditoria").textContent = `Supervisando ${equipoAuditableIds.length} ejecutivos autorizados`;
+            document.getElementById("txtTotalReclutadoresAuditoria").textContent = `Supervisando ${equipoAuditableIds.length} asesores activos`;
 
             renderizarGraficos(globalV, globalA, globalR, chartLabels, chartDataV, chartDataA, chartDataR);
         }
@@ -489,7 +493,7 @@
             });
         }
 
-        // 7. MODAL DE RESCATE CON FILTRADO ESTRICTO DE DESTINATARIOS
+        // 7. MODAL DE RESCATE CON DESTINATARIOS OPERATIVOS
         window.abrirModalRescate = function(origenUid, origenNombre) {
             document.getElementById("rescateOrigenUid").value = origenUid;
             document.getElementById("rescateOrigenNombre").value = origenNombre;
@@ -498,7 +502,6 @@
             selectDest.innerHTML = '<option value="">-- Seleccionar Receptor Autorizado --</option>';
 
             equipoAuditableIds.forEach(id => {
-                // Validación estricta: No transferir a sí mismo y asegurar que opera como reclutador activo
                 if (id !== origenUid && esReceptorReclutadorValido(id)) {
                     const u = catalogoUsuarios[id];
                     selectDest.innerHTML += `<option value="${id}">${u.nombre || u.email} (${u.nombreRol || 'Reclutador'})</option>`;
@@ -574,7 +577,6 @@
 
         // 8. AUTO-BALANCEO INTELIGENTE DE CARGA BLINDADO
         window.balancearCargaInteligente = async function() {
-            // Filtrar únicamente los reclutadores operativos activos de la célula
             const reclutadoresOperativosIds = equipoAuditableIds.filter(id => esReceptorReclutadorValido(id));
 
             if (reclutadoresOperativosIds.length < 2) {
@@ -582,14 +584,13 @@
                 return;
             }
 
-            if (!confirm("¿Deseas auto-balancear los candidatos estancados (>48h) de forma equitativa únicamente entre los reclutadores autorizados?")) {
+            if (!confirm("¿Deseas auto-balancear los candidatos estancados (>48h) de forma equitativa únicamente entre los asesores autorizados?")) {
                 return;
             }
 
             const snap = await db.ref('postulantes').once('value');
             const data = snap.val() || {};
 
-            // 1. Inicializar conteo de carga activa solo para reclutadores operativos
             const cargas = {};
             reclutadoresOperativosIds.forEach(id => cargas[id] = 0);
 
@@ -599,7 +600,6 @@
                 }
             });
 
-            // 2. Extraer candidatos en riesgo (>48h) de la célula
             const candidatosCriticos = [];
             Object.entries(data).forEach(([id, p]) => {
                 if (equipoAuditableIds.includes(p.reclutadorId) && p.estatus !== "Contratado" && p.estatus !== "Declinante") {
@@ -618,7 +618,6 @@
             const updates = {};
             let reasignados = 0;
 
-            // Algoritmo round-robin restringido a reclutadores autorizados
             candidatosCriticos.forEach(cand => {
                 const mejorOpId = reclutadoresOperativosIds.reduce((a, b) => cargas[a] < cargas[b] ? a : b);
 
@@ -646,13 +645,13 @@
                     supervisor: usuarioSesion.nombre,
                     ejecutadoPor: usuarioSesion.email,
                     uidEjecutor: usuarioSesion.uid,
-                    detalle: `Algoritmo balanceó equitativamente ${reasignados} candidatos críticos entre ${reclutadoresOperativosIds.length} reclutadores autorizados.`,
+                    detalle: `Algoritmo balanceó equitativamente ${reasignados} candidatos críticos entre ${reclutadoresOperativosIds.length} asesores autorizados.`,
                     timestamp: firebase.database.ServerValue.TIMESTAMP
                 });
 
                 alert(`⚖️ Balanceo completado: Se redistribuyeron ${reasignados} prospectos en riesgo exclusivamente entre los asesores operativos con mayor disponibilidad.`);
             } else {
-                alert("La carga actual de prospectos críticos ya se encuentra distribuida de forma equilibrada entre los reclutadores autorizados.");
+                alert("La carga actual de prospectos críticos ya se encuentra distribuida de forma equilibrada entre los asesores autorizados.");
             }
         };
     </script>
