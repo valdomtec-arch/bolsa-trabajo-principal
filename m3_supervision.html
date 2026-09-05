@@ -189,9 +189,10 @@
                 </div>
 
                 <div>
-                    <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Reclutador Destino (Misma Célula)</label>
+                    <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Reclutador Destino (Autorizado para Reclutar)</label>
                     <select id="rescateDestinoUid" class="w-full bg-[#15264a] border border-white/10 text-white rounded-lg p-2 focus:outline-none focus:border-orange-500">
                     </select>
+                    <span class="text-[9px] text-slate-400 block mt-0.5">Solo lista reclutadores activos de tu célula facultados para atender candidatos.</span>
                 </div>
             </div>
 
@@ -225,6 +226,7 @@
 
         let usuarioSesion = null;
         let catalogoUsuarios = {};
+        let catalogoRoles = {};
         let todosPostulantes = {};
         let equipoAuditableIds = [];
 
@@ -253,7 +255,6 @@
                     const u = snap.val();
                     const nivel = parseInt(u.nivel) || 1;
 
-                    // Bloqueo: Reclutadores operativos (Nivel < 3) no acceden a la torre de supervisión
                     if (nivel < 3) {
                         alert("Acceso Restringido. Este módulo está reservado exclusivamente para coordinadores y dirección.");
                         window.location.href = "m3_agenda.html";
@@ -292,10 +293,10 @@
                 }
             });
 
-            // Escuchar cambios simultáneos en Staff y Postulantes
             db.ref().on("value", snapshot => {
                 const data = snapshot.val() || {};
                 catalogoUsuarios = data.usuarios_reclutadores || {};
+                catalogoRoles = data.roles_dinamicos || {};
                 todosPostulantes = data.postulantes || data.modulo_3_agenda || {};
 
                 construirEquipoAuditable();
@@ -303,17 +304,34 @@
             });
         }
 
-        // 3. CONSTRUIR CÉLULA OPERATIVA SEGÚN GOBERNANZA M5
+        // 3. VALIDADOR UNIVERSAL RBAC: VERIFICA SI UN USUARIO PUEDE RECIBIR CANDIDATOS
+        function esReceptorReclutadorValido(uId) {
+            const u = catalogoUsuarios[uId];
+            if (!u || u.estatus !== 'Activo') return false;
+
+            const rolInfo = catalogoRoles[u.rolId] || {};
+            const nivel = u.nivel !== undefined ? parseInt(u.nivel) : (rolInfo.nivelJerarquico || 2);
+
+            // Regla Directiva: Nivel < 3 opera por defecto; Nivel 3+ depende de la bandera explícita
+            return u.operaComoReclutador === true || (u.operaComoReclutador === undefined && nivel < 3);
+        }
+
+        // 4. CONSTRUIR CÉLULA OPERATIVA SEGÚN GOBERNANZA M5
         function construirEquipoAuditable() {
             equipoAuditableIds = [];
 
             if (usuarioSesion.nivel >= 4 || usuarioSesion.scope === 'global') {
-                // Dirección y SuperAdmin: auditan a todos los reclutadores del sistema
                 equipoAuditableIds = Object.keys(catalogoUsuarios);
                 document.getElementById("badgeJerarquia").textContent = "Célula: Toda la Empresa (Global)";
             } else {
-                // Coordinador (Nivel 3): Audita a sí mismo + los reclutadores bajo su supervisión directa
-                equipoAuditableIds.push(usuarioSesion.uid);
+                // Coordinador (Nivel 3): Incluye su propio ID solo si él mismo opera como reclutador o tiene candidatos asignados
+                const arrayPostulantes = Object.values(todosPostulantes);
+                const tieneCandidatosPropios = arrayPostulantes.some(p => (p.reclutadorId === usuarioSesion.uid || p.agenteId === usuarioSesion.uid));
+
+                if (esReceptorReclutadorValido(usuarioSesion.uid) || tieneCandidatosPropios) {
+                    equipoAuditableIds.push(usuarioSesion.uid);
+                }
+
                 Object.entries(catalogoUsuarios).forEach(([uId, uVal]) => {
                     if (uVal && uVal.coordinadorPadreId === usuarioSesion.uid) {
                         if (!equipoAuditableIds.includes(uId)) equipoAuditableIds.push(uId);
@@ -323,7 +341,7 @@
             }
         }
 
-        // 4. MOTOR ANALÍTICO SLA Y CÁLCULO DE CAPACIDADES
+        // 5. MOTOR ANALÍTICO SLA Y CÁLCULO DE CAPACIDADES
         function getHorasInactividad(fecha) {
             if (!fecha) return 999;
             const diff = new Date() - new Date(fecha);
@@ -345,8 +363,8 @@
 
                 const uNombre = uVal.nombre || uVal.email || uId;
                 const uTel = uVal.telefono || "";
+                const esOperativoActivo = esReceptorReclutadorValido(uId);
 
-                // Filtrar prospectos que corresponden a este operador
                 const cands = arrayPostulantes.filter(p => (p.reclutadorId === uId || p.agenteId === uId));
                 const total = cands.length;
                 const contratados = cands.filter(p => p.estatus === "Contratado").length;
@@ -372,9 +390,10 @@
                 chartDataA.push(a);
                 chartDataR.push(r);
 
-                // Determinar nivel de carga operativa
                 let badgeCarga = `<span class="status-pill-green text-xs font-mono font-bold px-2 py-0.5 rounded-full">Óptima (${activos})</span>`;
-                if (activos > 35) {
+                if (!esOperativoActivo) {
+                    badgeCarga = `<span class="bg-slate-800 text-slate-400 border border-slate-700 text-xs font-mono px-2 py-0.5 rounded-full">Solo Supervisión</span>`;
+                } else if (activos > 35) {
                     badgeCarga = `<span class="status-pill-red text-xs font-mono font-bold px-2 py-0.5 rounded-full animate-pulse">Saturado (${activos})</span>`;
                 } else if (activos >= 20) {
                     badgeCarga = `<span class="status-pill-amber text-xs font-mono font-bold px-2 py-0.5 rounded-full">Carga Alta (${activos})</span>`;
@@ -382,7 +401,6 @@
 
                 const tasaCierre = total > 0 ? Math.round((contratados / total) * 100) : 0;
 
-                // Mensaje directo para WhatsApp
                 const msgWA = encodeURIComponent(
                     `Hola ${uNombre}, en la Torre de Control M3 veo que tienes ${r} candidato(s) con más de 48h sin seguimiento. ` +
                     `Por favor avísame si requieres que reasignemos parte de tu cartera para agilizar la cobertura.`
@@ -400,9 +418,9 @@
                         <td class="p-3.5 text-center font-bold text-white font-mono">${total}</td>
                         <td class="p-3.5 text-center">
                             <div class="inline-flex items-center gap-2 font-mono text-xs font-bold">
-                                <a href="m3_agenda.html?opFiltro=${uId}" class="status-pill-green px-2.5 py-0.5 rounded hover:scale-105 transition" title="Al día">${v}</a>
-                                <a href="m3_agenda.html?opFiltro=${uId}" class="status-pill-amber px-2.5 py-0.5 rounded hover:scale-105 transition" title="En atención">${a}</a>
-                                <a href="m3_agenda.html?opFiltro=${uId}" class="status-pill-red px-2.5 py-0.5 rounded hover:scale-105 transition" title="Críticos (>48h)">${r}</a>
+                                <a href="m3_agenda.html" class="status-pill-green px-2.5 py-0.5 rounded hover:scale-105 transition" title="Al día">${v}</a>
+                                <a href="m3_agenda.html" class="status-pill-amber px-2.5 py-0.5 rounded hover:scale-105 transition" title="En atención">${a}</a>
+                                <a href="m3_agenda.html" class="status-pill-red px-2.5 py-0.5 rounded hover:scale-105 transition" title="Críticos (>48h)">${r}</a>
                             </div>
                         </td>
                         <td class="p-3.5 text-center font-bold text-amber-400 font-mono">${tasaCierre}%</td>
@@ -421,7 +439,6 @@
                 `;
             });
 
-            // Resumen en KPIs
             document.getElementById("kpiCarteraTotal").textContent = globalTotal;
             document.getElementById("kpiAlDia").textContent = globalV;
             document.getElementById("kpiAlerta").textContent = globalA;
@@ -431,7 +448,7 @@
             renderizarGraficos(globalV, globalA, globalR, chartLabels, chartDataV, chartDataA, chartDataR);
         }
 
-        // 5. RENDERIZACIÓN DE GRÁFICOS
+        // 6. RENDERIZACIÓN DE GRÁFICOS
         function renderizarGraficos(v, a, r, labels, dataV, dataA, dataR) {
             if (chartSlaInstance) chartSlaInstance.destroy();
             const ctxDona = document.getElementById('chartSlaDona').getContext('2d');
@@ -472,16 +489,17 @@
             });
         }
 
-        // 6. MODAL DE RESCATE QUIRÚRGICO DE CARTERA
+        // 7. MODAL DE RESCATE CON FILTRADO ESTRICTO DE DESTINATARIOS
         window.abrirModalRescate = function(origenUid, origenNombre) {
             document.getElementById("rescateOrigenUid").value = origenUid;
             document.getElementById("rescateOrigenNombre").value = origenNombre;
 
             const selectDest = document.getElementById("rescateDestinoUid");
-            selectDest.innerHTML = '<option value="">-- Seleccionar Receptor --</option>';
+            selectDest.innerHTML = '<option value="">-- Seleccionar Receptor Autorizado --</option>';
 
             equipoAuditableIds.forEach(id => {
-                if (id !== origenUid && catalogoUsuarios[id]) {
+                // Validación estricta: No transferir a sí mismo y asegurar que opera como reclutador activo
+                if (id !== origenUid && esReceptorReclutadorValido(id)) {
                     const u = catalogoUsuarios[id];
                     selectDest.innerHTML += `<option value="${id}">${u.nombre || u.email} (${u.nombreRol || 'Reclutador'})</option>`;
                 }
@@ -501,7 +519,7 @@
             const tipo = document.getElementById("rescateFiltroTipo").value;
 
             if (!destinoUid) {
-                alert("Por favor selecciona un reclutador destino.");
+                alert("Por favor selecciona un reclutador destino facultado para operar.");
                 return;
             }
 
@@ -518,7 +536,6 @@
                     if (tipo === "TODOS_ACTIVOS") {
                         esCandidato = p.estatus !== "Contratado" && p.estatus !== "Declinante";
                     } else {
-                        // Solo críticos > 48h
                         const hrs = getHorasInactividad(p.diaEntrevista || p.fechaRegistro || p.fechaPostulacion);
                         esCandidato = hrs > 48 && p.estatus !== "Contratado" && p.estatus !== "Declinante";
                     }
@@ -526,6 +543,7 @@
                     if (esCandidato) {
                         updates[`postulantes/${id}/reclutadorId`] = destinoUid;
                         updates[`postulantes/${id}/reclutadorNombre`] = destinoNombre;
+                        updates[`postulantes/${id}/asesor`] = destinoNombre;
                         updates[`postulantes/${id}/ultimaActualizacion`] = new Date().toISOString();
                         count++;
                     }
@@ -540,11 +558,12 @@
 
             await db.ref().update(updates);
 
-            // Registro inmutable en auditoría M7
             await db.ref('modulo_7_logs').push({
                 modulo: "M3_SUPERVISION",
                 evento: "RESCATE_QUIRURGICO",
                 supervisor: usuarioSesion.nombre,
+                ejecutadoPor: usuarioSesion.email,
+                uidEjecutor: usuarioSesion.uid,
                 detalle: `Se transfirieron ${count} candidatos de ${origenNombre} hacia ${destinoNombre}. Criterio: ${tipo}.`,
                 timestamp: firebase.database.ServerValue.TIMESTAMP
             });
@@ -553,23 +572,26 @@
             alert(`✅ ${count} candidatos rescatados y transferidos exitosamente a ${destinoNombre}.`);
         };
 
-        // 7. TOQUE MAESTRO: AUTO-BALANCEO INTELIGENTE DE CARGA
+        // 8. AUTO-BALANCEO INTELIGENTE DE CARGA BLINDADO
         window.balancearCargaInteligente = async function() {
-            if (equipoAuditableIds.length < 2) {
-                alert("Se requieren al menos 2 operadores en tu equipo para realizar un balanceo.");
+            // Filtrar únicamente los reclutadores operativos activos de la célula
+            const reclutadoresOperativosIds = equipoAuditableIds.filter(id => esReceptorReclutadorValido(id));
+
+            if (reclutadoresOperativosIds.length < 2) {
+                alert("Se requieren al menos 2 operadores activos facultados para reclutar en tu equipo para realizar un balanceo automático.");
                 return;
             }
 
-            if (!confirm("¿Deseas auto-balancear los candidatos estancados (>48h) de forma equitativa entre los reclutadores disponibles?")) {
+            if (!confirm("¿Deseas auto-balancear los candidatos estancados (>48h) de forma equitativa únicamente entre los reclutadores autorizados?")) {
                 return;
             }
 
             const snap = await db.ref('postulantes').once('value');
             const data = snap.val() || {};
 
-            // 1. Detectar reclutadores receptores con menor carga
+            // 1. Inicializar conteo de carga activa solo para reclutadores operativos
             const cargas = {};
-            equipoAuditableIds.forEach(id => cargas[id] = 0);
+            reclutadoresOperativosIds.forEach(id => cargas[id] = 0);
 
             Object.values(data).forEach(p => {
                 if (cargas[p.reclutadorId] !== undefined && p.estatus !== "Contratado" && p.estatus !== "Declinante") {
@@ -577,7 +599,7 @@
                 }
             });
 
-            // 2. Extraer candidatos en riesgo (>48h)
+            // 2. Extraer candidatos en riesgo (>48h) de la célula
             const candidatosCriticos = [];
             Object.entries(data).forEach(([id, p]) => {
                 if (equipoAuditableIds.includes(p.reclutadorId) && p.estatus !== "Contratado" && p.estatus !== "Declinante") {
@@ -596,19 +618,21 @@
             const updates = {};
             let reasignados = 0;
 
-            // Repartir en algoritmo round-robin hacia los operadores con menos prospectos
+            // Algoritmo round-robin restringido a reclutadores autorizados
             candidatosCriticos.forEach(cand => {
-                // Encontrar el operador con la menor carga actual
-                const mejorOpId = Object.keys(cargas).reduce((a, b) => cargas[a] < cargas[b] ? a : b);
+                const mejorOpId = reclutadoresOperativosIds.reduce((a, b) => cargas[a] < cargas[b] ? a : b);
 
                 if (mejorOpId !== cand.reclutadorId) {
                     const receptorNombre = catalogoUsuarios[mejorOpId]?.nombre || "Operador Disponible";
                     updates[`postulantes/${cand.id}/reclutadorId`] = mejorOpId;
                     updates[`postulantes/${cand.id}/reclutadorNombre`] = receptorNombre;
+                    updates[`postulantes/${cand.id}/asesor`] = receptorNombre;
                     updates[`postulantes/${cand.id}/ultimaActualizacion`] = new Date().toISOString();
 
                     cargas[mejorOpId]++;
-                    cargas[cand.reclutadorId]--;
+                    if (cargas[cand.reclutadorId] !== undefined) {
+                        cargas[cand.reclutadorId]--;
+                    }
                     reasignados++;
                 }
             });
@@ -620,13 +644,15 @@
                     modulo: "M3_SUPERVISION",
                     evento: "BALANCEO_INTELIGENTE",
                     supervisor: usuarioSesion.nombre,
-                    detalle: `Algoritmo balanceó equitativamente ${reasignados} candidatos críticos entre la célula operativa.`,
+                    ejecutadoPor: usuarioSesion.email,
+                    uidEjecutor: usuarioSesion.uid,
+                    detalle: `Algoritmo balanceó equitativamente ${reasignados} candidatos críticos entre ${reclutadoresOperativosIds.length} reclutadores autorizados.`,
                     timestamp: firebase.database.ServerValue.TIMESTAMP
                 });
 
-                alert(`⚖️ Balanceo completado: Se redistribuyeron ${reasignados} prospectos en riesgo entre los operadores con mayor disponibilidad.`);
+                alert(`⚖️ Balanceo completado: Se redistribuyeron ${reasignados} prospectos en riesgo exclusivamente entre los asesores operativos con mayor disponibilidad.`);
             } else {
-                alert("La carga actual de prospectos críticos ya se encuentra distribuida de forma equilibrada.");
+                alert("La carga actual de prospectos críticos ya se encuentra distribuida de forma equilibrada entre los reclutadores autorizados.");
             }
         };
     </script>
