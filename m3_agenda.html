@@ -182,10 +182,10 @@
                 </div>
                 <div>
                     <label class="block text-[10px] font-mono uppercase text-cyber-accent mb-1 font-bold">
-                        <i class="fas fa-user-check"></i> Operador / Reclutador (Filtro Histórico)
+                        <i class="fas fa-user-check"></i> Asesor Autorizado en tu Célula
                     </label>
                     <select id="filtroOperador" onchange="cargarPostulantes()" class="w-full bg-cyber-bg border border-cyber-border rounded-lg p-2 text-xs text-white focus:outline-none focus:border-cyber-accent">
-                        <option value="TODOS">-- Todos los Operadores --</option>
+                        <option value="TODOS">-- Todos los Autorizados --</option>
                     </select>
                 </div>
             </div>
@@ -370,6 +370,7 @@
         let centinelaActivo = true;
         let filtroSoloDesfasadosActivo = false;
 
+        // Estructura de gobernanza jerárquica
         let usuarioSesion = {
             uid: null,
             nombre: "Cargando...",
@@ -378,7 +379,7 @@
             scope: "personal",
             todasLasEmpresas: false,
             empresas: [],
-            equipoAsignadoIds: []
+            equipoDescendenteIds: [] // Lista exacta de UIDs que tiene permitido visualizar/supervisar
         };
 
         document.addEventListener("DOMContentLoaded", () => {
@@ -386,7 +387,7 @@
             escucharEstadoCentinela();
         });
 
-        // 1. RESOLUCIÓN DE IDENTIDAD AUTÉNTICA
+        // 1. RESOLUCIÓN DE IDENTIDAD Y CÁLCULO DEL ÁRBOL JERÁRQUICO
         function inicializarPerfilSeguridad() {
             auth.onAuthStateChanged(user => {
                 if (!user) {
@@ -408,35 +409,76 @@
                         return;
                     }
 
+                    const nivelNum = parseInt(val.nivel) || 2;
+
                     usuarioSesion = {
                         uid: user.uid,
                         nombre: val.nombre || user.email,
                         rol: val.nombreRol || "Colaborador",
-                        nivel: parseInt(val.nivel) || 2,
+                        nivel: nivelNum,
                         scope: val.scope || "personal",
-                        todasLasEmpresas: val.scope === 'global' || (Array.isArray(val.empresas) && val.empresas.includes("TODAS")),
+                        todasLasEmpresas: nivelNum >= 5 || val.scope === 'global' || (Array.isArray(val.empresas) && val.empresas.includes("TODAS")),
                         empresas: Array.isArray(val.empresas) ? val.empresas : [],
-                        equipoAsignadoIds: [user.uid]
+                        equipoDescendenteIds: [user.uid] // Inicia siempre con su propio UID
                     };
 
                     db.ref("usuarios_reclutadores").once('value', staffSnap => {
-                        const todos = staffSnap.val() || {};
-                        
-                        if (usuarioSesion.nivel >= 3) {
-                            Object.entries(todos).forEach(([subUid, subVal]) => {
-                                if (subVal && subVal.coordinadorPadreId === usuarioSesion.uid) {
-                                    if (!usuarioSesion.equipoAsignadoIds.includes(subUid)) {
-                                        usuarioSesion.equipoAsignadoIds.push(subUid);
-                                    }
-                                }
-                            });
-                        }
-
+                        catalogoUsuarios = staffSnap.val() || {};
+                        construirArbolDescendente();
                         aplicarReglasInterfaz();
                         inicializarEscuchaFirebase();
                     });
                 });
             });
+        }
+
+        // 2. CONSTRUCCIÓN RECURSIVA DEL ÁRBOL DESCENDENTE DE MANDO
+        function construirArbolDescendente() {
+            usuarioSesion.equipoDescendenteIds = [usuarioSesion.uid];
+
+            // Nivel 5: SuperAdmin / Dirección General (Acceso Absoluto)
+            if (usuarioSesion.nivel >= 5 || usuarioSesion.scope === 'global') {
+                usuarioSesion.equipoDescendenteIds = Object.keys(catalogoUsuarios);
+                return;
+            }
+
+            // Nivel 4: Supervisor de Zona (Ve sus propios candidatos + Coordinadores + Reclutadores de esos coordinadores)
+            if (usuarioSesion.nivel === 4) {
+                const coordinadoresACargo = [];
+                Object.entries(catalogoUsuarios).forEach(([uid, u]) => {
+                    if (u && u.supervisorPadreId === usuarioSesion.uid || u.coordinadorPadreId === usuarioSesion.uid) {
+                        coordinadoresACargo.push(uid);
+                        if (!usuarioSesion.equipoDescendenteIds.includes(uid)) {
+                            usuarioSesion.equipoDescendenteIds.push(uid);
+                        }
+                    }
+                });
+
+                // Añadir a los reclutadores que dependen de esos coordinadores
+                Object.entries(catalogoUsuarios).forEach(([uid, u]) => {
+                    if (u && coordinadoresACargo.includes(u.coordinadorPadreId)) {
+                        if (!usuarioSesion.equipoDescendenteIds.includes(uid)) {
+                            usuarioSesion.equipoDescendenteIds.push(uid);
+                        }
+                    }
+                });
+                return;
+            }
+
+            // Nivel 3: Coordinador (Ve sus propios candidatos + Reclutadores e Implants bajo su coordinación directa)
+            if (usuarioSesion.nivel === 3) {
+                Object.entries(catalogoUsuarios).forEach(([uid, u]) => {
+                    if (u && u.coordinadorPadreId === usuarioSesion.uid) {
+                        if (!usuarioSesion.equipoDescendenteIds.includes(uid)) {
+                            usuarioSesion.equipoDescendenteIds.push(uid);
+                        }
+                    }
+                });
+                return;
+            }
+
+            // Nivel 1 y 2: Reclutador / Implant / Operativo (Estricto: Únicamente su propio UID)
+            // Ya está pre-cargado con [usuarioSesion.uid]
         }
 
         function aplicarReglasInterfaz() {
@@ -445,18 +487,22 @@
             `;
 
             const badgeScope = document.getElementById("badgeScopeStatus");
-            if (usuarioSesion.nivel >= 4 || usuarioSesion.scope === 'global') {
+            if (usuarioSesion.nivel >= 5 || usuarioSesion.scope === 'global') {
                 badgeScope.className = "bg-emerald-500/10 text-emerald-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-emerald-500/20";
                 badgeScope.textContent = "Scope: Global Corporativo";
                 document.getElementById("btnDepurarOp").classList.remove("hidden");
                 document.getElementById("btnSupervisionLink").classList.remove("hidden");
+            } else if (usuarioSesion.nivel === 4) {
+                badgeScope.className = "bg-purple-500/10 text-purple-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-purple-500/20";
+                badgeScope.textContent = `Scope: Supervisión Regional (${usuarioSesion.equipoDescendenteIds.length} Asesores)`;
+                document.getElementById("btnSupervisionLink").classList.remove("hidden");
             } else if (usuarioSesion.nivel === 3) {
                 badgeScope.className = "bg-amber-500/10 text-amber-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-amber-500/20";
-                badgeScope.textContent = `Scope: Equipo (${usuarioSesion.equipoAsignadoIds.length} Reclutadores)`;
+                badgeScope.textContent = `Scope: Célula de Coordinación (${usuarioSesion.equipoDescendenteIds.length} Asesores)`;
                 document.getElementById("btnSupervisionLink").classList.remove("hidden");
             } else {
                 badgeScope.className = "bg-cyber-cardAlt text-slate-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-cyber-border";
-                badgeScope.textContent = "Scope: Operativo Personal";
+                badgeScope.textContent = "Scope: Cartera Personal Exclusiva";
             }
 
             const btnSupervision = document.getElementById("btnSupervisionLink");
@@ -521,6 +567,7 @@
                 catalogoRoles = data.roles_dinamicos || {};
                 catalogoVacantesDetalles = data.vacantes_detalles || {};
 
+                construirArbolDescendente();
                 actualizarFiltroEmpresasRobusto();
                 actualizarFiltroOperadores();
                 actualizarFiltroVacantes();
@@ -551,7 +598,7 @@
             }
         }
 
-        // 3. GOBERNANZA DE SELECTORES DE OPERADORES
+        // 3. SELECTOR DE ASESORES RESTRINGIDO ESTRICTAMENTE AL ÁRBOL PERMITIDO
         function actualizarFiltroOperadores() {
             const filtroOperador = document.getElementById("filtroOperador");
             const editReclutador = document.getElementById("editReclutador");
@@ -559,10 +606,11 @@
             const selFiltro = filtroOperador.value;
             const selEdit = editReclutador.value;
 
-            filtroOperador.innerHTML = '<option value="TODOS">-- Todos los Operadores --</option>';
+            filtroOperador.innerHTML = '<option value="TODOS">-- Todos los Autorizados --</option>';
             editReclutador.innerHTML = '<option value="">-- Seleccionar Asesor Operativo --</option>';
 
-            Object.entries(catalogoUsuarios).forEach(([uUid, uVal]) => {
+            usuarioSesion.equipoDescendenteIds.forEach(uUid => {
+                const uVal = catalogoUsuarios[uUid];
                 if (!uVal) return;
 
                 const rolInfo = catalogoRoles[uVal.rolId] || {};
@@ -572,22 +620,17 @@
                 const operaComoReclutador = uVal.operaComoReclutador === true || 
                     (uVal.operaComoReclutador === undefined && nivel < 3);
 
-                const esVisibleJerarquia = (usuarioSesion.nivel >= 4 || usuarioSesion.scope === 'global') ||
-                                           (usuarioSesion.equipoAsignadoIds.includes(uUid));
+                const uNombre = uVal.nombre || uVal.usuario || uUid;
+                const nombreRol = uVal.nombreRol || rolInfo.nombre || uVal.rol || 'Asesor';
+                
+                let labelFiltro = `${uNombre} (${nombreRol})`;
+                if (!estaActivo) labelFiltro += ' [Inactivo]';
+                else if (nivel >= 3 && !operaComoReclutador) labelFiltro += ' [Solo Supervisión]';
 
-                if (esVisibleJerarquia) {
-                    const uNombre = uVal.nombre || uVal.usuario || uUid;
-                    const nombreRol = uVal.nombreRol || rolInfo.nombre || uVal.rol || 'Asesor';
-                    
-                    let labelFiltro = `${uNombre} (${nombreRol})`;
-                    if (!estaActivo) labelFiltro += ' [Inactivo]';
-                    else if (nivel >= 3 && !operaComoReclutador) labelFiltro += ' [Solo Supervisión]';
+                filtroOperador.innerHTML += `<option value="${uUid}">${labelFiltro}</option>`;
 
-                    filtroOperador.innerHTML += `<option value="${uUid}">${labelFiltro}</option>`;
-
-                    if (estaActivo && operaComoReclutador) {
-                        editReclutador.innerHTML += `<option value="${uUid}">${uNombre} (${nombreRol})</option>`;
-                    }
+                if (estaActivo && operaComoReclutador) {
+                    editReclutador.innerHTML += `<option value="${uUid}">${uNombre} (${nombreRol})</option>`;
                 }
             });
 
@@ -638,23 +681,22 @@
             }
         }
 
-        // 4. REGLA MAESTRA DE FILTRADO JERÁRQUICO
+        // 4. REGLA HERMÉTICA DE VISIBILIDAD: PURAMENTE PIRAMIDAL / ÁRBOL DE MANDO
         function puedeVerCandidato(p) {
-            if (usuarioSesion.nivel >= 4 || usuarioSesion.scope === 'global' || usuarioSesion.todasLasEmpresas) {
+            // SuperAdmin (Nivel 5): Todo el universo
+            if (usuarioSesion.nivel >= 5 || usuarioSesion.scope === 'global') {
                 return true;
             }
 
             const recId = p.reclutadorId || p.agenteId;
 
-            if (usuarioSesion.nivel === 3) {
-                if (recId && usuarioSesion.equipoAsignadoIds.includes(recId)) {
-                    return true;
-                }
-                const empKey = p.empresaId || p.empresa_id || p.empresa;
-                return usuarioSesion.empresas.includes(empKey);
+            // Para Niveles 1, 2, 3 y 4: Únicamente si el candidato pertenece a un asesor dentro de su árbol descendente
+            if (recId && usuarioSesion.equipoDescendenteIds.includes(recId)) {
+                return true;
             }
 
-            if (recId === usuarioSesion.uid) {
+            // Si el candidato no tiene asesor asignado, solo los coordinadores o superiores pueden verlo para reasignarlo
+            if (!recId && usuarioSesion.nivel >= 3) {
                 return true;
             }
 
@@ -707,6 +749,7 @@
             postulantesEntradas.forEach(([id, p]) => {
                 if (!p) return;
 
+                // CANDADO DE JERARQUÍA ESTRICTO
                 if (!puedeVerCandidato(p)) return;
 
                 const empKey = p.empresaId || p.empresa_id || p.empresa || "";
@@ -844,8 +887,7 @@
             if (totalDesfasadosPropios > 0) {
                 bannerSla.classList.remove("hidden");
                 document.getElementById("txtAlertaSlaDetalle").innerHTML = `
-                    Tienes <b>${totalDesfasadosPropios}</b> postulante(s) con retraso de atención (<b>${totalCriticosPropios}</b> en riesgo crítico &gt;48h). 
-                    Atiéndelos pronto para evitar transferencias automáticas en la Torre de Supervisión.
+                    Tienes <b>${totalDesfasadosPropios}</b> postulante(s) con retraso de atención en tu célula (<b>${totalCriticosPropios}</b> en riesgo crítico &gt;48h).
                 `;
             } else {
                 bannerSla.classList.add("hidden");
@@ -857,7 +899,7 @@
             document.getElementById("kpiContratados").innerText = cContratados;
             const tasaCierre = totalContados > 0 ? Math.round((cContratados / totalContados) * 100) : 0;
             document.getElementById("kpiEfectividad").innerText = `${tasaCierre}%`;
-            document.getElementById("txtTotalPostuladosLabel").innerText = `Mostrando ${totalContados} candidatos autorizados`;
+            document.getElementById("txtTotalPostuladosLabel").innerText = `Mostrando ${totalContados} candidatos en tu célula autorizada`;
 
             actualizarGraficosDemograficos(metricaSexo, metricaEdad);
         }
@@ -942,7 +984,7 @@
                 txtHelp.textContent = `🔒 Titularidad bloqueada. Atendido por: ${recNombre}.`;
             } else {
                 selectRec.classList.remove("opacity-50", "pointer-events-none");
-                txtHelp.textContent = `👑 Como mando directivo puedes transferir la titularidad de este candidato.`;
+                txtHelp.textContent = `👑 Como mando directivo puedes transferir la titularidad de este candidato dentro de tu célula.`;
             }
 
             const editEmpresa = document.getElementById("editEmpresa");
@@ -1081,7 +1123,7 @@
 
                 await db.ref(`postulantes/${id}`).update(updates);
 
-                // Si un mando cambió de reclutador al candidato, auditar en M7
+                // Auditoría en M7 ante traspaso de titularidad
                 if (originalRecId && recIdFinal !== originalRecId) {
                     await db.ref('modulo_7_logs').push({
                         modulo: "M3_AGENDA",
