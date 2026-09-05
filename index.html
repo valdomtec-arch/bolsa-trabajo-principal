@@ -274,7 +274,7 @@
             color: var(--primary-orange);
         }
 
-        /* SECCIÓN RADAR DE TRANSPORTE Y RUTAS M6 */
+        /* RADAR DE TRANSPORTE Y RUTAS */
         .location-search-section {
             background: linear-gradient(135deg, rgba(15, 27, 54, 0.9) 0%, rgba(9, 18, 38, 0.95) 100%);
             border: 1px solid rgba(255, 102, 0, 0.35);
@@ -547,7 +547,7 @@
             box-shadow: 0 0 12px var(--primary-orange);
         }
 
-        /* GALERÍA DE EMPRESAS CON HERENCIA CORPORATIVA */
+        /* GALERÍA DE EMPRESAS */
         .gallery-section {
             min-height: 460px; 
         }
@@ -997,7 +997,7 @@
 
 <div class="container">
     
-    <!-- ENCABEZADO HERO CON CARRUSEL Y TEXTOS DINÁMICOS -->
+    <!-- ENCABEZADO HERO -->
     <header class="hero-banner">
         <div class="hero-slides-bg">
             <div class="slide active" style="background-image: url('https://images.unsplash.com/photo-1521737711867-e3b97375f902?q=80&w=1200&auto=format&fit=crop');"></div>
@@ -1025,7 +1025,7 @@
         </div>
     </header>
 
-    <!-- SEGUNDO BUSCADOR: RADAR DE EMPLEOS Y RUTAS M6 MULTIPARADA -->
+    <!-- RADAR DE RUTAS Y TRANSPORTE -->
     <section class="location-search-section">
         <div class="location-search-header">
             <div class="location-search-title">
@@ -1049,11 +1049,11 @@
         </div>
 
         <div id="haversineResults" class="haversine-results-box">
-            <!-- Resultados filtrados dinámicamente -->
+            <!-- Inyección dinámica de tarjetas de rutas más cercanas -->
         </div>
     </section>
 
-    <!-- GALERÍA DINÁMICA DE EMPRESAS CON HERENCIA CORPORATIVA -->
+    <!-- GALERÍA DINÁMICA DE EMPRESAS -->
     <section class="gallery-section">
         <h2>Ofertas de Empleo Disponibles</h2>
         <div class="gallery-container" id="galleryContainer">
@@ -1074,11 +1074,11 @@
         </div>
     </section>
 
-    <!-- SECCIÓN DE ACCESOS A EMPRESAS -->
+    <!-- ACCESOS A LAS BOLSAS ESPECÍFICAS -->
     <section class="links-section">
         <h2>Visita nuestras Bolsas de Trabajo Oficiales</h2>
         <div class="button-group" id="linksGroup">
-            <!-- Se renderizan dinámicamente todos los accesos directos a las empresas -->
+            <!-- Se renderizan dinámicamente -->
         </div>
     </section>
 
@@ -1134,9 +1134,18 @@
                     <label for="vacante"><i class="fas fa-briefcase"></i> Vacante a la que postula</label>
                     <span class="validation-icon"></span>
                 </div>
+
+                <!-- SELECTOR DE ASESOR / ROTATIVO EQUITATIVO -->
+                <div class="form-group floating-group" style="grid-column: 1 / -1;">
+                    <select id="reclutadorAsignado">
+                        <option value="AUTO" selected>🎲 Asignar asesor automáticamente (Recomendado)</option>
+                    </select>
+                    <label for="reclutadorAsignado"><i class="fas fa-headset"></i> Asesor de Reclutamiento</label>
+                    <span class="validation-icon"></span>
+                </div>
             </div>
 
-            <button type="button" class="btn-whatsapp" onclick="enviarWhatsApp()">
+            <button type="button" class="btn-whatsapp" id="btnEnviarPostulacion" onclick="enviarWhatsApp()">
                 <i class="fab fa-whatsapp"></i>
                 <span class="btn-whatsapp-text">Enviar Postulación por WhatsApp</span>
             </button>
@@ -1163,7 +1172,9 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, onValue, set, push, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { 
+        getDatabase, ref, onValue, set, push, get, query, orderByChild, equalTo, increment, serverTimestamp 
+    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyDxgP1YnycCEqkQ2vr3SPkwc9QMhtG8Zqw",
@@ -1179,7 +1190,7 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
     
-    // CARRUSEL DE FONDO HERO
+    // HERO CAROUSEL
     const slides = document.querySelectorAll('.hero-slides-bg .slide');
     let currentSlide = 0;
 
@@ -1199,7 +1210,10 @@
     let todasLasEmpresas = {}; 
     let todasLasVacantes = {};
     let todasLasRutas = {};
+    let todosLosUsuarios = {};
     let empresasFiltradas = [];
+
+    const fallbackTelefonoGuardia = "526461974763";
 
     let startX = 0;
     let isDragging = false;
@@ -1234,7 +1248,6 @@
         return texto ? texto.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim() : "";
     }
 
-    // FÓRMULA HAVERSINE (CALCULA DISTANCIA EN KM ENTRE DOS COORDENADAS)
     function calcularHaversineKm(lat1, lon1, lat2, lon2) {
         if (!lat1 || !lon1 || !lat2 || !lon2) return null;
         const R = 6371;
@@ -1288,7 +1301,6 @@
         if (currentPage > 0) { currentPage--; window.updateGallery(); }
     };
 
-    // RENDERS DE ACCESOS Y TARJETAS CON HERENCIA DE BANNERS CORPORATIVOS
     function renderizarGalleryYLinks() {
         const wrapper = document.getElementById('galleryWrapper');
         const linksGroup = document.getElementById('linksGroup');
@@ -1305,7 +1317,6 @@
             const nombreEmpresa = obtenerNombreComercialReal(emp, emp.id);
             const urlUbicacionMaps = emp.ubicacion || emp.mapaUrl || "#";
             
-            // Si la empresa tiene banners corporativos guardados en M2, usar la primera ranura como imagen
             let imagenEmpresa = emp.imagen;
             if (!imagenEmpresa && emp.bannersCorporativos) {
                 imagenEmpresa = emp.bannersCorporativos.split(';')[0].trim();
@@ -1393,7 +1404,7 @@
         );
     };
 
-    // RADAR DE TRANSPORTE MULTIPARADA COMPATIBLE CON M6
+    // RADAR DE TRANSPORTE
     window.calcularCercaniaCandidato = async function() {
         const direccionTexto = document.getElementById('userLocationInput').value.trim();
         const contenedorResultados = document.getElementById('haversineResults');
@@ -1433,7 +1444,6 @@
             const calculos = [];
             const RADIO_MAXIMO_KM = 15.0;
 
-            // RECORRER TODAS LAS RUTAS Y SUS PARADAS INDIVIDUALES (M6)
             Object.keys(todasLasRutas).forEach(empresaKey => {
                 const rutasEmpresa = todasLasRutas[empresaKey] || {};
                 const datosEmpresa = todasLasEmpresas[empresaKey] || {};
@@ -1443,7 +1453,6 @@
                     const ruta = rutasEmpresa[idRuta];
                     if (!ruta || typeof ruta !== 'object') return;
 
-                    // A) Si tiene array estructurado de paradas (M6 Pro)
                     if (Array.isArray(ruta.paradas) && ruta.paradas.length > 0) {
                         ruta.paradas.forEach(p => {
                             if (p.coordenadasAbordaje) {
@@ -1473,7 +1482,6 @@
                             }
                         });
                     } else if (ruta.coordenadasAbordaje) {
-                        // B) Fallback a coordenada general de la ruta
                         const coords = ruta.coordenadasAbordaje.split(',');
                         if (coords.length === 2) {
                             const latRuta = parseFloat(coords[0].trim());
@@ -1576,12 +1584,13 @@
         }
     };
 
-    // ESCUCHADOR PRINCIPAL DE BASE DE DATOS FIREBASE V10
+    // ESCUCHADOR PRINCIPAL DE BASE DE DATOS
     onValue(rootRef, (snapshot) => {
         const data = snapshot.val() || {};
         todasLasEmpresas = data.empresas || {}; 
         todasLasVacantes = data.vacantes_detalles || {};
         todasLasRutas = data.rutas || {};
+        todosLosUsuarios = data.usuarios_reclutadores || {};
         
         const selectEmpresa = document.getElementById('empresa');
         selectEmpresa.innerHTML = '<option value="" disabled selected hidden></option>';
@@ -1599,7 +1608,41 @@
         window.ejecutarBusqueda(e.target.value);
     });
 
-    // CARGA DINÁMICA DE VACANTES SEGÚN LA EMPRESA SELECCIONADA
+    // POBLAR ASESORES AUTORIZADOS SEGÚN LA EMPRESA ELEGIDA
+    function actualizarSelectorAsesores(empresaKey) {
+        const selectAsesor = document.getElementById('reclutadorAsignado');
+        if (!selectAsesor) return;
+
+        selectAsesor.innerHTML = '<option value="AUTO" selected>🎲 Asignar asesor automáticamente (Recomendado)</option>';
+
+        const empresaNormalizada = sanitizarKey(empresaKey);
+
+        Object.entries(todosLosUsuarios).forEach(([uid, u]) => {
+            if (!u || u.estatus !== 'Activo' || !u.telefono) return;
+
+            const nivel = u.nivel !== undefined ? parseInt(u.nivel) : 2;
+            const facultadReclutar = u.operaComoReclutador === true || 
+                (u.operaComoReclutador === undefined && nivel < 3);
+
+            if (!facultadReclutar) return;
+
+            const esGlobal = (u.scope || '').toLowerCase() === 'global' || u.todasLasEmpresas === true;
+            const empresasAsignadas = Array.isArray(u.empresas) ? u.empresas : [];
+            const tieneEmpresa = esGlobal || empresasAsignadas.includes("TODAS") || 
+                empresasAsignadas.some(e => sanitizarKey(e) === empresaNormalizada);
+
+            if (tieneEmpresa) {
+                const opt = document.createElement('option');
+                opt.value = uid;
+                opt.textContent = `${u.nombre || 'Asesor'} (${u.nombreRol || u.rol || 'Asesor'})`;
+                opt.dataset.telefono = String(u.telefono).trim();
+                opt.dataset.nombre = u.nombre || 'Asesor';
+                selectAsesor.appendChild(opt);
+            }
+        });
+    }
+
+    // CARGA DINÁMICA DE VACANTES Y ASESORES AL CAMBIAR EMPRESA
     document.getElementById('empresa').addEventListener('change', function(e) {
         const selectVacante = document.getElementById('vacante');
         const idEmpresa = e.target.value; 
@@ -1623,12 +1666,13 @@
             if (agregadas > 0) {
                 window.validarCampo(selectVacante);
                 window.validarCampo(e.target);
-                return;
             }
+        } else {
+            selectVacante.innerHTML += '<option value="Ayudante General">Ayudante General</option>';
+            window.validarCampo(selectVacante);
         }
 
-        selectVacante.innerHTML += '<option value="Ayudante General">Ayudante General</option>';
-        window.validarCampo(selectVacante);
+        actualizarSelectorAsesores(idEmpresa);
     });
 
     window.addEventListener('resize', window.updateItemsPerPage);
@@ -1672,7 +1716,6 @@
         isDragging = false;
     });
 
-    // VALIDACIONES DEL FORMULARIO DE POSTULACIÓN
     window.validarCampo = function(elemento) {
         const grupo = elemento.closest('.floating-group');
         if (!grupo) return false;
@@ -1700,8 +1743,70 @@
         input.addEventListener('blur', () => window.validarCampo(input));
     });
 
-    // ENVÍO DE POSTULACIÓN
-    window.enviarWhatsApp = function() {
+    // OBTENER ASESOR ACTIVO AUTORIZADO (EQUITATIVO / ROUND-ROBIN SIMPLE)
+    function resolverAsesorEquitativo(empresaKey) {
+        const empresaNormalizada = sanitizarKey(empresaKey);
+        const candidatos = [];
+
+        Object.entries(todosLosUsuarios).forEach(([uid, u]) => {
+            if (!u || u.estatus !== 'Activo' || !u.telefono) return;
+            const nivel = u.nivel !== undefined ? parseInt(u.nivel) : 2;
+            const facultadReclutar = u.operaComoReclutador === true || 
+                (u.operaComoReclutador === undefined && nivel < 3);
+
+            if (!facultadReclutar) return;
+
+            const esGlobal = (u.scope || '').toLowerCase() === 'global' || u.todasLasEmpresas === true;
+            const empresasAsignadas = Array.isArray(u.empresas) ? u.empresas : [];
+            const tieneEmpresa = esGlobal || empresasAsignadas.includes("TODAS") || 
+                empresasAsignadas.some(e => sanitizarKey(e) === empresaNormalizada);
+
+            if (tieneEmpresa) {
+                candidatos.push({
+                    uid,
+                    nombre: u.nombre || 'Asesor',
+                    telefono: String(u.telefono).trim()
+                });
+            }
+        });
+
+        if (candidatos.length === 0) return null;
+        const indiceAzar = Math.floor(Math.random() * candidatos.length);
+        return candidatos[indiceAzar];
+    }
+
+    // VERIFICACIÓN DE LEAD OWNERSHIP (TITULARIDAD PREVIA DEL CANDIDATO)
+    async function verificarTitularidadCandidato(curp, telefono) {
+        try {
+            const snapCurp = await get(query(ref(db, 'postulantes'), orderByChild('curp'), equalTo(curp)));
+            if (snapCurp.exists()) {
+                const list = snapCurp.val();
+                for (const key of Object.keys(list)) {
+                    const post = list[key];
+                    if (post.estatus !== 'Contratado' && post.estatus !== 'Declinante' && (post.reclutadorId || post.asesor)) {
+                        return { existe: true, titular: post };
+                    }
+                }
+            }
+
+            const snapTel = await get(query(ref(db, 'postulantes'), orderByChild('telefono'), equalTo(telefono)));
+            if (snapTel.exists()) {
+                const list = snapTel.val();
+                for (const key of Object.keys(list)) {
+                    const post = list[key];
+                    if (post.estatus !== 'Contratado' && post.estatus !== 'Declinante' && (post.reclutadorId || post.asesor)) {
+                        return { existe: true, titular: post };
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn("No se pudo verificar titularidad previa:", e);
+        }
+        return { existe: false, titular: null };
+    }
+
+    // ENVÍO DE POSTULACIÓN CON TITULARIDAD Y GOBERNANZA RBAC
+    window.enviarWhatsApp = async function() {
         let formularioCorrecto = true;
 
         inputsFormulario.forEach(input => {
@@ -1715,39 +1820,112 @@
             return;
         }
 
+        const btn = document.getElementById('btnEnviarPostulacion');
+        btn.disabled = true;
+        btn.innerHTML = `<i class="fas fa-spinner fa-spin me-2"></i> Validando registro y titularidad...`;
+
         const nombre = document.getElementById('nombre').value.trim();
         const curp = document.getElementById('curp').value.trim().toUpperCase();
         const telefono = document.getElementById('telefono').value.trim();
         const edad = document.getElementById('edad').value.trim();
         const comboEmpresa = document.getElementById('empresa');
         const empresaTexto = comboEmpresa.options[comboEmpresa.selectedIndex].text;
+        const empresaId = sanitizarKey(comboEmpresa.value);
         const vacante = document.getElementById('vacante').value;
+        const selectAsesor = document.getElementById('reclutadorAsignado');
 
-        push(ref(db, 'postulantes'), {
-            nombre: nombre,
-            curp: curp,
-            telefono: telefono,
-            edad: edad,
-            empresa: empresaTexto,
-            empresaId: sanitizarKey(comboEmpresa.value),
-            nombreVacante: vacante,
-            vacante: vacante,
-            estatus: "Postulado",
-            fechaRegistro: new Date().toLocaleString()
-        });
+        try {
+            // 1. Candado de Titularidad: ¿Ya tiene un asesor activo asignado?
+            const { existe, titular } = await verificarTitularidadCandidato(curp, telefono);
 
-        const telefonoReclutador = "526461974763";
-        
-        const mensaje = `*NUEVA POSTULACIÓN*%0A%0A` +
-                        `• *Nombre y Apellido:* ${encodeURIComponent(nombre)}%0A` +
-                        `• *CURP:* ${encodeURIComponent(curp)}%0A` +
-                        `• *Teléfono:* ${encodeURIComponent(telefono)}%0A` +
-                        `• *Edad:* ${encodeURIComponent(edad)} años%0A` +
-                        `• *Empresa:* ${encodeURIComponent(empresaTexto)}%0A` +
-                        `• *Vacante:* ${encodeURIComponent(vacante)}`;
+            let asesorFinalId = null;
+            let asesorFinalNombre = "Asesor Asignado";
+            let telefonoFinalReclutador = fallbackTelefonoGuardia;
 
-        const urlWhatsApp = `https://api.whatsapp.com/send?phone=${telefonoReclutador}&text=${mensaje}`;
-        window.open(urlWhatsApp, '_blank');
+            if (existe && titular) {
+                // Se bloquea el cambio de asesor para proteger la cartera del compañero
+                asesorFinalId = titular.reclutadorId || null;
+                asesorFinalNombre = titular.reclutadorNombre || titular.asesor || "Tu Asesor Titular";
+
+                // Buscar el teléfono del titular en la base de datos
+                if (asesorFinalId && todosLosUsuarios[asesorFinalId]?.telefono) {
+                    telefonoFinalReclutador = todosLosUsuarios[asesorFinalId].telefono;
+                } else if (titular.telefonoAsesor) {
+                    telefonoFinalReclutador = titular.telefonoAsesor;
+                }
+
+                alert(
+                    `ℹ️ Hola ${nombre}, identificamos que ya cuentas con un proceso abierto atendido por tu asesor: ${asesorFinalNombre}.\n\n` +
+                    `Por política de seguimiento, te comunicaremos directamente con tu asesor asignado para continuar tu trámite sin contratiempos.`
+                );
+            } else {
+                // Candidato nuevo o sin proceso activo: Respeta la selección o aplica equitativo
+                if (selectAsesor.value === "AUTO") {
+                    const asignado = resolverAsesorEquitativo(empresaId);
+                    if (asignado) {
+                        asesorFinalId = asignado.uid;
+                        asesorFinalNombre = asignado.nombre;
+                        telefonoFinalReclutador = asignado.telefono;
+                    }
+                } else {
+                    const optSel = selectAsesor.options[selectAsesor.selectedIndex];
+                    asesorFinalId = selectAsesor.value;
+                    asesorFinalNombre = optSel.dataset.nombre || "Asesor Asignado";
+                    telefonoFinalReclutador = optSel.dataset.telefono || fallbackTelefonoGuardia;
+                }
+            }
+
+            // Normalizar teléfono con lada internacional
+            let telLimpio = String(telefonoFinalReclutador).replace(/\D/g, '');
+            if (telLimpio.length === 10) telLimpio = "52" + telLimpio;
+            if (!telLimpio) telLimpio = fallbackTelefonoGuardia;
+
+            const timestampId = "WF-" + Math.floor(100000 + Math.random() * 900000);
+
+            // 2. Persistencia en Firebase con llaves completas para M3 y M5
+            await push(ref(db, 'postulantes'), {
+                id: timestampId,
+                nombre: nombre,
+                curp: curp,
+                telefono: telefono,
+                edad: edad,
+                empresa: empresaTexto,
+                empresaId: empresaId,
+                nombreVacante: vacante,
+                vacante: vacante,
+                estatus: "Postulado",
+                reclutadorId: asesorFinalId,
+                reclutadorNombre: asesorFinalNombre,
+                asesor: asesorFinalNombre,
+                telefonoAsesor: telLimpio,
+                fechaRegistro: new Date().toLocaleString(),
+                timestamp: serverTimestamp()
+            });
+
+            // 3. Redirección a WhatsApp del asesor asignado
+            const mensaje = `*NUEVA POSTULACIÓN*%0A%0A` +
+                            `• *Folio:* ${timestampId}%0A` +
+                            `• *Nombre y Apellido:* ${encodeURIComponent(nombre)}%0A` +
+                            `• *CURP:* ${encodeURIComponent(curp)}%0A` +
+                            `• *Teléfono:* ${encodeURIComponent(telefono)}%0A` +
+                            `• *Edad:* ${encodeURIComponent(edad)} años%0A` +
+                            `• *Empresa:* ${encodeURIComponent(empresaTexto)}%0A` +
+                            `• *Vacante:* ${encodeURIComponent(vacante)}%0A` +
+                            `• *Asesor Solicitado:* ${encodeURIComponent(asesorFinalNombre)}`;
+
+            const urlWhatsApp = `https://api.whatsapp.com/send?phone=${telLimpio}&text=${mensaje}`;
+
+            btn.disabled = false;
+            btn.innerHTML = `<i class="fab fa-whatsapp me-2"></i> Enviar Postulación por WhatsApp`;
+
+            window.open(urlWhatsApp, '_blank');
+
+        } catch (error) {
+            console.error("Error al procesar la postulación:", error);
+            alert("Ocurrió un error al registrar la postulación. Intenta nuevamente.");
+            btn.disabled = false;
+            btn.innerHTML = `<i class="fab fa-whatsapp me-2"></i> Enviar Postulación por WhatsApp`;
+        }
     };
 </script>
 </body>
