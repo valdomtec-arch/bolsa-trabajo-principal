@@ -183,7 +183,7 @@
                 </div>
                 <div>
                     <label class="block text-[10px] font-mono uppercase text-cyber-accent mb-1 font-bold">
-                        <i class="fas fa-user-check"></i> Operador / Reclutador
+                        <i class="fas fa-user-check"></i> Operador / Reclutador (Filtro Histórico)
                     </label>
                     <select id="filtroOperador" onchange="cargarPostulantes()" class="w-full bg-cyber-bg border border-cyber-border rounded-lg p-2 text-xs text-white focus:outline-none focus:border-cyber-accent">
                         <option value="TODOS">-- Todos los Operadores --</option>
@@ -293,9 +293,12 @@
                 <!-- OPERADOR Y ESTATUS -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                        <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Operador Responsable</label>
-                        <select id="editReclutador" class="w-full bg-cyber-bg border border-cyber-border text-white rounded-lg p-2 focus:outline-none focus:border-cyber-accent">
+                        <label class="block text-[10px] font-mono text-amber-400 uppercase mb-1 font-bold">
+                            <i class="fas fa-headset me-1"></i> Reasignar Asesor Operativo
+                        </label>
+                        <select id="editReclutador" class="w-full bg-cyber-bg border border-amber-500/50 text-white rounded-lg p-2 focus:outline-none focus:border-cyber-accent font-medium">
                         </select>
+                        <span class="text-[9px] text-slate-400 block mt-0.5">Solo lista asesores autorizados para operar candidatos.</span>
                     </div>
                     <div>
                         <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Estatus en Semáforo</label>
@@ -360,6 +363,7 @@
         let todosLosPostulantes = {};
         let catalogoEmpresas = {};
         let catalogoUsuarios = {};
+        let catalogoRoles = {};
         let catalogoVacantesDetalles = {};
         let chartSexoInstance = null;
         let chartEdadInstance = null;
@@ -375,7 +379,7 @@
             scope: "personal",
             todasLasEmpresas: false,
             empresas: [],
-            equipoAsignadoIds: [] // Reclutadores bajo su coordinación
+            equipoAsignadoIds: []
         };
 
         document.addEventListener("DOMContentLoaded", () => {
@@ -413,10 +417,9 @@
                         scope: val.scope || "personal",
                         todasLasEmpresas: val.scope === 'global' || (Array.isArray(val.empresas) && val.empresas.includes("TODAS")),
                         empresas: Array.isArray(val.empresas) ? val.empresas : [],
-                        equipoAsignadoIds: [user.uid] // Incluye siempre su propio UID
+                        equipoAsignadoIds: [user.uid]
                     };
 
-                    // Resolver jerarquía de equipo en tiempo real si es Coordinador o Superior
                     db.ref("usuarios_reclutadores").once('value', staffSnap => {
                         const todos = staffSnap.val() || {};
                         
@@ -517,6 +520,7 @@
                 todosLosPostulantes = data.postulantes || data.modulo_3_agenda || {};
                 catalogoEmpresas = data.empresas || {};
                 catalogoUsuarios = data.usuarios_reclutadores || {};
+                catalogoRoles = data.roles_dinamicos || {};
                 catalogoVacantesDetalles = data.vacantes_detalles || {};
 
                 actualizarFiltroEmpresasRobusto();
@@ -549,7 +553,7 @@
             }
         }
 
-        // Filtro restrictivo de operadores según el equipo permitido
+        // 3. GOBERNANZA DE SELECTORES DE OPERADORES
         function actualizarFiltroOperadores() {
             const filtroOperador = document.getElementById("filtroOperador");
             const editReclutador = document.getElementById("editReclutador");
@@ -557,27 +561,46 @@
             const selFiltro = filtroOperador.value;
             const selEdit = editReclutador.value;
 
-            filtroOperador.innerHTML = '<option value="TODOS">-- Todos los Autorizados --</option>';
-            editReclutador.innerHTML = '<option value="">-- Seleccionar Operador --</option>';
+            filtroOperador.innerHTML = '<option value="TODOS">-- Todos los Operadores --</option>';
+            editReclutador.innerHTML = '<option value="">-- Seleccionar Asesor Operativo --</option>';
 
             Object.entries(catalogoUsuarios).forEach(([uUid, uVal]) => {
                 if (!uVal) return;
 
-                // Restricción: SuperAdmin ve todos; Coordinador ve su equipo; Reclutador solo a sí mismo
-                const esVisible = (usuarioSesion.nivel >= 4 || usuarioSesion.scope === 'global') ||
-                                  (usuarioSesion.equipoAsignadoIds.includes(uUid));
+                const rolInfo = catalogoRoles[uVal.rolId] || {};
+                const nivel = uVal.nivel !== undefined ? parseInt(uVal.nivel) : (rolInfo.nivelJerarquico || 2);
+                const estaActivo = uVal.estatus === 'Activo';
 
-                if (esVisible) {
+                // REGLA DIRECTIVA: Facultad real para reclutar candidatos
+                const operaComoReclutador = uVal.operaComoReclutador === true || 
+                    (uVal.operaComoReclutador === undefined && nivel < 3);
+
+                // Jerarquía de visibilidad: Master ve todos; Coordinador ve su equipo; Reclutador a sí mismo
+                const esVisibleJerarquia = (usuarioSesion.nivel >= 4 || usuarioSesion.scope === 'global') ||
+                                           (usuarioSesion.equipoAsignadoIds.includes(uUid));
+
+                if (esVisibleJerarquia) {
                     const uNombre = uVal.nombre || uVal.usuario || uUid;
-                    const labelText = `${uNombre} (${uVal.nombreRol || uVal.rol || 'Reclutador'})`;
+                    const nombreRol = uVal.nombreRol || rolInfo.nombre || uVal.rol || 'Asesor';
+                    
+                    // A) Filtro Superior: Permite consultar historial de todos los colaboradores
+                    let labelFiltro = `${uNombre} (${nombreRol})`;
+                    if (!estaActivo) labelFiltro += ' [Inactivo]';
+                    else if (nivel >= 3 && !operaComoReclutador) labelFiltro += ' [Solo Supervisión]';
 
-                    filtroOperador.innerHTML += `<option value="${uUid}">${labelText}</option>`;
-                    editReclutador.innerHTML += `<option value="${uUid}">${labelText}</option>`;
+                    filtroOperador.innerHTML += `<option value="${uUid}">${labelFiltro}</option>`;
+
+                    // B) Modal de Reasignación: Estrictamente asesores ACTIVOS y que OPERAN candidatos
+                    if (estaActivo && operaComoReclutador) {
+                        editReclutador.innerHTML += `<option value="${uUid}">${uNombre} (${nombreRol})</option>`;
+                    }
                 }
             });
 
             if (selFiltro) filtroOperador.value = selFiltro;
-            if (selEdit) editReclutador.value = selEdit;
+            if (selEdit && editReclutador.querySelector(`option[value="${selEdit}"]`)) {
+                editReclutador.value = selEdit;
+            }
         }
 
         function alCambiarEmpresa() {
@@ -621,26 +644,22 @@
             }
         }
 
-        // 3. REGLA MAESTRA DE FILTRADO JERÁRQUICO
+        // 4. REGLA MAESTRA DE FILTRADO JERÁRQUICO
         function puedeVerCandidato(p) {
-            // Dirección / Master / Alcance Global: Acceso a todo el universo
             if (usuarioSesion.nivel >= 4 || usuarioSesion.scope === 'global' || usuarioSesion.todasLasEmpresas) {
                 return true;
             }
 
             const recId = p.reclutadorId || p.agenteId;
 
-            // Nivel 3 (Coordinación): Ve sus propios registros + los de su equipo a cargo
             if (usuarioSesion.nivel === 3) {
                 if (recId && usuarioSesion.equipoAsignadoIds.includes(recId)) {
                     return true;
                 }
-                // Si el candidato pertenece a una de sus empresas asignadas
                 const empKey = p.empresaId || p.empresa_id || p.empresa;
                 return usuarioSesion.empresas.includes(empKey);
             }
 
-            // Nivel 2 o menor (Reclutador Operativo): Estricto registro propio
             if (recId === usuarioSesion.uid) {
                 return true;
             }
@@ -648,7 +667,6 @@
             return false;
         }
 
-        // CÁLCULO PRECISO DE HORAS DE INACTIVIDAD
         function calcularHorasInactividad(p) {
             const fechaRef = p.ultimaActualizacion || p.diaEntrevista || p.fechaRegistro || p.fechaPostulacion || p.fecha;
             if (!fechaRef) return 999;
@@ -656,7 +674,6 @@
             return isNaN(diff) ? 999 : Math.max(0, diff / (1000 * 60 * 60));
         }
 
-        // TOGGLE DEL FILTRO DE DESAHOGO RÁPIDO
         function alternarFiltroDesfasados() {
             filtroSoloDesfasadosActivo = !filtroSoloDesfasadosActivo;
             const btnInline = document.getElementById("btnToggleDesfasadosInline");
@@ -696,7 +713,6 @@
             postulantesEntradas.forEach(([id, p]) => {
                 if (!p) return;
 
-                // Candado de Jerarquía y Scope
                 if (!puedeVerCandidato(p)) return;
 
                 const empKey = p.empresaId || p.empresa_id || p.empresa || "";
@@ -704,7 +720,6 @@
                 const vacanteNombre = p.nombreVacante || p.vacante || p.vacanteInteres || "Sin Vacante";
                 const estatusActual = p.estatus || "Postulado";
 
-                // Cálculo SLA
                 const horasInactividad = calcularHorasInactividad(p);
                 const esActivoSinCerrar = estatusActual !== "Contratado" && estatusActual !== "Declinante";
 
@@ -717,7 +732,6 @@
                     }
                 }
 
-                // Filtro rápido de desahogo
                 if (filtroSoloDesfasadosActivo) {
                     if (!esActivoSinCerrar || horasInactividad <= 24) return;
                 }
@@ -756,7 +770,6 @@
                 else if (estatusActual === "Contratado") claseSemaforo = "status-contratado";
                 else if (estatusActual === "Declinante") claseSemaforo = "status-declinante";
 
-                // Renderizado de la Insignia SLA
                 let badgeSlaHtml = '';
                 if (!esActivoSinCerrar) {
                     badgeSlaHtml = `<span class="text-[10px] font-mono text-slate-500 font-medium"><i class="fas fa-check-double"></i> Concluido</span>`;
@@ -833,7 +846,6 @@
                 `;
             });
 
-            // Actualización del Banner de Alerta Preventiva
             const bannerSla = document.getElementById("bannerAlertaSla");
             if (totalDesfasadosPropios > 0) {
                 bannerSla.classList.remove("hidden");
@@ -989,6 +1001,7 @@
             const id = document.getElementById("editId").value;
             const curp = document.getElementById("editCurp").value.trim().toUpperCase();
             const recId = document.getElementById("editReclutador").value || usuarioSesion.uid;
+            const recNombre = catalogoUsuarios[recId]?.nombre || usuarioSesion.nombre;
             const fechaCita = document.getElementById("editAgendaFecha").value;
             const horaCita = document.getElementById("editAgendaHora").value;
 
@@ -1003,7 +1016,8 @@
                 nombreVacante: document.getElementById("editVacante").value,
                 vacante: document.getElementById("editVacante").value,
                 reclutadorId: recId,
-                reclutadorNombre: catalogoUsuarios[recId]?.nombre || usuarioSesion.nombre,
+                reclutadorNombre: recNombre,
+                asesor: recNombre,
                 diaEntrevista: diaEntrevistaConsolidado,
                 ultimaActualizacion: new Date().toISOString()
             };
@@ -1034,6 +1048,7 @@
                     if (p.reclutadorId === opId || (p.reclutadorNombre && p.reclutadorNombre.toLowerCase().includes(opNombre.toLowerCase()))) {
                         updates[`postulantes/${cId}/reclutadorId`] = opId;
                         updates[`postulantes/${cId}/reclutadorNombre`] = opNombre;
+                        updates[`postulantes/${cId}/asesor`] = opNombre;
                         updates[`postulantes/${cId}/ultimaActualizacion`] = new Date().toISOString();
                     }
                 });
