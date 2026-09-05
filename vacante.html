@@ -1470,6 +1470,7 @@
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
+    // CARGA DE ASESORES AUTORIZADOS CON GOBERNANZA RBAC DINÁMICA
     async function cargarCatalogoReclutadores() {
         const selectElement = document.getElementById("selReclutador");
         try {
@@ -1484,24 +1485,48 @@
                 optDef.textContent = "— Selecciona tu Asesor Asignado —";
                 selectElement.appendChild(optDef);
 
+                let asesoresValidos = 0;
+
                 Object.keys(listado).forEach(key => {
                     const rec = listado[key];
-                    if ((!rec.estatus || rec.estatus === "Activo") && rec.telefono) {
+                    const estaActivo = (!rec.estatus || rec.estatus === "Activo");
+                    const tieneTelefono = Boolean(rec.telefono);
+
+                    // 1. REGLA DIRECTIVA: Evaluación estricta de facultad para reclutar
+                    const nivel = rec.nivel !== undefined ? parseInt(rec.nivel) : (rec.level !== undefined ? parseInt(rec.level) : 2);
+                    const facultadReclutar = rec.operaComoReclutador === true || 
+                        (rec.operaComoReclutador === undefined && nivel < 3);
+
+                    // 2. REGLA DE ALCANCE TERRITORIAL / EMPRESA
+                    const esGlobal = (rec.scope || '').toLowerCase() === 'global' || rec.todasLasEmpresas === true;
+                    const empresasAsignadas = Array.isArray(rec.empresas) ? rec.empresas : [];
+                    const tieneEmpresaAsignada = esGlobal || 
+                        empresasAsignadas.includes("TODAS") || 
+                        empresasAsignadas.some(e => {
+                            const empNormalizada = String(e).toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "_").replace(/_+/g, "_");
+                            return empNormalizada === empresaLimpia || String(e).toLowerCase() === String(nombreEmpresaMaestro).toLowerCase();
+                        });
+
+                    if (estaActivo && tieneTelefono && facultadReclutar && tieneEmpresaAsignada) {
+                        asesoresValidos++;
                         const option = document.createElement("option");
                         option.value = String(rec.telefono).trim();
                         option.dataset.nombreReal = rec.nombre || "Asesor";
-                        option.textContent = `${rec.nombre || "Asesor"} (${rec.rol || "Asesor"})`;
+                        option.dataset.reclutadorId = key;
+                        const rolEtiqueta = rec.nombreRol || rec.rol || "Asesor";
+                        option.textContent = `${rec.nombre || "Asesor"} (${rolEtiqueta})`;
                         selectElement.appendChild(option);
                     }
                 });
 
-                if (selectElement.children.length <= 1) {
+                if (asesoresValidos === 0) {
                     selectElement.innerHTML = `<option value="${fallbackTelefonoReclutador}" data-nombreReal="Asesor de Guardia">Asesor General de Guardia</option>`;
                 }
             } else {
                 selectElement.innerHTML = `<option value="${fallbackTelefonoReclutador}" data-nombreReal="Asesor de Guardia">Asesor General de Guardia</option>`;
             }
         } catch (e) {
+            console.error("Error cargando asesores autorizados:", e);
             selectElement.innerHTML = `<option value="${fallbackTelefonoReclutador}" data-nombreReal="Asesor de Guardia">Asesor General de Guardia</option>`;
         }
     }
@@ -1551,7 +1576,10 @@
 
         try {
             let telefonoDestino = selectReclutador.value; 
-            let nombreReclutadorCorto = selectReclutador.options[selectReclutador.selectedIndex].dataset.nombreReal || "Asesor Asignado";
+            const opcionSeleccionada = selectReclutador.options[selectReclutador.selectedIndex];
+            let nombreReclutadorCorto = opcionSeleccionada ? (opcionSeleccionada.dataset.nombreReal || "Asesor Asignado") : "Asesor Asignado";
+            const reclutadorIdSeleccionado = opcionSeleccionada ? (opcionSeleccionada.dataset.reclutadorId || null) : null;
+            
             if (telefonoDestino.length === 10) telefonoDestino = "52" + telefonoDestino;
 
             const datosExtraidos = extraerDatosCurp(curp);
@@ -1576,6 +1604,8 @@
                 horaEntrevista: horaEntrevista,
                 estatus: "Postulado",
                 asesor: nombreReclutadorCorto,
+                reclutadorId: reclutadorIdSeleccionado,
+                reclutadorNombre: nombreReclutadorCorto,
                 rutaTransporteSeleccionada: puntoElegido,
                 urlAcusePdf: urlAcuseDigital,
                 fechaRegistro: fechaYHoraActual,
