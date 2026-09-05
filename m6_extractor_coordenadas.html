@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Extractor y Gestor de Coordenadas Maestras - INEGI, KML & KMZ</title>
+    <title>Extractor Maestro de Coordenadas & Geocatálogo Homologado - M6</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -33,19 +33,52 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-    <!-- JSZip para soporte de descompresión KMZ -->
+    <!-- JSZip para descompresión y empaquetado KMZ -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
+    <!-- PapaParse para CSVs del DENUE -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
     <style>
-        #mapaVerificador { min-height: 300px; width: 100%; border-radius: 0.75rem; }
+        #mapaVerificador { min-height: 480px; width: 100%; border-radius: 0.75rem; }
         .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: #0a0d14; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #38bdf8; }
         .leaflet-popup-content-wrapper, .leaflet-popup-tip {
-            background: #121824 !important;
+            background: rgba(18, 24, 36, 0.95) !important;
+            backdrop-filter: blur(8px);
             color: #e2e8f0 !important;
             border: 1px solid #1e293b;
+            border-radius: 0.5rem;
+        }
+        .gps-pin-marker {
+            position: relative;
+            cursor: pointer;
+            filter: drop-shadow(0px 3px 5px rgba(0,0,0,0.6));
+            transition: transform 0.15s ease-out;
+        }
+        .gps-pin-marker:hover {
+            transform: scale(1.2) translateY(-4px);
+            z-index: 9999 !important;
+        }
+        .gps-pin-svg {
+            width: 30px;
+            height: 40px;
+            display: block;
+        }
+        .gps-pin-number {
+            position: absolute;
+            top: 6px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 10px;
+            font-weight: 900;
+            color: #ffffff;
+            font-family: ui-monospace, monospace;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.9);
+            pointer-events: none;
         }
     </style>
 </head>
@@ -57,200 +90,197 @@
         <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-cyber-border pb-5">
             <div>
                 <h1 class="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
-                    <span class="text-cyber-cyan">🛰️</span> Extractor Maestro de Coordenadas <span class="text-xs bg-cyber-cyan/20 text-cyber-cyan px-2 py-0.5 rounded border border-cyber-cyan/40 font-mono">v2.0 INEGI & KML/KMZ</span>
+                    <span class="text-cyber-cyan">🛰️</span> Extractor Maestro & Geocatálogo Estandarizado <span class="text-xs bg-cyber-cyan/20 text-cyber-cyan px-2 py-0.5 rounded border border-cyber-cyan/40 font-mono">v14.0 Homologado</span>
                 </h1>
-                <p class="text-xs text-slate-400 mt-1">Cosecha oficial del DENUE (INEGI), parseo satelital KML/KMZ y control de geocatálogos por Estado</p>
+                <p class="text-xs text-slate-400 mt-1">Cosecha territorial INEGI, procesador KML/KMZ de rutas e inyector canónico para M6 Transporte y Motor IA.</p>
             </div>
             <div class="flex items-center gap-2 flex-wrap">
                 <a href="m6_motor_transporte.html" class="bg-cyber-card hover:bg-slate-800 text-slate-300 border border-cyber-border font-mono text-xs px-3.5 py-2 rounded-xl flex items-center gap-2 transition-all">
-                    <span>←</span> Motor Logístico M6
+                    <span>←</span> Motor Logístico
                 </a>
                 <a href="m6_transporte.html" class="bg-cyber-card hover:bg-slate-800 text-slate-300 border border-cyber-border font-mono text-xs px-3.5 py-2 rounded-xl flex items-center gap-2 transition-all">
-                    <span>←</span> Dashboard M6
+                    <span>←</span> Panel General M6
                 </a>
+                <button onclick="ejecutarSanitizacionCache()" class="bg-rose-500/15 hover:bg-rose-500/30 text-rose-400 border border-rose-500/40 font-mono text-xs px-3 py-2 rounded-xl transition-all font-bold">
+                    🧹 Limpiar Memoria
+                </button>
             </div>
         </header>
 
-        <!-- SECCIÓN DE PARÁMETROS Y FUENTES DE ENTRADA -->
+        <!-- SELECTOR DE MODO DE OPERACIÓN -->
+        <div class="bg-cyber-card border border-cyber-border rounded-xl p-3 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div class="flex items-center gap-2">
+                <span class="text-xs font-bold text-slate-300 uppercase tracking-wider">Modo de Ingesta:</span>
+                <div class="flex bg-cyber-bg p-1 rounded-lg border border-slate-800">
+                    <button id="btnModoGeocatalogo" onclick="seleccionarModoOperacion('GEOCATALOGO')" class="px-3 py-1 text-xs font-bold rounded-md transition bg-cyber-cyan text-slate-950">
+                        1. Geocatálogo Territorial (INEGI)
+                    </button>
+                    <button id="btnModoRuta" onclick="seleccionarModoOperacion('RUTA')" class="px-3 py-1 text-xs font-bold rounded-md transition text-slate-400 hover:text-white">
+                        2. Ruta Empresarial Directa (KML/KMZ)
+                    </button>
+                </div>
+            </div>
+            <div class="text-xs font-mono">
+                <span class="text-slate-400">Destino Firebase: </span>
+                <span id="lblDestinoFirebase" class="text-cyber-cyan font-bold">/geocodigos_maestros/{estado}/</span>
+            </div>
+        </div>
+
+        <!-- CONTENEDOR PRINCIPAL: PANELES DE ENTRADA + MAPA -->
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
             
-            <!-- PANEL 1: SELECCIÓN DE ESTADO & EXTRACTOR OFICIAL INEGI -->
-            <div class="lg:col-span-4 bg-cyber-card border border-cyber-border rounded-xl p-5 space-y-4 flex flex-col justify-between">
-                <div class="space-y-4">
-                    <div class="flex justify-between items-center border-b border-cyber-border/60 pb-2">
-                        <h2 class="text-xs font-bold text-cyber-accent uppercase tracking-wider flex items-center gap-2">
-                            <span>🏛️</span> API Oficial INEGI DENUE
+            <!-- PANEL IZQUIERDO: CONFIGURACIÓN E INGESTA -->
+            <div class="lg:col-span-5 bg-cyber-card border border-cyber-border rounded-xl p-5 space-y-4 flex flex-col justify-between">
+                
+                <!-- VISTA MODO 1: GEOCATÁLOGO TERRITORIAL (INEGI / DENUE) -->
+                <div id="seccionModoGeocatalogo" class="space-y-4">
+                    <div class="flex justify-between items-center border-b border-cyber-border pb-2">
+                        <h2 class="text-xs font-bold text-cyber-cyan uppercase tracking-wider flex items-center gap-2">
+                            <span>🏛️</span> Extracción Territorial por Estado
                         </h2>
                         <span id="badgeEstadoActivo" class="text-[10px] bg-cyber-cyan/20 text-cyber-cyan border border-cyber-cyan/30 px-2 py-0.5 rounded font-mono">nuevo_leon</span>
                     </div>
 
                     <div>
-                        <label class="block text-[11px] font-semibold text-slate-300 mb-1">Entidad Federativa Objetivo</label>
-                        <select id="selectEstadoCatalogo" onchange="cambiarEstadoActivo(this.value)" class="w-full bg-cyber-bg border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyber-accent font-mono">
-                            <!-- Inyectado vía JS con los 32 estados -->
+                        <label class="block text-[11px] font-semibold text-slate-300 mb-1">Entidad Federativa</label>
+                        <select id="selectEstadoCatalogo" onchange="cambiarEstadoActivo(this.value)" class="w-full bg-cyber-bg border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyber-cyan font-mono">
+                            <!-- Opciones inyectadas vía script -->
                         </select>
                     </div>
 
                     <div>
-                        <div class="flex justify-between items-center mb-1">
-                            <label class="text-[11px] font-semibold text-slate-300">Token de Desarrollador INEGI</label>
-                            <a href="https://www.inegi.org.mx/servicios/api_denue.html" target="_blank" class="text-[10px] text-cyber-cyan hover:underline">Obtener gratis ↗</a>
-                        </div>
-                        <input type="text" id="tokenInegiInput" placeholder="Ej: a8f3b2c1-4d5e-6f7a-8b9c-0d1e2f3a4b5c" class="w-full bg-cyber-bg border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyber-accent font-mono">
+                        <label class="block text-[11px] font-semibold text-slate-300 mb-1">Cargar Archivo DENUE (.CSV del INEGI)</label>
+                        <input type="file" id="fileDenueInput" accept=".csv,.txt" class="w-full text-xs text-slate-400 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-cyber-cyan file:text-slate-950 hover:file:bg-cyan-400 cursor-pointer">
+                        <span class="text-[10px] text-slate-500 mt-0.5 block font-mono">Lee directamente latitud, longitud, establecimientos y vialidades.</span>
                     </div>
 
                     <div>
-                        <label class="block text-[11px] font-semibold text-slate-300 mb-1">Criterio de Cosecha INEGI</label>
-                        <div class="flex gap-2">
-                            <select id="selectCriterioInegi" class="flex-1 bg-cyber-bg border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyber-accent">
-                                <option value="oxxo">Tiendas OXXO</option>
-                                <option value="seven eleven">7-Eleven</option>
-                                <option value="bodega aurrera">Bodega Aurrera</option>
-                                <option value="soriana">Soriana</option>
-                                <option value="farmacia guadalajara">Farmacias Guadalajara</option>
-                                <option value="parque industrial">Parques Industriales</option>
-                                <option value="maquiladora">Maquiladoras</option>
-                                <option value="PERSONALIZADO">-- Otra palabra clave --</option>
-                            </select>
-                            <input type="text" id="inputPalabraPersonalizada" placeholder="Buscar..." class="hidden w-28 bg-cyber-bg border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-cyber-accent">
-                        </div>
+                        <label class="block text-[11px] font-semibold text-slate-300 mb-1">Filtro de Cosecha (Opcional)</label>
+                        <input type="text" id="filtroTextoDenue" placeholder="Ej: OXXO, Bodega Aurrera, Av. San Francisco..." class="w-full bg-cyber-bg border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyber-cyan">
                     </div>
 
-                    <button onclick="ejecutarCosechaInegi()" id="btnCosecharInegi" class="w-full bg-cyber-cyan/20 hover:bg-cyber-cyan/30 text-cyber-cyan border border-cyber-cyan/40 font-bold py-2.5 px-4 rounded-lg text-xs transition flex items-center justify-center gap-2 shadow-lg shadow-cyber-cyan/10">
-                        <span>⚡</span> Cosechar del INEGI e Inyectar
-                    </button>
-                    <div id="progresoInegiFeedback" class="hidden text-center text-[10px] font-mono text-cyber-cyan py-1 bg-slate-900/60 rounded border border-cyber-cyan/30"></div>
-                </div>
-
-                <!-- PURGA DE ESTADO -->
-                <div class="pt-3 border-t border-cyber-border">
-                    <button onclick="purgarEstadoCompleto()" id="btnPurgarEstado" class="w-full bg-cyber-rose/20 hover:bg-cyber-rose/30 text-cyber-rose border border-cyber-rose/40 font-bold py-2 px-3 rounded-lg text-xs transition flex items-center justify-center gap-2">
-                        <span>🧹</span> Vaciar Catálogo de esta Entidad
+                    <button onclick="procesarArchivoDenueCSV()" id="btnProcesarDenue" class="w-full bg-cyber-cyan hover:bg-cyan-400 text-slate-950 font-bold py-2.5 px-4 rounded-lg text-xs transition shadow-lg shadow-cyber-cyan/10 flex items-center justify-center gap-2">
+                        <span>⚡</span> Cosechar Coordenadas del CSV
                     </button>
                 </div>
-            </div>
 
-            <!-- PANEL 2: IMPORTADOR KML / KMZ SATELITAL & ALTA DIRECTA -->
-            <div class="lg:col-span-4 bg-cyber-card border border-cyber-border rounded-xl p-5 space-y-4 flex flex-col justify-between">
-                <div class="space-y-3">
-                    <div class="flex justify-between items-center border-b border-cyber-border/60 pb-2">
+                <!-- VISTA MODO 2: RUTA EMPRESARIAL DIRECTA (KML / KMZ) -->
+                <div id="seccionModoRuta" class="space-y-4 hidden">
+                    <div class="flex justify-between items-center border-b border-cyber-border pb-2">
                         <h2 class="text-xs font-bold text-cyber-emerald uppercase tracking-wider flex items-center gap-2">
-                            <span>🛰️</span> Inyector KML / KMZ / JSON
+                            <span>🚌</span> Asignación Directa de Ruta Empresarial
                         </h2>
-                        <span class="text-[10px] text-cyber-emerald font-mono">Google Earth / My Maps</span>
+                        <span class="text-[10px] bg-cyber-emerald/20 text-cyber-emerald border border-cyber-emerald/30 px-2 py-0.5 rounded font-mono">Persistencia M6</span>
                     </div>
 
-                    <!-- DROPZONE KML/KMZ -->
                     <div>
-                        <label class="block text-[11px] font-semibold text-slate-300 mb-1">Arrastra Archivo KML, KMZ o JSON</label>
-                        <div id="dropZoneGeo" class="border-2 border-dashed border-slate-700 hover:border-cyber-emerald rounded-lg p-3 text-center cursor-pointer bg-cyber-bg/50 transition-colors">
+                        <label class="block text-[11px] font-semibold text-slate-300 mb-1">Empresa Operativa Destino</label>
+                        <select id="selectEmpresaRuta" class="w-full bg-cyber-bg border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyber-emerald font-semibold">
+                            <option value="">-- Cargando Empresas... --</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-300 mb-1">Nombre Identificador de la Ruta</label>
+                        <input type="text" id="inputNombreRutaManual" placeholder="Ej: Santa Maria, Ruta 1 Centro..." class="w-full bg-cyber-bg border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyber-emerald">
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-300 mb-1">Archivo de Ruta (KML, KMZ, GeoJSON)</label>
+                        <div id="dropZoneRuta" class="border-2 border-dashed border-slate-700 hover:border-cyber-emerald rounded-lg p-3 text-center cursor-pointer bg-cyber-bg/50 transition-colors">
                             <span class="text-2xl">🗺️</span>
                             <p class="text-[11px] text-slate-200 font-bold mt-1">Arrastra KML o KMZ Satelital</p>
-                            <p class="text-[9px] text-slate-400 font-mono">Extrae Placemarks, coordenadas y nombres</p>
-                            <input type="file" id="fileInputGeo" accept=".kml,.kmz,.json,.geojson" class="hidden">
+                            <p class="text-[9px] text-slate-400 font-mono">Extrae paradas y trazado vial real de carretera</p>
+                            <input type="file" id="fileInputRuta" accept=".kml,.kmz,.geojson,.json" class="hidden">
                         </div>
-                        <div id="fileFeedbackGeo" class="mt-1 text-[10px] text-cyber-emerald font-mono hidden"></div>
+                        <div id="fileFeedbackRuta" class="mt-1 text-[10px] text-cyber-emerald font-mono hidden"></div>
                     </div>
 
-                    <!-- ALTA MANUAL RÁPIDA -->
-                    <div class="border-t border-cyber-border/60 pt-3 space-y-2">
-                        <span class="text-[11px] font-bold text-cyber-amber uppercase tracking-wider block">Alta Directa de Coordenada</span>
-                        <input type="text" id="inputManualRef" placeholder="Referencia: Oxxo Sendero, Caseta..." class="w-full bg-cyber-bg border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-cyber-accent">
-                        <div class="grid grid-cols-2 gap-2">
-                            <input type="text" id="inputManualMun" placeholder="Municipio: Zuazua, Apodaca..." class="bg-cyber-bg border border-slate-700 rounded px-2 py-1.5 text-xs text-slate-300 focus:outline-none">
-                            <input type="text" id="inputManualCoord" placeholder="Lat, Lng: 25.78, -100.13" class="bg-cyber-bg border border-slate-700 rounded px-2 py-1.5 text-xs text-cyber-cyan font-mono focus:outline-none">
-                        </div>
-                        <button onclick="guardarPuntoManual()" class="w-full bg-cyber-amber/20 hover:bg-cyber-amber/30 text-cyber-amber border border-cyber-amber/40 font-bold py-1.5 rounded text-xs transition">
-                            ➕ Registrar en Catálogo Maestro
+                    <button onclick="procesarArchivoRutaKML()" id="btnProcesarRutaKml" class="w-full bg-cyber-emerald hover:bg-emerald-400 text-slate-950 font-bold py-2.5 px-4 rounded-lg text-xs transition shadow-lg shadow-cyber-emerald/10 flex items-center justify-center gap-2">
+                        <span>🚀</span> Procesar y Armar Ruta Canónica
+                    </button>
+                </div>
+
+                <!-- ACCIONES DE INYECCIÓN Y EXPORTACIÓN KML -->
+                <div class="pt-3 border-t border-cyber-border space-y-2">
+                    <button onclick="inyectarDatosAFirebase()" id="btnInyectarFirebase" class="w-full bg-cyber-purple/20 hover:bg-cyber-purple/30 text-cyber-purple border border-cyber-purple/40 font-bold py-2.5 px-4 rounded-lg text-xs transition flex items-center justify-center gap-2 shadow-lg shadow-cyber-purple/10">
+                        <span>💾</span> Inyectar Directo a Firebase
+                    </button>
+                    
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="exportarCoordenadasAKml()" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-bold py-2 px-3 rounded-lg text-[11px] transition flex items-center justify-center gap-1.5">
+                            <span>📥</span> Descargar .KML
+                        </button>
+                        <button onclick="vaciarCatalogoActivoFirebase()" class="w-full bg-cyber-rose/20 hover:bg-cyber-rose/30 text-cyber-rose border border-cyber-rose/40 font-bold py-2 px-3 rounded-lg text-[11px] transition flex items-center justify-center gap-1.5">
+                            <span>🧹</span> Vaciar Catálogo
                         </button>
                     </div>
                 </div>
 
-                <div class="text-[10px] text-slate-500 font-mono text-center pt-2">
-                    Partición de datos: /geocodigos_maestros/{estado}/
-                </div>
             </div>
 
-            <!-- PANEL 3: MÉTRICAS Y AUDITOR SATELITAL LEAFLET -->
-            <div class="lg:col-span-4 bg-cyber-card border border-cyber-border rounded-xl p-5 space-y-4 flex flex-col justify-between">
-                <div class="space-y-3">
-                    <div class="flex justify-between items-center border-b border-cyber-border/60 pb-2">
-                        <h2 class="text-xs font-bold text-cyber-purple uppercase tracking-wider flex items-center gap-2">
-                            <span>📊</span> Consumo y Auditor Satelital
+            <!-- PANEL DERECHO: MAPA VERIFICADOR Y MÉTRICAS -->
+            <div class="lg:col-span-7 bg-cyber-card border border-cyber-border rounded-xl p-5 space-y-3 flex flex-col">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div class="flex items-center gap-2">
+                        <h2 class="text-xs font-bold text-cyber-amber uppercase tracking-wider flex items-center gap-2">
+                            <span>📍</span> Inspección Espacial Satelital
                         </h2>
-                        <span id="statStatusSinc" class="text-[10px] font-mono text-cyber-emerald">Listo</span>
+                        <span id="badgeConteoMapa" class="text-[10px] font-mono text-cyber-cyan bg-slate-900 border border-slate-700 px-2 py-0.5 rounded">0 puntos</span>
                     </div>
-
-                    <div class="grid grid-cols-2 gap-2">
-                        <div class="bg-cyber-bg border border-slate-800 rounded-lg p-2.5">
-                            <span class="text-[10px] text-slate-400 uppercase font-mono block">Puntos Activos</span>
-                            <div id="statTotalPuntos" class="text-xl font-black text-cyber-cyan mt-0.5">0</div>
-                        </div>
-                        <div class="bg-cyber-bg border border-slate-800 rounded-lg p-2.5">
-                            <span class="text-[10px] text-slate-400 uppercase font-mono block">Peso en Firebase</span>
-                            <div id="statPesoKb" class="text-xl font-black text-cyber-emerald mt-0.5">0.0 KB</div>
-                        </div>
-                    </div>
-
-                    <!-- MAPA LEAFLET VERIFICADOR -->
-                    <div class="space-y-1">
-                        <div class="flex justify-between items-center">
-                            <span class="text-[11px] font-bold text-slate-300">Posición en Asfalto</span>
-                            <span id="lblPuntoAuditor" class="text-[10px] font-mono text-slate-400 truncate max-w-[160px]">Sin selección</span>
-                        </div>
-                        <div id="mapaVerificador"></div>
+                    <div id="infoDetalleAsfalto" class="text-xs font-mono text-slate-400">
+                        <span>Trazo vial: </span><b id="lblTrazoVialEstado" class="text-rose-400">Inactivo</b>
                     </div>
                 </div>
+
+                <div id="mapaVerificador" class="flex-1 shadow-md"></div>
             </div>
 
         </div>
 
-        <!-- TABLA ADMINISTRATIVA CRUD CELDA POR CELDA -->
+        <!-- TABLA ADMINISTRATIVA Y RESULTADOS -->
         <div class="bg-cyber-card border border-cyber-border rounded-xl p-5 space-y-4">
-            
             <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-cyber-border pb-3">
                 <div class="flex items-center gap-3">
-                    <h2 class="text-xs font-bold text-cyber-accent uppercase tracking-wider flex items-center gap-2">
-                        <span>📋</span> Catálogo de Coordenadas Guardadas
+                    <h2 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                        <span>📋</span> Registros Listos para Inyección o Edición
                     </h2>
-                    <span id="badgeFiltroResultados" class="text-xs font-mono text-slate-400">0 encontrados</span>
+                    <span id="badgeFiltroResultados" class="text-xs font-mono text-cyber-cyan">0 registros</span>
                 </div>
 
                 <div class="flex items-center gap-2">
-                    <input type="text" id="inputFiltroTabla" oninput="filtrarTablaPuntos(this.value)" placeholder="🔍 Filtrar por referencia, municipio o calle..." class="bg-cyber-bg border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyber-accent font-mono w-72">
-                    <button onclick="cargarCatalogoDesdeFirebase()" title="Refrescar catálogo desde Firebase" class="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-bold transition">
+                    <input type="text" id="inputFiltroTabla" oninput="filtrarTablaResultados(this.value)" placeholder="🔍 Filtrar registros en memoria..." class="bg-cyber-bg border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyber-cyan font-mono w-64">
+                    <button onclick="sincronizarDesdeFirebase()" title="Descargar catálogo actual desde Firebase" class="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-bold transition">
                         🔄
                     </button>
                 </div>
             </div>
 
-            <!-- TABLA SCROLLABLE -->
-            <div class="overflow-x-auto custom-scrollbar max-h-[460px]">
+            <div class="overflow-x-auto custom-scrollbar max-h-[420px]">
                 <table class="w-full text-left border-collapse text-xs">
                     <thead class="bg-cyber-bg sticky top-0 border-b border-cyber-border text-slate-400 z-10">
                         <tr>
-                            <th class="p-2.5">Clave de Indexación</th>
+                            <th class="p-2.5"># / Identificador</th>
                             <th class="p-2.5">Referencia Comercial / Cruce</th>
                             <th class="p-2.5">Municipio</th>
-                            <th class="p-2.5">Coordenadas (Lat, Lng)</th>
+                            <th class="p-2.5 font-mono">Coordenadas (Lat, Lng)</th>
                             <th class="p-2.5 text-center">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody id="tbodyGeocatalogos" class="divide-y divide-cyber-border/40 font-sans">
+                    <tbody id="tbodyPuntos" class="divide-y divide-cyber-border/40 font-sans text-slate-300">
                         <tr>
                             <td colspan="5" class="p-8 text-center text-slate-500 font-mono">
-                                Cargando catálogo de la entidad seleccionada...
+                                Carga un archivo DENUE (CSV), KML o KMZ para procesar.
                             </td>
                         </tr>
                     </tbody>
                 </table>
             </div>
-
         </div>
 
     </div>
 
-    <!-- MÓDULO JAVASCRIPT: CONEXIÓN FIREBASE, INEGI REST & PARSEO KML/KMZ -->
+    <!-- MÓDULO JS: FIREBASE REALTIME DB, PARSER MULTI-FORMATO & ESTANDARIZACIÓN -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, get, set, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
@@ -269,57 +299,78 @@
         const db = getDatabase(app);
 
         const ENTIDADES_FEDERATIVAS = [
-            { key: "aguascalientes", nombre: "Aguascalientes", idInegi: "01", latDef: 21.8853, lngDef: -102.2916 },
-            { key: "baja_california", nombre: "Baja California", idInegi: "02", latDef: 32.5149, lngDef: -117.0382 },
-            { key: "baja_california_sur", nombre: "Baja California Sur", idInegi: "03", latDef: 24.1426, lngDef: -110.3128 },
-            { key: "campeche", nombre: "Campeche", idInegi: "04", latDef: 19.8301, lngDef: -90.5349 },
-            { key: "chiapas", nombre: "Chiapas", idInegi: "07", latDef: 16.7569, lngDef: -93.1292 },
-            { key: "chihuahua", nombre: "Chihuahua", idInegi: "08", latDef: 28.6353, lngDef: -106.0889 },
-            { key: "ciudad_de_mexico", nombre: "Ciudad de México", idInegi: "09", latDef: 19.4326, lngDef: -99.1332 },
-            { key: "coahuila", nombre: "Coahuila", idInegi: "05", latDef: 25.4260, lngDef: -101.0053 },
-            { key: "colima", nombre: "Colima", idInegi: "06", latDef: 19.2452, lngDef: -103.7240 },
-            { key: "durango", nombre: "Durango", idInegi: "10", latDef: 24.0277, lngDef: -104.6532 },
-            { key: "estado_de_mexico", nombre: "Estado de México", idInegi: "15", latDef: 19.3553, lngDef: -99.6436 },
-            { key: "guanajuato", nombre: "Guanajuato", idInegi: "11", latDef: 21.0190, lngDef: -101.2574 },
-            { key: "guerrero", nombre: "Guerrero", idInegi: "12", latDef: 17.5516, lngDef: -99.5006 },
-            { key: "hidalgo", nombre: "Hidalgo", idInegi: "13", latDef: 20.1011, lngDef: -98.7591 },
-            { key: "jalisco", nombre: "Jalisco", idInegi: "14", latDef: 20.6597, lngDef: -103.3496 },
-            { key: "michoacan", nombre: "Michoacán", idInegi: "16", latDef: 19.7060, lngDef: -101.1950 },
-            { key: "morelos", nombre: "Morelos", idInegi: "17", latDef: 18.9242, lngDef: -99.2216 },
-            { key: "nayarit", nombre: "Nayarit", idInegi: "18", latDef: 21.5039, lngDef: -104.8946 },
-            { key: "nuevo_leon", nombre: "Nuevo León", idInegi: "19", latDef: 25.6866, lngDef: -100.3161 },
-            { key: "oaxaca", nombre: "Oaxaca", idInegi: "20", latDef: 17.0732, lngDef: -96.7266 },
-            { key: "puebla", nombre: "Puebla", idInegi: "21", latDef: 19.0414, lngDef: -98.2063 },
-            { key: "queretaro", nombre: "Querétaro", idInegi: "22", latDef: 20.5888, lngDef: -100.3899 },
-            { key: "quintana_roo", nombre: "Quintana Roo", idInegi: "23", latDef: 18.5141, lngDef: -88.3038 },
-            { key: "san_luis_potosi", nombre: "San Luis Potosí", idInegi: "24", latDef: 22.1565, lngDef: -100.9855 },
-            { key: "sinaloa", nombre: "Sinaloa", idInegi: "25", latDef: 24.8091, lngDef: -107.3940 },
-            { key: "sonora", nombre: "Sonora", idInegi: "26", latDef: 29.0729, lngDef: -110.9559 },
-            { key: "tabasco", nombre: "Tabasco", idInegi: "27", latDef: 17.9892, lngDef: -92.9281 },
-            { key: "tamaulipas", nombre: "Tamaulipas", idInegi: "28", latDef: 23.7369, lngDef: -99.1411 },
-            { key: "tlaxcala", nombre: "Tlaxcala", idInegi: "29", latDef: 19.3182, lngDef: -98.2375 },
-            { key: "veracruz", nombre: "Veracruz", idInegi: "30", latDef: 19.1738, lngDef: -96.1342 },
-            { key: "yucatan", nombre: "Yucatán", idInegi: "31", latDef: 20.9674, lngDef: -89.5926 },
-            { key: "zacatecas", nombre: "Zacatecas", idInegi: "32", latDef: 22.7709, lngDef: -102.5832 }
+            { key: "aguascalientes", nombre: "Aguascalientes", lat: 21.8853, lng: -102.2916 },
+            { key: "baja_california", nombre: "Baja California", lat: 32.5149, lng: -117.0382 },
+            { key: "baja_california_sur", nombre: "Baja California Sur", lat: 24.1426, lng: -110.3128 },
+            { key: "campeche", nombre: "Campeche", lat: 19.8301, lng: -90.5349 },
+            { key: "chiapas", nombre: "Chiapas", lat: 16.7569, lng: -93.1292 },
+            { key: "chihuahua", nombre: "Chihuahua", lat: 28.6353, lng: -106.0889 },
+            { key: "ciudad_de_mexico", nombre: "Ciudad de México", lat: 19.4326, lng: -99.1332 },
+            { key: "coahuila", nombre: "Coahuila", lat: 25.4260, lng: -101.0053 },
+            { key: "colima", nombre: "Colima", lat: 19.2452, lng: -103.7240 },
+            { key: "durango", nombre: "Durango", lat: 24.0277, lng: -104.6532 },
+            { key: "estado_de_mexico", nombre: "Estado de México", lat: 19.3553, lng: -99.6436 },
+            { key: "guanajuato", nombre: "Guanajuato", lat: 21.0190, lng: -101.2574 },
+            { key: "guerrero", nombre: "Guerrero", lat: 17.5516, lng: -99.5006 },
+            { key: "hidalgo", nombre: "Hidalgo", lat: 20.1011, lng: -98.7591 },
+            { key: "jalisco", nombre: "Jalisco", lat: 20.6597, lng: -103.3496 },
+            { key: "michoacan", nombre: "Michoacán", lat: 19.7060, lng: -101.1950 },
+            { key: "morelos", nombre: "Morelos", lat: 18.9242, lng: -99.2216 },
+            { key: "nayarit", nombre: "Nayarit", lat: 21.5039, lng: -104.8946 },
+            { key: "nuevo_leon", nombre: "Nuevo León", lat: 25.6866, lng: -100.3161 },
+            { key: "oaxaca", nombre: "Oaxaca", lat: 17.0732, lng: -96.7266 },
+            { key: "puebla", nombre: "Puebla", lat: 19.0414, lng: -98.2063 },
+            { key: "queretaro", nombre: "Querétaro", lat: 20.5888, lng: -100.3899 },
+            { key: "quintana_roo", nombre: "Quintana Roo", lat: 18.5141, lng: -88.3038 },
+            { key: "san_luis_potosi", nombre: "San Luis Potosí", lat: 22.1565, lng: -100.9855 },
+            { key: "sinaloa", nombre: "Sinaloa", lat: 24.8091, lng: -107.3940 },
+            { key: "sonora", nombre: "Sonora", lat: 29.0729, lng: -110.9559 },
+            { key: "tabasco", nombre: "Tabasco", lat: 17.9892, lng: -92.9281 },
+            { key: "tamaulipas", nombre: "Tamaulipas", lat: 23.7369, lng: -99.1411 },
+            { key: "tlaxcala", nombre: "Tlaxcala", lat: 19.3182, lng: -98.2375 },
+            { key: "veracruz", nombre: "Veracruz", lat: 19.1738, lng: -96.1342 },
+            { key: "yucatan", nombre: "Yucatán", lat: 20.9674, lng: -89.5926 },
+            { key: "zacatecas", nombre: "Zacatecas", lat: 22.7709, lng: -102.5832 }
         ];
 
+        let modoOperacionActual = "GEOCATALOGO"; // 'GEOCATALOGO' o 'RUTA'
         let estadoActualKey = "nuevo_leon";
-        let cacheCatalogoLocal = {};
-        let listaPuntosFiltrada = [];
-        let mapObjVerificador = null;
-        let markerVerificador = null;
+        let registrosProcesados = [];
+        let trazadoVialRuta = null;
+        let rutaCanonicaObjeto = null;
 
+        let mapaObj = null;
+        let markersGroup = null;
+        let polylineGroup = null;
+
+        window.seleccionarModoOperacion = seleccionarModoOperacion;
         window.cambiarEstadoActivo = cambiarEstadoActivo;
-        window.filtrarTablaPuntos = filtrarTablaPuntos;
-        window.cargarCatalogoDesdeFirebase = cargarCatalogoDesdeFirebase;
-        window.guardarPuntoManual = guardarPuntoManual;
-        window.actualizarPuntoEnFirebase = actualizarPuntoEnFirebase;
-        window.eliminarPuntoEnFirebase = eliminarPuntoEnFirebase;
-        window.auditarPuntoSatelital = auditarPuntoSatelital;
-        window.purgarEstadoCompleto = purgarEstadoCompleto;
-        window.ejecutarCosechaInegi = ejecutarCosechaInegi;
+        window.procesarArchivoDenueCSV = procesarArchivoDenueCSV;
+        window.procesarArchivoRutaKML = procesarArchivoRutaKML;
+        window.inyectarDatosAFirebase = inyectarDatosAFirebase;
+        window.exportarCoordenadasAKml = exportarCoordenadasAKml;
+        window.vaciarCatalogoActivoFirebase = vaciarCatalogoActivoFirebase;
+        window.sincronizarDesdeFirebase = sincronizarDesdeFirebase;
+        window.filtrarTablaResultados = filtrarTablaResultados;
+        window.ejecutarSanitizacionCache = ejecutarSanitizacionCache;
+        window.centrarCoordenadaEnMapa = centrarCoordenadaEnMapa;
 
-        document.addEventListener("DOMContentLoaded", () => {
+        document.addEventListener("DOMContentLoaded", async () => {
+            inicializarMapaLeaflet();
+            poblarSelectEstados();
+            await cargarEmpresasDesdeFirebase();
+            configurarDragAndDrop();
+            await sincronizarDesdeFirebase();
+        });
+
+        function inicializarMapaLeaflet() {
+            mapaObj = L.map('mapaVerificador', { zoomControl: true, attributionControl: false }).setView([25.6866, -100.3161], 11);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(mapaObj);
+            markersGroup = L.featureGroup().addTo(mapaObj);
+            polylineGroup = L.featureGroup().addTo(mapaObj);
+        }
+
+        function poblarSelectEstados() {
             const select = document.getElementById("selectEstadoCatalogo");
             select.innerHTML = "";
             ENTIDADES_FEDERATIVAS.forEach(ent => {
@@ -329,36 +380,29 @@
                 if (ent.key === "nuevo_leon") opt.selected = true;
                 select.appendChild(opt);
             });
+        }
 
-            const tokenGuardado = localStorage.getItem("token_inegi_denue") || "";
-            if (tokenGuardado) document.getElementById("tokenInegiInput").value = tokenGuardado;
-
-            document.getElementById("selectCriterioInegi").addEventListener("change", (e) => {
-                const inputPers = document.getElementById("inputPalabraPersonalizada");
-                if (e.target.value === "PERSONALIZADO") {
-                    inputPers.classList.remove("hidden");
-                    inputPers.focus();
-                } else {
-                    inputPers.classList.add("hidden");
-                }
-            });
-
-            mapObjVerificador = L.map('mapaVerificador').setView([25.6866, -100.3161], 12);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                maxZoom: 19,
-                attribution: '© OpenStreetMap'
-            }).addTo(mapObjVerificador);
-
-            cargarCatalogoDesdeFirebase();
-            configurarDragAndDropGeo();
-        });
+        async function cargarEmpresasDesdeFirebase() {
+            const select = document.getElementById("selectEmpresaRuta");
+            try {
+                const snap = await get(ref(db, "empresas"));
+                const data = snap.val() || {};
+                select.innerHTML = '<option value="">-- Selecciona Empresa Cliente --</option>';
+                const nombres = [];
+                Object.values(data).forEach(v => {
+                    let nom = typeof v === 'object' ? (v.nombreComercial || v.nombre || "") : v;
+                    if (nom && !nom.startsWith("-") && !nombres.includes(nom)) nombres.push(nom);
+                });
+                nombres.sort().forEach(nom => select.innerHTML += `<option value="${nom}">${nom}</option>`);
+            } catch (e) {
+                select.innerHTML = '<option value="General">General</option>';
+            }
+        }
 
         function sanitizarKey(str) {
             return (str || "general").toLowerCase().trim()
                 .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-                .replace(/[^a-z0-9]/g, "_")
-                .replace(/_+/g, "_")
-                .replace(/^_|_$/g, "");
+                .replace(/[^a-z0-9]/g, "_").replace(/_+/g, "_").replace(/^_|_$/g, "");
         }
 
         function generarClavePunto(texto, municipio) {
@@ -367,469 +411,570 @@
             return refLimpia + "_" + munLimpio;
         }
 
-        function cambiarEstadoActivo(nuevaKey) {
-            estadoActualKey = nuevaKey;
-            document.getElementById("badgeEstadoActivo").innerText = nuevaKey;
+        function seleccionarModoOperacion(modo) {
+            modoOperacionActual = modo;
+            const btnGeo = document.getElementById("btnModoGeocatalogo");
+            const btnRut = document.getElementById("btnModoRuta");
+            const secGeo = document.getElementById("seccionModoGeocatalogo");
+            const secRut = document.getElementById("seccionModoRuta");
+            const lblDestino = document.getElementById("lblDestinoFirebase");
 
-            const ent = ENTIDADES_FEDERATIVAS.find(e => e.key === nuevaKey);
-            if (ent && mapObjVerificador) {
-                mapObjVerificador.flyTo([ent.latDef, ent.lngDef], 11);
-            }
-
-            cargarCatalogoDesdeFirebase();
-        }
-
-        async function cargarCatalogoDesdeFirebase() {
-            const tbody = document.getElementById("tbodyGeocatalogos");
-            tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-slate-400 font-mono">Sincronizando catálogo desde Firebase...</td></tr>';
-            document.getElementById("statStatusSinc").innerText = "Leyendo...";
-
-            try {
-                const snap = await get(ref(db, "geocodigos_maestros/" + estadoActualKey));
-                cacheCatalogoLocal = snap.exists() ? snap.val() : {};
-
-                const llaves = Object.keys(cacheCatalogoLocal);
-                listaPuntosFiltrada = llaves.map(k => ({ clave: k, ...cacheCatalogoLocal[k] }));
-
-                const total = llaves.length;
-                document.getElementById("statTotalPuntos").innerText = total.toLocaleString();
-                
-                const pesoKb = ((total * 110) / 1024).toFixed(1);
-                document.getElementById("statPesoKb").innerText = pesoKb > 1024 
-                    ? (pesoKb / 1024).toFixed(2) + " MB" 
-                    : pesoKb + " KB";
-
-                document.getElementById("statStatusSinc").innerText = "Sincronizado";
-                renderizarTablaPuntos();
-
-            } catch (err) {
-                tbody.innerHTML = `<tr ><td colspan="5" class="p-8 text-center text-cyber-rose font-mono">Error de conexión: ${err.message}</td></tr>`;
-                document.getElementById("statStatusSinc").innerText = "Error";
-            }
-        }
-
-        function renderizarTablaPuntos() {
-            const tbody = document.getElementById("tbodyGeocatalogos");
-            tbody.innerHTML = "";
-
-            document.getElementById("badgeFiltroResultados").innerText = `${listaPuntosFiltrada.length} puntos`;
-
-            if (listaPuntosFiltrada.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-slate-500 font-mono">No hay coordenadas guardadas bajo este criterio en esta entidad.</td></tr>';
-                return;
-            }
-
-            const puntosVisibles = listaPuntosFiltrada.slice(0, 150);
-
-            puntosVisibles.forEach(pto => {
-                const tr = document.createElement("tr");
-                tr.className = "hover:bg-slate-800/40 border-b border-cyber-border/40 text-slate-300";
-
-                tr.innerHTML = `
-                    <td class="p-2.5 font-mono text-[11px] text-slate-400 select-all">${pto.clave}</td>
-                    <td class="p-2.5">
-                        <input type="text" value="${pto.referenciaOriginal || ''}" 
-                            onchange="actualizarPuntoEnFirebase('${pto.clave}', 'referenciaOriginal', this.value)" 
-                            class="w-full bg-cyber-bg border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-cyber-accent">
-                    </td>
-                    <td class="p-2.5">
-                        <input type="text" value="${pto.municipio || ''}" 
-                            onchange="actualizarPuntoEnFirebase('${pto.clave}', 'municipio', this.value)" 
-                            class="w-full bg-cyber-bg border border-slate-700 rounded px-2 py-1 text-xs text-cyber-cyan focus:outline-none">
-                    </td>
-                    <td class="p-2.5 font-mono">
-                        <input type="text" value="${pto.coordenadas || ''}" 
-                            onchange="actualizarPuntoEnFirebase('${pto.clave}', 'coordenadas', this.value)" 
-                            class="w-full bg-cyber-bg border border-slate-700 rounded px-2 py-1 text-xs text-emerald-400 focus:outline-none">
-                    </td>
-                    <td class="p-2.5 text-center whitespace-nowrap space-x-1.5">
-                        <button onclick="auditarPuntoSatelital('${pto.coordenadas}', '${pto.referenciaOriginal}')" title="Ver en mapa" class="bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/50 text-cyber-cyan px-2 py-1 rounded text-xs font-bold transition">
-                            🎯
-                        </button>
-                        <button onclick="eliminarPuntoEnFirebase('${pto.clave}')" title="Eliminar punto" class="bg-rose-950/80 hover:bg-rose-900 border border-rose-500/50 text-cyber-rose px-2 py-1 rounded text-xs font-bold transition">
-                            🗑️
-                        </button>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
-
-        function filtrarTablaPuntos(query) {
-            const q = sanitizarKey(query);
-            const llaves = Object.keys(cacheCatalogoLocal);
-
-            if (!q) {
-                listaPuntosFiltrada = llaves.map(k => ({ clave: k, ...cacheCatalogoLocal[k] }));
+            if (modo === 'GEOCATALOGO') {
+                btnGeo.className = "px-3 py-1 text-xs font-bold rounded-md transition bg-cyber-cyan text-slate-950";
+                btnRut.className = "px-3 py-1 text-xs font-bold rounded-md transition text-slate-400 hover:text-white";
+                secGeo.classList.remove("hidden");
+                secRut.classList.add("hidden");
+                lblDestino.innerText = `/geocodigos_maestros/${estadoActualKey}/`;
+                lblDestino.className = "text-cyber-cyan font-bold";
             } else {
-                listaPuntosFiltrada = llaves
-                    .filter(k => {
-                        const item = cacheCatalogoLocal[k];
-                        const ref = sanitizarKey(item.referenciaOriginal || "");
-                        const mun = sanitizarKey(item.municipio || "");
-                        return k.includes(q) || ref.includes(q) || mun.includes(q);
-                    })
-                    .map(k => ({ clave: k, ...cacheCatalogoLocal[k] }));
-            }
-            renderizarTablaPuntos();
-        }
-
-        async function actualizarPuntoEnFirebase(clave, campo, nuevoValor) {
-            if (!cacheCatalogoLocal[clave]) return;
-            cacheCatalogoLocal[clave][campo] = nuevoValor.trim();
-            cacheCatalogoLocal[clave]["actualizadoEl"] = new Date().toISOString();
-
-            try {
-                await set(ref(db, `geocodigos_maestros/${estadoActualKey}/${clave}`), cacheCatalogoLocal[clave]);
-            } catch (err) {
-                alert(`Error al actualizar punto: ${err.message}`);
+                btnRut.className = "px-3 py-1 text-xs font-bold rounded-md transition bg-cyber-emerald text-slate-950";
+                btnGeo.className = "px-3 py-1 text-xs font-bold rounded-md transition text-slate-400 hover:text-white";
+                secRut.classList.remove("hidden");
+                secGeo.classList.add("hidden");
+                lblDestino.innerText = `/rutas/{empresaKey}/{idRuta}`;
+                lblDestino.className = "text-cyber-emerald font-bold";
             }
         }
 
-        async function eliminarPuntoEnFirebase(clave) {
-            if (!confirm(`¿Eliminar la coordenada con clave "${clave}" de Firebase?`)) return;
-
-            try {
-                await remove(ref(db, `geocodigos_maestros/${estadoActualKey}/${clave}`));
-                delete cacheCatalogoLocal[clave];
-                filtrarTablaPuntos(document.getElementById("inputFiltroTabla").value);
-                document.getElementById("statTotalPuntos").innerText = Object.keys(cacheCatalogoLocal).length;
-            } catch (err) {
-                alert(`Error al eliminar: ${err.message}`);
+        function cambiarEstadoActivo(val) {
+            estadoActualKey = val;
+            document.getElementById("badgeEstadoActivo").innerText = val;
+            const ent = ENTIDADES_FEDERATIVAS.find(e => e.key === val);
+            if (ent && mapaObj) mapaObj.flyTo([ent.lat, ent.lng], 11);
+            if (modoOperacionActual === 'GEOCATALOGO') {
+                document.getElementById("lblDestinoFirebase").innerText = `/geocodigos_maestros/${val}/`;
+                sincronizarDesdeFirebase();
             }
         }
 
-        async function guardarPuntoManual() {
-            const refTxt = document.getElementById("inputManualRef").value.trim();
-            const munTxt = document.getElementById("inputManualMun").value.trim();
-            const coordTxt = document.getElementById("inputManualCoord").value.trim();
-
-            if (!refTxt || !coordTxt.includes(",")) {
-                return alert("⚠️ Ingresa una referencia y coordenadas en formato 'Lat, Lng'.");
-            }
-
-            const partes = coordTxt.split(",");
-            const lat = parseFloat(partes[0].trim());
-            const lng = parseFloat(partes[1].trim());
-
-            if (isNaN(lat) || isNaN(lng)) return alert("⚠️ Coordenadas decimales inválidas.");
-
-            const claveFinal = generarClavePunto(refTxt, munTxt);
-            const nuevoPunto = {
-                coordenadas: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
-                referenciaOriginal: refTxt,
-                municipio: munTxt || "General",
-                tipo: "Manual",
-                creadoEl: new Date().toISOString()
-            };
-
-            try {
-                await set(ref(db, `geocodigos_maestros/${estadoActualKey}/${claveFinal}`), nuevoPunto);
-                document.getElementById("inputManualRef").value = "";
-                document.getElementById("inputManualMun").value = "";
-                document.getElementById("inputManualCoord").value = "";
-                
-                await cargarCatalogoDesdeFirebase();
-                auditarPuntoSatelital(nuevoPunto.coordenadas, nuevoPunto.referenciaOriginal);
-                alert("✅ Punto registrado en el catálogo maestro.");
-            } catch (err) {
-                alert(`Error al guardar: ${err.message}`);
-            }
-        }
-
-        function auditarPuntoSatelital(coordenadasStr, etiqueta) {
-            if (!coordenadasStr || !coordenadasStr.includes(",")) return;
-            const partes = coordenadasStr.split(",");
-            const lat = parseFloat(partes[0]);
-            const lng = parseFloat(partes[1]);
-
-            if (isNaN(lat) || isNaN(lng)) return;
-
-            document.getElementById("lblPuntoAuditor").innerText = `${etiqueta} (${lat.toFixed(5)}, ${lng.toFixed(5)})`;
-            mapObjVerificador.flyTo([lat, lng], 17, { duration: 0.8 });
-
-            if (markerVerificador && mapObjVerificador.hasLayer(markerVerificador)) {
-                mapObjVerificador.removeLayer(markerVerificador);
-            }
-
-            markerVerificador = L.marker([lat, lng]).addTo(mapObjVerificador);
-            markerVerificador.bindPopup(`<b>${etiqueta}</b><br><span class="font-mono text-xs text-cyber-cyan">${lat}, ${lng}</span>`).openPopup();
-        }
-
-        async function purgarEstadoCompleto() {
-            const ent = ENTIDADES_FEDERATIVAS.find(e => e.key === estadoActualKey)?.nombre || estadoActualKey;
-            const confirmar = confirm(`⚠️ PELIGRO: ¿Estás seguro de vaciar y eliminar TODOS los puntos del catálogo de "${ent}" en Firebase?\n\nEsta acción liberará espacio de inmediato pero no se puede deshacer.`);
-            if (!confirmar) return;
-
-            const btn = document.getElementById("btnPurgarEstado");
-            btn.disabled = true;
-            btn.innerHTML = "<span>⏳</span> Vaciando...";
-
-            try {
-                await remove(ref(db, `geocodigos_maestros/${estadoActualKey}`));
-                cacheCatalogoLocal = {};
-                listaPuntosFiltrada = [];
-                renderizarTablaPuntos();
-                document.getElementById("statTotalPuntos").innerText = "0";
-                document.getElementById("statPesoKb").innerText = "0.0 KB";
-                alert(`✅ Catálogo de ${ent} vaciado exitosamente en Firebase.`);
-            } catch (err) {
-                alert(`Error al vaciar: ${err.message}`);
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = "<span>🧹</span> Vaciar Catálogo de esta Entidad";
-            }
+        function crearIconoPin(num, colorHex) {
+            return L.divIcon({
+                className: 'custom-gps-pin',
+                html: `<div class="gps-pin-marker">
+                    <svg class="gps-pin-svg" viewBox="0 0 384 512" fill="${colorHex}">
+                        <path stroke="#ffffff" stroke-width="20" d="M172.268 501.67C26.97 291.031 0 269.413 0 192 0 85.961 85.961 0 192 0s192 85.961 192 192c0 77.413-26.97 99.031-172.268 309.67-9.535 13.774-29.93 13.773-39.464 0z"/>
+                        <circle cx="192" cy="192" r="95" fill="#0f172a" opacity="0.6"/>
+                    </svg>
+                    <span class="gps-pin-number">${num}</span>
+                </div>`,
+                iconSize: [30, 40],
+                iconAnchor: [15, 40],
+                popupAnchor: [0, -38]
+            });
         }
 
         // =========================================================================
-        // EXTRACTOR OFICIAL API INEGI DENUE
+        // MODO 1: PROCESAMIENTO NATIVO DE ARCHIVOS DENUE DEL INEGI (.CSV)
         // =========================================================================
-        async function ejecutarCosechaInegi() {
-            const token = document.getElementById("tokenInegiInput").value.trim();
-            if (!token) return alert("⚠️ Ingresa tu Token gratuito del INEGI DENUE.");
-            localStorage.setItem("token_inegi_denue", token);
+        function procesarArchivoDenueCSV() {
+            const input = document.getElementById("fileDenueInput");
+            const filtro = document.getElementById("filtroTextoDenue").value.toLowerCase().trim();
+            const btn = document.getElementById("btnProcesarDenue");
 
-            const selectCrit = document.getElementById("selectCriterioInegi").value;
-            const palabra = selectCrit === "PERSONALIZADO" 
-                ? document.getElementById("inputPalabraPersonalizada").value.trim() 
-                : selectCrit;
-
-            if (!palabra) return alert("⚠️ Ingresa o selecciona una palabra clave para consultar en INEGI.");
-
-            const entObj = ENTIDADES_FEDERATIVAS.find(e => e.key === estadoActualKey) || { latDef: 25.6866, lngDef: -100.3161 };
-            const btn = document.getElementById("btnCosecharInegi");
-            const feedback = document.getElementById("progresoInegiFeedback");
+            if (!input.files.length) return alert("⚠️ Selecciona un archivo CSV del DENUE.");
 
             btn.disabled = true;
-            btn.innerHTML = "<span>⏳</span> Consultando INEGI DENUE...";
-            feedback.classList.remove("hidden");
-            feedback.innerText = `Buscando "${palabra}" en ${estadoActualKey}...`;
+            btn.innerHTML = "<span>⏳</span> Extrayendo registros en memoria...";
+            registrosProcesados = [];
+            markersGroup.clearLayers();
+            polylineGroup.clearLayers();
+            trazadoVialRuta = null;
 
-            try {
-                // Endpoint REST INEGI DENUE V1: Búsqueda por palabra clave y radio geográfico
-                // Radio amplio de 60,000 metros (60 km) desde el centro urbano del estado
-                const urlInegi = `https://www.inegi.org.mx/app/api/denue/v1/consulta/Buscar/${encodeURIComponent(palabra)}/${entObj.latDef},${entObj.lngDef}/60000/${token}`;
+            Papa.parse(input.files[0], {
+                header: true,
+                skipEmptyLines: true,
+                chunk: function(results) {
+                    results.data.forEach(row => {
+                        const nombre = row["nom_estab"] || row["nombre"] || row["Nombre"] || "";
+                        const calle = row["nombre_act"] || row["calle"] || row["nom_vial"] || "";
+                        const colonia = row["nomb_asent"] || row["colonia"] || "";
+                        const mun = row["municipio"] || row["nom_mun"] || "General";
+                        const lat = parseFloat(row["latitud"] || row["Latitud"] || row["lat"]);
+                        const lng = parseFloat(row["longitud"] || row["Longitud"] || row["lon"] || row["lng"]);
 
-                const res = await fetch(urlInegi);
-                if (!res.ok) throw new Error(`HTTP ${res.status} al conectar con INEGI`);
-                const dataInegi = await res.json();
+                        if (!isNaN(lat) && !isNaN(lng)) {
+                            const concuerda = !filtro || 
+                                nombre.toLowerCase().includes(filtro) || 
+                                calle.toLowerCase().includes(filtro) || 
+                                colonia.toLowerCase().includes(filtro);
 
-                if (!Array.isArray(dataInegi) || dataInegi.length === 0) {
-                    feedback.innerText = "No se encontraron establecimientos con ese criterio.";
-                    alert(`El INEGI no devolvió registros para "${palabra}" en el radio consultado.`);
-                    return;
+                            if (concuerda) {
+                                const refTexto = `${nombre} (${calle ? calle + ', ' : ''}${colonia})`.replace(/\s+/g, ' ').trim();
+                                const clave = generarClavePunto(refTexto, mun);
+
+                                registrosProcesados.push({
+                                    clave: clave,
+                                    referenciaOriginal: refTexto,
+                                    calle: calle,
+                                    colonia: colonia,
+                                    municipio: mun,
+                                    coordenadas: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+                                    lat: lat,
+                                    lng: lng,
+                                    fuente: "DENUE INEGI Oficial"
+                                });
+                            }
+                        }
+                    });
+                },
+                complete: function() {
+                    btn.disabled = false;
+                    btn.innerHTML = "<span>⚡</span> Cosechar Coordenadas del CSV";
+                    renderizarTablaYMapa();
+                    alert(`✅ Cosecha DENUE lista: Se extrajeron ${registrosProcesados.length} puntos oficiales.`);
+                },
+                error: function(err) {
+                    btn.disabled = false;
+                    btn.innerHTML = "<span>⚡</span> Cosechar Coordenadas del CSV";
+                    alert("Error en lectura CSV: " + err.message);
                 }
-
-                const total = dataInegi.length;
-                feedback.innerText = `Se obtuvieron ${total} registros del INEGI. Inyectando a Firebase...`;
-
-                const objetoLote = {};
-                let inyectados = 0;
-
-                dataInegi.forEach(item => {
-                    const lat = parseFloat(item.Latitud);
-                    const lng = parseFloat(item.Longitud);
-                    const nom = item.Nombre || palabra;
-                    const calle = item.Calle || "";
-                    const col = item.Colonia || "";
-                    const mun = item.Ubicacion ? item.Ubicacion.split(",")[0].trim() : (item.Municipio || "General");
-
-                    if (!isNaN(lat) && !isNaN(lng)) {
-                        const refCompleta = `${nom} (${calle ? calle + ', ' : ''}${col})`.replace(/\s+/g, ' ').trim();
-                        const clave = generarClavePunto(refCompleta, mun);
-
-                        objetoLote[clave] = {
-                            coordenadas: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
-                            referenciaOriginal: refCompleta,
-                            calle: calle,
-                            colonia: col,
-                            municipio: mun,
-                            tipo: item.Clase_actividad || "INEGI_DENUE",
-                            fuente: "INEGI Oficial",
-                            actualizadoEl: new Date().toISOString()
-                        };
-                        inyectados++;
-                    }
-                });
-
-                await set(ref(db, `geocodigos_maestros/${estadoActualKey}`), {
-                    ...cacheCatalogoLocal,
-                    ...objetoLote
-                });
-
-                feedback.innerText = `✅ ¡Éxito! ${inyectados} puntos inyectados a Firebase.`;
-                await cargarCatalogoDesdeFirebase();
-                alert(`✅ Cosecha completada: Se incorporaron ${inyectados} establecimientos oficiales del INEGI.`);
-
-            } catch (err) {
-                feedback.innerText = `Error: ${err.message}`;
-                alert(`Fallo en la consulta INEGI: ${err.message}`);
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = "<span>⚡</span> Cosechar del INEGI e Inyectar";
-            }
-        }
-
-        // =========================================================================
-        // INYECTOR NATIVO KML / KMZ SATELITAL & JSON
-        // =========================================================================
-        function configurarDragAndDropGeo() {
-            const dropZone = document.getElementById("dropZoneGeo");
-            const fileInput = document.getElementById("fileInputGeo");
-
-            dropZone.addEventListener("click", () => fileInput.click());
-
-            dropZone.addEventListener("dragover", (e) => {
-                e.preventDefault();
-                dropZone.classList.add("border-cyber-emerald", "bg-cyber-bg");
-            });
-
-            dropZone.addEventListener("dragleave", () => {
-                dropZone.classList.remove("border-cyber-emerald", "bg-cyber-bg");
-            });
-
-            dropZone.addEventListener("drop", (e) => {
-                e.preventDefault();
-                dropZone.classList.remove("border-cyber-emerald", "bg-cyber-bg");
-                if (e.dataTransfer.files.length) procesarArchivoSatelital(e.dataTransfer.files[0]);
-            });
-
-            fileInput.addEventListener("change", (e) => {
-                if (e.target.files.length) procesarArchivoSatelital(e.target.files[0]);
             });
         }
 
-        async function procesarArchivoSatelital(file) {
-            const feedback = document.getElementById("fileFeedbackGeo");
+        // =========================================================================
+        // MODO 2: PROCESAMIENTO NATIVO DE RUTAS KML / KMZ (CON PUNTOS Y LÍNEA VIAL)
+        // =========================================================================
+        function configurarDragAndDrop() {
+            const drop = document.getElementById("dropZoneRuta");
+            const fileInp = document.getElementById("fileInputRuta");
+            drop.addEventListener("click", () => fileInp.click());
+            drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("border-cyber-emerald"); });
+            drop.addEventListener("dragleave", () => { drop.classList.remove("border-cyber-emerald"); });
+            drop.addEventListener("drop", (e) => {
+                e.preventDefault();
+                drop.classList.remove("border-cyber-emerald");
+                if (e.dataTransfer.files.length) procesarArchivoRutaKML(e.dataTransfer.files[0]);
+            });
+            fileInp.addEventListener("change", (e) => {
+                if (e.target.files.length) procesarArchivoRutaKML(e.target.files[0]);
+            });
+        }
+
+        async function procesarArchivoRutaKML(archivoParam = null) {
+            const fileInput = document.getElementById("fileInputRuta");
+            const file = archivoParam || (fileInput.files.length ? fileInput.files[0] : null);
+            if (!file) return alert("⚠️ Selecciona o arrastra un archivo KML o KMZ.");
+
+            const feedback = document.getElementById("fileFeedbackRuta");
             feedback.classList.remove("hidden");
-            feedback.innerText = `Leyendo ${file.name}...`;
+            feedback.innerText = `Leyendo: ${file.name}...`;
 
             const ext = file.name.split('.').pop().toLowerCase();
+            registrosProcesados = [];
+            markersGroup.clearLayers();
+            polylineGroup.clearLayers();
+            trazadoVialRuta = null;
 
             try {
                 let kmlTexto = "";
-
                 if (ext === 'kmz') {
                     const zip = new JSZip();
                     const zipDoc = await zip.loadAsync(file);
                     const kmlKey = Object.keys(zipDoc.files).find(k => k.toLowerCase().endsWith('.kml'));
-                    if (!kmlKey) throw new Error("No se localizó archivo .kml dentro del .kmz");
+                    if (!kmlKey) throw new Error("No se localizó archivo .kml dentro del paquete .kmz");
                     kmlTexto = await zipDoc.files[kmlKey].async("text");
                 } else if (ext === 'kml') {
                     kmlTexto = await file.text();
-                } else if (ext === 'json' || ext === 'geojson') {
-                    // Si arrastra un JSON de respaldo o GeoJSON
-                    return procesarJsonRespaldo(file);
+                } else if (ext === 'geojson' || ext === 'json') {
+                    return procesarGeoJsonRuta(file);
                 }
 
-                if (!kmlTexto) throw new Error("Archivo KML vacío.");
-
                 const parser = new DOMParser();
-                const xmlDoc = parser.parseFromString(kmlTexto.replace(/xmlns(:\w+)?="[^"]*"/g, ''), "text/xml");
+                const xmlDoc = parser.parseFromString(kmlTexto.replace(/xmlns(:\w+)?="[^"]*"/g, '').replace(/<(\/)?(\w+):/g, '<$1'), "text/xml");
                 const placemarks = Array.from(xmlDoc.getElementsByTagName("Placemark"));
 
-                if (placemarks.length === 0) throw new Error("No se encontraron elementos <Placemark> en el KML.");
+                const paradas = [];
+                const lineasAsfalto = [];
+                let contador = 1;
 
-                const objetoLote = {};
-                let contador = 0;
+                placemarks.forEach(pm => {
+                    // 1. Puntos de abordaje
+                    const pt = pm.getElementsByTagName("Point")[0];
+                    if (pt) {
+                        const nombre = pm.getElementsByTagName("name")[0]?.textContent?.trim() || `Parada #${contador}`;
+                        const cText = pt.getElementsByTagName("coordinates")[0]?.textContent?.trim();
+                        if (cText) {
+                            const partes = cText.split(/\s+/)[0].split(",");
+                            const lng = parseFloat(partes[0]);
+                            const lat = parseFloat(partes[1]);
+                            if (!isNaN(lat) && !isNaN(lng)) {
+                                paradas.push({
+                                    numeroParada: contador++,
+                                    referenciaOriginal: nombre,
+                                    callePrincipal: nombre,
+                                    municipioParada: "General",
+                                    coordenadasAbordaje: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+                                    lat: lat,
+                                    lng: lng,
+                                    horarios: []
+                                });
+                            }
+                        }
+                    }
 
-                placemarks.forEach((pm, idx) => {
-                    const point = pm.getElementsByTagName("Point")[0];
-                    const coordsTag = point ? point.getElementsByTagName("coordinates")[0] : null;
-                    const nombre = pm.getElementsByTagName("name")[0]?.textContent?.trim() || `Punto KML #${idx + 1}`;
-                    const desc = pm.getElementsByTagName("description")[0]?.textContent?.trim() || "";
-
-                    if (coordsTag) {
-                        const coordStr = coordsTag.textContent.trim().split(/\s+/)[0];
-                        const partes = coordStr.split(",");
-                        const lng = parseFloat(partes[0]);
-                        const lat = parseFloat(partes[1]);
-
-                        if (!isNaN(lat) && !isNaN(lng)) {
-                            const clave = generarClavePunto(nombre, estadoActualKey);
-                            objetoLote[clave] = {
-                                coordenadas: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
-                                referenciaOriginal: nombre,
-                                descripcion: desc,
-                                municipio: estadoActualKey,
-                                tipo: "KML_Satelital",
-                                fuente: file.name,
-                                importadoEl: new Date().toISOString()
-                            };
-                            contador++;
+                    // 2. Trazado vial de carretera (<LineString>)
+                    const ls = pm.getElementsByTagName("LineString")[0];
+                    if (ls) {
+                        const coordsStr = ls.getElementsByTagName("coordinates")[0]?.textContent?.trim();
+                        if (coordsStr) {
+                            coordsStr.split(/\s+/).forEach(pair => {
+                                const c = pair.split(",");
+                                const lng = parseFloat(c[0]);
+                                const lat = parseFloat(c[1]);
+                                if (!isNaN(lat) && !isNaN(lng)) lineasAsfalto.push([lat, lng]);
+                            });
                         }
                     }
                 });
 
-                if (contador === 0) throw new Error("No se detectaron coordenadas válidas en los puntos del KML.");
-
-                if (!confirm(`Se extrajeron ${contador} coordenadas satelitales de "${file.name}". ¿Deseas incorporarlas a "${estadoActualKey}" en Firebase?`)) {
-                    feedback.classList.add("hidden");
-                    return;
+                if (paradas.length === 0 && lineasAsfalto.length === 0) {
+                    throw new Error("No se encontraron puntos ni trazos viales en este KML.");
                 }
 
-                feedback.innerText = `Inyectando ${contador} coordenadas a Firebase...`;
+                registrosProcesados = paradas.map(p => ({
+                    clave: `parada_${p.numeroParada}`,
+                    referenciaOriginal: p.referenciaOriginal,
+                    municipio: p.municipioParada,
+                    coordenadas: p.coordenadasAbordaje,
+                    lat: p.lat,
+                    lng: p.lng
+                }));
 
-                await set(ref(db, `geocodigos_maestros/${estadoActualKey}`), {
-                    ...cacheCatalogoLocal,
-                    ...objetoLote
-                });
+                trazadoVialRuta = lineasAsfalto.length > 0 ? lineasAsfalto : null;
 
-                feedback.innerText = `✅ Inyección KML finalizada: ${contador} puntos agregados.`;
-                await cargarCatalogoDesdeFirebase();
-                alert(`✅ Inyección satelital completada: Se incorporaron ${contador} coordenadas de Google Earth.`);
+                const nombreSugerido = file.name.replace(/\.[^/.]+$/, "").replace(/[-_]+/g, " ").toUpperCase();
+                if (!document.getElementById("inputNombreRutaManual").value) {
+                    document.getElementById("inputNombreRutaManual").value = nombreSugerido;
+                }
+
+                renderizarTablaYMapa();
+                feedback.innerText = `✅ Procesado: ${paradas.length} paradas y ${lineasAsfalto.length} vértices viales.`;
+                alert(`✅ KML/KMZ cargado con éxito. Listo para inyectar a Firebase.`);
 
             } catch (err) {
                 feedback.innerText = `Error: ${err.message}`;
-                alert(`Fallo en lectura KML/KMZ: ${err.message}`);
+                alert("Error procesando KML: " + err.message);
             }
         }
 
-        async function procesarJsonRespaldo(file) {
-            const feedback = document.getElementById("fileFeedbackGeo");
-            try {
-                const texto = await file.text();
-                const json = JSON.parse(texto);
-                let lote = {};
-                let contador = 0;
+        async function procesarGeoJsonRuta(file) {
+            const raw = await file.text();
+            const geojson = JSON.parse(raw);
+            const paradas = [];
+            const lineaAsfalto = [];
+            let c = 1;
 
-                if (Array.isArray(json.features)) {
-                    json.features.forEach(f => {
-                        const coords = f.geometry?.coordinates;
-                        const nom = f.properties?.name || f.properties?.Nombre || "Punto GeoJSON";
-                        if (coords && coords.length >= 2) {
-                            const clave = generarClavePunto(nom, estadoActualKey);
-                            lote[clave] = {
-                                coordenadas: `${coords[1].toFixed(6)}, ${coords[0].toFixed(6)}`,
-                                referenciaOriginal: nom,
-                                municipio: estadoActualKey,
-                                importadoEl: new Date().toISOString()
-                            };
-                            contador++;
-                        }
-                    });
-                } else if (typeof json === 'object') {
-                    Object.entries(json).forEach(([k, v]) => {
-                        if (v.coordenadas) {
-                            lote[k] = v;
-                            contador++;
-                        }
-                    });
+            if (Array.isArray(geojson.features)) {
+                geojson.features.forEach(f => {
+                    if (f.geometry?.type === 'Point') {
+                        const [lng, lat] = f.geometry.coordinates;
+                        const nom = f.properties?.name || f.properties?.Nombre || `Parada #${c}`;
+                        paradas.push({
+                            numeroParada: c++,
+                            referenciaOriginal: nom,
+                            municipioParada: "General",
+                            coordenadasAbordaje: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+                            lat: lat,
+                            lng: lng,
+                            horarios: []
+                        });
+                    } else if (f.geometry?.type === 'LineString') {
+                        f.geometry.coordinates.forEach(([lng, lat]) => lineaAsfalto.push([lat, lng]));
+                    }
+                });
+            }
+
+            registrosProcesados = paradas.map(p => ({
+                clave: `parada_${p.numeroParada}`,
+                referenciaOriginal: p.referenciaOriginal,
+                municipio: p.municipioParada,
+                coordenadas: p.coordenadasAbordaje,
+                lat: p.lat,
+                lng: p.lng
+            }));
+            trazadoVialRuta = lineaAsfalto.length > 0 ? lineaAsfalto : null;
+            renderizarTablaYMapa();
+            alert(`✅ GeoJSON procesado: ${paradas.length} puntos.`);
+        }
+
+        // =========================================================================
+        // RENDERIZADO REACTIVO DEL MAPA LEAFLET Y TABLA CRUD
+        // =========================================================================
+        function renderizarTablaYMapa() {
+            const tbody = document.getElementById("tbodyPuntos");
+            tbody.innerHTML = "";
+            markersGroup.clearLayers();
+            polylineGroup.clearLayers();
+
+            document.getElementById("badgeFiltroResultados").innerText = `${registrosProcesados.length} registros`;
+            document.getElementById("badgeConteoMapa").innerText = `${registrosProcesados.length} puntos`;
+
+            const lblTrazo = document.getElementById("lblTrazoVialEstado");
+            if (trazadoVialRuta && trazadoVialRuta.length > 0) {
+                lblTrazo.innerText = `Activo (${trazadoVialRuta.length} pts)`;
+                lblTrazo.className = "text-cyber-emerald font-bold";
+                L.polyline(trazadoVialRuta, { color: '#0f172a', weight: 6 }).addTo(polylineGroup);
+                L.polyline(trazadoVialRuta, { color: '#38bdf8', weight: 3.5 }).addTo(polylineGroup);
+            } else {
+                lblTrazo.innerText = "Inactivo";
+                lblTrazo.className = "text-rose-400 font-bold";
+            }
+
+            if (registrosProcesados.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-slate-500 font-mono">No hay registros cargados.</td></tr>';
+                return;
+            }
+
+            const bounds = [];
+            const fragment = document.createDocumentFragment();
+
+            registrosProcesados.slice(0, 200).forEach((item, idx) => {
+                const lat = item.lat || parseFloat(item.coordenadas.split(",")[0]);
+                const lng = item.lng || parseFloat(item.coordenadas.split(",")[1]);
+
+                if (!isNaN(lat) && !isNaN(lng)) {
+                    bounds.push([lat, lng]);
+                    const mk = L.marker([lat, lng], { icon: crearIconoPin(idx + 1, '#0284c7') }).addTo(markersGroup);
+                    mk.bindPopup(`<b>${item.referenciaOriginal}</b><br><span class="text-xs text-cyber-cyan font-mono">${lat}, ${lng}</span>`);
                 }
 
-                await set(ref(db, `geocodigos_maestros/${estadoActualKey}`), {
-                    ...cacheCatalogoLocal,
-                    ...lote
-                });
+                const tr = document.createElement("tr");
+                tr.className = "hover:bg-slate-800/40 border-b border-cyber-border/40 text-slate-300";
+                tr.innerHTML = `
+                    <td class="p-2.5 font-mono text-[11px] text-slate-400 select-all">${item.clave || ('#' + (idx + 1))}</td>
+                    <td class="p-2.5">
+                        <input type="text" value="${item.referenciaOriginal || ''}" onchange="actualizarDatoRegistro(${idx}, 'referenciaOriginal', this.value)" class="w-full bg-cyber-bg border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none">
+                    </td>
+                    <td class="p-2.5">
+                        <input type="text" value="${item.municipio || 'General'}" onchange="actualizarDatoRegistro(${idx}, 'municipio', this.value)" class="w-full bg-cyber-bg border border-slate-700 rounded px-2 py-1 text-xs text-cyber-cyan focus:outline-none">
+                    </td>
+                    <td class="p-2.5 font-mono">
+                        <input type="text" value="${item.coordenadas || ''}" onchange="actualizarDatoRegistro(${idx}, 'coordenadas', this.value)" class="w-full bg-cyber-bg border border-slate-700 rounded px-2 py-1 text-xs text-emerald-400 focus:outline-none">
+                    </td>
+                    <td class="p-2.5 text-center whitespace-nowrap">
+                        <button onclick="centrarCoordenadaEnMapa(${lat}, ${lng}, '${item.referenciaOriginal}')" title="Ver en mapa" class="bg-cyan-950 border border-cyan-500/50 text-cyber-cyan px-2 py-1 rounded text-xs font-bold">
+                            🎯
+                        </button>
+                    </td>
+                `;
+                fragment.appendChild(tr);
+            });
 
-                feedback.innerText = `✅ Inyección JSON completada: ${contador} puntos guardados.`;
-                await cargarCatalogoDesdeFirebase();
-                alert(`✅ Se inyectaron ${contador} puntos desde el archivo.`);
+            tbody.appendChild(fragment);
 
-            } catch (e) {
-                feedback.innerText = `Error: ${e.message}`;
-                alert(`Error procesando JSON: ${e.message}`);
+            if (trazadoVialRuta && trazadoVialRuta.length > 0) {
+                mapaObj.fitBounds(trazadoVialRuta, { padding: [30, 30] });
+            } else if (bounds.length > 0) {
+                mapaObj.fitBounds(bounds, { padding: [30, 30] });
             }
+        }
+
+        function centrarCoordenadaEnMapa(lat, lng, desc) {
+            if (isNaN(lat) || isNaN(lng)) return;
+            mapaObj.flyTo([lat, lng], 16, { duration: 0.8 });
+        }
+
+        function actualizarDatoRegistro(index, campo, nuevoValor) {
+            if (registrosProcesados[index]) {
+                registrosProcesados[index][campo] = nuevoValor.trim();
+                if (campo === 'coordenadas') {
+                    const p = nuevoValor.split(",");
+                    registrosProcesados[index].lat = parseFloat(p[0]);
+                    registrosProcesados[index].lng = parseFloat(p[1]);
+                }
+            }
+        }
+
+        function filtrarTablaResultados(q) {
+            const query = q.toLowerCase().trim();
+            const filas = document.querySelectorAll("#tbodyPuntos tr");
+            filas.forEach(f => {
+                const txt = f.innerText.toLowerCase();
+                f.style.display = txt.includes(query) ? "" : "none";
+            });
+        }
+
+        // =========================================================================
+        // INYECCIÓN CANÓNICA DIRECTA A FIREBASE (SINCRONIZACIÓN CON M6)
+        // =========================================================================
+        async function inyectarDatosAFirebase() {
+            if (registrosProcesados.length === 0) return alert("⚠️ No hay registros cargados para inyectar.");
+
+            const btn = document.getElementById("btnInyectarFirebase");
+            btn.disabled = true;
+            btn.innerHTML = "<span>⏳</span> Inyectando a Firebase...";
+
+            try {
+                // RUTA A: INYECCIÓN AL GEOCATÁLOGO TERRITORIAL INEGI
+                if (modoOperacionActual === 'GEOCATALOGO') {
+                    const objetoLote = {};
+                    registrosProcesados.forEach(item => {
+                        const clave = item.clave || generarClavePunto(item.referenciaOriginal, item.municipio);
+                        objetoLote[clave] = {
+                            coordenadas: item.coordenadas,
+                            referenciaOriginal: item.referenciaOriginal,
+                            calle: item.calle || "",
+                            colonia: item.colonia || "",
+                            municipio: item.municipio || "General",
+                            fuente: item.fuente || "INEGI Oficial",
+                            actualizadoEl: new Date().toISOString()
+                        };
+                    });
+
+                    await set(ref(db, `geocodigos_maestros/${estadoActualKey}`), objetoLote);
+                    alert(`✅ Éxito: Se inyectaron ${registrosProcesados.length} puntos a /geocodigos_maestros/${estadoActualKey}/ en Firebase.`);
+                }
+                // RUTA B: INYECCIÓN DIRECTA DE RUTA EMPRESARIAL CANÓNICA
+                else {
+                    const empresaNombre = document.getElementById("selectEmpresaRuta").value.trim();
+                    const rutaNombre = document.getElementById("inputNombreRutaManual").value.trim();
+
+                    if (!empresaNombre) throw new Error("Debes seleccionar una Empresa Cliente.");
+                    if (!rutaNombre) throw new Error("Debes asignar un nombre a la Ruta.");
+
+                    const empKey = sanitizarKey(empresaNombre);
+                    const rutKey = sanitizarKey(rutaNombre);
+
+                    const paradasCanonica = registrosProcesados.map((r, idx) => ({
+                        numeroParada: idx + 1,
+                        referenciaOriginal: r.referenciaOriginal,
+                        callePrincipal: r.referenciaOriginal,
+                        cruceInterseccion: "",
+                        coloniaFraccionamiento: "",
+                        municipioParada: r.municipio || "General",
+                        coordenadasAbordaje: r.coordenadas,
+                        estadoGeocodificacion: "Exacta (KML Oficial)",
+                        horarios: []
+                    }));
+
+                    const payloadRuta = {
+                        idRuta: rutKey,
+                        nombreRuta: rutaNombre,
+                        empresaDestino: empresaNombre,
+                        empresaKey: empKey,
+                        municipio: paradasCanonica[0]?.municipioParada || "General",
+                        estado: "Nuevo León",
+                        estadoMunicipio: `${paradasCanonica[0]?.municipioParada || 'General'}, Nuevo León`,
+                        puntosAbordaje: paradasCanonica.map(p => p.referenciaOriginal).join(", "),
+                        coordenadasAbordaje: paradasCanonica[0]?.coordenadasAbordaje || "",
+                        distanciaTotalKm: "0.0",
+                        tiempoEstimadoMin: 0,
+                        paradas: paradasCanonica,
+                        trazadoVial: trazadoVialRuta || paradasCanonica.map(p => [parseFloat(p.coordenadasAbordaje.split(",")[0]), parseFloat(p.coordenadasAbordaje.split(",")[1])]),
+                        fechaActualizacion: new Date().toISOString()
+                    };
+
+                    await set(ref(db, `rutas/${empKey}/${rutKey}`), payloadRuta);
+                    alert(`✅ Éxito: La ruta "${rutaNombre}" de ${empresaNombre} fue inyectada directamente a Firebase y ya está disponible en M6 Transporte.`);
+                }
+
+            } catch (err) {
+                alert("Error al inyectar en Firebase: " + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = "<span>💾</span> Inyectar Directo a Firebase";
+            }
+        }
+
+        async function sincronizarDesdeFirebase() {
+            if (modoOperacionActual !== 'GEOCATALOGO') return;
+            const tbody = document.getElementById("tbodyPuntos");
+            tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-slate-400 font-mono">Descargando catálogo de Firebase...</td></tr>';
+
+            try {
+                const snap = await get(ref(db, `geocodigos_maestros/${estadoActualKey}`));
+                if (snap.exists()) {
+                    const data = snap.val();
+                    registrosProcesados = Object.entries(data).map(([k, v]) => ({
+                        clave: k,
+                        referenciaOriginal: v.referenciaOriginal || k,
+                        municipio: v.municipio || "General",
+                        coordenadas: v.coordenadas || "",
+                        fuente: v.fuente || "Firebase"
+                    }));
+                } else {
+                    registrosProcesados = [];
+                }
+                renderizarTablaYMapa();
+            } catch (e) {
+                tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-rose-400 font-mono">Error: ${e.message}</td></tr>`;
+            }
+        }
+
+        async function vaciarCatalogoActivoFirebase() {
+            const ent = ENTIDADES_FEDERATIVAS.find(e => e.key === estadoActualKey)?.nombre || estadoActualKey;
+            if (!confirm(`⚠️ ¿Deseas vaciar TODO el catálogo de "${ent}" en Firebase?`)) return;
+
+            try {
+                await remove(ref(db, `geocodigos_maestros/${estadoActualKey}`));
+                registrosProcesados = [];
+                renderizarTablaYMapa();
+                alert(`✅ Catálogo de ${ent} vaciado en Firebase.`);
+            } catch (e) {
+                alert("Error: " + e.message);
+            }
+        }
+
+        // =========================================================================
+        // GENERADOR Y EXPORTADOR NATIVO DE ARCHIVOS .KML (PARA RESPALDO O QGIS)
+        // =========================================================================
+        function exportarCoordenadasAKml() {
+            if (registrosProcesados.length === 0) return alert("⚠️ No hay registros para exportar.");
+
+            let kmlString = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>Exportacion_M6_${estadoActualKey.toUpperCase()}</name>
+    <description>Catálogo de Coordenadas Extraído</description>
+`;
+
+            // Agregar paradas / puntos
+            registrosProcesados.forEach((r, idx) => {
+                const p = r.coordenadas.split(",");
+                const lat = p[0].trim();
+                const lng = p[1].trim();
+
+                kmlString += `    <Placemark>
+      <name>${r.referenciaOriginal || ('Punto ' + (idx + 1))}</name>
+      <description>Municipio: ${r.municipio || 'General'}</description>
+      <Point>
+        <coordinates>${lng},${lat},0</coordinates>
+      </Point>
+    </Placemark>\n`;
+            });
+
+            // Si hay trazado de línea de asfalto, agregarlo como LineString
+            if (trazadoVialRuta && trazadoVialRuta.length > 0) {
+                const coordsLine = trazadoVialRuta.map(pt => `${pt[1]},${pt[0]},0`).join(" ");
+                kmlString += `    <Placemark>
+      <name>Trazo_Vial_Asfalto</name>
+      <LineString>
+        <tessellate>1</tessellate>
+        <coordinates>${coordsLine}</coordinates>
+      </LineString>
+    </Placemark>\n`;
+            }
+
+            kmlString += `  </Document>\n</kml>`;
+
+            const blob = new Blob([kmlString], { type: "application/vnd.google-earth.kml+xml" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `coordenadas_${estadoActualKey}_m6.kml`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function ejecutarSanitizacionCache() {
+            registrosProcesados = [];
+            trazadoVialRuta = null;
+            markersGroup.clearLayers();
+            polylineGroup.clearLayers();
+            renderizarTablaYMapa();
+            alert("🧹 Memoria local liberada.");
         }
     </script>
 </body>
