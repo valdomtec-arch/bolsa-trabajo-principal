@@ -107,9 +107,9 @@
         <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-cyber-border pb-5">
             <div>
                 <h1 class="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
-                    <span class="text-cyber-accent">⚡</span> Motor Logístico de Transporte <span class="text-xs bg-cyber-accent/20 text-cyber-accent px-2 py-0.5 rounded border border-cyber-accent/40 font-mono">v10.0 Enterprise</span>
+                    <span class="text-cyber-accent">⚡</span> Motor Logístico de Transporte <span class="text-xs bg-cyber-accent/20 text-cyber-accent px-2 py-0.5 rounded border border-cyber-accent/40 font-mono">v12.0 Snap-Pavement</span>
                 </h1>
-                <p class="text-xs text-slate-400 mt-1">Extracción masiva multi-archivo, geocatálogo maestro, trazado vial OSRM persistente en Firebase.</p>
+                <p class="text-xs text-slate-400 mt-1">Anclaje magnético al pavimento (estilo Uber/DiDi), ruteo vial sin 404 y persistencia geométrica directa.</p>
             </div>
             <div class="flex items-center gap-2 flex-wrap">
                 <a href="m6_extractor_coordenadas.html" class="bg-cyber-cyan/20 hover:bg-cyber-cyan/30 text-cyber-cyan border border-cyber-cyan/40 font-mono text-xs px-3.5 py-2 rounded-xl flex items-center gap-2 transition-all shadow-sm">
@@ -119,7 +119,7 @@
                     <span>←</span> Volver a M6 Logística
                 </a>
                 
-                <button onclick="ejecutarSanitizacionMotor()" title="Limpiar caché local y memoria de ruteo" class="bg-rose-500/15 hover:bg-rose-500/30 text-rose-400 border border-rose-500/40 font-mono text-xs px-3 py-2 rounded-xl flex items-center gap-1.5 transition-all shadow-sm font-bold">
+                <button onclick="ejecutarSanitizacionMotor()" title="Limpiar memoria local de ruteo" class="bg-rose-500/15 hover:bg-rose-500/30 text-rose-400 border border-rose-500/40 font-mono text-xs px-3 py-2 rounded-xl flex items-center gap-1.5 transition-all shadow-sm font-bold">
                     <span>🧹</span> Limpiar Memoria
                 </button>
 
@@ -196,7 +196,7 @@
             <div class="lg:col-span-8 bg-cyber-card border border-cyber-border rounded-xl p-5 space-y-3 flex flex-col">
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <h2 class="text-xs font-bold text-cyber-amber uppercase tracking-wider flex items-center gap-2">
-                        <span>🛣️</span> Trazado Vial Real GPS (OSM Claro / OSRM Asfalto)
+                        <span>🛣️</span> Trazado Vial Real GPS (OSM Claro / Snap Seguro al Pavimento)
                     </h2>
                     <div id="metricasRutaActiva" class="text-xs font-mono text-slate-300 flex items-center gap-3">
                         <span class="text-cyber-cyan">📍 Distancia: <b id="lblDistanciaKm">0.0</b> km</span>
@@ -232,7 +232,7 @@
                         📋 Copiar
                     </button>
                 </div>
-                <textarea id="jsonOutputViewer" readonly placeholder="El esquema limpio sin campos innecesarios se proyectará aquí..." class="w-full h-full min-h-[440px] bg-cyber-bg border border-slate-800 rounded-lg p-3 text-xs font-mono text-emerald-400 custom-scrollbar focus:outline-none resize-none"></textarea>
+                <textarea id="jsonOutputViewer" readonly placeholder="El esquema limpio con su vector trazadoVial se proyectará aquí..." class="w-full h-full min-h-[440px] bg-cyber-bg border border-slate-800 rounded-lg p-3 text-xs font-mono text-emerald-400 custom-scrollbar focus:outline-none resize-none"></textarea>
             </div>
 
             <!-- TABLA GRANULAR DE PARADAS -->
@@ -292,7 +292,7 @@
 
     </div>
 
-    <!-- MÓDULO JS: OSRM VIAL NATIVO, PERSISTENCIA EN FIREBASE Y RESILIENCIA TOTAL -->
+    <!-- MÓDULO JS CON ANCLAJE AL PAVIMENTO (SNAP-TO-PAVEMENT) Y PERSISTENCIA DIRECTA -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
@@ -324,6 +324,7 @@
         let diccionarioMarcadores = {};
         let asfaltoTrazadoActivo = false;
 
+        const cacheSnappingVial = new Map();
         const cachePuntosCatalogoLocal = new Map();
         const cacheDeduplicacionSesion = new Map();
 
@@ -501,6 +502,21 @@
                             coordenadasAbordaje: p.coordenadasAbordaje || "",
                             estadoGeocodificacion: p.coordenadasAbordaje ? "Exacta" : "Sin Geocodificar",
                             horarios: p.horarios || []
+                        }));
+                    } else if (r.puntosAbordaje) {
+                        const puntosArr = r.puntosAbordaje.split(",").map(p => p.trim());
+                        paradasNormalizadas = puntosArr.map((pto, idx) => ({
+                            numeroParada: idx + 1,
+                            referenciaOriginal: pto,
+                            cruceVialEnriquecido: pto,
+                            callePrincipal: pto,
+                            cruceInterseccion: "",
+                            referenciaComercio: "",
+                            coloniaFraccionamiento: "",
+                            municipioParada: r.municipio || "General",
+                            coordenadasAbordaje: (idx === 0) ? (r.coordenadasAbordaje || "") : "",
+                            estadoGeocodificacion: (idx === 0 && r.coordenadasAbordaje) ? "Exacta" : "Sin Geocodificar",
+                            horarios: []
                         }));
                     }
 
@@ -784,9 +800,46 @@
             throw new Error("No se pudo procesar el croquis.");
         }
 
-        // =============================================================
-        // MOTOR DE RUTEO OSRM LIMPIO (CONCATENACIÓN SEGURA A 6 DECIMALES)
-        // =============================================================
+        // =========================================================================
+        // MOTOR SNAP-TO-PAVEMENT: ANCLAJE AL ASFALTO TRANSITABLE (TIPO UBER/DIDI)
+        // =========================================================================
+        async function proyectarPuntoAlAsfalto(lat, lng) {
+            const latN = parseFloat(lat);
+            const lngN = parseFloat(lng);
+            if (isNaN(latN) || isNaN(lngN)) return [lat, lng];
+
+            const latFixed = parseFloat(latN.toFixed(6));
+            const lngFixed = parseFloat(lngN.toFixed(6));
+            const claveCache = latFixed + "," + lngFixed;
+
+            if (cacheSnappingVial.has(claveCache)) {
+                return cacheSnappingVial.get(claveCache);
+            }
+
+            // Consulta nearest asegurando exactamente 6 decimales
+            const urlNearest = "[https://router.project-osrm.org/nearest/v1/driving/](https://router.project-osrm.org/nearest/v1/driving/)" + lngFixed + "," + latFixed + "?number=1";
+            try {
+                const res = await fetch(urlNearest);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.code === 'Ok' && data.waypoints && data.waypoints.length > 0) {
+                        const snappedLng = parseFloat(data.waypoints[0].location[0].toFixed(6));
+                        const snappedLat = parseFloat(data.waypoints[0].location[1].toFixed(6));
+                        const resFinal = [snappedLat, snappedLng];
+                        cacheSnappingVial.set(claveCache, resFinal);
+                        return resFinal;
+                    }
+                }
+            } catch (e) {}
+
+            const coordOriginal = [latFixed, lngFixed];
+            cacheSnappingVial.set(claveCache, coordOriginal);
+            return coordOriginal;
+        }
+
+        // =========================================================================
+        // RUTEO COMPUESTO MULTIPARADA CON FALLBACK POR TRAMOS (SIN 404)
+        // =========================================================================
         async function calcularRutaVialOSRM(coordenadasLatLng) {
             if (!coordenadasLatLng || coordenadasLatLng.length < 2) return null;
 
@@ -794,18 +847,29 @@
             let duracionTotalSegundos = 0;
             const todosPuntosGeoJSON = [];
 
-            for (let i = 0; i < coordenadasLatLng.length - 1; i++) {
-                const p1 = coordenadasLatLng[i];
-                const p2 = coordenadasLatLng[i + 1];
+            // 1. Proyectar todos los puntos al pavimento primero
+            const coordenadasAjustadas = [];
+            for (let i = 0; i < coordenadasLatLng.length; i++) {
+                const pt = coordenadasLatLng[i];
+                const ptSnap = await proyectarPuntoAlAsfalto(pt[0], pt[1]);
+                coordenadasAjustadas.push(ptSnap);
+                await new Promise(r => setTimeout(r, 15));
+            }
 
-                const lng1 = parseFloat(p1[1]).toFixed(6);
-                const lat1 = parseFloat(p1[0]).toFixed(6);
-                const lng2 = parseFloat(p2[1]).toFixed(6);
-                const lat2 = parseFloat(p2[0]).toFixed(6);
+            // 2. Ruteo segmento por segmento sobre el asfalto garantizado
+            for (let i = 0; i < coordenadasAjustadas.length - 1; i++) {
+                const pOrigen = coordenadasAjustadas[i];
+                const pDestino = coordenadasAjustadas[i + 1];
+
+                const lng1 = pOrigen[1];
+                const lat1 = pOrigen[0];
+                const lng2 = pDestino[1];
+                const lat2 = pDestino[0];
 
                 const coordString = lng1 + "," + lat1 + ";" + lng2 + "," + lat2;
-                const urlOsrm = "[https://router.project-osrm.org/route/v1/driving/](https://router.project-osrm.org/route/v1/driving/)" + coordString + "?overview=full&geometries=geojson";
+                const urlOsrm = "[https://router.project-osrm.org/route/v1/driving/](https://router.project-osrm.org/route/v1/driving/)" + coordString + "?overview=full&geometries=geojson&continue_straight=true";
 
+                let exitoTramo = false;
                 try {
                     const res = await fetch(urlOsrm);
                     if (res.ok) {
@@ -814,20 +878,19 @@
                             distanciaTotalMetros += data.routes[0].distance;
                             duracionTotalSegundos += data.routes[0].duration;
 
-                            data.routes[0].geometry.coordinates.forEach(pt => {
-                                todosPuntosGeoJSON.push([pt[1], pt[0]]);
-                            });
-                        } else {
-                            todosPuntosGeoJSON.push([parseFloat(lat1), parseFloat(lng1)], [parseFloat(lat2), parseFloat(lng2)]);
+                            const coords = data.routes[0].geometry.coordinates;
+                            coords.forEach(pt => todosPuntosGeoJSON.push([pt[1], pt[0]]));
+                            exitoTramo = true;
                         }
-                    } else {
-                        todosPuntosGeoJSON.push([parseFloat(lat1), parseFloat(lng1)], [parseFloat(lat2), parseFloat(lng2)]);
                     }
-                } catch (e) {
-                    todosPuntosGeoJSON.push([parseFloat(lat1), parseFloat(lng1)], [parseFloat(lat2), parseFloat(lng2)]);
+                } catch (e) {}
+
+                // Si por terracería extrema OSRM falla en ese tramo, conectar punto a punto
+                if (!exitoTramo) {
+                    todosPuntosGeoJSON.push(pOrigen, pDestino);
                 }
 
-                await new Promise(r => setTimeout(r, 45));
+                await new Promise(r => setTimeout(r, 35));
             }
 
             return {
@@ -837,9 +900,9 @@
             };
         }
 
-        // =============================================================
-        // BOTÓN: TRAZADO ASFÁLTICO CON PERSISTENCIA DIRECTA EN FIREBASE
-        // =============================================================
+        // =========================================================================
+        // CONTROLADOR DE TRAZADO: DIBUJA DESDE FIREBASE EN 0 MS O CALCULA VIAL
+        // =========================================================================
         async function toggleTrazadoAsfalto() {
             const btn = document.getElementById("btnTrazarAsfalto");
             const lbl = document.getElementById("lblBtnTrazarAsfalto");
@@ -861,7 +924,7 @@
             if (rutasATrazar.length === 0) return alert("⚠️ No hay rutas cargadas para trazar.");
 
             btn.disabled = true;
-            if (lbl) lbl.innerText = "Calculando...";
+            if (lbl) lbl.innerText = "Anclando al Asfalto...";
             polylineGroup.clearLayers();
 
             let distanciaTotalAcumulada = 0;
@@ -871,7 +934,7 @@
                 const indiceColorGlobal = coleccionRutas.findIndex(cr => cr.nombreRuta === ruta.nombreRuta);
                 const colorRutaActual = obtenerColorPorRutaIndex(indiceColorGlobal >= 0 ? indiceColorGlobal : rIdx);
 
-                // REGLA 1: Si la ruta ya tiene su trazadoVial guardado en Firebase, usarlo directo en 0ms
+                // PERSISTENCIA: Si ya tiene el trazado en Firebase, usarlo en 0 ms
                 if (Array.isArray(ruta.trazadoVial) && ruta.trazadoVial.length > 0) {
                     L.polyline(ruta.trazadoVial, {
                         color: '#0f172a',
@@ -896,13 +959,11 @@
                     continue;
                 }
 
-                // REGLA 2: Si no lo tiene, calcularlo por OSRM
+                // Si es nueva, calcular con Snap magnético
                 const puntosValidos = [];
                 ruta.paradas.forEach(p => {
                     if (p.coordenadasAbordaje && p.coordenadasAbordaje.includes(",")) {
-                        const partes = p.coordenadasAbordaje.split(",");
-                        const lat = parseFloat(partes[0].trim());
-                        const lng = parseFloat(partes[1].trim());
+                        const [lat, lng] = p.coordenadasAbordaje.split(",").map(Number);
                         if (!isNaN(lat) && !isNaN(lng)) {
                             puntosValidos.push([lat, lng]);
                         }
@@ -915,7 +976,7 @@
                     if (routingRes && routingRes.puntosPolilinea && routingRes.puntosPolilinea.length > 0) {
                         ruta.distanciaTotalKm = routingRes.distanciaKm;
                         ruta.tiempoEstimadoMin = routingRes.duracionMin;
-                        ruta.trazadoVial = routingRes.puntosPolilinea; // Almacenado en memoria
+                        ruta.trazadoVial = routingRes.puntosPolilinea;
                         distanciaTotalAcumulada += parseFloat(routingRes.distanciaKm || 0);
 
                         L.polyline(routingRes.puntosPolilinea, {
@@ -938,7 +999,6 @@
                         document.getElementById("lblDistanciaKm").innerText = routingRes.distanciaKm;
                         document.getElementById("lblTiempoMin").innerText = routingRes.duracionMin;
 
-                        // Actualizar automáticamente en el JSON y en Firebase si ya existe
                         document.getElementById("jsonOutputViewer").value = JSON.stringify(coleccionRutas, null, 2);
                     }
                 }
@@ -1462,6 +1522,7 @@
 
         function ejecutarSanitizacionMotor() {
             sessionStorage.removeItem("cache_m6_empresas");
+            cacheSnappingVial.clear();
             cachePuntosCatalogoLocal.clear();
             cacheDeduplicacionSesion.clear();
             if (markersGroup) markersGroup.clearLayers();
