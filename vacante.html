@@ -76,7 +76,6 @@
             font-weight: 600;
         }
 
-        /* Banner Reactivo Semáforo M1 */
         .alerta-semaforo-box {
             padding: 16px 20px;
             border-radius: var(--radius-md);
@@ -567,7 +566,7 @@
             <i class="fas fa-arrow-left"></i> Volver a la Lista de Vacantes
         </button>
 
-        <!-- CARRUSEL TIPO MAZORCA REVOLVER CON HERENCIA CORPORATIVA -->
+        <!-- CARRUSEL TIPO MAZORCA REVOLVER -->
         <div class="revolver-carousel-container" id="revolverCarouselBox">
             <div class="revolver-stage" id="revolverStage"></div>
             <button class="revolver-nav revolver-prev" onclick="moverRevolver(-1)"><i class="fa-solid fa-chevron-left"></i></button>
@@ -710,7 +709,7 @@
                                 <i class="fas fa-headset"></i> Selecciona al Asesor que te Atiende:
                             </label>
                             <select id="selReclutador" required>
-                                <option value="">Cargando asesores...</option>
+                                <option value="">Cargando asesores autorizados...</option>
                             </select>
                         </div>
 
@@ -753,7 +752,8 @@
     let nombreEmpresaMaestro = "";
     let ubicacionEmpresaMaestro = ""; 
     let bannersCorporativosEmpresa = "";
-    let estatusOperativoEmpresa = "Disponible"; // Semáforo maestro M1
+    let estatusOperativoEmpresa = "Disponible";
+    let catalogoUsuariosGlobal = {};
     const fallbackTelefonoReclutador = "528112345678";
 
     let arrayBannersRevolver = [];
@@ -795,7 +795,6 @@
         }
     }
 
-    // 1. APLICACIÓN DEL SEMÁFORO MAESTRO PROVENIENTE DE M1
     function aplicarReglasSemaforoEmpresa(estatus) {
         const banner = document.getElementById('bannerAlertaSemaforo');
         const icono = document.getElementById('bannerSemaforoIcono');
@@ -852,7 +851,6 @@
         }
 
         try {
-            // 1. Escuchar datos maestros de la empresa (Nombre, Ubicación, Semáforo Maestro M1) en tiempo real
             db.ref(`empresas/${empresaLimpia}`).on('value', (snapEmpresaMaestra) => {
                 if (snapEmpresaMaestra.exists()) {
                     const infoMaestra = snapEmpresaMaestra.val();
@@ -861,13 +859,11 @@
                     bannersCorporativosEmpresa = infoMaestra.bannersCorporativos || "";
                     estatusOperativoEmpresa = infoMaestra.estatusOperativo || "Disponible";
 
-                    // Ejecutar semáforo de bloqueo si la empresa está cerrada/pausada
                     const continuaCarga = aplicarReglasSemaforoEmpresa(estatusOperativoEmpresa);
                     if (!continuaCarga) return;
                 }
             });
 
-            // 2. Obtener las vacantes registradas de la empresa
             db.ref(`vacantes_detalles/${empresaLimpia}`).on('value', async function(snapshot) {
                 if (snapshot.exists()) {
                     const dataRaw = snapshot.val();
@@ -903,7 +899,7 @@
                     keys.forEach(key => {
                         const vac = todasLasVacantesEmpresa[key];
                         const nombreMostrarPuesto = vac.nombreVacante || vac.vacanteNombre || vac.puesto || vac.nombreComercial || "Puesto Vacante";
-                        const estatusPuesto = vac.estatus || "Disponible"; // Semáforo individual
+                        const estatusPuesto = vac.estatus || "Disponible";
 
                         let badgePuestoHtml = '';
                         if (estatusPuesto === "No Disponible") {
@@ -973,7 +969,6 @@
         const notasTexto = data.informacionGeneral || data.informacion_general || data.infoGeneral || data.notas || data.observaciones;
         document.getElementById('vacanteNotas').innerText = (notasTexto && notasTexto.trim().length > 0) ? notasTexto : 'Sin notas adicionales.';
 
-        // Comprobación de Semáforo Granular del Puesto Específico
         const estatusPuesto = data.estatus || "Disponible";
         const contenedorForm = document.getElementById('contenedorFormularioPostulacion');
         const btnSubmit = document.getElementById('btnSubmitForm');
@@ -994,7 +989,6 @@
             }
         }
 
-        // Configuración de la Mazorca de Banners con Herencia Automática
         configurarMazorcaBanners(data);
         await inicializarBuscadorRutas();
 
@@ -1003,7 +997,6 @@
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    // HERENCIA DINÁMICA DE LA MAZORCA DE BANNERS
     function configurarMazorcaBanners(data) {
         arrayBannersRevolver = [];
         const container = document.getElementById('revolverCarouselBox');
@@ -1309,7 +1302,6 @@
         }
     }
 
-    // LECTURA DE RUTAS M6
     async function inicializarBuscadorRutas() {
         const txtDetallesTrans = document.getElementById('txtDetallesTransporte');
         const selectRutas = document.getElementById('selRutaEmpresa');
@@ -1470,7 +1462,7 @@
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    // CARGA DE ASESORES AUTORIZADOS CON GOBERNANZA RBAC DINÁMICA
+    // CARGA DE ASESORES AUTORIZADOS CON GOBERNANZA RBAC
     async function cargarCatalogoReclutadores() {
         const selectElement = document.getElementById("selReclutador");
         try {
@@ -1478,7 +1470,7 @@
             selectElement.innerHTML = ""; 
             
             if (snapReclutadores.exists()) {
-                const listado = snapReclutadores.val();
+                catalogoUsuariosGlobal = snapReclutadores.val();
                 
                 const optDef = document.createElement("option");
                 optDef.value = ""; 
@@ -1487,17 +1479,15 @@
 
                 let asesoresValidos = 0;
 
-                Object.keys(listado).forEach(key => {
-                    const rec = listado[key];
+                Object.keys(catalogoUsuariosGlobal).forEach(key => {
+                    const rec = catalogoUsuariosGlobal[key];
                     const estaActivo = (!rec.estatus || rec.estatus === "Activo");
                     const tieneTelefono = Boolean(rec.telefono);
 
-                    // 1. REGLA DIRECTIVA: Evaluación estricta de facultad para reclutar
                     const nivel = rec.nivel !== undefined ? parseInt(rec.nivel) : (rec.level !== undefined ? parseInt(rec.level) : 2);
                     const facultadReclutar = rec.operaComoReclutador === true || 
                         (rec.operaComoReclutador === undefined && nivel < 3);
 
-                    // 2. REGLA DE ALCANCE TERRITORIAL / EMPRESA
                     const esGlobal = (rec.scope || '').toLowerCase() === 'global' || rec.todasLasEmpresas === true;
                     const empresasAsignadas = Array.isArray(rec.empresas) ? rec.empresas : [];
                     const tieneEmpresaAsignada = esGlobal || 
@@ -1541,10 +1531,40 @@
         return { edad: isNaN(edadCalculada) ? "Indistinto" : String(edadCalculada), sexo: sexo };
     }
 
+    // VERIFICACIÓN DE LEAD OWNERSHIP (TITULARIDAD DEL CANDIDATO)
+    async function verificarTitularidadCandidato(curp, telefono) {
+        try {
+            const snapCurp = await db.ref('postulantes').orderByChild('curp').equalTo(curp).once('value');
+            if (snapCurp.exists()) {
+                const list = snapCurp.val();
+                for (const key of Object.keys(list)) {
+                    const post = list[key];
+                    if (post.estatus !== 'Contratado' && post.estatus !== 'Declinante' && (post.reclutadorId || post.asesor)) {
+                        return { existe: true, titular: post };
+                    }
+                }
+            }
+
+            const snapTel = await db.ref('postulantes').orderByChild('telefono').equalTo(telefono).once('value');
+            if (snapTel.exists()) {
+                const list = snapTel.val();
+                for (const key of Object.keys(list)) {
+                    const post = list[key];
+                    if (post.estatus !== 'Contratado' && post.estatus !== 'Declinante' && (post.reclutadorId || post.asesor)) {
+                        return { existe: true, titular: post };
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn("No se pudo verificar titularidad en Firebase:", e);
+        }
+        return { existe: false, titular: null };
+    }
+
+    // ENVÍO DE POSTULACIÓN CON BLINDAJE DE TITULARIDAD
     window.enviarPostulacion = async function(e) {
         e.preventDefault();
         
-        // Verificación de seguridad si el semáforo bloquea el envío
         if (estatusOperativoEmpresa === "No Disponible" || estatusOperativoEmpresa === "En Pausa" || estatusOperativoEmpresa === "Cerrada") {
             alert("⚠️ El proceso de postulación para esta empresa se encuentra bloqueado actualmente.");
             return;
@@ -1556,7 +1576,7 @@
         }
 
         const nombre = document.getElementById('postNombre').value.trim();
-        const telefono = document.getElementById('postTelefono').value.trim();
+        const telefono = document.getElementById('postTelefono').value.trim().replace(/\D/g, '');
         const curp = document.getElementById('postCurp').value.trim().toUpperCase();
         const fechaEntrevista = document.getElementById('postFechaEntrevista').value;
         const horaEntrevista = document.getElementById('postHoraEntrevista').value;
@@ -1572,15 +1592,44 @@
         }
 
         btnSubmit.disabled = true;
-        btnSubmit.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Procesando Registro...`;
+        btnSubmit.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Validando titularidad de expediente...`;
 
         try {
-            let telefonoDestino = selectReclutador.value; 
-            const opcionSeleccionada = selectReclutador.options[selectReclutador.selectedIndex];
-            let nombreReclutadorCorto = opcionSeleccionada ? (opcionSeleccionada.dataset.nombreReal || "Asesor Asignado") : "Asesor Asignado";
-            const reclutadorIdSeleccionado = opcionSeleccionada ? (opcionSeleccionada.dataset.reclutadorId || null) : null;
-            
-            if (telefonoDestino.length === 10) telefonoDestino = "52" + telefonoDestino;
+            // 1. Candado de Titularidad y Duplicidad
+            const { existe, titular } = await verificarTitularidadCandidato(curp, telefono);
+
+            let telefonoDestino = "";
+            let nombreReclutadorCorto = "";
+            let reclutadorIdFinal = null;
+
+            if (existe && titular) {
+                // Candidato preexistente con proceso activo: Respetar al asesor titular
+                reclutadorIdFinal = titular.reclutadorId || null;
+                nombreReclutadorCorto = titular.reclutadorNombre || titular.asesor || "Tu Asesor Titular";
+
+                if (reclutadorIdFinal && catalogoUsuariosGlobal[reclutadorIdFinal]?.telefono) {
+                    telefonoDestino = String(catalogoUsuariosGlobal[reclutadorIdFinal].telefono).trim();
+                } else if (titular.telefonoAsesor) {
+                    telefonoDestino = String(titular.telefonoAsesor).trim();
+                } else {
+                    telefonoDestino = fallbackTelefonoReclutador;
+                }
+
+                alert(
+                    `ℹ️ Hola ${nombre}, identificamos que ya cuentas con un proceso abierto con tu asesor: ${nombreReclutadorCorto}.\n\n` +
+                    `Por política de seguimiento y para no perder tu avance, te canalizaremos directamente con él.`
+                );
+            } else {
+                // Candidato nuevo: Toma el asesor que eligió en el selector
+                const opcionSeleccionada = selectReclutador.options[selectReclutador.selectedIndex];
+                telefonoDestino = selectReclutador.value; 
+                nombreReclutadorCorto = opcionSeleccionada ? (opcionSeleccionada.dataset.nombreReal || "Asesor Asignado") : "Asesor Asignado";
+                reclutadorIdFinal = opcionSeleccionada ? (opcionSeleccionada.dataset.reclutadorId || null) : null;
+            }
+
+            let telLimpio = String(telefonoDestino).replace(/\D/g, '');
+            if (telLimpio.length === 10) telLimpio = "52" + telLimpio;
+            if (!telLimpio) telLimpio = fallbackTelefonoReclutador;
 
             const datosExtraidos = extraerDatosCurp(curp);
             const timestampId = "WF-" + Math.floor(100000 + Math.random() * 900000);
@@ -1599,13 +1648,17 @@
                 edad: datosExtraidos.edad,
                 sexo: datosExtraidos.sexo,
                 empresa: empresaNombreFinal,
+                empresaId: empresaLimpia,
                 vacante: vacanteNombreFinal,
+                nombreVacante: vacanteNombreFinal,
                 fechaEntrevista: fechaEntrevista,
                 horaEntrevista: horaEntrevista,
+                diaEntrevista: `${fechaEntrevista} ${horaEntrevista}`,
                 estatus: "Postulado",
                 asesor: nombreReclutadorCorto,
-                reclutadorId: reclutadorIdSeleccionado,
+                reclutadorId: reclutadorIdFinal,
                 reclutadorNombre: nombreReclutadorCorto,
+                telefonoAsesor: telLimpio,
                 rutaTransporteSeleccionada: puntoElegido,
                 urlAcusePdf: urlAcuseDigital,
                 fechaRegistro: fechaYHoraActual,
@@ -1633,14 +1686,16 @@
 
             document.getElementById('formPostulacion').reset();
             btnSubmit.disabled = false;
+            btnSubmit.innerHTML = `<i class="fab fa-whatsapp"></i> Confirmar Cita y Enviar WhatsApp`;
             
             setTimeout(() => {
-                window.location.href = `https://wa.me/${telefonoDestino}?text=${encodeURIComponent(mensajeWhatsApp)}`;
+                window.location.href = `https://wa.me/${telLimpio}?text=${encodeURIComponent(mensajeWhatsApp)}`;
             }, 500);
             
         } catch (err) {
-            alert(`❌ Error al guardar datos: ${err.message}`);
+            alert(`❌ Error al procesar datos: ${err.message}`);
             btnSubmit.disabled = false;
+            btnSubmit.innerHTML = `<i class="fab fa-whatsapp"></i> Confirmar Cita y Enviar WhatsApp`;
         }
     };
 
