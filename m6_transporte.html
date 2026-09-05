@@ -211,7 +211,7 @@
             </div>
         </div>
 
-        <!-- SECCIÓN DE BUSCADOR GEOGRÁFICO Y MAPA LEAFLET CLARO -->
+        <!-- SECCIÓN DE BUSCADOR GEOGRÁFICO Y MAPA LEAFLET CLARO CON ACCIONES RÁPIDAS -->
         <div class="bg-cyber-card rounded-xl border border-cyber-border p-4 sm:p-5 shadow-xl space-y-4">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-cyber-border pb-3">
                 <div>
@@ -220,7 +220,13 @@
                     </h2>
                     <p class="text-slate-400 text-xs mt-0.5">Mapa claro con avenidas principales, parques y trazado vial calle por calle bajo demanda.</p>
                 </div>
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <button onclick="guardarSincronizacionActiva()" title="Sincronizar y forzar guardado de rutas en Firebase" class="bg-cyber-cyan/20 hover:bg-cyber-cyan/40 text-cyber-cyan border border-cyber-cyan/40 text-xs px-3 py-1.5 rounded-lg font-mono font-bold transition-all flex items-center gap-1.5 shadow-sm">
+                        <i class="fas fa-floppy-disk"></i> Guardar Rutas
+                    </button>
+                    <button onclick="eliminarRutasPorEmpresaSeleccionada()" title="Borrar rutas de la empresa activa" class="bg-rose-500/20 hover:bg-rose-500/40 text-rose-400 border border-rose-500/40 text-xs px-3 py-1.5 rounded-lg font-mono font-bold transition-all flex items-center gap-1.5 shadow-sm">
+                        <i class="fas fa-trash"></i> Purgar Empresa
+                    </button>
                     <button onclick="verTodasLasRutasEnMapa()" class="bg-cyber-bg hover:bg-slate-800 text-xs text-cyber-cyan border border-cyber-border px-3 py-1.5 rounded-lg font-mono transition-all flex items-center gap-1.5">
                         <i class="fas fa-globe"></i> Ver Todas en Mapa
                     </button>
@@ -539,7 +545,7 @@
         function crearIconoLagrimaGPS(numero, colorHex) {
             const svgHtml = `<div class="gps-pin-marker">
                 <svg class="gps-pin-svg" viewBox="0 0 384 512" fill="${colorHex}" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke="#ffffff" stroke-width="22" d="M172.268 501.67C26.97 291.031 0 269.413 0 192 0 85.961 85.961 0 192 0s192 85.961 192 192c0 77.413-26.97 99.031-172.268 309.67-9.535 13.774-29.93 13.773-39.464 0z"/>
+                    <path stroke="#ffffff" stroke-width="22" d="M172.268 501.67C26.97 291.031 0 269.413 0 192 0s192 85.961 192 192c0 77.413-26.97 99.031-172.268 309.67-9.535 13.774-29.93 13.773-39.464 0z"/>
                     <circle cx="192" cy="192" r="95" fill="#0f172a" opacity="0.6"/>
                 </svg>
                 <span class="gps-pin-number">${numero}</span>
@@ -749,7 +755,6 @@
                 divContenedor.classList.remove("hidden");
                 if (icono) icono.innerText = "▼";
 
-                // Inyección diferida bajo demanda
                 const r = cacheTodasLasRutas.find(x => x.idRuta === idRuta && x.empresaKey === empresaKey);
                 if (r && tbody) {
                     let html = "";
@@ -863,8 +868,26 @@
                     }
                 });
 
-                // Solo calculamos OSRM sobre asfalto cuando se filtra por empresa para evitar lag de inicio
-                if (!esModoGeneral && puntosRutaValidos.length >= 2) {
+                // PROYECCIÓN INMEDIATA (0 MS) SI YA EXISTE trazadoVial PERSISTIDO EN FIREBASE
+                if (Array.isArray(r.trazadoVial) && r.trazadoVial.length > 0) {
+                    L.polyline(r.trazadoVial, {
+                        color: '#0f172a',
+                        weight: 7,
+                        opacity: 0.85,
+                        lineCap: 'round',
+                        lineJoin: 'round'
+                    }).addTo(polylineLayerGroup);
+
+                    L.polyline(r.trazadoVial, {
+                        color: colorRuta,
+                        weight: 4.5,
+                        opacity: 1,
+                        lineCap: 'round',
+                        lineJoin: 'round',
+                        smoothFactor: 1
+                    }).addTo(polylineLayerGroup);
+                } else if (!esModoGeneral && puntosRutaValidos.length >= 2) {
+                    // Fallback calculado por OSRM bajo demanda
                     const routing = await calcularRutaVialOSRM(puntosRutaValidos, `${r.empresaKey}_${r.idRuta}`);
                     if (routing && routing.puntosPolilinea.length > 0) {
                         L.polyline(routing.puntosPolilinea, {
@@ -996,30 +1019,25 @@
                 "Esta acción realizará:\n" +
                 "1. Vaciado de caché local (sessionStorage y localStorage).\n" +
                 "2. Liberación de memoria RAM y reciclaje de capas en Leaflet.\n" +
-                "3. Saneamiento de estructuras burocráticas residuales en cliente.\n" +
+                "3. Saneamiento de estructuras residuales en cliente.\n" +
                 "4. Forzado de sincronización limpia directa desde Firebase.\n\n" +
                 "¿Deseas continuar?"
             );
 
             if (!confirmacion) return;
 
-            // 1. Limpieza de almacenamiento local
             sessionStorage.removeItem("cache_m6_empresas");
             sessionStorage.removeItem("cache_m6_rutas");
             localStorage.removeItem("cache_m6_empresas");
             localStorage.removeItem("cache_m6_rutas");
 
-            // 2. Limpieza de mapas de memoria
             cacheSnappingVial.clear();
             cacheRutasOSRM.clear();
             cacheGeocodingNominatim.clear();
 
-            // 3. Purga y reciclaje de capas del mapa
             limpiarCapasMapa();
 
-            // 4. Saneamiento de nodos en cliente y recarga limpia
             await sincronizarInicialBajoDemanda(true);
-
             alert("✅ Saneamiento completado: Memoria liberada y catálogo 100% canónico.");
         }
 
@@ -1063,7 +1081,8 @@
                             estadoMunicipio: r.estadoMunicipio || "General, Nuevo León",
                             distanciaTotalKm: r.distanciaTotalKm || "0.0",
                             tiempoEstimadoMin: r.tiempoEstimadoMin || 0,
-                            paradas: paradasNormalizadas
+                            paradas: paradasNormalizadas,
+                            trazadoVial: Array.isArray(r.trazadoVial) ? r.trazadoVial : null
                         });
                     });
                 }
@@ -1244,7 +1263,7 @@
 
                     mk.bindPopup(`<b>${m.ruta}</b><br>${m.parada}<br>Distancia: ${m.dist.toFixed(2)} km`);
 
-                    const poly = L.polyline([[latCand, lngCand], [m.lat, m.lng]], { 
+                    L.polyline([[latCand, lngCand], [m.lat, m.lng]], { 
                         color: m.score >= 80 ? '#059669' : '#d97706', 
                         weight: 2.5, 
                         dashArray: '5, 5' 
@@ -1335,13 +1354,20 @@
                 }
             });
 
+            // Rescatar trazadoVial si ya existía para mantener las curvas reales calculadas
+            const rutaExistente = cacheTodasLasRutas.find(x => x.idRuta === targetId && x.empresaKey === empresaKey);
+            const trazadoPrevio = rutaExistente && Array.isArray(rutaExistente.trazadoVial) ? rutaExistente.trazadoVial : null;
+
             const rutaData = {
                 idRuta: targetId,
                 nombreRuta: nombreRuta,
                 empresaDestino: empresaNombre,
                 empresaKey: empresaKey,
                 estadoMunicipio: document.getElementById("estadoMunicipio").value.trim(),
+                distanciaTotalKm: rutaExistente ? rutaExistente.distanciaTotalKm : "0.0",
+                tiempoEstimadoMin: rutaExistente ? rutaExistente.tiempoEstimadoMin : 0,
                 paradas: paradasNuevas,
+                trazadoVial: trazadoPrevio,
                 fechaActualizacion: new Date().toISOString()
             };
 
@@ -1353,9 +1379,41 @@
                 await set(ref(db, `rutas/${empresaKey}/${targetId}`), rutaData);
                 cancelarEdicion();
                 await sincronizarInicialBajoDemanda(true);
-                alert("✅ Ruta guardada exitosamente.");
+                alert("✅ Ruta guardada exitosamente en Firebase.");
             } catch (err) {
                 alert("Error: " + err.message);
+            }
+        }
+
+        async function guardarSincronizacionActiva() {
+            const sel = document.getElementById("selectEmpresaExplorador");
+            const empresaNombre = sel ? sel.value : "";
+            if (!empresaNombre) return alert("⚠️ Selecciona una empresa en el explorador para sincronizar.");
+
+            const empresaKey = sanitizarKey(empresaNombre);
+            const rutasEmpresa = cacheTodasLasRutas.filter(r => r.empresaKey === empresaKey);
+
+            if (rutasEmpresa.length === 0) return alert("No hay rutas cargadas en memoria para " + empresaNombre + ".");
+
+            try {
+                for (const r of rutasEmpresa) {
+                    await set(ref(db, `rutas/${empresaKey}/${r.idRuta}`), {
+                        idRuta: r.idRuta,
+                        nombreRuta: r.nombreRuta,
+                        empresaDestino: r.empresaNombre,
+                        empresaKey: empresaKey,
+                        estadoMunicipio: r.estadoMunicipio,
+                        distanciaTotalKm: r.distanciaTotalKm || "0.0",
+                        tiempoEstimadoMin: r.tiempoEstimadoMin || 0,
+                        paradas: r.paradas,
+                        trazadoVial: r.trazadoVial || null,
+                        fechaActualizacion: new Date().toISOString()
+                    });
+                }
+                await sincronizarInicialBajoDemanda(true);
+                alert(`✅ ${rutasEmpresa.length} rutas de "${empresaNombre}" aseguradas en Firebase con su trazado vial.`);
+            } catch (e) {
+                alert("Error al sincronizar: " + e.message);
             }
         }
 
@@ -1401,7 +1459,7 @@
 
         async function eliminarRutasPorEmpresaSeleccionada() {
             const filtro = document.getElementById("filtroEmpresaTabla").value;
-            if (filtro === "TODAS") return alert("Selecciona una empresa específica.");
+            if (filtro === "TODAS") return alert("Selecciona una empresa específica en el selector de la tabla.");
             if (confirm(`¿Eliminar TODAS las rutas de ${filtro}?`)) {
                 await remove(ref(db, `rutas/${sanitizarKey(filtro)}`));
                 await sincronizarInicialBajoDemanda(true);
@@ -1517,6 +1575,7 @@
         window.agregarFilaParadaFormulario = agregarFilaParadaFormulario;
         window.removerFilaParadaFormulario = removerFilaParadaFormulario;
         window.guardarRutaCompletaForm = guardarRutaCompletaForm;
+        window.guardarSincronizacionActiva = guardarSincronizacionActiva;
         window.cargarRutaEnFormulario = cargarRutaEnFormulario;
         window.cancelarEdicion = cancelarEdicion;
         window.eliminarRuta = eliminarRuta;
