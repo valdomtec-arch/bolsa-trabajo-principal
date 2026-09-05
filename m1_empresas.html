@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ERP - Gestión de Empresas & Semáforos</title>
+    <title>ERP - Gestión de Empresas & Semáforos | M1</title>
     
     <!-- Frameworks de Estilo e Iconos -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -291,36 +291,53 @@
 <body>
 
     <nav class="navbar navbar-clean">
-        <div class="container px-4 d-flex justify-content-between align-items-center">
+        <div class="container px-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
             <a href="admin.html" class="navbar-brand-tech">
                 <i class="fa-solid fa-arrow-left me-2" style="font-size: 0.9rem; color: var(--primary-orange);"></i>Core<span>Hub</span>
             </a>
-            <span class="badge bg-dark border border-warning text-warning px-3 py-2">
-                Módulo 1: Catálogo & Semáforos
-            </span>
+            <div class="d-flex align-items-center gap-2">
+                <span id="badgeScopeM1" class="badge bg-dark border border-info text-info px-3 py-2 font-monospace">
+                    Scope: Validando...
+                </span>
+                <span class="badge bg-dark border border-warning text-warning px-3 py-2">
+                    Módulo 1: Catálogo & Semáforos
+                </span>
+            </div>
         </div>
     </nav>
 
     <main class="main-container">
         
         <section class="connection-header">
-            <div class="d-flex align-items-center gap-3">
+            <div class="d-flex align-items-center gap-3 flex-wrap">
                 <button id="btnProbarConexion" class="btn-panel-action">
                     <i class="fa-solid fa-network-wired me-1"></i> Probar Conexión
                 </button>
                 <div id="statusIndicator" class="status-dot">
                     <i class="fa-solid fa-circle"></i> Sincronizando con Firebase...
                 </div>
+                <div id="userInfoM1" class="text-warning small font-monospace">
+                    <i class="fa-solid fa-user-shield me-1"></i> Verificando credenciales...
+                </div>
             </div>
-            <a href="m2_vacantes.html" class="btn btn-outline-warning btn-sm">
-                <i class="fa-solid fa-briefcase me-1"></i> Ir a Extracción Vacantes (M2)
-            </a>
+            <div class="d-flex gap-2">
+                <a href="m2_vacantes.html" class="btn btn-outline-warning btn-sm">
+                    <i class="fa-solid fa-briefcase me-1"></i> Ir a Vacantes (M2)
+                </a>
+            </div>
         </section>
 
-        <!-- FORMULARIO DE GESTIÓN -->
-        <section class="panel-box">
-            <div class="panel-box-title">
-                <i class="fa-solid fa-building"></i> Ficha Maestra de Empresa
+        <!-- BANNER DE CONSULTA EXCLUSIVA PARA MANDOS INTERMEDIOS -->
+        <div id="bannerConsultaM1" class="alert alert-info bg-dark border-info text-light d-none py-2 px-3 mb-4 rounded-3 small">
+            <i class="fa-solid fa-circle-info text-info me-2"></i>
+            <strong>Modo Consulta Autorizada:</strong> Tu perfil visualiza exclusivamente las empresas asignadas a tu coordinación. La creación y borrado de clientes corresponde a la Dirección General.
+        </div>
+
+        <!-- FORMULARIO DE GESTIÓN (HABILITADO PARA NIVEL >= 4) -->
+        <section class="panel-box" id="panelFormularioEmpresa">
+            <div class="panel-box-title d-flex justify-content-between align-items-center">
+                <span><i class="fa-solid fa-building"></i> Ficha Maestra de Empresa</span>
+                <span id="txtModoEdicionLabel" class="badge bg-secondary text-light font-monospace small">Nueva Empresa</span>
             </div>
             
             <form id="empresaForm" onsubmit="event.preventDefault();">
@@ -368,14 +385,14 @@
                     </div>
                 </div>
 
-                <div class="action-button-row">
-                    <button type="button" onclick="guardarEmpresa()" class="btn-form-master btn-save">
+                <div class="action-button-row" id="filaBotonesAccion">
+                    <button type="button" id="btnGuardarFicha" onclick="guardarEmpresa()" class="btn-form-master btn-save">
                         <i class="fa-solid fa-cloud-arrow-up"></i> Guardar Ficha
                     </button>
                     <button type="button" onclick="limpiarFormulario()" class="btn-form-master btn-clear">
                         <i class="fa-solid fa-broom"></i> Limpiar Formulario
                     </button>
-                    <button type="button" onclick="eliminarEmpresaPorFormulario()" class="btn-form-master btn-delete">
+                    <button type="button" id="btnBorrarCascadaForm" onclick="eliminarEmpresaPorFormulario()" class="btn-form-master btn-delete">
                         <i class="fa-solid fa-trash-can"></i> Borrar (Cascada)
                     </button>
                 </div>
@@ -403,7 +420,7 @@
                         </tr>
                     </thead>
                     <tbody id="tablaBodyEmpresas">
-                        <tr><td colspan="6" class="text-center py-4 text-muted">Cargando empresas...</td></tr>
+                        <tr><td colspan="6" class="text-center py-4 text-muted">Cargando empresas autorizadas...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -436,7 +453,7 @@
                                 </tr>
                             </thead>
                             <tbody id="modalVacantesBody">
-                                <!-- Inyección de puestos -->
+                                <!-- Inyección dinámica -->
                             </tbody>
                         </table>
                     </div>
@@ -451,11 +468,12 @@
         </div>
     </div>
 
-    <!-- BOOTSTRAP 5 JS BUNDLE (RESUELVE EL REFERENCE ERROR DE BOOTSTRAP) -->
+    <!-- BOOTSTRAP 5 JS BUNDLE -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
-    <!-- FIREBASE COMPAT SDK -->
+    <!-- FIREBASE COMPAT SDK (AUTH + RTDB) -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
 
     <script>
@@ -470,14 +488,24 @@
         };
 
         if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
         const db = firebase.database();
+
+        let usuarioSesion = {
+            uid: null,
+            nombre: "Cargando...",
+            rol: "Operativo",
+            nivel: 1,
+            scope: "personal",
+            todasLasEmpresas: false,
+            empresas: []
+        };
 
         let catalogoEmpresasCompleto = {};
         let catalogoVacantesDetalles = {};
         let modalVacantesInstance = null;
 
         document.addEventListener("DOMContentLoaded", () => {
-            // Inicializar instancia de modal de forma segura tras cargar el DOM
             const modalEl = document.getElementById('modalVacantesIndividuales');
             if (modalEl && typeof bootstrap !== 'undefined') {
                 modalVacantesInstance = new bootstrap.Modal(modalEl);
@@ -497,8 +525,97 @@
                 });
             });
 
-            sincronizarEnTiempoReal();
+            inicializarSeguridadM1();
         });
+
+        // 1. RESOLUCIÓN DE IDENTIDAD Y APLICACIÓN DE GOBERNANZA RBAC
+        function inicializarSeguridadM1() {
+            auth.onAuthStateChanged(user => {
+                if (!user) {
+                    window.location.href = "acceso.html";
+                    return;
+                }
+
+                db.ref(`usuarios_reclutadores/${user.uid}`).once('value', snap => {
+                    if (!snap.exists()) {
+                        alert("No tienes perfil asignado en el ERP.");
+                        auth.signOut().then(() => window.location.href = "acceso.html");
+                        return;
+                    }
+
+                    const val = snap.val();
+                    if (val.estatus !== 'Activo') {
+                        alert("Tu cuenta se encuentra suspendida o inactiva.");
+                        auth.signOut().then(() => window.location.href = "acceso.html");
+                        return;
+                    }
+
+                    const nivelNum = parseInt(val.nivel) || 2;
+
+                    // BLOQUEO A OPERATIVOS: Nivel 1 y 2 no tienen función en catálogo de empresas clientes
+                    if (nivelNum < 3) {
+                        alert("Acceso Restringido. El Módulo 1 está reservado para Coordinación y Dirección.");
+                        window.location.href = "m3_agenda.html";
+                        return;
+                    }
+
+                    usuarioSesion = {
+                        uid: user.uid,
+                        nombre: val.nombre || user.email,
+                        email: user.email,
+                        rol: val.nombreRol || "Colaborador",
+                        nivel: nivelNum,
+                        scope: val.scope || "personal",
+                        todasLasEmpresas: nivelNum >= 4 || val.scope === 'global' || (Array.isArray(val.empresas) && val.empresas.includes("TODAS")),
+                        empresas: Array.isArray(val.empresas) ? val.empresas.map(e => sanitizarKey(e)) : []
+                    };
+
+                    aplicarGobernanzaInterfazM1();
+                    sincronizarEnTiempoReal();
+                });
+            });
+        }
+
+        function sanitizarKey(str) {
+            return (str || "general").toLowerCase().trim()
+                .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+                .replace(/[^a-z0-9]/g, "_")
+                .replace(/_+/g, "_")
+                .replace(/^_|_$/g, "");
+        }
+
+        function aplicarGobernanzaInterfazM1() {
+            document.getElementById("userInfoM1").innerHTML = `
+                <i class="fa-solid fa-user-shield me-1"></i> Usuario: <b>${usuarioSesion.nombre}</b> (${usuarioSesion.rol} - N${usuarioSesion.nivel})
+            `;
+
+            const badgeScope = document.getElementById("badgeScopeM1");
+            const panelForm = document.getElementById("panelFormularioEmpresa");
+            const bannerConsulta = document.getElementById("bannerConsultaM1");
+            const btnGuardar = document.getElementById("btnGuardarFicha");
+            const btnBorrarCascada = document.getElementById("btnBorrarCascadaForm");
+            const inputsForm = document.querySelectorAll("#empresaForm input, #empresaForm select");
+
+            if (usuarioSesion.nivel >= 4 || usuarioSesion.scope === 'global') {
+                badgeScope.className = "badge bg-success border border-light text-light px-3 py-2 font-monospace";
+                badgeScope.textContent = "Scope: Global Corporativo (Total)";
+                panelForm.classList.remove("d-none");
+                bannerConsulta.classList.add("d-none");
+            } else if (usuarioSesion.nivel === 3) {
+                // Coordinadores: Consulta autorizada de sus clientes. No pueden crear ni borrar empresas.
+                badgeScope.className = "badge bg-warning border border-light text-dark px-3 py-2 font-monospace";
+                badgeScope.textContent = `Scope: Célula Coordinada (${usuarioSesion.empresas.length} Empresas)`;
+                bannerConsulta.classList.remove("d-none");
+                
+                // Bloquear formulario maestro
+                btnGuardar.classList.add("d-none");
+                btnBorrarCascada.classList.add("d-none");
+                inputsForm.forEach(inp => {
+                    inp.setAttribute("disabled", "true");
+                    inp.classList.add("opacity-75");
+                });
+            }
+        }
 
         function sincronizarEnTiempoReal() {
             db.ref(".info/connected").on("value", snap => {
@@ -512,7 +629,6 @@
                 }
             });
 
-            // Escuchar empresas y vacantes_detalles en simultáneo
             db.ref().on("value", snapshot => {
                 const data = snapshot.val() || {};
                 catalogoEmpresasCompleto = data.empresas || {};
@@ -521,19 +637,26 @@
             });
         }
 
+        function tieneAccesoAEmpresa(empKey) {
+            const keyLimpia = sanitizarKey(empKey);
+            return usuarioSesion.todasLasEmpresas || usuarioSesion.empresas.includes(keyLimpia);
+        }
+
         function renderizarTablaEmpresas() {
             const tbody = document.getElementById("tablaBodyEmpresas");
             tbody.innerHTML = "";
-            const keys = Object.keys(catalogoEmpresasCompleto);
+            
+            // Filtrar empresas visibles según el scope del usuario
+            const keysVisibles = Object.keys(catalogoEmpresasCompleto).filter(k => tieneAccesoAEmpresa(k));
 
-            document.getElementById("contadorRegistros").innerHTML = `<i class="fa-solid fa-box-archive"></i> ${keys.length} empresas`;
+            document.getElementById("contadorRegistros").innerHTML = `<i class="fa-solid fa-box-archive"></i> ${keysVisibles.length} empresas autorizadas`;
 
-            if (keys.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-muted">No hay empresas registradas.</td></tr>`;
+            if (keysVisibles.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-muted">No tienes empresas asignadas bajo tu coordinación.</td></tr>`;
                 return;
             }
 
-            keys.forEach(key => {
+            keysVisibles.forEach(key => {
                 const emp = catalogoEmpresasCompleto[key];
                 const estatus = emp.estatusOperativo || "Disponible";
                 
@@ -542,9 +665,11 @@
                 else if (estatus === "No Disponible") claseSelect = "status-nodisponible";
                 else if (estatus === "Cerrada") claseSelect = "status-cerrada";
 
-                // Contar vacantes configuradas en vacantes_detalles
                 const vacsEmp = catalogoVacantesDetalles[key] || {};
                 const totalVacs = Object.keys(vacsEmp).length;
+
+                // Restricción: Solo Nivel >= 4 puede alterar el semáforo maestro del cliente
+                const selectorSemaforoDisabled = usuarioSesion.nivel < 4 ? "disabled style='pointer-events:none; opacity:0.85;'" : "";
 
                 const tr = document.createElement("tr");
                 tr.innerHTML = `
@@ -552,7 +677,7 @@
                     <td class="font-monospace text-warning">${emp.id || key}</td>
                     <td class="fw-bold text-white">${emp.nombre || ''}</td>
                     <td class="text-center">
-                        <select onchange="cambiarEstatusMaestroEmpresa('${key}', this.value)" class="select-status-master ${claseSelect}">
+                        <select onchange="cambiarEstatusMaestroEmpresa('${key}', this.value)" class="select-status-master ${claseSelect}" ${selectorSemaforoDisabled}>
                             <option value="Disponible" ${estatus === 'Disponible' ? 'selected' : ''}>🟢 Disponible</option>
                             <option value="En Pausa" ${estatus === 'En Pausa' ? 'selected' : ''}>🟡 En Pausa</option>
                             <option value="No Disponible" ${estatus === 'No Disponible' ? 'selected' : ''}>🔴 No Disponible</option>
@@ -568,27 +693,41 @@
                         <a href="m2_vacantes.html?empresa=${key}" class="btn btn-outline-info btn-sm py-1 px-2" title="Ir a M2 Vacantes">
                             <i class="fa-solid fa-briefcase"></i> M2
                         </a>
+                        ${usuarioSesion.nivel >= 4 ? `
                         <button onclick="cargarEmpresaEnFormulario('${key}')" class="btn btn-outline-warning btn-sm py-1 px-2" title="Editar Ficha">
                             <i class="fa-solid fa-pen"></i>
                         </button>
-                        <button onclick="eliminarEmpresaDirecto('${key}')" class="btn btn-outline-danger btn-sm py-1 px-2" title="Borrar">
+                        <button onclick="eliminarEmpresaDirecto('${key}')" class="btn btn-outline-danger btn-sm py-1 px-2" title="Borrar en Cascada">
                             <i class="fa-solid fa-trash"></i>
                         </button>
+                        ` : `
+                        <button onclick="cargarEmpresaEnFormulario('${key}')" class="btn btn-outline-secondary btn-sm py-1 px-2" title="Consultar Ficha">
+                            <i class="fa-solid fa-eye"></i>
+                        </button>
+                        `}
                     </td>
                 `;
                 tbody.appendChild(tr);
             });
         }
 
-        // 1. CAMBIO DE SEMÁFORO MAESTRO POR EMPRESA
+        // 2. CAMBIO DE SEMÁFORO MAESTRO POR EMPRESA (NIVEL >= 4)
         async function cambiarEstatusMaestroEmpresa(empKey, nuevoEstatus) {
+            if (usuarioSesion.nivel < 4) {
+                alert("Acción restringida. Solo la Dirección General puede alterar el semáforo operativo maestro de un cliente.");
+                renderizarTablaEmpresas();
+                return;
+            }
+
             try {
                 await db.ref(`empresas/${empKey}/estatusOperativo`).set(nuevoEstatus);
                 
                 await db.ref("modulo_7_logs").push({
                     modulo: "M1_EMPRESAS",
                     evento: "CAMBIO_SEMAFORO_MAESTRO",
-                    detalle: `Empresa ${empKey.toUpperCase()} cambió a estatus: ${nuevoEstatus}.`,
+                    ejecutadoPor: usuarioSesion.nombre,
+                    uidEjecutor: usuarioSesion.uid,
+                    detalle: `Empresa ${empKey.toUpperCase()} cambió a estatus operativo: ${nuevoEstatus}.`,
                     timestamp: firebase.database.ServerValue.TIMESTAMP
                 });
             } catch (err) {
@@ -596,8 +735,12 @@
             }
         }
 
-        // 2. MODAL Y SEMÁFORO INDIVIDUAL POR VACANTE
+        // 3. MODAL Y SEMÁFORO INDIVIDUAL POR VACANTE
         window.abrirModalVacantes = (empKey) => {
+            if (!tieneAccesoAEmpresa(empKey)) {
+                return alert("No tienes autorización para consultar las vacantes de esta empresa.");
+            }
+
             const emp = catalogoEmpresasCompleto[empKey] || {};
             const vacs = catalogoVacantesDetalles[empKey] || {};
 
@@ -639,13 +782,19 @@
         };
 
         async function cambiarEstatusVacanteIndividual(empKey, vacKey, nuevoEstatus) {
+            if (!tieneAccesoAEmpresa(empKey)) {
+                return alert("No tienes autorización para modificar vacantes de esta empresa.");
+            }
+
             try {
                 await db.ref(`vacantes_detalles/${empKey}/${vacKey}/estatus`).set(nuevoEstatus);
                 
                 await db.ref("modulo_7_logs").push({
                     modulo: "M1_EMPRESAS",
                     evento: "CAMBIO_SEMAFORO_VACANTE",
-                    detalle: `Vacante ${vacKey} de ${empKey} cambió a: ${nuevoEstatus}.`,
+                    ejecutadoPor: usuarioSesion.nombre,
+                    uidEjecutor: usuarioSesion.uid,
+                    detalle: `Vacante ${vacKey} de ${empKey} cambió a estatus: ${nuevoEstatus}.`,
                     timestamp: firebase.database.ServerValue.TIMESTAMP
                 });
             } catch (err) {
@@ -653,8 +802,12 @@
             }
         }
 
-        // 3. GUARDAR O EDITAR EMPRESA
-        function guardarEmpresa() {
+        // 4. GUARDAR O EDITAR EMPRESA (NIVEL >= 4)
+        async function guardarEmpresa() {
+            if (usuarioSesion.nivel < 4) {
+                return alert("Acción restringida. Solo la Dirección General puede crear o modificar fichas maestras de clientes.");
+            }
+
             const id = document.getElementById("inputID").value.trim().toLowerCase();
             const nombre = document.getElementById("inputNombre").value.trim();
             const direccion = document.getElementById("inputDireccion").value.trim();
@@ -671,20 +824,33 @@
             const payload = {
                 id: id,
                 nombre: nombre,
+                nombreComercial: nombre,
                 direccion: direccion,
                 ubicacion: ubicacion,
                 imagen: imagen,
                 link: link,
                 estatusOperativo: estatusOperativo,
+                actualizadoPor: usuarioSesion.nombre,
                 actualizado: new Date().toISOString()
             };
 
-            db.ref("empresas/" + id).update(payload)
-                .then(() => {
-                    alert(`Empresa [${id.toUpperCase()}] guardada correctamente.`);
-                    limpiarFormulario();
-                })
-                .catch(err => alert("Error: " + err.message));
+            try {
+                await db.ref("empresas/" + id).update(payload);
+
+                await db.ref("modulo_7_logs").push({
+                    modulo: "M1_EMPRESAS",
+                    evento: "GUARDADO_EMPRESA",
+                    ejecutadoPor: usuarioSesion.nombre,
+                    uidEjecutor: usuarioSesion.uid,
+                    detalle: `Se registró/actualizó la ficha de la empresa ${nombre} [${id.toUpperCase()}]. Estatus: ${estatusOperativo}.`,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                });
+
+                alert(`Empresa [${id.toUpperCase()}] guardada correctamente.`);
+                limpiarFormulario();
+            } catch (err) {
+                alert("Error al guardar empresa: " + err.message);
+            }
         }
 
         function cargarEmpresaEnFormulario(key) {
@@ -693,7 +859,7 @@
 
             document.getElementById("inputID").value = emp.id || key;
             document.getElementById("inputID").disabled = true; 
-            document.getElementById("inputNombre").value = emp.nombre || '';
+            document.getElementById("inputNombre").value = emp.nombre || emp.nombreComercial || '';
             document.getElementById("inputDireccion").value = emp.direccion || '';
             document.getElementById("inputUbicacion").value = emp.ubicacion || '';
             document.getElementById("inputImagen").value = emp.imagen || '';
@@ -702,18 +868,37 @@
             const urlBase = "https://valdomtec-arch.github.io/bolsa-trabajo-principal/vacante.html?empresa=";
             document.getElementById("linkAutogenerado").value = emp.link || (urlBase + key);
             document.getElementById("btnAbrirEnlace").href = emp.link || (urlBase + key);
+            document.getElementById("txtModoEdicionLabel").textContent = `Editando: ${emp.nombre || key}`;
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
+        // 5. ELIMINACIÓN EN CASCADA (ESTRICTAMENTE NIVEL >= 4)
         async function eliminarEmpresaDirecto(key) {
-            if (!confirm(`¿Eliminar en cascada la empresa [${key.toUpperCase()}] y todas sus vacantes asociadas?`)) return;
+            if (usuarioSesion.nivel < 4) {
+                return alert("Acción restringida. Solo la Dirección General puede eliminar empresas del catálogo.");
+            }
+
+            const empNombre = catalogoEmpresasCompleto[key]?.nombre || key;
+
+            if (!confirm(`⚠️ ALERTA DE BORRADO EN CASCADA:\n\n¿Deseas eliminar definitivamente la empresa "${empNombre}" [${key.toUpperCase()}] junto con TODAS sus vacantes asociadas?\n\nEsta acción no se puede deshacer.`)) return;
 
             try {
                 await db.ref("empresas/" + key).remove();
                 await db.ref("vacantes_detalles/" + key).remove();
+
+                await db.ref("modulo_7_logs").push({
+                    modulo: "M1_EMPRESAS",
+                    evento: "BORRADO_CASCADA_EMPRESA",
+                    ejecutadoPor: usuarioSesion.nombre,
+                    uidEjecutor: usuarioSesion.uid,
+                    detalle: `Se eliminó en cascada la empresa ${empNombre} (${key}) y sus vacantes registradas.`,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                });
+
+                alert(`Empresa [${key.toUpperCase()}] eliminada exitosamente.`);
                 limpiarFormulario();
             } catch (error) {
-                alert("Error: " + error.message);
+                alert("Error al eliminar: " + error.message);
             }
         }
 
@@ -728,6 +913,7 @@
             document.getElementById("inputID").disabled = false;
             document.getElementById("linkAutogenerado").value = "https://valdomtec-arch.github.io/bolsa-trabajo-principal/vacante.html?empresa=";
             document.getElementById("btnAbrirEnlace").href = "#";
+            document.getElementById("txtModoEdicionLabel").textContent = "Nueva Empresa";
         }
 
         function copiarEnlace() {
