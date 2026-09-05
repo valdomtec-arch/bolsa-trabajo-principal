@@ -919,68 +919,67 @@ Devuelve EXCLUSIVAMENTE un JSON válido con este esquema:
         // MOTOR OSRM VIAL: CONSULTA MULTIPUNTO CONTINUA (SIN LÍNEAS RECTAS)
         // =========================================================================
         async function calcularRutaVialOSRM(coordenadasLatLng) {
-            if (!coordenadasLatLng || coordenadasLatLng.length < 2) return null;
+    if (!coordenadasLatLng || coordenadasLatLng.length < 2) return null;
 
-            // Formar cadena completa: lng1,lat1;lng2,lat2;lng3,lat3...
-            const coordsString = coordenadasLatLng.map(pt => `${parseFloat(pt[1]).toFixed(6)},${parseFloat(pt[0]).toFixed(6)}`).join(';');
-            const urlOsrm = `[https://router.project-osrm.org/route/v1/driving/$](https://router.project-osrm.org/route/v1/driving/$){coordsString}?overview=full&geometries=geojson&continue_straight=true`;
+    // 1. Intento unificado: todos los puntos en una sola llamada continua
+    const coordsString = coordenadasLatLng.map(pt => parseFloat(pt[1]).toFixed(6) + ',' + parseFloat(pt[0]).toFixed(6)).join(';');
+    const urlOsrm = 'https://router.project-osrm.org/route/v1/driving/' + coordsString + '?overview=full&geometries=geojson&continue_straight=true';
 
-            try {
-                const res = await fetch(urlOsrm);
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
-                        const ruta = data.routes[0];
-                        const geoPuntos = ruta.geometry.coordinates.map(pt => [pt[1], pt[0]]);
-                        return {
-                            distanciaKm: (ruta.distance / 1000).toFixed(2),
-                            duracionMin: Math.round(ruta.duration / 60),
-                            puntosPolilinea: geoPuntos
-                        };
-                    }
-                }
-            } catch (e) {
-                console.warn("OSRM Multipunto falló, ejecutando fallback tramo a tramo con cadencia...");
+    try {
+        const res = await fetch(urlOsrm);
+        if (res.ok) {
+            const data = await res.json();
+            if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+                const ruta = data.routes[0];
+                const geoPuntos = ruta.geometry.coordinates.map(pt => [pt[1], pt[0]]);
+                return {
+                    distanciaKm: (ruta.distance / 1000).toFixed(2),
+                    duracionMin: Math.round(ruta.duration / 60),
+                    puntosPolilinea: geoPuntos
+                };
             }
-
-            // Fallback tramo a tramo si el trazado completo excede longitud de URL
-            let distanciaTotalMetros = 0;
-            let duracionTotalSegundos = 0;
-            const todosPuntosGeoJSON = [];
-
-            for (let i = 0; i < coordenadasLatLng.length - 1; i++) {
-                const pOrigen = coordenadasLatLng[i];
-                const pDestino = coordenadasLatLng[i + 1];
-
-                const lng1 = parseFloat(pOrigen[1]).toFixed(6);
-                const lat1 = parseFloat(pOrigen[0]).toFixed(6);
-                const lng2 = parseFloat(pDestino[1]).toFixed(6);
-                const lat2 = parseFloat(pDestino[0]).toFixed(6);
-
-                const tramoUrl = `[https://router.project-osrm.org/route/v1/driving/$](https://router.project-osrm.org/route/v1/driving/$){lng1},${lat1};${lng2},${lat2}?overview=full&geometries=geojson`;
-
-                try {
-                    const res = await fetch(tramoUrl);
-                    if (res.ok) {
-                        const data = await res.json();
-                        if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
-                            distanciaTotalMetros += data.routes[0].distance;
-                            duracionTotalSegundos += data.routes[0].duration;
-                            data.routes[0].geometry.coordinates.forEach(pt => todosPuntosGeoJSON.push([pt[1], pt[0]]));
-                        }
-                    }
-                } catch (e) {}
-
-                await new Promise(r => setTimeout(r, 60));
-            }
-
-            return {
-                distanciaKm: (distanciaTotalMetros / 1000).toFixed(2),
-                duracionMin: Math.round(duracionTotalSegundos / 60),
-                puntosPolilinea: todosPuntosGeoJSON.length > 0 ? todosPuntosGeoJSON : coordenadasLatLng
-            };
         }
+    } catch (e) {
+        console.warn("Multipunto falló, ejecutando tramo a tramo...");
+    }
 
+    // 2. Respaldo tramo a tramo con respiro entre llamadas
+    let distanciaTotalMetros = 0;
+    let duracionTotalSegundos = 0;
+    const todosPuntosGeoJSON = [];
+
+    for (let i = 0; i < coordenadasLatLng.length - 1; i++) {
+        const pOrigen = coordenadasLatLng[i];
+        const pDestino = coordenadasLatLng[i + 1];
+
+        const lng1 = parseFloat(pOrigen[1]).toFixed(6);
+        const lat1 = parseFloat(pOrigen[0]).toFixed(6);
+        const lng2 = parseFloat(pDestino[1]).toFixed(6);
+        const lat2 = parseFloat(pDestino[0]).toFixed(6);
+
+        const tramoUrl = 'https://router.project-osrm.org/route/v1/driving/' + lng1 + ',' + lat1 + ';' + lng2 + ',' + lat2 + '?overview=full&geometries=geojson';
+
+        try {
+            const res = await fetch(tramoUrl);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+                    distanciaTotalMetros += data.routes[0].distance;
+                    duracionTotalSegundos += data.routes[0].duration;
+                    data.routes[0].geometry.coordinates.forEach(pt => todosPuntosGeoJSON.push([pt[1], pt[0]]));
+                }
+            }
+        } catch (e) {}
+
+        await new Promise(r => setTimeout(r, 60));
+    }
+
+    return {
+        distanciaKm: (distanciaTotalMetros / 1000).toFixed(2),
+        duracionMin: Math.round(duracionTotalSegundos / 60),
+        puntosPolilinea: todosPuntosGeoJSON.length > 0 ? todosPuntosGeoJSON : coordenadasLatLng
+    };
+}
         // =========================================================================
         // CONTROLADOR DE TRAZADO CON PERSISTENCIA DIRECTA
         // =========================================================================
