@@ -157,7 +157,7 @@
                     </span>
                 </a>
 
-                <!-- BOTÓN SANEAMIENTO Y PURGA TOTAL (CACHÉ, MEMORIA Y BASURA RESIDUAL) -->
+                <!-- BOTÓN SANEAMIENTO Y PURGA TOTAL -->
                 <button onclick="ejecutarSanitizacionIntegral()" title="Purgar caché local, liberar memoria RAM del mapa y reparar datos residuales" class="bg-rose-500/15 hover:bg-rose-500/30 text-rose-400 border border-rose-500/40 font-mono text-xs px-3 py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-sm font-bold">
                     <i class="fas fa-broom text-rose-400"></i> <span class="hidden sm:inline">Sanitizar & Limpiar</span>
                 </button>
@@ -542,10 +542,11 @@
             return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
         }
 
+        // FUNCIÓN CLAVE: ICONO DE GOTA DE AGUA GPS CON COLOR DINÁMICO Y NÚMERO
         function crearIconoLagrimaGPS(numero, colorHex) {
             const svgHtml = `<div class="gps-pin-marker">
                 <svg class="gps-pin-svg" viewBox="0 0 384 512" fill="${colorHex}" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke="#ffffff" stroke-width="22" d="M172.268 501.67C26.97 291.031 0 269.413 0 192 0s192 85.961 192 192c0 77.413-26.97 99.031-172.268 309.67-9.535 13.774-29.93 13.773-39.464 0z"/>
+                    <path stroke="#ffffff" stroke-width="22" d="M172.268 501.67C26.97 291.031 0 269.413 0 192 0 85.961 85.961 0 192 0s192 85.961 192 192c0 77.413-26.97 99.031-172.268 309.67-9.535 13.774-29.93 13.773-39.464 0z"/>
                     <circle cx="192" cy="192" r="95" fill="#0f172a" opacity="0.6"/>
                 </svg>
                 <span class="gps-pin-number">${numero}</span>
@@ -757,6 +758,9 @@
 
                 const r = cacheTodasLasRutas.find(x => x.idRuta === idRuta && x.empresaKey === empresaKey);
                 if (r && tbody) {
+                    const indiceGlobal = cacheTodasLasRutas.indexOf(r);
+                    const colorRuta = PALETA_COLORES[indiceGlobal % PALETA_COLORES.length];
+
                     let html = "";
                     r.paradas.forEach((p, idx) => {
                         const coordsValidas = tieneCoordenadasValidas(p.coordenadasAbordaje);
@@ -764,7 +768,7 @@
 
                         html += `
                             <tr class="hover:bg-slate-800/40 border-b border-cyber-border/40">
-                                <td class="p-2 font-mono text-cyber-purple font-bold">#${p.numeroParada}</td>
+                                <td class="p-2 font-mono font-bold" style="color: ${colorRuta};">#${p.numeroParada}</td>
                                 <td class="p-2">
                                     <div class="font-semibold text-white">${p.referenciaOriginal}</div>
                                     <div class="text-[10px] text-slate-400">${p.cruceVialEnriquecido || ''}</div>
@@ -777,7 +781,7 @@
                                 </td>
                                 <td class="p-2 text-center whitespace-nowrap space-x-1">
                                     ${coordsValidas ? `
-                                        <button onclick="centrarParadaEnMapa('${p.coordenadasAbordaje}', '${r.nombreRuta}', '${p.referenciaOriginal}')" title="Centrar en Mapa" class="bg-cyber-cyan/20 hover:bg-cyber-cyan/40 text-cyber-cyan px-2 py-1 rounded text-[10px]">
+                                        <button onclick="centrarParadaEnMapa('${p.coordenadasAbordaje}', '${r.nombreRuta}', '${p.referenciaOriginal}', ${p.numeroParada}, '${colorRuta}')" title="Centrar en Mapa con gota GPS" class="bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/50 text-cyber-cyan px-2 py-1 rounded text-[10px] font-bold">
                                             📍
                                         </button>` : ''}
                                     <button onclick="abrirModalEdicionParada('${r.empresaKey}', '${r.idRuta}', ${idx})" title="Editar parada" class="bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 px-2 py-1 rounded text-[10px]">
@@ -799,7 +803,7 @@
         }
 
         // -------------------------------------------------------------
-        // EXPLORADOR EN VIVO (LAZY OSRM: RÁPIDO Y LIGERO)
+        // EXPLORADOR EN VIVO (ULTRA-RÁPIDO CON PINES DE GOTA Y 0 LAG)
         // -------------------------------------------------------------
         async function alSeleccionarEmpresaExplorador() {
             if (!leafletMap) inicializarMapaLeaflet();
@@ -833,11 +837,13 @@
                 const puntosRutaValidos = [];
 
                 r.paradas.forEach(p => {
-                    if (tieneCoordenadasValidas(p.coordenadasAbordaje)) {
-                        const [lat, lng] = p.coordenadasAbordaje.split(",").map(Number);
+                    const coordsTexto = p.coordenadasAbordaje || "";
+                    if (tieneCoordenadasValidas(coordsTexto)) {
+                        const [lat, lng] = coordsTexto.split(",").map(Number);
                         boundsCoords.push([lat, lng]);
                         puntosRutaValidos.push([lat, lng]);
 
+                        // MARCADOR CON FORMA DE GOTA GPS Y SU COLOR CORRESPONDIENTE
                         const marker = L.marker([lat, lng], {
                             icon: crearIconoLagrimaGPS(p.numeroParada, colorRuta),
                             title: `${r.nombreRuta} - Parada #${p.numeroParada}`
@@ -868,7 +874,7 @@
                     }
                 });
 
-                // PROYECCIÓN INMEDIATA (0 MS) SI YA EXISTE trazadoVial PERSISTIDO EN FIREBASE
+                // PROYECCIÓN DIRECTA (0 MS) SI YA EXISTE trazadoVial PERSISTIDO EN FIREBASE
                 if (Array.isArray(r.trazadoVial) && r.trazadoVial.length > 0) {
                     L.polyline(r.trazadoVial, {
                         color: '#0f172a',
@@ -887,7 +893,7 @@
                         smoothFactor: 1
                     }).addTo(polylineLayerGroup);
                 } else if (!esModoGeneral && puntosRutaValidos.length >= 2) {
-                    // Fallback calculado por OSRM bajo demanda
+                    // Solo calcula OSRM si se filtró por una empresa concreta para evitar congelar la página al inicio
                     const routing = await calcularRutaVialOSRM(puntosRutaValidos, `${r.empresaKey}_${r.idRuta}`);
                     if (routing && routing.puntosPolilinea.length > 0) {
                         L.polyline(routing.puntosPolilinea, {
@@ -1010,17 +1016,13 @@
             }
         }
 
-        // -------------------------------------------------------------
-        // BOTÓN: SANITIZACIÓN INTEGRAL DE CÓDIGO, MEMORIA Y BASURA
-        // -------------------------------------------------------------
         async function ejecutarSanitizacionIntegral() {
             const confirmacion = confirm(
                 "🧹 SANEAMIENTO Y OPTIMIZACIÓN INTEGRAL DE M6\n\n" +
                 "Esta acción realizará:\n" +
                 "1. Vaciado de caché local (sessionStorage y localStorage).\n" +
                 "2. Liberación de memoria RAM y reciclaje de capas en Leaflet.\n" +
-                "3. Saneamiento de estructuras residuales en cliente.\n" +
-                "4. Forzado de sincronización limpia directa desde Firebase.\n\n" +
+                "3. Forzado de sincronización limpia directa desde Firebase.\n\n" +
                 "¿Deseas continuar?"
             );
 
@@ -1059,7 +1061,7 @@
                                 numeroParada: p.numeroParada || (idx + 1),
                                 referenciaOriginal: p.referenciaOriginal || p.nombre || "",
                                 cruceVialEnriquecido: p.cruceVialEnriquecido || "",
-                                coordenadasAbordaje: p.coordenadasAbordaje || "",
+                                coordenadasAbordaje: p.coordenadasAbordaje || p.coordenadas || p.coords || "",
                                 horarios: p.horarios || []
                             }));
                         } else if (r.puntosAbordaje) {
@@ -1068,7 +1070,7 @@
                                 numeroParada: idx + 1,
                                 referenciaOriginal: p,
                                 cruceVialEnriquecido: p,
-                                coordenadasAbordaje: idx === 0 ? (r.coordenadasAbordaje || "") : "",
+                                coordenadasAbordaje: idx === 0 ? (r.coordenadasAbordaje || r.coordenadas || "") : "",
                                 horarios: []
                             }));
                         }
@@ -1144,7 +1146,7 @@
             alSeleccionarEmpresaExplorador();
         }
 
-        function centrarParadaEnMapa(coordsStr, rutaNom, paradaNom) {
+        function centrarParadaEnMapa(coordsStr, rutaNom, paradaNom, numParada = "🎯", colorHex = "#ea580c") {
             if (!leafletMap || !tieneCoordenadasValidas(coordsStr)) return;
             const [lat, lng] = coordsStr.split(",").map(Number);
 
@@ -1154,13 +1156,13 @@
             leafletMap.flyTo([lat, lng], 17, { duration: 1.0 });
 
             const m = L.marker([lat, lng], {
-                icon: crearIconoLagrimaGPS("🎯", "#ea580c")
+                icon: crearIconoLagrimaGPS(numParada, colorHex)
             }).addTo(markersLayerGroup);
 
             m.bindPopup(`
                 <div style="font-size:12px; padding:2px;">
-                    <strong style="color:#ea580c; text-transform:uppercase;">${rutaNom}</strong><br>
-                    <b>Parada:</b> ${paradaNom}<br>
+                    <strong style="color:${colorHex}; text-transform:uppercase;">${rutaNom}</strong><br>
+                    <b>Parada #${numParada}:</b> ${paradaNom}<br>
                     <span style="font-family:monospace; color:#38bdf8;">${lat.toFixed(6)}, ${lng.toFixed(6)}</span>
                 </div>
             `).openPopup();
@@ -1223,8 +1225,9 @@
                 candMarker.bindPopup("<b>📍 Ubicación del Candidato</b>").openPopup();
 
                 let matches = [];
-                cacheTodasLasRutas.forEach(r => {
+                cacheTodasLasRutas.forEach((r, rIdx) => {
                     if (empresaFiltro && r.empresaNombre !== empresaFiltro) return;
+                    const colorRuta = PALETA_COLORES[rIdx % PALETA_COLORES.length];
 
                     r.paradas.forEach(p => {
                         if (tieneCoordenadasValidas(p.coordenadasAbordaje)) {
@@ -1236,6 +1239,7 @@
                                 empresa: r.empresaNombre,
                                 parada: p.referenciaOriginal,
                                 numeroParada: p.numeroParada,
+                                color: colorRuta,
                                 horario: (p.horarios || []).map(h => h.formatoCivil).join(" / ") || "S/H",
                                 coords: p.coordenadasAbordaje,
                                 dist, score, lat: pLat, lng: pLng
@@ -1258,7 +1262,7 @@
                     bounds.push([m.lat, m.lng]);
                     
                     const mk = L.marker([m.lat, m.lng], {
-                        icon: crearIconoLagrimaGPS(m.numeroParada, "#0284c7")
+                        icon: crearIconoLagrimaGPS(m.numeroParada, m.color)
                     }).addTo(markersLayerGroup);
 
                     mk.bindPopup(`<b>${m.ruta}</b><br>${m.parada}<br>Distancia: ${m.dist.toFixed(2)} km`);
@@ -1354,7 +1358,6 @@
                 }
             });
 
-            // Rescatar trazadoVial si ya existía para mantener las curvas reales calculadas
             const rutaExistente = cacheTodasLasRutas.find(x => x.idRuta === targetId && x.empresaKey === empresaKey);
             const trazadoPrevio = rutaExistente && Array.isArray(rutaExistente.trazadoVial) ? rutaExistente.trazadoVial : null;
 
