@@ -675,84 +675,131 @@
             };
         }
 
-        // =========================================================================
-        // PARSER KML/KMZ
-        // =========================================================================
-        async function procesarArchivoKMZoKML(file) {
-            let kmlTexto = "";
-            const extension = file.name.split('.').pop().toLowerCase();
+       // =========================================================================
+// PARSER KML/KMZ MEJORADO: MULTI-RUTA (FOLDERS) Y EXTRACCIÓN DE HORARIOS
+// =========================================================================
+async function procesarArchivoKMZoKML(file) {
+    let kmlTexto = "";
+    const extension = file.name.split('.').pop().toLowerCase();
 
-            if (extension === 'kmz') {
-                const zip = new JSZip();
-                const contenidoZip = await zip.loadAsync(file);
-                const kmlKey = Object.keys(contenidoZip.files).find(n => n.toLowerCase().endsWith('.kml'));
-                if (!kmlKey) throw new Error("No hay archivo .kml en el paquete KMZ.");
-                kmlTexto = await contenidoZip.files[kmlKey].async("text");
-            } else {
-                kmlTexto = await file.text();
-            }
+    if (extension === 'kmz') {
+        const zip = new JSZip();
+        const contenidoZip = await zip.loadAsync(file);
+        const kmlKey = Object.keys(contenidoZip.files).find(n => n.toLowerCase().endsWith('.kml'));
+        if (!kmlKey) throw new Error("No hay archivo .kml en el paquete KMZ.");
+        kmlTexto = await contenidoZip.files[kmlKey].async("text");
+    } else {
+        kmlTexto = await file.text();
+    }
 
-            const kmlLimpio = kmlTexto.replace(/xmlns(:\w+)?="[^"]*"/g, '').replace(/<(\/)?(\w+):/g, '<$1');
-            const parser = new DOMParser();
-            const xmlDoc = parser.parseFromString(kmlLimpio, "text/xml");
-            const nombreDoc = xmlDoc.getElementsByTagName("Document")[0]?.getElementsByTagName("name")[0]?.textContent?.trim();
-            const nombreFinal = nombreDoc || file.name.replace(/\.[^/.]+$/, "").replace(/[-_]+/g, " ").toUpperCase().trim();
+    const kmlLimpio = kmlTexto.replace(/xmlns(:\w+)?="[^"]*"/g, '').replace(/<(\/)?(\w+):/g, '<$1');
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(kmlLimpio, "text/xml");
 
-            const placemarks = Array.from(xmlDoc.getElementsByTagName("Placemark"));
-            const paradasExtraidas = [];
-            let trazadoAsfaltoKML = [];
-            let contador = 1;
+    // Función auxiliar para parsear horarios desde la descripción del Placemark
+    function parsearHorariosDesdeDescripcion(descTexto) {
+        if (!descTexto) return [];
+        const listaHorarios = [];
+        // Detecta patrones tipo "T1: 04:56", "T2: 16:46", etc.
+        const regexTurnos = /(T\d+|Día|Noche|Tarde|Turno\s*\d+)?\s*[:=-]?\s*(\b\d{1,2}:\d{2}(?:\s*[AaPp][Mm])?\b)/gi;
+        let match;
+        while ((match = regexTurnos.exec(descTexto)) !== null) {
+            const etiqueta = match[1] ? match[1].trim() : `Turno ${listaHorarios.length + 1}`;
+            const hora = match[2].trim();
+            listaHorarios.push({
+                etiquetaTurno: etiqueta,
+                formatoCivil: hora,
+                formatoMilitar: hora.replace(/\s*[AaPp][Mm]/i, '').trim()
+            });
+        }
+        return listaHorarios;
+    }
 
-            placemarks.forEach(pm => {
-                const pointTag = pm.getElementsByTagName("Point")[0];
-                if (pointTag) {
-                    const nombre = pm.getElementsByTagName("name")[0]?.textContent?.trim() || ("Parada #" + contador);
-                    const coordTexto = pointTag.getElementsByTagName("coordinates")[0]?.textContent?.trim();
-                    if (coordTexto) {
-                        const partes = coordTexto.split(/\s+/)[0].split(",");
-                        const lng = parseFloat(partes[0]?.trim());
-                        const lat = parseFloat(partes[1]?.trim());
-                        if (!isNaN(lat) && !isNaN(lng)) {
-                            paradasExtraidas.push({
-                                numeroParada: contador++,
-                                referenciaOriginal: nombre,
-                                cruceVialEnriquecido: nombre,
-                                callePrincipal: nombre,
-                                cruceInterseccion: "",
-                                referenciaComercio: "",
-                                coloniaFraccionamiento: "",
-                                municipioParada: "General",
-                                coordenadasAbordaje: lat.toFixed(6) + ", " + lng.toFixed(6),
-                                estadoGeocodificacion: "Exacta (KML Satelital)",
-                                horarios: []
-                            });
-                        }
-                    }
-                }
+    function extraerParadasYLineasDeContenedor(contenedorElement) {
+        const placemarks = Array.from(contenedorElement.getElementsByTagName("Placemark"));
+        const paradas = [];
+        let trazadoAsfalto = [];
+        let contador = 1;
 
-                const lineTag = pm.getElementsByTagName("LineString")[0];
-                if (lineTag) {
-                    const coordsLine = lineTag.getElementsByTagName("coordinates")[0]?.textContent?.trim();
-                    if (coordsLine) {
-                        const pares = coordsLine.split(/\s+/);
-                        pares.forEach(pStr => {
-                            const c = pStr.split(",");
-                            const lng = parseFloat(c[0]);
-                            const lat = parseFloat(c[1]);
-                            if (!isNaN(lat) && !isNaN(lng)) {
-                                trazadoAsfaltoKML.push([parseFloat(lat.toFixed(6)), parseFloat(lng.toFixed(6))]);
-                            }
+        placemarks.forEach(pm => {
+            const pointTag = pm.getElementsByTagName("Point")[0];
+            if (pointTag) {
+                const nombre = pm.getElementsByTagName("name")[0]?.textContent?.trim() || ("Parada #" + contador);
+                const desc = pm.getElementsByTagName("description")[0]?.textContent?.trim() || "";
+                const coordTexto = pointTag.getElementsByTagName("coordinates")[0]?.textContent?.trim();
+                
+                if (coordTexto) {
+                    const partes = coordTexto.split(/\s+/)[0].split(",");
+                    const lng = parseFloat(partes[0]?.trim());
+                    const lat = parseFloat(partes[1]?.trim());
+                    if (!isNaN(lat) && !isNaN(lng)) {
+                        paradas.push({
+                            numeroParada: contador++,
+                            referenciaOriginal: nombre,
+                            cruceVialEnriquecido: nombre,
+                            callePrincipal: nombre,
+                            cruceInterseccion: "",
+                            referenciaComercio: "",
+                            coloniaFraccionamiento: "",
+                            municipioParada: "General",
+                            coordenadasAbordaje: lat.toFixed(6) + ", " + lng.toFixed(6),
+                            estadoGeocodificacion: "Exacta (KML Satelital)",
+                            horarios: parsearHorariosDesdeDescripcion(desc)
                         });
                     }
                 }
-            });
+            }
 
-            return [{ 
-                nombreRuta: nombreFinal, 
-                paradas: paradasExtraidas,
-                trazadoVial: trazadoAsfaltoKML.length > 0 ? trazadoAsfaltoKML : null
-            }];
-        }
+            const lineTag = pm.getElementsByTagName("LineString")[0];
+            if (lineTag) {
+                const coordsLine = lineTag.getElementsByTagName("coordinates")[0]?.textContent?.trim();
+                if (coordsLine) {
+                    const pares = coordsLine.split(/\s+/);
+                    pares.forEach(pStr => {
+                        const c = pStr.split(",");
+                        const lng = parseFloat(c[0]);
+                        const lat = parseFloat(c[1]);
+                        if (!isNaN(lat) && !isNaN(lng)) {
+                            trazadoAsfalto.push([parseFloat(lat.toFixed(6)), parseFloat(lng.toFixed(6))]);
+                        }
+                    });
+                }
+            }
+        });
+
+        return { paradas, trazadoAsfalto };
+    }
+
+    const folders = Array.from(xmlDoc.getElementsByTagName("Folder"));
+    const coleccionExtraida = [];
+
+    // Si el KML usa carpetas (<Folder>), cada una es una ruta distinta
+    if (folders.length > 0) {
+        folders.forEach(folder => {
+            const nombreFolder = folder.getElementsByTagName("name")[0]?.textContent?.trim() || "Ruta KML";
+            const { paradas, trazadoAsfalto } = extraerParadasYLineasDeContenedor(folder);
+            if (paradas.length > 0) {
+                coleccionExtraida.push({
+                    nombreRuta: nombreFolder.replace(/^Ruta:\s*/i, '').trim(),
+                    paradas: paradas,
+                    trazadoVial: trazadoAsfalto.length > 0 ? trazadoAsfalto : null
+                });
+            }
+        });
+    } else {
+        // Si no tiene carpetas, procesa el documento completo como una sola ruta
+        const nombreDoc = xmlDoc.getElementsByTagName("Document")[0]?.getElementsByTagName("name")[0]?.textContent?.trim();
+        const nombreFinal = nombreDoc || file.name.replace(/\.[^/.]+$/, "").replace(/[-_]+/g, " ").toUpperCase().trim();
+        const { paradas, trazadoAsfalto } = extraerParadasYLineasDeContenedor(xmlDoc);
+        coleccionExtraida.push({
+            nombreRuta: nombreFinal,
+            paradas: paradas,
+            trazadoVial: trazadoAsfalto.length > 0 ? trazadoAsfalto : null
+        });
+    }
+
+    return coleccionExtraida;
+}
 
         // =========================================================================
         // COMPRESIÓN EN CLIENTE (>5MB) Y PROCESAMIENTO MULTIMODAL
@@ -1122,7 +1169,7 @@ Devuelve EXCLUSIVAMENTE un JSON válido con este esquema:
 
             if (queryOSM) {
                 try {
-                    const url = `[https://nominatim.openstreetmap.org/search?format=json&q=$](https://nominatim.openstreetmap.org/search?format=json&q=$){encodeURIComponent(queryOSM)}&countrycodes=mx&limit=1`;
+                    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(queryOSM)}&countrycodes=mx&limit=1`;
                     const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
                     if (res.ok) {
                         const data = await res.json();
