@@ -87,7 +87,12 @@
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            transition: background 0.2s;
+            transition: all 0.2s;
+        }
+
+        .btn-panel-action:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
         }
 
         .status-dot {
@@ -313,6 +318,9 @@
                 <button id="btnProbarConexion" class="btn-panel-action">
                     <i class="fa-solid fa-network-wired me-1"></i> Probar Conexión
                 </button>
+                <button id="btnRepararKeys" onclick="repararImperfeccionesKeys()" class="btn-panel-action" style="background: #eab308; color: #0f172a;">
+                    <i class="fa-solid fa-wand-magic-sparkles me-1"></i> Reparar Claves e Imperfecciones
+                </button>
                 <div id="statusIndicator" class="status-dot">
                     <i class="fa-solid fa-circle"></i> Sincronizando con Firebase...
                 </div>
@@ -344,7 +352,7 @@
                 <div class="inputs-horizontal-row">
                     <div>
                         <label class="form-label-tech"><i class="fa-solid fa-fingerprint"></i> ID Único *</label>
-                        <input type="text" id="inputID" class="form-control-tech w-100" placeholder="Ej: GLOVISCC" required>
+                        <input type="text" id="inputID" class="form-control-tech w-100" placeholder="Ej: glovis_pesqueria" required>
                     </div>
                     <div>
                         <label class="form-label-tech"><i class="fa-solid fa-signature"></i> Nombre Comercial *</label>
@@ -505,6 +513,9 @@
         let catalogoVacantesDetalles = {};
         let modalVacantesInstance = null;
 
+        // EXPONER AL ÁMBITO GLOBAL
+        window.repararImperfeccionesKeys = repararImperfeccionesKeys;
+
         document.addEventListener("DOMContentLoaded", () => {
             const modalEl = document.getElementById('modalVacantesIndividuales');
             if (modalEl && typeof bootstrap !== 'undefined') {
@@ -513,7 +524,8 @@
 
             const inputID = document.getElementById("inputID");
             inputID.addEventListener("input", () => {
-                const idLimpio = inputID.value.trim().toLowerCase();
+                inputID.value = sanitizarKey(inputID.value);
+                const idLimpio = inputID.value;
                 const urlBase = "https://valdomtec-arch.github.io/bolsa-trabajo-principal/vacante.html?empresa=";
                 document.getElementById("linkAutogenerado").value = urlBase + idLimpio;
                 document.getElementById("btnAbrirEnlace").href = urlBase + idLimpio;
@@ -594,6 +606,7 @@
             const bannerConsulta = document.getElementById("bannerConsultaM1");
             const btnGuardar = document.getElementById("btnGuardarFicha");
             const btnBorrarCascada = document.getElementById("btnBorrarCascadaForm");
+            const btnReparar = document.getElementById("btnRepararKeys");
             const inputsForm = document.querySelectorAll("#empresaForm input, #empresaForm select");
 
             if (usuarioSesion.nivel >= 4 || usuarioSesion.scope === 'global') {
@@ -601,11 +614,13 @@
                 badgeScope.textContent = "Scope: Global Corporativo (Total)";
                 panelForm.classList.remove("d-none");
                 bannerConsulta.classList.add("d-none");
+                if (btnReparar) btnReparar.classList.remove("d-none");
             } else if (usuarioSesion.nivel === 3) {
                 // Coordinadores: Consulta autorizada de sus clientes. No pueden crear ni borrar empresas.
                 badgeScope.className = "badge bg-warning border border-light text-dark px-3 py-2 font-monospace";
                 badgeScope.textContent = `Scope: Célula Coordinada (${usuarioSesion.empresas.length} Empresas)`;
                 bannerConsulta.classList.remove("d-none");
+                if (btnReparar) btnReparar.classList.add("d-none");
                 
                 // Bloquear formulario maestro
                 btnGuardar.classList.add("d-none");
@@ -665,7 +680,8 @@
                 else if (estatus === "No Disponible") claseSelect = "status-nodisponible";
                 else if (estatus === "Cerrada") claseSelect = "status-cerrada";
 
-                const vacsEmp = catalogoVacantesDetalles[key] || {};
+                const keySanitizada = sanitizarKey(key);
+                const vacsEmp = catalogoVacantesDetalles[key] || catalogoVacantesDetalles[keySanitizada] || {};
                 const totalVacs = Object.keys(vacsEmp).length;
 
                 // Restricción: Solo Nivel >= 4 puede alterar el semáforo maestro del cliente
@@ -690,7 +706,7 @@
                         </button>
                     </td>
                     <td class="text-end">
-                        <a href="m2_vacantes.html?empresa=${key}" class="btn btn-outline-info btn-sm py-1 px-2" title="Ir a M2 Vacantes">
+                        <a href="m2_vacantes.html?empresa=${keySanitizada}" class="btn btn-outline-info btn-sm py-1 px-2" title="Ir a M2 Vacantes">
                             <i class="fa-solid fa-briefcase"></i> M2
                         </a>
                         ${usuarioSesion.nivel >= 4 ? `
@@ -742,10 +758,11 @@
             }
 
             const emp = catalogoEmpresasCompleto[empKey] || {};
-            const vacs = catalogoVacantesDetalles[empKey] || {};
+            const keySanitizada = sanitizarKey(empKey);
+            const vacs = catalogoVacantesDetalles[empKey] || catalogoVacantesDetalles[keySanitizada] || {};
 
-            document.getElementById("modalEmpresaNombre").textContent = `${emp.nombre || empKey} (${empKey})`;
-            document.getElementById("btnIrAM2Empresa").href = `m2_vacantes.html?empresa=${empKey}`;
+            document.getElementById("modalEmpresaNombre").textContent = `${emp.nombre || empKey} (${keySanitizada})`;
+            document.getElementById("btnIrAM2Empresa").href = `m2_vacantes.html?empresa=${keySanitizada}`;
 
             const tbody = document.getElementById("modalVacantesBody");
             tbody.innerHTML = "";
@@ -786,8 +803,10 @@
                 return alert("No tienes autorización para modificar vacantes de esta empresa.");
             }
 
+            const rutaTarget = catalogoVacantesDetalles[empKey] ? empKey : sanitizarKey(empKey);
+
             try {
-                await db.ref(`vacantes_detalles/${empKey}/${vacKey}/estatus`).set(nuevoEstatus);
+                await db.ref(`vacantes_detalles/${rutaTarget}/${vacKey}/estatus`).set(nuevoEstatus);
                 
                 await db.ref("modulo_7_logs").push({
                     modulo: "M1_EMPRESAS",
@@ -808,7 +827,8 @@
                 return alert("Acción restringida. Solo la Dirección General puede crear o modificar fichas maestras de clientes.");
             }
 
-            const id = document.getElementById("inputID").value.trim().toLowerCase();
+            const rawID = document.getElementById("inputID").value;
+            const id = sanitizarKey(rawID);
             const nombre = document.getElementById("inputNombre").value.trim();
             const direccion = document.getElementById("inputDireccion").value.trim();
             const ubicacion = document.getElementById("inputUbicacion").value.trim();
@@ -857,7 +877,7 @@
             const emp = catalogoEmpresasCompleto[key];
             if (!emp) return;
 
-            document.getElementById("inputID").value = emp.id || key;
+            document.getElementById("inputID").value = sanitizarKey(emp.id || key);
             document.getElementById("inputID").disabled = true; 
             document.getElementById("inputNombre").value = emp.nombre || emp.nombreComercial || '';
             document.getElementById("inputDireccion").value = emp.direccion || '';
@@ -865,10 +885,11 @@
             document.getElementById("inputImagen").value = emp.imagen || '';
             document.getElementById("inputStatusMaster").value = emp.estatusOperativo || "Disponible";
             
+            const idSanitizado = sanitizarKey(key);
             const urlBase = "https://valdomtec-arch.github.io/bolsa-trabajo-principal/vacante.html?empresa=";
-            document.getElementById("linkAutogenerado").value = emp.link || (urlBase + key);
-            document.getElementById("btnAbrirEnlace").href = emp.link || (urlBase + key);
-            document.getElementById("txtModoEdicionLabel").textContent = `Editando: ${emp.nombre || key}`;
+            document.getElementById("linkAutogenerado").value = emp.link || (urlBase + idSanitizado);
+            document.getElementById("btnAbrirEnlace").href = emp.link || (urlBase + idSanitizado);
+            document.getElementById("txtModoEdicionLabel").textContent = `Editando: ${emp.nombre || idSanitizado}`;
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
@@ -879,12 +900,17 @@
             }
 
             const empNombre = catalogoEmpresasCompleto[key]?.nombre || key;
+            const keySanitizada = sanitizarKey(key);
 
             if (!confirm(`⚠️ ALERTA DE BORRADO EN CASCADA:\n\n¿Deseas eliminar definitivamente la empresa "${empNombre}" [${key.toUpperCase()}] junto con TODAS sus vacantes asociadas?\n\nEsta acción no se puede deshacer.`)) return;
 
             try {
                 await db.ref("empresas/" + key).remove();
+                if (key !== keySanitizada) {
+                    await db.ref("empresas/" + keySanitizada).remove();
+                }
                 await db.ref("vacantes_detalles/" + key).remove();
+                await db.ref("vacantes_detalles/" + keySanitizada).remove();
 
                 await db.ref("modulo_7_logs").push({
                     modulo: "M1_EMPRESAS",
@@ -903,7 +929,7 @@
         }
 
         function eliminarEmpresaPorFormulario() {
-            const id = document.getElementById("inputID").value.trim().toLowerCase();
+            const id = sanitizarKey(document.getElementById("inputID").value);
             if (!id) return alert("Selecciona una empresa de la lista.");
             eliminarEmpresaDirecto(id);
         }
@@ -928,6 +954,89 @@
             document.querySelectorAll("#tablaBodyEmpresas tr").forEach(fila => {
                 fila.style.display = fila.textContent.toLowerCase().includes(txt) ? "" : "none";
             });
+        }
+
+        // 6. MOTOR DE SANEAMIENTO Y MIGRACIÓN AUTOMÁTICA EN FIREBASE
+        async function repararImperfeccionesKeys() {
+            if (usuarioSesion.nivel < 4) {
+                return alert("Esta acción de mantenimiento de base de datos requiere perfil Directivo (Nivel >= 4).");
+            }
+
+            if (!confirm("🛠️ SANEADOR DE BASE DE DATOS:\n\nEsta función analizará todas las empresas registradas en Firebase. Si encuentra nombres con espacios o caracteres no permitidos, los migrará automáticamente al formato canónico con guiones bajos y vinculará sus vacantes huérfanas.\n\n¿Deseas continuar?")) {
+                return;
+            }
+
+            const btn = document.getElementById("btnRepararKeys");
+            const txtOriginal = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i> Reparando Base de Datos...';
+            btn.disabled = true;
+
+            try {
+                const snap = await db.ref().once('value');
+                const rootData = snap.val() || {};
+                const empresas = rootData.empresas || {};
+                const vacantes = rootData.vacantes_detalles || {};
+                const rutas = rootData.rutas || {};
+
+                let migracionesRealizadas = 0;
+
+                for (const [keyOriginal, empData] of Object.entries(empresas)) {
+                    const keyLimpia = sanitizarKey(keyOriginal);
+
+                    if (keyOriginal !== keyLimpia) {
+                        console.log(`[M1 Saneador] Migrando "${keyOriginal}" -> "${keyLimpia}"`);
+
+                        // 1. Clonar empresa bajo clave sanitizada
+                        const datosActualizados = {
+                            ...empData,
+                            id: keyLimpia
+                        };
+                        await db.ref(`empresas/${keyLimpia}`).set(datosActualizados);
+                        await db.ref(`empresas/${keyOriginal}`).remove();
+
+                        // 2. Trasladar vacantes huérfanas si existen
+                        if (vacantes[keyOriginal]) {
+                            const vacsPrevias = vacantes[keyLimpia] || {};
+                            await db.ref(`vacantes_detalles/${keyLimpia}`).update({
+                                ...vacsPrevias,
+                                ...vacantes[keyOriginal]
+                            });
+                            await db.ref(`vacantes_detalles/${keyOriginal}`).remove();
+                        }
+
+                        // 3. Trasladar rutas si existen
+                        if (rutas[keyOriginal]) {
+                            await db.ref(`rutas/${keyLimpia}`).update(rutas[keyOriginal]);
+                            await db.ref(`rutas/${keyOriginal}`).remove();
+                        }
+
+                        migracionesRealizadas++;
+                    }
+                }
+
+                // Registrar auditoría en M7
+                await db.ref("modulo_7_logs").push({
+                    modulo: "M1_EMPRESAS",
+                    evento: "SANEAMIENTO_CLAVES_FIREBASE",
+                    ejecutadoPor: usuarioSesion.nombre,
+                    uidEjecutor: usuarioSesion.uid,
+                    detalle: `Se sanearon y vincularon ${migracionesRealizadas} empresas con imperfecciones de clave en Firebase.`,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                });
+
+                if (migracionesRealizadas > 0) {
+                    alert(`✅ ¡Saneamiento completado con éxito!\n\nSe repararon ${migracionesRealizadas} empresas (incluyendo Soriana). Ahora sus claves coinciden con M2 y las vacantes se desplegarán inmediatamente.`);
+                } else {
+                    alert("✨ Excelente: No se detectaron claves imperfectas. Todas las empresas en Firebase cumplen con el formato estándar.");
+                }
+
+            } catch (err) {
+                console.error("Error durante el saneamiento:", err);
+                alert("Ocurrió un error al reparar claves: " + err.message);
+            } finally {
+                btn.innerHTML = txtOriginal;
+                btn.disabled = false;
+            }
         }
     </script>
 </body>
