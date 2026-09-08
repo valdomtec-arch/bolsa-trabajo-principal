@@ -467,7 +467,7 @@
         .btn-filtrar-cp:hover { background: #ea580c; }
 
         #mapaRutas {
-            height: 260px; width: 100%;
+            height: 270px; width: 100%;
             border-radius: 12px; margin-top: 10px;
             margin-bottom: 15px; border: 1px solid var(--wf-accent-blue);
             z-index: 1;
@@ -488,11 +488,74 @@
             box-shadow: 0 0 18px var(--wf-accent-glow);
         }
 
-        .leaflet-popup-content-wrapper {
-            background: #0f1a2c; color: #fff;
-            border: 1px solid var(--wf-accent-blue); border-radius: 8px;
+        /* DISEÑO DE GOTA GPS ULTRA-COMPACTA NUMERADA */
+        .pin-parada-gps {
+            position: relative;
+            width: 26px;
+            height: 26px;
+            background: #0284c7;
+            border: 2px solid #ffffff;
+            border-radius: 50% 50% 50% 0;
+            transform: rotate(-45deg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.65), 0 0 8px rgba(56,189,248,0.7);
+            cursor: pointer;
+            transition: transform 0.2s ease;
         }
-        .leaflet-popup-tip { background: #0f1a2c; }
+
+        .pin-parada-gps:hover {
+            transform: rotate(-45deg) scale(1.18);
+            background: #38bdf8;
+        }
+
+        .pin-parada-num {
+            transform: rotate(45deg);
+            color: #ffffff;
+            font-size: 10px;
+            font-weight: 800;
+            line-height: 1;
+            text-align: center;
+            user-select: none;
+        }
+
+        .popup-parada-card {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            font-size: 12px;
+            color: #f1f5f9;
+            padding: 2px;
+            line-height: 1.4;
+        }
+
+        .popup-parada-card .btn-popup-gmaps {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            margin-top: 8px;
+            background: #0ea5e9;
+            color: #ffffff !important;
+            text-decoration: none;
+            padding: 5px 10px;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 11px;
+            transition: background 0.2s ease;
+        }
+
+        .popup-parada-card .btn-popup-gmaps:hover {
+            background: #38bdf8;
+            color: #070f1e !important;
+        }
+
+        .leaflet-popup-content-wrapper {
+            background: #0f1a2c !important; 
+            color: #fff !important;
+            border: 1px solid var(--wf-accent-blue) !important; 
+            border-radius: 10px !important;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.8) !important;
+        }
+        .leaflet-popup-tip { background: #0f1a2c !important; }
 
         .links-section { 
             background: var(--bg-form); padding: 20px 15px; 
@@ -740,9 +803,33 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
+    // HELPER CANÓNICO DE SANITIZACIÓN Y MATCHING
+    const sanitizarClave = (str) => {
+        if (!str) return "";
+        return String(str)
+            .toLowerCase()
+            .trim()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/[^a-z0-9]/g, "_")
+            .replace(/_+/g, "_");
+    };
+
+    // Versión compacta sin separadores para matching difuso
+    const sanitizarCompacto = (str) => {
+        if (!str) return "";
+        return String(str)
+            .toLowerCase()
+            .trim()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/[^a-z0-9]/g, "");
+    };
+
     const urlParams = new URLSearchParams(window.location.search);
-    const empresaId = urlParams.get('empresa');
-    const empresaLimpia = empresaId ? empresaId.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "_").replace(/_+/g, "_") : "";
+    const rawParamEmpresa = urlParams.get('empresa') || "";
+    const empresaLimpia = sanitizarClave(rawParamEmpresa);
+    const empresaCompacta = sanitizarCompacto(rawParamEmpresa);
 
     let todasLasVacantesEmpresa = {};
     let datosVacanteGlobal = null;
@@ -845,89 +932,113 @@
     }
 
     async function cargarDetallesVacante() {
-        if (!empresaLimpia) {
+        if (!empresaLimpia && !empresaCompacta) {
             document.getElementById('loading').innerHTML = "❌ Enlace no válido.<br><small>Falta parámetro ?empresa=ID</small>";
             return;
         }
 
         try {
-            db.ref(`empresas/${empresaLimpia}`).on('value', (snapEmpresaMaestra) => {
-                if (snapEmpresaMaestra.exists()) {
-                    const infoMaestra = snapEmpresaMaestra.val();
-                    nombreEmpresaMaestro = infoMaestra.nombreComercial || infoMaestra.nombre || infoMaestra.razonSocial || "";
-                    ubicacionEmpresaMaestro = infoMaestra.direccion || infoMaestra.ubicacion || infoMaestra.lugarOrigen || "";
-                    bannersCorporativosEmpresa = infoMaestra.bannersCorporativos || "";
-                    estatusOperativoEmpresa = infoMaestra.estatusOperativo || "Disponible";
+            // Sincronización blindada de empresa en M1
+            db.ref('empresas').on('value', (snapEmpresas) => {
+                if (snapEmpresas.exists()) {
+                    const catalogo = snapEmpresas.val();
+                    let infoMaestra = catalogo[empresaLimpia] || catalogo[empresaCompacta];
 
-                    const continuaCarga = aplicarReglasSemaforoEmpresa(estatusOperativoEmpresa);
-                    if (!continuaCarga) return;
+                    if (!infoMaestra) {
+                        const hitKey = Object.keys(catalogo).find(k => {
+                            return sanitizarCompacto(k) === empresaCompacta ||
+                                   sanitizarCompacto(catalogo[k]?.nombreComercial) === empresaCompacta ||
+                                   sanitizarCompacto(catalogo[k]?.razonSocial) === empresaCompacta;
+                        });
+                        if (hitKey) infoMaestra = catalogo[hitKey];
+                    }
+
+                    if (infoMaestra) {
+                        nombreEmpresaMaestro = infoMaestra.nombreComercial || infoMaestra.nombre || infoMaestra.razonSocial || "";
+                        ubicacionEmpresaMaestro = infoMaestra.direccion || infoMaestra.ubicacion || infoMaestra.lugarOrigen || "";
+                        bannersCorporativosEmpresa = infoMaestra.bannersCorporativos || "";
+                        estatusOperativoEmpresa = infoMaestra.estatusOperativo || "Disponible";
+
+                        const continuaCarga = aplicarReglasSemaforoEmpresa(estatusOperativoEmpresa);
+                        if (!continuaCarga) return;
+                    }
                 }
             });
 
-            db.ref(`vacantes_detalles/${empresaLimpia}`).on('value', async function(snapshot) {
+            // Sincronización blindada de vacantes M2
+            db.ref('vacantes_detalles').on('value', async function(snapshot) {
                 if (snapshot.exists()) {
-                    const dataRaw = snapshot.val();
-                    
-                    if (dataRaw.nombreVacante || dataRaw.vacanteNombre || dataRaw.puesto || dataRaw.salario) {
-                        todasLasVacantesEmpresa = {};
-                        const llaveUnica = (dataRaw.nombreVacante || dataRaw.vacanteNombre || dataRaw.puesto || "puesto_unico").replace(/\s+/g, '_').toLowerCase();
-                        todasLasVacantesEmpresa[llaveUnica] = dataRaw;
-                    } else {
-                        todasLasVacantesEmpresa = dataRaw;
-                    }
+                    const catalogoVacantes = snapshot.val();
+                    let dataRaw = catalogoVacantes[empresaLimpia] || catalogoVacantes[empresaCompacta];
 
-                    const keys = Object.keys(todasLasVacantesEmpresa).filter(k => k !== 'undefined' && k !== '');
-                    if (keys.length === 0) {
-                        document.getElementById('loading').innerText = "❌ No hay vacantes disponibles para esta empresa.";
+                    if (!dataRaw) {
+                        const hitKey = Object.keys(catalogoVacantes).find(k => sanitizarCompacto(k) === empresaCompacta);
+                        if (hitKey) dataRaw = catalogoVacantes[hitKey];
+                    }
+                    
+                    if (dataRaw) {
+                        if (dataRaw.nombreVacante || dataRaw.vacanteNombre || dataRaw.puesto || dataRaw.salario) {
+                            todasLasVacantesEmpresa = {};
+                            const llaveUnica = (dataRaw.nombreVacante || dataRaw.vacanteNombre || dataRaw.puesto || "puesto_unico").replace(/\s+/g, '_').toLowerCase();
+                            todasLasVacantesEmpresa[llaveUnica] = dataRaw;
+                        } else {
+                            todasLasVacantesEmpresa = dataRaw;
+                        }
+
+                        const keys = Object.keys(todasLasVacantesEmpresa).filter(k => k !== 'undefined' && k !== '');
+                        if (keys.length === 0) {
+                            document.getElementById('loading').innerText = "❌ No hay vacantes disponibles para esta empresa.";
+                            return;
+                        }
+
+                        const primerVacante = todasLasVacantesEmpresa[keys[0]];
+                        const nombreHeader = nombreEmpresaMaestro || primerVacante.nombreComercial || primerVacante.empresaNombre || empresaLimpia.toUpperCase();
+                        const lugarHeader = ubicacionEmpresaMaestro || primerVacante.lugarOrigen || 'México';
+                        const mapaHeader = primerVacante.mapaUrl || "";
+                        
+                        nombreEmpresaMaestro = nombreHeader;
+
+                        document.getElementById('mainEmpresaNombre').innerText = nombreHeader;
+                        renderizarUbicacionEmpresa(lugarHeader, mapaHeader);
+                        document.getElementById('empresaHeaderBox').style.display = 'block';
+
+                        const listaContenedor = document.getElementById('listaVacantesDinamica');
+                        listaContenedor.innerHTML = ''; 
+                        
+                        keys.forEach(key => {
+                            const vac = todasLasVacantesEmpresa[key];
+                            const nombreMostrarPuesto = vac.nombreVacante || vac.vacanteNombre || vac.puesto || vac.nombreComercial || "Puesto Vacante";
+                            const estatusPuesto = vac.estatus || "Disponible";
+
+                            let badgePuestoHtml = '';
+                            if (estatusPuesto === "No Disponible") {
+                                badgePuestoHtml = `<span class="badge-status-puesto" style="background:rgba(239,68,68,0.2); color:#f87171; border:1px solid rgba(239,68,68,0.4);"><i class="fa-solid fa-lock me-1"></i>Cupo Lleno</span>`;
+                            } else if (estatusPuesto === "En Pausa") {
+                                badgePuestoHtml = `<span class="badge-status-puesto" style="background:rgba(245,158,11,0.2); color:#fbbf24; border:1px solid rgba(245,158,11,0.4);"><i class="fa-solid fa-pause me-1"></i>En Pausa</span>`;
+                            }
+                            
+                            const cardItem = document.createElement('div');
+                            cardItem.className = 'vacante-item-card';
+                            cardItem.onclick = () => renderizarPuestoEspecifico(key);
+                            cardItem.innerHTML = `
+                                <div class="vacante-item-info">
+                                    <h2>${nombreMostrarPuesto}</h2>
+                                    <p>
+                                        <i class="fa-solid fa-money-bill-wave" style="color:var(--green-whatsapp)"></i> ${vac.salario || 'No especificado'}
+                                        ${badgePuestoHtml}
+                                    </p>
+                                </div>
+                                <div class="chevron-icon"><i class="fa-solid fa-chevron-right"></i></div>
+                            `;
+                            listaContenedor.appendChild(cardItem);
+                        });
+                        
+                        await cargarCatalogoReclutadores();
+                        document.getElementById('loading').style.display = 'none';
+                        document.getElementById('menuVacantesBox').style.display = 'block';
                         return;
                     }
 
-                    const primerVacante = todasLasVacantesEmpresa[keys[0]];
-                    const nombreHeader = nombreEmpresaMaestro || primerVacante.nombreComercial || primerVacante.empresaNombre || empresaLimpia.toUpperCase();
-                    const lugarHeader = ubicacionEmpresaMaestro || primerVacante.lugarOrigen || 'México';
-                    const mapaHeader = primerVacante.mapaUrl || "";
-                    
-                    nombreEmpresaMaestro = nombreHeader;
-
-                    document.getElementById('mainEmpresaNombre').innerText = nombreHeader;
-                    renderizarUbicacionEmpresa(lugarHeader, mapaHeader);
-                    document.getElementById('empresaHeaderBox').style.display = 'block';
-
-                    const listaContenedor = document.getElementById('listaVacantesDinamica');
-                    listaContenedor.innerHTML = ''; 
-                    
-                    keys.forEach(key => {
-                        const vac = todasLasVacantesEmpresa[key];
-                        const nombreMostrarPuesto = vac.nombreVacante || vac.vacanteNombre || vac.puesto || vac.nombreComercial || "Puesto Vacante";
-                        const estatusPuesto = vac.estatus || "Disponible";
-
-                        let badgePuestoHtml = '';
-                        if (estatusPuesto === "No Disponible") {
-                            badgePuestoHtml = `<span class="badge-status-puesto" style="background:rgba(239,68,68,0.2); color:#f87171; border:1px solid rgba(239,68,68,0.4);"><i class="fa-solid fa-lock me-1"></i>Cupo Lleno</span>`;
-                        } else if (estatusPuesto === "En Pausa") {
-                            badgePuestoHtml = `<span class="badge-status-puesto" style="background:rgba(245,158,11,0.2); color:#fbbf24; border:1px solid rgba(245,158,11,0.4);"><i class="fa-solid fa-pause me-1"></i>En Pausa</span>`;
-                        }
-                        
-                        const cardItem = document.createElement('div');
-                        cardItem.className = 'vacante-item-card';
-                        cardItem.onclick = () => renderizarPuestoEspecifico(key);
-                        cardItem.innerHTML = `
-                            <div class="vacante-item-info">
-                                <h2>${nombreMostrarPuesto}</h2>
-                                <p>
-                                    <i class="fa-solid fa-money-bill-wave" style="color:var(--green-whatsapp)"></i> ${vac.salario || 'No especificado'}
-                                    ${badgePuestoHtml}
-                                </p>
-                            </div>
-                            <div class="chevron-icon"><i class="fa-solid fa-chevron-right"></i></div>
-                        `;
-                        listaContenedor.appendChild(cardItem);
-                    });
-                    
-                    await cargarCatalogoReclutadores();
-                    document.getElementById('loading').style.display = 'none';
-                    document.getElementById('menuVacantesBox').style.display = 'block';
-                } else {
                     document.getElementById('loading').innerHTML = `
                         <div style="color: #f97316; padding: 15px;">
                             <i class="fa-solid fa-circle-question" style="font-size: 2rem; margin-bottom: 10px;"></i>
@@ -1120,6 +1231,7 @@
         }).addTo(mapLeaflet);
     }
 
+    // RENDERIZADO VISUAL CON GOTAS GPS NUMERADAS Y ENLACE A GOOGLE MAPS
     function renderizarParadasEnMapa(paradas) {
         if (!mapLeaflet) inicializarMapaInteractivo();
 
@@ -1128,26 +1240,46 @@
 
         let bounds = [];
 
-        paradas.forEach(p => {
+        paradas.forEach((p, idx) => {
             const lat = parseFloat(p.lat);
             const lng = parseFloat(p.lng);
 
             if (!isNaN(lat) && !isNaN(lng)) {
-                const marker = L.circleMarker([lat, lng], {
-                    radius: 7,
-                    fillColor: '#38bdf8',
-                    color: '#ffffff',
-                    weight: 1.5,
-                    fillOpacity: 0.9
-                }).addTo(mapLeaflet);
+                const numeroMostrar = p.numeroParada || (idx + 1);
+                
+                const customIcon = L.divIcon({
+                    className: 'custom-gps-pin-container',
+                    html: `
+                        <div class="pin-parada-gps">
+                            <span class="pin-parada-num">${numeroMostrar}</span>
+                        </div>
+                    `,
+                    iconSize: [26, 26],
+                    iconAnchor: [13, 26],
+                    popupAnchor: [0, -26]
+                });
+
+                const urlGoogleMaps = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+
+                const marker = L.marker([lat, lng], { icon: customIcon }).addTo(mapLeaflet);
                 
                 marker.bindPopup(`
-                    <div style="font-size:12px; font-family:'Segoe UI', sans-serif;">
-                        <b style="color:#0ea5e9;">${p.nombreRuta}</b><br>
-                        <b>Parada:</b> ${p.nombre}<br>
-                        <b>Horarios:</b> ${p.horario || 'S/H'}
+                    <div class="popup-parada-card">
+                        <div style="font-size:11px; text-transform:uppercase; color:#38bdf8; font-weight:800; margin-bottom:2px;">
+                            ${p.nombreRuta}
+                        </div>
+                        <div style="font-weight:700; font-size:13px; color:#ffffff; margin-bottom:4px;">
+                            #${numeroMostrar} - ${p.nombre}
+                        </div>
+                        <div style="color:#cbd5e1; font-size:11.5px; margin-bottom:6px;">
+                            <i class="fa-regular fa-clock" style="color:#fbbf24;"></i> ${p.horario || 'Horario a confirmar'}
+                        </div>
+                        <a href="${urlGoogleMaps}" target="_blank" class="btn-popup-gmaps">
+                            <i class="fa-solid fa-diamond-turn-right"></i> Abrir en Google Maps
+                        </a>
                     </div>
                 `);
+
                 marcadoresMapa.push(marker);
                 bounds.push([lat, lng]);
             }
@@ -1302,6 +1434,7 @@
         }
     }
 
+    // SINCRONIZADOR BLINDADO Y MULTINIVEL DE RUTAS (M6 -> VACANTE.HTML)
     async function inicializarBuscadorRutas() {
         const txtDetallesTrans = document.getElementById('txtDetallesTransporte');
         const selectRutas = document.getElementById('selRutaEmpresa');
@@ -1321,11 +1454,39 @@
                                   datosVacanteGlobal.transporte || "";
         }
 
-        let snapRuta = await db.ref(`rutas/${empresaLimpia}`).once('value');
+        let rawData = null;
 
-        if (snapRuta.exists()) {
-            const rawData = snapRuta.val();
-            
+        try {
+            // Paso 1: Intento directo por clave exacta sanitizada
+            let snap = await db.ref(`rutas/${empresaLimpia}`).once('value');
+            if (snap.exists()) {
+                rawData = snap.val();
+            } else if (empresaCompacta !== empresaLimpia) {
+                let snapComp = await db.ref(`rutas/${empresaCompacta}`).once('value');
+                if (snapComp.exists()) rawData = snapComp.val();
+            }
+
+            // Paso 2: Escaneo tolerante en todo el nodo /rutas si la clave vino con espacios (ej: 'SERVI LAMINA')
+            if (!rawData) {
+                const snapTotal = await db.ref('rutas').once('value');
+                if (snapTotal.exists()) {
+                    const todasLasRutas = snapTotal.val();
+                    const claveEncontrada = Object.keys(todasLasRutas).find(k => {
+                        return sanitizarCompacto(k) === empresaCompacta ||
+                               sanitizarCompacto(todasLasRutas[k]?.empresa) === empresaCompacta ||
+                               sanitizarCompacto(todasLasRutas[k]?.empresaId) === empresaCompacta;
+                    });
+
+                    if (claveEncontrada) {
+                        rawData = todasLasRutas[claveEncontrada];
+                    }
+                }
+            }
+        } catch (errRutas) {
+            console.warn("Advertencia en lectura de rutas:", errRutas);
+        }
+
+        if (rawData) {
             Object.keys(rawData).forEach(key => {
                 const item = rawData[key];
                 if (typeof item === 'object' && item !== null) {
@@ -1336,7 +1497,7 @@
                     }
 
                     if (Array.isArray(item.paradas) && item.paradas.length > 0) {
-                        item.paradas.forEach(p => {
+                        item.paradas.forEach((p, pIndex) => {
                             let lat = null, lng = null;
                             if (p.coordenadasAbordaje && typeof p.coordenadasAbordaje === 'string') {
                                 const partes = p.coordenadasAbordaje.split(',');
@@ -1346,12 +1507,14 @@
                                 }
                             }
 
-                            const nombreParada = p.referenciaOriginal || p.cruceVialEnriquecido || `Parada #${p.numeroParada}`;
-                            const horariosTexto = (p.horarios || []).map(h => h.formatoCivil).join(' / ');
-                            const valOption = `${nombreRuta} ➔ ${nombreParada}${horariosTexto ? ' (' + horariosTexto + ')' : ''}`;
+                            const numParada = p.numeroParada || (pIndex + 1);
+                            const nombreParada = p.referenciaOriginal || p.cruceVialEnriquecido || `Parada #${numParada}`;
+                            const horariosTexto = (p.horarios || []).map(h => h.formatoCivil || h).join(' / ');
+                            const valOption = `${nombreRuta} ➔ #${numParada} ${nombreParada}${horariosTexto ? ' (' + horariosTexto + ')' : ''}`;
 
                             const objetoParada = {
-                                id: `${key}_${p.numeroParada}`,
+                                id: `${key}_${numParada}`,
+                                numeroParada: numParada,
                                 nombreRuta: nombreRuta,
                                 nombre: nombreParada,
                                 horario: horariosTexto || item.horarioPaso || "",
@@ -1379,6 +1542,7 @@
 
                         const objetoParada = {
                             id: key,
+                            numeroParada: 1,
                             nombreRuta: nombreRuta,
                             nombre: nombreParada,
                             horario: horario,
@@ -1445,7 +1609,7 @@
         paradasDeRuta.forEach(p => {
             const opt = document.createElement('option');
             opt.value = p.valOption;
-            opt.textContent = `${p.nombre}${p.horario ? ' 🕒 (' + p.horario + ')' : ''}`;
+            opt.textContent = `#${p.numeroParada} - ${p.nombre}${p.horario ? ' 🕒 (' + p.horario + ')' : ''}`;
             selectParadas.appendChild(opt);
         });
 
@@ -1493,8 +1657,11 @@
                     const tieneEmpresaAsignada = esGlobal || 
                         empresasAsignadas.includes("TODAS") || 
                         empresasAsignadas.some(e => {
-                            const empNormalizada = String(e).toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "_").replace(/_+/g, "_");
-                            return empNormalizada === empresaLimpia || String(e).toLowerCase() === String(nombreEmpresaMaestro).toLowerCase();
+                            const empNormalizada = sanitizarClave(e);
+                            const empComp = sanitizarCompacto(e);
+                            return empNormalizada === empresaLimpia || 
+                                   empComp === empresaCompacta || 
+                                   sanitizarCompacto(nombreEmpresaMaestro) === empComp;
                         });
 
                     if (estaActivo && tieneTelefono && facultadReclutar && tieneEmpresaAsignada) {
@@ -1603,7 +1770,6 @@
             let reclutadorIdFinal = null;
 
             if (existe && titular) {
-                // Candidato preexistente con proceso activo: Respetar al asesor titular
                 reclutadorIdFinal = titular.reclutadorId || null;
                 nombreReclutadorCorto = titular.reclutadorNombre || titular.asesor || "Tu Asesor Titular";
 
@@ -1620,7 +1786,6 @@
                     `Por política de seguimiento y para no perder tu avance, te canalizaremos directamente con él.`
                 );
             } else {
-                // Candidato nuevo: Toma el asesor que eligió en el selector
                 const opcionSeleccionada = selectReclutador.options[selectReclutador.selectedIndex];
                 telefonoDestino = selectReclutador.value; 
                 nombreReclutadorCorto = opcionSeleccionada ? (opcionSeleccionada.dataset.nombreReal || "Asesor Asignado") : "Asesor Asignado";
