@@ -139,7 +139,7 @@
             </button>
         </div>
 
-        <!-- EMBUDO DE CONVERSIÓN COMPLETO (KPIS FUNNEL CON HITOS FACTURABLES) -->
+        <!-- EMBUDO DE CONVERSIÓN CON BLINDAJE MATRICIAL -->
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             <div class="bg-cyber-card p-3.5 rounded-2xl border border-red-500/20 shadow">
                 <span class="text-[11px] font-mono uppercase text-red-400 block font-bold">1. Postulados</span>
@@ -238,7 +238,7 @@
             </div>
         </details>
 
-        <!-- BANDEJA DE POSTULANTES -->
+        <!-- BANDEJA DE POSTULANTES HÍBRIDA -->
         <div class="bg-cyber-card rounded-3xl border border-cyber-border overflow-hidden shadow-xl">
             <div class="p-4 border-b border-cyber-border flex justify-between items-center flex-wrap gap-2">
                 <span class="text-xs sm:text-sm font-mono text-slate-300 font-bold" id="txtTotalPostuladosLabel">Mostrando 0 candidatos</span>
@@ -320,7 +320,7 @@
                     </div>
                 </div>
 
-                <!-- ASESOR Y NUEVO CATÁLOGO DE 9 ESTATUS -->
+                <!-- ASESOR Y CATÁLOGO DE 9 ESTATUS -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                         <label class="block text-xs font-mono text-amber-400 uppercase mb-1 font-bold">
@@ -377,7 +377,7 @@
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { 
             getDatabase, ref, get, set, push, update, remove, 
-            onValue, query, orderByChild, equalTo, serverTimestamp 
+            onValue, serverTimestamp 
         } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
         const firebaseConfig = {
@@ -437,7 +437,25 @@
             iniciarCentinelaWatchdog();
         });
 
-        // 1. GOBERNANZA RBAC CENTRALIZADA
+        // NORMALIZADOR CANÓNICO DE ESTATUS (BLINDAJE DE CONTEO)
+        function normalizarEstatus(str) {
+            if (!str) return "Postulado";
+            const s = str.toString().trim().toLowerCase()
+                .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            
+            if (s.includes("proceso terminado") || s.includes("terminado") || s.includes("facturad")) return "Proceso Terminado";
+            if (s.includes("trabajando") || s.includes("activo")) return "Trabajando";
+            if (s.includes("contratad")) return "Contratado";
+            if (s.includes("no contratad") || s.includes("rechazad") || s.includes("descartad")) return "No Contratado";
+            if (s.includes("declinant") || s.includes("abandon") || s.includes("cancelo")) return "Declinante";
+            if (s.includes("inducc")) return "Inducción";
+            if (s.includes("entrevist") || s.includes("cita")) return "Entrevista";
+            if (s.includes("proceso")) return "En Proceso";
+            
+            return "Postulado";
+        }
+
+        // 1. GOBERNANZA RBAC
         function inicializarSeguridadM3() {
             onAuthStateChanged(auth, async (user) => {
                 if (!user) {
@@ -512,12 +530,13 @@
 
         // 2. CONSTRUCCIÓN MATRICIAL N:M
         function construirArbolDescendenteMatricial() {
-            usuarioSesion.equipoDescendenteIds = [usuarioSesion.uid];
-
+            // Nivel 5 o Director: Acceso a todos los colaboradores
             if (usuarioSesion.nivel >= 5 || (usuarioSesion.nivel === 4 && usuarioSesion.esDirector)) {
                 usuarioSesion.equipoDescendenteIds = Object.keys(catalogoUsuarios);
                 return;
             }
+
+            usuarioSesion.equipoDescendenteIds = [usuarioSesion.uid];
 
             if (usuarioSesion.nivel === 4) {
                 const coordinadoresACargo = [];
@@ -783,7 +802,7 @@
             cargarPostulantes();
         }
 
-        // 5. RENDERIZADO CON LOS 9 ESTATUS OPERATIVOS
+        // 5. RENDERIZADO CON LOS 9 ESTATUS OPERATIVOS & CONTEO BLINDADO
         function cargarPostulantes() {
             const contCards = document.getElementById("postulantesCardsMobile");
             const tbodyDesktop = document.getElementById("tablaPostulantesDesktop");
@@ -799,11 +818,9 @@
             let metricaSexo = { Masculino: 0, Femenino: 0, Otro: 0 };
             let metricaEdad = { "18-25": 0, "26-35": 0, "36-45": 0, "46+": 0 };
             
-            // Métricas de KPIs
             let cPost = 0, cProc = 0, cInd = 0, cCont = 0, cTerm = 0, cDecl = 0;
             let total = 0, totalDesfasados = 0, totalCriticos = 0;
 
-            // Estados que vigilan SLA
             const estadosVigilanSLA = ['Postulado', 'En Proceso', 'Entrevista', 'Inducción'];
 
             Object.entries(todosLosPostulantes).forEach(([id, p]) => {
@@ -812,7 +829,10 @@
                 const empKey = sanitizarKey(p.empresaId || p.empresa || "");
                 const recId = p.reclutadorId || p.agenteId || "";
                 const vacNombre = p.nombreVacante || p.vacante || "Sin Vacante";
-                const estatus = p.estatus || "Postulado";
+                
+                // Normalización blindada
+                const estatusCrudo = p.estatus || p.status || "Postulado";
+                const estatus = normalizarEstatus(estatusCrudo);
 
                 const horas = calcularHorasInactividad(p);
                 const estaEnSLA = estadosVigilanSLA.includes(estatus);
@@ -835,7 +855,7 @@
 
                 total++;
 
-                // Agrupación para contadores superiores
+                // Conteo canónico de métricas
                 if (estatus === "Postulado") cPost++;
                 else if (estatus === "En Proceso" || estatus === "Entrevista") cProc++;
                 else if (estatus === "Inducción") cInd++;
@@ -852,7 +872,6 @@
                 else if (edadNum >= 36 && edadNum <= 45) metricaEdad["36-45"]++;
                 else if (edadNum > 45) metricaEdad["46+"]++;
 
-                // Clases dinámicas para los 9 estatus
                 let claseSemaforo = "status-postulado";
                 if (estatus === "En Proceso") claseSemaforo = "status-proceso";
                 else if (estatus === "Entrevista") claseSemaforo = "status-entrevista";
@@ -863,7 +882,6 @@
                 else if (estatus === "Declinante") claseSemaforo = "status-declinante";
                 else if (estatus === "Proceso Terminado") claseSemaforo = "status-terminado";
 
-                // Badge de SLA
                 let badgeSla = estaEnSLA 
                     ? (horas > 48 
                         ? `<span class="inline-flex items-center gap-1 text-[11px] font-mono font-bold sla-tag-red px-2 py-0.5 rounded-lg animate-pulse"><i class="fas fa-fire"></i> Desfasado (${Math.floor(horas)}h)</span>`
@@ -979,7 +997,6 @@
                 tbodyDesktop.appendChild(tr);
             });
 
-            // Resumen SLA
             const bannerSla = document.getElementById("bannerAlertaSla");
             if (totalDesfasados > 0) {
                 bannerSla.classList.remove("hidden");
@@ -990,6 +1007,7 @@
                 bannerSla.classList.add("hidden");
             }
 
+            // Inyección blindada a tarjetas superiores
             document.getElementById("kpiPostulados").innerText = cPost;
             document.getElementById("kpiProceso").innerText = cProc;
             document.getElementById("kpiInduccion").innerText = cInd;
@@ -1072,7 +1090,10 @@
             document.getElementById("editNombre").value = p.nombre || "";
             document.getElementById("editTelefono").value = p.telefono || "";
             document.getElementById("editCurp").value = p.curp || "";
-            document.getElementById("editEstatus").value = p.estatus || "Postulado";
+            
+            // Asignación al select con normalizador
+            const estatusActual = normalizarEstatus(p.estatus || p.status || "Postulado");
+            document.getElementById("editEstatus").value = estatusActual;
             
             const recId = p.reclutadorId || p.agenteId || "";
             const recNombre = catalogoUsuarios[recId]?.nombre || p.reclutadorNombre || "Sin Asignar";
@@ -1256,7 +1277,7 @@
                         "Sexo": p.sexo,
                         "Empresa": p.empresa || p.empresaId,
                         "Vacante": p.nombreVacante || p.vacante,
-                        "Estatus": p.estatus,
+                        "Estatus": normalizarEstatus(p.estatus || p.status),
                         "Cita": p.diaEntrevista || "Sin Cita",
                         "Reclutador": p.reclutadorNombre || "Sin Asignar",
                         "Inactividad_Horas": Math.floor(calcularHorasInactividad(p))
