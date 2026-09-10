@@ -1,433 +1,476 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gobernanza RBAC & Control de Staff | Módulo M5</title>
+  <title>Módulo 5: Gobernanza Staff, Jerarquías & Motor RBAC Pro</title>
 
-  <!-- Bootstrap 5 CSS, Iconos y Fuentes -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- FontAwesome 6 Pro CDN -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            cyber: {
+              bg: '#030712',
+              card: '#0b1329',
+              cardAlt: '#111c38',
+              border: 'rgba(30, 58, 138, 0.4)',
+              accent: '#ff6600',
+              accentHover: '#ea580c',
+              cyan: '#06b6d4',
+              purple: '#a855f7',
+              amber: '#f59e0b',
+              emerald: '#10b981',
+              rose: '#ef4444'
+            }
+          },
+          boxShadow: {
+            'glow-accent': '0 0 25px -5px rgba(255, 102, 0, 0.4)',
+            'glow-cyan': '0 0 25px -5px rgba(6, 182, 212, 0.35)',
+            'glow-card': '0 20px 40px -15px rgba(0, 0, 0, 0.8)'
+          }
+        }
+      }
+    }
+  </script>
 
   <style>
-    :root {
-      --primary-orange: #ff6600;
-      --primary-orange-hover: #e05500;
-      --primary-orange-glow: rgba(255, 102, 0, 0.35);
-      --secondary-blue: #0f2a4a;
-      --secondary-blue-dark: #06101e;
-      --bg-page: #030712;          
-      --container-bg: #0b1329;     
-      --card-bg: rgba(20, 35, 65, 0.6);          
-      --bg-form: #0d1b3e;          
-      --input-bg: #15264a;         
-      --text-light: #f1f5f9;       
-      --text-muted: #94a3b8;       
-      --green-whatsapp: #22c55e;
-      --border-color: rgba(30, 58, 138, 0.4);     
-      --radius-lg: 20px;
-      --radius-md: 14px;
-      --shadow-lg: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #030712; }
+    ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #ff6600; }
+
+    .glass-panel {
+      background: radial-gradient(135% 100% at 50% 0%, rgba(17, 28, 56, 0.75) 0%, rgba(11, 19, 41, 0.9) 100%);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
     }
-
-    * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
-    body { background: radial-gradient(circle at 50% 0%, #0d1e3d 0%, var(--bg-page) 85%); color: var(--text-light); min-height: 100vh; padding: 30px 15px; }
-    .main-container { max-width: 1400px; margin: 0 auto; background: var(--container-bg); padding: 35px; border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); border: 1px solid rgba(255, 255, 255, 0.06); }
     
-    /* Pestañas de Navegación */
-    .nav-tabs-custom { border-bottom: 2px solid var(--border-color); gap: 8px; margin-bottom: 25px; }
-    .nav-tabs-custom .nav-link { color: var(--text-muted); border: none; padding: 12px 24px; font-weight: 600; border-radius: 10px 10px 0 0; transition: all 0.25s ease; background: transparent; }
-    .nav-tabs-custom .nav-link:hover { color: #fff; background: rgba(255, 102, 0, 0.08); }
-    .nav-tabs-custom .nav-link.active { color: #fff; background: var(--bg-form); border-bottom: 3px solid var(--primary-orange); box-shadow: 0 -4px 12px rgba(0,0,0,0.3); }
-
-    .card-banner { background: linear-gradient(135deg, #091a36 0%, var(--secondary-blue-dark) 100%); border: 1px solid var(--border-color); border-top: 3px solid var(--primary-orange); border-radius: var(--radius-md); }
-    .status-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
-    .status-connected { background-color: var(--green-whatsapp); box-shadow: 0 0 10px rgba(34, 197, 94, 0.8); }
-    .status-disconnected { background-color: #ef4444; box-shadow: 0 0 10px rgba(239, 68, 68, 0.8); }
-
-    .premium-card { background: var(--bg-form); border-radius: var(--radius-md); border: 1px solid var(--border-color); border-top: 3px solid var(--primary-orange); margin-bottom: 25px; }
-    .premium-card-header { background: rgba(15, 26, 48, 0.85); padding: 16px 24px; border-bottom: 1px solid var(--border-color); }
-    
-    .form-control, .form-select, .input-group-text { background-color: var(--input-bg) !important; border: 1px solid rgba(255, 255, 255, 0.12) !important; color: #fff !important; border-radius: 10px; }
-    .form-control:focus, .form-select:focus { border-color: var(--primary-orange) !important; box-shadow: 0 0 10px var(--primary-orange-glow) !important; }
-    
-    .table-premium { --bs-table-bg: transparent !important; color: #fff !important; margin-bottom: 0; background-color: #081126 !important; }
-    .table-premium th { color: var(--primary-orange) !important; font-weight: 700; text-transform: uppercase; font-size: 0.78rem; padding: 14px; border-bottom: 2px solid rgba(255, 102, 0, 0.3) !important; }
-    .table-premium td { padding: 14px; vertical-align: middle; color: #f1f5f9 !important; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
-
-    .btn-orange { background: linear-gradient(135deg, var(--primary-orange) 0%, #e05500 100%); color: #fff; border: none; font-weight: 700; border-radius: 10px; }
-    .btn-orange:hover { transform: translateY(-1px); color: #fff; box-shadow: 0 4px 15px var(--primary-orange-glow); }
-    .btn-wa { background-color: rgba(34, 197, 94, 0.15); color: var(--green-whatsapp) !important; border: 1px solid rgba(34, 197, 94, 0.4); }
-    .btn-wa:hover { background-color: var(--green-whatsapp); color: #000 !important; }
-
-    .btn-action { width: 34px; height: 34px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; transition: all 0.2s; }
-    .btn-edit { background: rgba(255, 193, 7, 0.15); color: #ffc107; border: 1px solid rgba(255, 193, 7, 0.3); }
-    .btn-edit:hover { background: #ffc107; color: #000; }
-    .btn-del { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
-    .btn-del:hover { background: #ef4444; color: #fff; }
-    .btn-mail { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); }
-    .btn-mail:hover { background: #38bdf8; color: #000; }
-
-    .multiselect-container { background-color: var(--input-bg); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 10px; padding: 12px; max-height: 180px; overflow-y: auto; }
-    .modal-content { background-color: var(--container-bg); border: 1px solid var(--border-color); color: var(--text-light); }
-    .modal-header, .modal-footer { border-color: var(--border-color); }
-    .crud-table th, .crud-table td { padding: 8px !important; text-align: center; font-size: 0.85rem; }
-
-    #candadoSeguridad { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; }
+    .touch-target {
+      min-height: 44px;
+      min-width: 44px;
+    }
   </style>
 </head>
-<body>
+<body class="bg-cyber-bg text-slate-100 font-sans min-h-screen antialiased selection:bg-cyber-accent selection:text-white p-2.5 sm:p-4 md:p-6 lg:p-8">
 
   <!-- CANDADO ZERO-TRUST -->
-  <div id="candadoSeguridad" class="d-none text-center">
-    <i class="fas fa-user-lock text-warning" style="font-size: 4rem;"></i>
-    <h3 class="mt-4 fw-bold">Acceso Restringido por Nivel de Autoridad</h3>
-    <p class="text-muted max-w-500">Este módulo requiere privilegios directivos (Nivel 4 o 5). Si eres colaborador operativo, tus permisos son asignados por tu coordinador.</p>
-    <a href="admin.html" class="btn btn-orange px-4 py-2 mt-2"><i class="bi bi-arrow-left me-2"></i>Regresar al Panel Principal</a>
+  <div id="candadoSeguridad" class="hidden flex flex-col items-center justify-center min-h-[70vh] text-center p-6 glass-panel rounded-3xl max-w-xl mx-auto shadow-glow-card border-cyber-rose/30 mt-12">
+    <div class="w-20 h-20 rounded-2xl bg-cyber-rose/10 border border-cyber-rose/30 flex items-center justify-center text-cyber-rose text-3xl mb-5 shadow-inner">
+      <i class="fas fa-user-lock animate-pulse"></i>
+    </div>
+    <h2 class="text-xl sm:text-2xl font-black text-white tracking-tight uppercase">Acceso Restringido por Gobernanza</h2>
+    <p class="text-slate-400 text-xs sm:text-sm mt-2 leading-relaxed">
+      Este módulo es exclusivo para Mando Directivo (Nivel 4+) y Dirección General (Nivel 5). Tus permisos actuales no permiten administrar el catálogo de personal.
+    </p>
+    <a href="admin.html" class="mt-6 inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-cyber-accent hover:bg-cyber-accentHover text-slate-950 font-black text-xs uppercase tracking-wider transition-all shadow-glow-accent touch-target">
+      <i class="fas fa-arrow-left"></i> Volver al Panel Principal
+    </a>
   </div>
 
-  <!-- INTERFAZ PRINCIPAL -->
-  <div class="main-container" id="panelGobernanza" style="display: none;">
+  <!-- CONTENEDOR PRINCIPAL ERP -->
+  <div id="panelGobernanza" class="max-w-7xl mx-auto space-y-6 hidden">
     
-    <!-- BANNER SUPERIOR -->
-    <div class="card card-banner mb-4">
-      <div class="card-body d-flex align-items-center justify-content-between py-3 flex-wrap gap-2">
-        <div class="d-flex align-items-center gap-3">
-          <div id="statusDot" class="status-dot status-disconnected"></div>
-          <div>
-            <h6 class="fw-bold mb-0 text-white"><i class="fas fa-shield-alt text-warning me-2"></i>Gobernanza RBAC & Gestión de Cuentas</h6>
-            <small id="connectionText" class="text-muted">Conectando a nodo seguro...</small>
-          </div>
+    <!-- HEADER SUPREMO MERCADOTÉCNICO / STATUS BAR -->
+    <header class="glass-panel p-4 sm:p-6 rounded-2xl sm:rounded-3xl border-t-2 border-t-cyber-accent shadow-glow-card flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+      <div class="space-y-1">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="bg-cyber-accent/10 text-cyber-accent border border-cyber-accent/30 text-[10px] sm:text-xs font-mono font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full flex items-center gap-1.5 shadow-sm">
+            <i class="fas fa-shield-halved"></i> Módulo 5 • Staff & RBAC Pro
+          </span>
+          <span id="badgeConexionServer" class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] sm:text-xs font-mono font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Nodo Canónico En Línea
+          </span>
+          <span id="badgeJerarquiaActual" class="bg-cyber-cyan/10 text-cyber-cyan border border-cyber-cyan/30 text-[10px] sm:text-xs font-mono font-bold px-2.5 py-0.5 rounded-full">
+            Verificando Credenciales...
+          </span>
         </div>
-        <div class="d-flex align-items-center gap-2">
-          <span class="badge bg-warning text-dark px-3 py-2" id="userMasterBadge"><i class="bi bi-person-badge-fill me-1"></i>Verificando Sesión...</span>
-          <a href="m5_2_cobertura.html" class="btn btn-outline-info btn-sm rounded-pill px-3">
-            <i class="fas fa-sitemap me-1"></i> M5.2 Cobertura
-          </a>
-          <a href="m6_extractor_coordenadas.html" class="btn btn-outline-warning btn-sm rounded-pill px-3">
-            <i class="fas fa-satellite me-1"></i> M6.2 Extractor INEGI
-          </a>
-          <a href="admin.html" class="btn btn-outline-light btn-sm rounded-pill px-3">
-            <i class="fas fa-home me-1"></i> Panel
-          </a>
-          <button id="btnForceSync" class="btn btn-outline-secondary btn-sm rounded-pill px-3" onclick="location.reload()">
-            <i class="bi bi-arrow-repeat me-1"></i> Recargar
-          </button>
-        </div>
+        <h1 class="text-xl sm:text-2xl md:text-3xl font-black tracking-tight text-white flex items-center gap-2">
+          Estructura de Mando & Control de Cuentas
+        </h1>
+        <p class="text-slate-400 text-xs sm:text-sm">
+          Administración de colaboradores, asignación relacional de ternas y gobernanza modular reactiva.
+        </p>
       </div>
+
+      <!-- BOTONERA DIRECTIVA ULTRA-ERGONÓMICA -->
+      <div class="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+        <a href="m5_2_cobertura.html" class="flex-1 sm:flex-initial glass-panel hover:bg-cyber-cardAlt text-slate-300 hover:text-cyber-cyan text-xs font-mono font-bold px-3.5 py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all border border-cyber-border touch-target">
+          <i class="fas fa-sitemap text-cyber-cyan"></i> Cobertura
+        </a>
+        <a href="m6_extractor_coordenadas.html" class="flex-1 sm:flex-initial glass-panel hover:bg-cyber-cardAlt text-slate-300 hover:text-cyber-amber text-xs font-mono font-bold px-3.5 py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all border border-cyber-border touch-target">
+          <i class="fas fa-satellite text-cyber-amber"></i> GeoINEGI
+        </a>
+        <a href="admin.html" class="flex-1 sm:flex-initial glass-panel hover:bg-cyber-cardAlt text-slate-300 hover:text-white text-xs font-mono font-bold px-3.5 py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all border border-cyber-border touch-target">
+          <i class="fas fa-home"></i> Panel
+        </a>
+      </div>
+    </header>
+
+    <!-- NAVEGACIÓN POR PESTAÑAS (MÓVIL SLIDER / ESCRITORIO FLUIDO) -->
+    <div class="flex items-center gap-2 border-b border-cyber-border pb-2 overflow-x-auto custom-scrollbar">
+      <button id="btnTabStaff" onclick="cambiarPestana('STAFF')" class="shrink-0 px-4 py-2.5 rounded-xl font-mono text-xs font-bold uppercase transition-all flex items-center gap-2 bg-cyber-accent text-slate-950 shadow-glow-accent touch-target">
+        <i class="fas fa-users-gear text-sm"></i> 1. Directorio y Cuentas de Acceso
+      </button>
+      <button id="btnTabRoles" onclick="cambiarPestana('ROLES')" class="shrink-0 px-4 py-2.5 rounded-xl font-mono text-xs font-bold uppercase transition-all flex items-center gap-2 glass-panel text-slate-300 hover:bg-cyber-cardAlt hover:text-white border border-cyber-border touch-target">
+        <i class="fas fa-network-wired text-sm"></i> 2. Catálogo & Motor de Roles RBAC
+      </button>
     </div>
 
-    <!-- PESTAÑAS (TABS) -->
-    <ul class="nav nav-tabs nav-tabs-custom" id="m5Tabs" role="tablist">
-      <li class="nav-item">
-        <button class="nav-link active" id="tab-staff-link" data-bs-toggle="tab" data-bs-target="#tab-staff" type="button">
-          <i class="fas fa-users-cog me-2"></i>1. Directorio y Cuentas de Acceso
-        </button>
-      </li>
-      <li class="nav-item">
-        <button class="nav-link" id="tab-roles-link" data-bs-toggle="tab" data-bs-target="#tab-roles" type="button">
-          <i class="fas fa-network-wired me-2"></i>2. Catálogo y Motor de Roles
-        </button>
-      </li>
-    </ul>
-
-    <div class="tab-content" id="m5TabsContent">
-
-      <!-- TAB 1: GESTIÓN DE COLABORADORES Y CUENTAS -->
-      <div class="tab-pane fade show active" id="tab-staff" role="tabpanel">
-        
-        <!-- FICHA DE ALTA/EDICIÓN -->
-        <div class="premium-card">
-          <div class="premium-card-header d-flex justify-content-between align-items-center">
-            <h6 class="fw-bold mb-0 text-warning"><i class="fas fa-user-plus me-2"></i>Ficha Oficial de Colaborador (Gobernanza Central)</h6>
-            <span id="formModeBadge" class="badge bg-dark border border-secondary text-light">Nuevo Colaborador</span>
+    <!-- ============================================================= -->
+    <!-- PESTAÑA 1: DIRECTORIO, FICHA MAESTRA & ASIGNACIÓN RELACIONAL -->
+    <!-- ============================================================= -->
+    <div id="pestanaStaff" class="space-y-6">
+      
+      <!-- FORMULARIO ULTRA-ERGONÓMICO DE ALTA / EDICIÓN -->
+      <section class="glass-panel rounded-2xl sm:rounded-3xl border border-cyber-border overflow-hidden shadow-glow-card">
+        <div class="p-4 sm:p-5 border-b border-cyber-border bg-slate-950/40 flex justify-between items-center flex-wrap gap-2">
+          <div class="flex items-center gap-2">
+            <span class="w-8 h-8 rounded-lg bg-cyber-accent/10 border border-cyber-accent/30 text-cyber-accent flex items-center justify-center text-xs">
+              <i class="fas fa-user-plus"></i>
+            </span>
+            <h2 class="text-sm sm:text-base font-black uppercase text-white tracking-wide">Ficha Oficial de Colaborador</h2>
           </div>
-          <div class="card-body p-4">
-            <form id="formStaff" class="row g-3">
-              <input type="hidden" id="staffId">
-              
-              <div class="col-md-4">
-                <label for="staffNombre" class="form-label fw-semibold">Nombre Completo</label>
-                <input type="text" class="form-control" id="staffNombre" required placeholder="Ej. Daniel Domínguez">
-              </div>
+          <span id="badgeModoEdicion" class="text-[10px] font-mono px-2.5 py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700">
+            Modo: Nuevo Colaborador
+          </span>
+        </div>
 
-              <div class="col-md-4">
-                <label for="staffEmail" class="form-label fw-semibold text-warning">Correo Electrónico (Acceso Auth)</label>
-                <input type="email" class="form-control" id="staffEmail" required placeholder="colaborador@dominio.com">
-              </div>
+        <form id="formColaborador" onsubmit="procesarGuardadoColaborador(event)" class="p-4 sm:p-6 space-y-5">
+          <input type="hidden" id="staffUidHidden">
 
-              <!-- CONTRASEÑA CON OJO TOGGLE Y GENERADOR -->
-              <div class="col-md-4">
-                <div class="d-flex justify-content-between align-items-center mb-1">
-                  <label for="staffPassword" class="form-label fw-semibold mb-0">Contraseña de Acceso</label>
-                  <button type="button" class="btn btn-link text-warning p-0 text-decoration-none small" id="btnGenerarPass" style="font-size: 0.78rem;">
-                    <i class="fas fa-key me-1"></i>Generar Aleatoria
-                  </button>
-                </div>
-                <div class="input-group">
-                  <input type="password" class="form-control" id="staffPassword" minlength="6" placeholder="Mínimo 6 caracteres">
-                  <button class="btn btn-outline-secondary" type="button" id="btnTogglePassword" title="Ver/Ocultar contraseña">
-                    <i class="bi bi-eye" id="iconTogglePassword"></i>
-                  </button>
-                </div>
-                <small class="text-muted" id="passHelpText" style="font-size: 0.72rem;">Si estás editando y no deseas cambiar la clave, déjala vacía.</small>
-              </div>
+          <!-- BLOQUE 1: IDENTIDAD & CREDENCIALES AUTH -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div>
+              <label class="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                <i class="fas fa-signature text-cyber-accent me-1"></i> Nombre Completo *
+              </label>
+              <input type="text" id="staffNombre" required placeholder="Ej: Daniel Domínguez" class="w-full bg-cyber-bg/80 border border-cyber-border rounded-xl p-3 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-cyber-accent touch-target font-medium">
+            </div>
 
-              <div class="col-md-3">
-                <label for="staffTelefono" class="form-label fw-semibold">WhatsApp (10 dígitos)</label>
-                <div class="input-group">
-                  <span class="input-group-text text-muted">+52</span>
-                  <input type="tel" class="form-control" id="staffTelefono" required maxlength="10" pattern="[0-9]{10}" placeholder="9611234567">
-                </div>
-              </div>
+            <div>
+              <label class="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                <i class="fas fa-envelope text-cyber-cyan me-1"></i> Correo Electrónico (Login Auth) *
+              </label>
+              <input type="email" id="staffEmail" required placeholder="colaborador@dominio.com" class="w-full bg-cyber-bg/80 border border-cyber-border rounded-xl p-3 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-cyber-cyan touch-target font-medium">
+            </div>
 
-              <!-- SELECTOR DE ROL -->
-              <div class="col-md-3">
-                <label for="staffRol" class="form-label fw-semibold text-warning">Rol Dinámico Asignado</label>
-                <select class="form-select border-warning" id="staffRol" required>
-                  <option value="" disabled selected>Cargando roles...</option>
-                </select>
-              </div>
-
-              <div class="col-md-3">
-                <label for="staffEstatus" class="form-label fw-semibold">Estatus Operativo</label>
-                <select class="form-select" id="staffEstatus" required>
-                  <option value="Activo">Activo</option>
-                  <option value="Inactivo">Inactivo / Suspendido</option>
-                </select>
-              </div>
-
-              <div class="col-md-3">
-                <label class="form-label fw-semibold text-info">Gestión Autónoma</label>
-                <div class="form-check form-switch mt-2">
-                  <input class="form-check-input" type="checkbox" id="chkEnviarResetMail" checked>
-                  <label class="form-check-label small text-light" for="chkEnviarResetMail">
-                    Enviar link de cambio de clave por correo
-                  </label>
-                </div>
-              </div>
-
-              <!-- PREGUNTA DIRECTIVA: ¿OPERARÁ COMO RECLUTADOR? (NIVEL 3+) -->
-              <div class="col-12 d-none" id="groupOperaComoReclutador">
-                <div class="p-3 rounded-3 border border-warning bg-warning bg-opacity-10 d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
-                  <div>
-                    <span class="fw-bold text-warning d-block">
-                      <i class="fas fa-user-shield me-1"></i> Asignación Operativa Directiva (Nivel 3+)
-                    </span>
-                    <small class="text-light">
-                      ¿Este mando directivo o supervisor gestionará candidatos directamente y aparecerá en las listas de asignación como asesor/reclutador en el sistema?
-                    </small>
-                  </div>
-                  <div class="form-check form-switch m-0 shrink-0">
-                    <input class="form-check-input" type="checkbox" id="chkOperaComoReclutador" style="width: 2.8em; height: 1.4em;">
-                    <label class="form-check-label fw-bold text-light ms-2" for="chkOperaComoReclutador" id="lblOperaComoReclutador">
-                      No (Solo Supervisión)
-                    </label>
-                  </div>
-                </div>
-              </div>
-
-              <!-- COORDINACIÓN Y EMPRESAS -->
-              <div class="col-md-4 d-none" id="groupCoordinadorPadre">
-                <label for="staffCoordinadorPadre" class="form-label fw-semibold text-warning">
-                  <i class="fas fa-sitemap me-1"></i> Coordinador Inmediato
+            <div>
+              <div class="flex justify-between items-center mb-1">
+                <label class="block text-[10px] font-mono uppercase text-slate-400 font-bold">
+                  <i class="fas fa-key text-cyber-amber me-1"></i> Contraseña
                 </label>
-                <select class="form-select" id="staffCoordinadorPadre">
-                  <option value="">Sin Coordinador Directo</option>
-                </select>
-              </div>
-
-              <div class="col-md-8" id="groupCompanies">
-                <div class="d-flex justify-content-between align-items-center mb-1">
-                  <label class="form-label fw-semibold mb-0">Empresas Asignadas (Alcance Territorial)</label>
-                  <span id="scopeBadge" class="badge bg-secondary">Ajustado por Rol</span>
-                </div>
-                <div id="empresasContainer" class="multiselect-container">
-                  <span class="text-muted small">Cargando empresas...</span>
-                </div>
-              </div>
-
-              <div class="col-12 text-end mt-4">
-                <button type="button" id="btnCancelarStaff" class="btn btn-outline-secondary me-2 d-none" onclick="cancelarEdicionStaff()">Cancelar</button>
-                <button type="submit" class="btn btn-orange px-4 py-2" id="btnSubmitStaff">
-                  <i class="bi bi-shield-check me-1"></i> Guardar y Aplicar Reglas
+                <button type="button" onclick="generarPasswordAleatorio()" class="text-[10px] font-mono text-cyber-amber hover:underline flex items-center gap-1">
+                  <i class="fas fa-wand-magic-sparkles"></i> Generar
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-
-        <!-- TABLA DIRECTORIO -->
-        <div class="premium-card">
-          <div class="premium-card-header d-flex justify-content-between align-items-center">
-            <h6 class="fw-bold mb-0 text-white"><i class="fas fa-users me-2 text-warning"></i>Directorio de Colaboradores Activos</h6>
-            <span id="totalStaffBadge" class="badge bg-warning text-dark px-3 py-2 fw-bold">0 Personal</span>
-          </div>
-          <div class="card-body p-0">
-            <div class="table-responsive">
-              <table class="table table-premium align-middle mb-0">
-                <thead>
-                  <tr>
-                    <th class="ps-4">Colaborador / Cuenta</th>
-                    <th>Rol / Jerarquía</th>
-                    <th>Contacto</th>
-                    <th>Empresas / Cobertura</th>
-                    <th>Estatus</th>
-                    <th class="text-end pe-4">Acciones Directas</th>
-                  </tr>
-                </thead>
-                <tbody id="tablaStaffBody">
-                  <tr><td colspan="6" class="text-center py-4 text-muted">Cargando colaboradores...</td></tr>
-                </tbody>
-              </table>
+              <div class="relative">
+                <input type="password" id="staffPassword" minlength="6" placeholder="Mínimo 6 caracteres" class="w-full bg-cyber-bg/80 border border-cyber-border rounded-xl p-3 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-cyber-amber pr-10 touch-target font-mono">
+                <button type="button" onclick="toggleVisibilidadPassword()" class="absolute right-3 top-3 text-slate-400 hover:text-white text-xs touch-target flex items-center justify-center">
+                  <i id="iconTogglePass" class="fas fa-eye"></i>
+                </button>
+              </div>
+              <span id="txtHelpPassword" class="text-[9px] text-slate-500 font-mono mt-0.5 block">Al editar, dejar vacío para conservar contraseña previa.</span>
             </div>
           </div>
-        </div>
 
-      </div>
+          <!-- BLOQUE 2: COMUNICACIÓN, ROL DINÁMICO & ESTATUS -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label class="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                <i class="fab fa-whatsapp text-cyber-emerald me-1"></i> WhatsApp Oficial (10 Dígitos) *
+              </label>
+              <input type="tel" id="staffTelefono" required pattern="[0-9]{10}" maxlength="10" placeholder="Ej: 8112345678" class="w-full bg-cyber-bg/80 border border-cyber-border rounded-xl p-3 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-cyber-emerald touch-target font-mono">
+            </div>
 
-      <!-- TAB 2: ROLES DINÁMICOS -->
-      <div class="tab-pane fade" id="tab-roles" role="tabpanel">
-        
-        <div class="premium-card">
-          <div class="premium-card-header d-flex justify-content-between align-items-center">
-            <h6 class="fw-bold mb-0 text-warning"><i class="fas fa-user-lock me-2"></i>Plantillas de Roles y Matriz Canónica CRUD</h6>
-            <button class="btn btn-orange btn-sm" onclick="prepararNuevoRol()">
-              <i class="bi bi-plus-circle me-1"></i> Crear Nuevo Rol
+            <div>
+              <label class="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                <i class="fas fa-user-tag text-cyber-purple me-1"></i> Rol Dinámico *
+              </label>
+              <select id="selectRolDinamico" onchange="alCambiarRolSeleccionado()" required class="w-full bg-cyber-bg/80 border border-cyber-border rounded-xl p-3 text-xs text-white focus:outline-none focus:border-cyber-purple touch-target font-bold">
+                <option value="">-- Cargando Roles Disponibles --</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                <i class="fas fa-power-off text-cyber-rose me-1"></i> Estatus Operativo
+              </label>
+              <select id="selectEstatusOperativo" class="w-full bg-cyber-bg/80 border border-cyber-border rounded-xl p-3 text-xs text-white focus:outline-none focus:border-cyber-rose touch-target font-bold">
+                <option value="Activo">🟢 Activo / Operando</option>
+                <option value="Inactivo">🔴 Inactivo / Suspendido</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- BANNER SWITCH OPERATIVO DIRECTIVO: ¿OPERA COMO RECLUTADOR? -->
+          <div id="boxSwitchReclutador" class="p-3.5 sm:p-4 rounded-xl border border-cyber-amber/40 bg-amber-950/20 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div>
+              <span class="text-xs font-bold text-amber-400 uppercase font-mono flex items-center gap-1.5">
+                <i class="fas fa-headset"></i> Asignación y Operatividad en Reclutamiento
+              </span>
+              <p class="text-[11px] text-slate-300 mt-0.5">
+                ¿Este mando directivo o administrativo recibirá candidatos de postulaciones o figurará en selectores de asignación?
+              </p>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer shrink-0">
+              <input type="checkbox" id="chkOperaComoReclutador" class="sr-only peer" onchange="actualizarTextoSwitchReclutador()">
+              <div class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyber-emerald"></div>
+              <span id="lblSwitchReclutador" class="ml-3 text-xs font-mono font-bold text-slate-400">No (Solo Mando)</span>
+            </label>
+          </div>
+
+          <!-- BLOQUE 3: LÍNEA DE MANDO RELACIONAL (SUPERVISOR & COORDINADOR DE LA TERNA) -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 p-3.5 rounded-xl border border-cyber-border bg-slate-950/30">
+            <div>
+              <label class="block text-[10px] font-mono uppercase text-cyber-purple mb-1 font-bold">
+                <i class="fas fa-user-shield me-1"></i> Supervisor Titular (Nivel 4)
+              </label>
+              <select id="selectSupervisorPadre" onchange="alCambiarSupervisorPadre()" class="w-full bg-cyber-bg border border-cyber-border rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none focus:border-cyber-purple touch-target">
+                <option value="">-- Sin Supervisor Asignado --</option>
+              </select>
+              <span class="text-[9px] text-slate-500 font-mono mt-0.5 block">Heredado automáticamente al elegir coordinador.</span>
+            </div>
+
+            <div>
+              <label class="block text-[10px] font-mono uppercase text-cyber-cyan mb-1 font-bold">
+                <i class="fas fa-sitemap me-1"></i> Coordinador Directo (Nivel 3)
+              </label>
+              <select id="selectCoordinadorPadre" onchange="alCambiarCoordinadorPadre()" class="w-full bg-cyber-bg border border-cyber-border rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none focus:border-cyber-cyan touch-target">
+                <option value="">-- Sin Coordinador Directo --</option>
+              </select>
+              <span class="text-[9px] text-slate-500 font-mono mt-0.5 block">Al asignarlo, el reclutador hereda su supervisor.</span>
+            </div>
+          </div>
+
+          <!-- BLOQUE 4: ALCANCE TERRITORIAL / EMPRESAS ASIGNADAS CON HERENCIA AUTOMÁTICA -->
+          <div class="space-y-2">
+            <div class="flex justify-between items-center">
+              <label class="text-[10px] font-mono uppercase text-slate-400 font-bold flex items-center gap-1.5">
+                <i class="fas fa-building text-cyber-accent"></i> Cobertura Empresarial y Adhesión de Mandos
+              </label>
+              <span id="badgeAlcanceScope" class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">Scope: Regional</span>
+            </div>
+            
+            <div id="contenedorEmpresasCheckboxes" class="max-h-40 overflow-y-auto p-3 bg-cyber-bg border border-cyber-border rounded-xl grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 custom-scrollbar">
+              <span class="text-slate-500 text-xs font-mono">Cargando empresas cliente...</span>
+            </div>
+          </div>
+
+          <!-- ACCIONES DE FORMULARIO -->
+          <div class="pt-3 border-t border-cyber-border flex flex-col sm:flex-row justify-end items-center gap-3">
+            <button type="button" id="btnCancelarEdicion" onclick="cancelarEdicionColaborador()" class="w-full sm:w-auto px-5 py-2.5 rounded-xl border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800 text-xs font-bold font-mono transition touch-target hidden">
+              ✕ Cancelar
+            </button>
+            <button type="submit" id="btnSubmitColaborador" class="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-cyber-accent hover:bg-cyber-accentHover text-slate-950 font-black text-xs uppercase tracking-wider transition-all shadow-glow-accent touch-target flex items-center justify-center gap-2">
+              <i class="fas fa-floppy-disk"></i> Guardar y Aplicar Reglas
             </button>
           </div>
-          <div class="card-body p-0">
-            <div class="table-responsive">
-              <table class="table table-premium align-middle mb-0">
-                <thead>
-                  <tr>
-                    <th class="ps-4">Nombre del Rol</th>
-                    <th>Nivel</th>
-                    <th>Alcance (Scope)</th>
-                    <th>Módulos con Permiso Activo</th>
-                    <th class="text-end pe-4">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody id="tablaRolesBody">
-                  <tr><td colspan="5" class="text-center py-4 text-muted">Cargando roles dinámicos...</td></tr>
-                </tbody>
-              </table>
-            </div>
+        </form>
+      </section>
+
+      <!-- DIRECTORIO DE PERSONAL (ADAPTABILIDAD TOTAL: CARDS EN MÓVIL / TABLA EN DESKTOP) -->
+      <section class="glass-panel rounded-2xl sm:rounded-3xl border border-cyber-border overflow-hidden shadow-glow-card">
+        <div class="p-4 sm:p-5 border-b border-cyber-border bg-slate-950/40 flex justify-between items-center flex-wrap gap-2">
+          <div class="flex items-center gap-2">
+            <span class="w-8 h-8 rounded-lg bg-cyber-cyan/10 border border-cyber-cyan/30 text-cyber-cyan flex items-center justify-center text-xs">
+              <i class="fas fa-id-card-clip"></i>
+            </span>
+            <h2 class="text-sm sm:text-base font-black uppercase text-white tracking-wide">Directorio Oficial de Staff</h2>
           </div>
+          <span id="txtConteoStaffTotal" class="text-xs font-mono font-bold text-cyber-accent bg-cyber-accent/10 border border-cyber-accent/20 px-3 py-1 rounded-full">
+            0 Colaboradores
+          </span>
         </div>
 
-      </div>
+        <!-- VISTA TARJETAS TÁCTICAS (SOLO EN SMARTPHONES Y TABLETS VERTICALES: <1024px) -->
+        <div class="p-3 sm:p-4 lg:hidden grid grid-cols-1 sm:grid-cols-2 gap-3" id="directorioCardsMobile">
+          <div class="p-6 text-center text-slate-500 font-mono text-xs col-span-2">Cargando directorio...</div>
+        </div>
 
+        <!-- VISTA TABLA CLÁSICA EXPANDIDA (DESKTOP: >=1024px) -->
+        <div class="hidden lg:block overflow-x-auto">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr class="bg-slate-950/80 border-b border-cyber-border text-slate-400 uppercase font-mono font-bold">
+                <th class="p-3.5 pl-6">Colaborador / Cuenta</th>
+                <th class="p-3.5">Rol / Jerarquía</th>
+                <th class="p-3.5">Contacto</th>
+                <th class="p-3.5">Línea de Mando (Terna)</th>
+                <th class="p-3.5">Empresas</th>
+                <th class="p-3.5">Estatus</th>
+                <th class="p-3.5 text-right pr-6">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="directorioTablaDesktop" class="divide-y divide-cyber-border/40 text-slate-300">
+              <tr><td colspan="7" class="p-6 text-center text-slate-500 font-mono">Cargando directorio...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- ============================================================= -->
+    <!-- PESTAÑA 2: CATÁLOGO DE ROLES DINÁMICOS & MATRIZ CANÓNICA CRUD -->
+    <!-- ============================================================= -->
+    <div id="pestanaRoles" class="space-y-6 hidden">
+      <section class="glass-panel rounded-2xl sm:rounded-3xl border border-cyber-border p-4 sm:p-6 shadow-glow-card space-y-4">
+        <div class="flex justify-between items-center border-b border-cyber-border pb-3 flex-wrap gap-2">
+          <div>
+            <h2 class="text-sm sm:text-base font-black uppercase text-cyber-purple tracking-wide flex items-center gap-2">
+              <i class="fas fa-shield-virus"></i> Motor de Roles & Matriz Canónica
+            </h2>
+            <p class="text-[11px] text-slate-400">Define los privilegios de Ver, Crear, Editar y Borrar para cada módulo del sistema.</p>
+          </div>
+          <button onclick="abrirModalCrearRol()" id="btnCrearNuevoRol" class="px-4 py-2 rounded-xl bg-cyber-purple hover:bg-purple-600 text-white font-bold text-xs uppercase tracking-wider transition shadow-md touch-target flex items-center gap-1.5">
+            <i class="fas fa-plus"></i> Crear Nuevo Rol
+          </button>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr class="bg-slate-950/80 border-b border-cyber-border text-slate-400 uppercase font-mono font-bold">
+                <th class="p-3.5">Nombre del Rol</th>
+                <th class="p-3.5 text-center">Nivel</th>
+                <th class="p-3.5 text-center">Scope</th>
+                <th class="p-3.5">Módulos Asignados</th>
+                <th class="p-3.5 text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tablaRolesDinamicosBody" class="divide-y divide-cyber-border/40 text-slate-300 font-mono">
+              <tr><td colspan="5" class="p-6 text-center text-slate-500">Cargando roles...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
     </div>
 
   </div>
 
-  <!-- MODAL: GESTOR DE ROLES DINÁMICOS -->
-  <div class="modal fade" id="modalRol" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title fw-bold text-warning" id="modalRolTitle"><i class="bi bi-shield-plus me-2"></i>Definir Rol Dinámico</h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body">
-          <form id="formNuevoRol">
-            <input type="hidden" id="rolIdHidden">
-            <div class="row g-3 mb-3">
-              <div class="col-md-6">
-                <label class="form-label text-light fw-semibold">Nombre del Rol</label>
-                <input type="text" class="form-control" id="rolNombre" placeholder="Ej. Reclutador Senior Regional" required autocomplete="off">
-              </div>
-              <div class="col-md-3">
-                <label class="form-label text-light fw-semibold">Nivel de Jerarquía</label>
-                <select class="form-select" id="rolNivel" required>
-                  <option value="5">Nivel 5 (Dirección General / Admin)</option>
-                  <option value="4">Nivel 4 (Gerencia / Coordinación Gral)</option>
-                  <option value="3">Nivel 3 (Supervisión de Campo)</option>
-                  <option value="2" selected>Nivel 2 (Operativo / Reclutador)</option>
-                  <option value="1">Nivel 1 (Cliente / Consulta Externa)</option>
-                </select>
-              </div>
-              <div class="col-md-3">
-                <label class="form-label text-light fw-semibold">Perímetro (Scope)</label>
-                <select class="form-select" id="rolScope" required>
-                  <option value="global">Global (Todas las empresas)</option>
-                  <option value="regional" selected>Regional (Asignadas)</option>
-                  <option value="personal">Personal (Solo sus registros)</option>
-                </select>
-              </div>
-            </div>
-
-            <label class="form-label text-warning fw-semibold mb-2">Matriz de Acceso por Módulo (Reglas Canónicas)</label>
-            <div class="table-responsive">
-              <table class="table table-dark table-bordered crud-table align-middle">
-                <thead>
-                  <tr class="text-warning">
-                    <th>Módulo del ERP</th>
-                    <th>Ver (R)</th>
-                    <th>Crear (C)</th>
-                    <th>Editar (U)</th>
-                    <th>Eliminar (D)</th>
-                  </tr>
-                </thead>
-                <tbody id="matrizCrudBody"></tbody>
-              </table>
-            </div>
-
-            <div class="text-end mt-4">
-              <button type="button" class="btn btn-outline-secondary me-2" data-bs-dismiss="modal">Cancelar</button>
-              <button type="submit" class="btn btn-orange">Guardar Plantilla de Rol</button>
-            </div>
-          </form>
-        </div>
+  <!-- MODAL: GESTOR DE ROLES DINÁMICOS CRUD -->
+  <div id="modalRolDinamico" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-3 sm:p-4">
+    <div class="glass-panel border border-cyber-purple rounded-3xl max-w-2xl w-full max-h-[90dvh] flex flex-col overflow-hidden shadow-2xl">
+      <div class="p-4 sm:p-5 border-b border-cyber-border flex justify-between items-center bg-slate-950/60">
+        <h3 id="modalRolTitulo" class="text-sm sm:text-base font-black uppercase text-cyber-purple tracking-wide flex items-center gap-2">
+          <i class="fas fa-shield-plus"></i> Configurar Rol Dinámico
+        </h3>
+        <button onclick="cerrarModalRol()" class="text-slate-400 hover:text-white text-lg font-bold p-1 touch-target">✕</button>
       </div>
-    </div>
-  </div>
 
-  <!-- MODAL POLIVALENTE: REASIGNACIÓN EN LOTE (POR BAJA O RETIRO DE FUNCIÓN) -->
-  <div class="modal fade" id="modalBajaReasignacion" data-bs-backdrop="static" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content" id="modalReasignacionContent">
-        <div class="modal-header" id="modalReasignacionHeader">
-          <h5 class="modal-title fw-bold" id="modalReasignacionTitle"><i class="fas fa-exchange-alt me-2"></i>Traspaso de Cartera Operativa</h5>
-        </div>
-        <div class="modal-body">
-          <div id="modalReasignacionAlert" class="p-3 mb-3 rounded-3 border">
-            <span id="modalReasignacionTextoIntro" class="small text-light d-block"></span>
+      <form id="formModalRol" onsubmit="guardarPlantillaRol(event)" class="p-4 sm:p-6 overflow-y-auto space-y-4 custom-scrollbar flex-1 text-xs">
+        <input type="hidden" id="rolIdHidden">
+        
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">Nombre del Rol *</label>
+            <input type="text" id="rolInputNombre" required placeholder="Ej: Supervisor Regional" class="w-full bg-cyber-bg border border-cyber-border rounded-xl p-2.5 text-white focus:outline-none focus:border-cyber-purple">
           </div>
-          <div class="mb-3">
-            <label for="selectNuevoReceptor" class="form-label fw-bold text-warning">
-              <i class="fas fa-user-check me-1"></i>Reasignar Postulantes a Reclutador Activo:
-            </label>
-            <select class="form-select border-warning" id="selectNuevoReceptor">
-              <option value="">Sin reasignar (Conservar o enviar a Bolsa General)</option>
+          <div>
+            <label class="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">Nivel Jerárquico *</label>
+            <select id="rolInputNivel" onchange="alCambiarNivelEnModalRol()" required class="w-full bg-cyber-bg border border-cyber-border rounded-xl p-2.5 text-white focus:outline-none focus:border-cyber-purple font-bold">
+              <option value="5">Nivel 5 (Master Administrador)</option>
+              <option value="4">Nivel 4 (Director / Supervisor)</option>
+              <option value="3">Nivel 3 (Coordinador / Implant)</option>
+              <option value="2">Nivel 2 (Reclutador Operativo)</option>
             </select>
-            <small class="text-muted d-block mt-1" style="font-size:0.75rem;">
-              Solo se muestran colaboradores con estatus Activo y facultados para operar como reclutadores.
-            </small>
+          </div>
+          <div>
+            <label class="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">Perímetro (Scope) *</label>
+            <select id="rolInputScope" required class="w-full bg-cyber-bg border border-cyber-border rounded-xl p-2.5 text-white focus:outline-none focus:border-cyber-purple">
+              <option value="global">Global (Todas las Empresas)</option>
+              <option value="regional">Regional (Empresas Asignadas)</option>
+              <option value="personal">Personal (Solo Cartera Propia)</option>
+            </select>
           </div>
         </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-outline-light btn-sm" onclick="cancelarBajaModal()">Cancelar Operación</button>
-          <button type="button" class="btn btn-warning btn-sm fw-bold" id="btnConfirmarReasignacionBaja">Confirmar y Aplicar Traspaso</button>
+
+        <div>
+          <label class="block text-[10px] font-mono uppercase text-amber-400 mb-1.5 font-bold">
+            <i class="fas fa-lock me-1"></i> Matriz Canónica de Permisos Modulares
+          </label>
+          <div class="border border-cyber-border rounded-xl overflow-hidden">
+            <table class="w-full text-center text-xs border-collapse">
+              <thead class="bg-slate-950 text-slate-400 font-mono">
+                <tr>
+                  <th class="p-2 text-left pl-3">Módulo</th>
+                  <th class="p-2">Ver (R)</th>
+                  <th class="p-2">Crear (C)</th>
+                  <th class="p-2">Editar (U)</th>
+                  <th class="p-2">Borrar (D)</th>
+                </tr>
+              </thead>
+              <tbody id="matrizCrudTbody" class="divide-y divide-cyber-border/40 font-mono">
+                <!-- Inyección dinámica de casillas CRUD -->
+              </tbody>
+            </table>
+          </div>
+          <span class="text-[9px] text-slate-500 font-mono mt-1 block">
+            * Nota: Módulos M7 y M8 bloquean automáticamente la edición y borrado para Nivel 4 o inferior.
+          </span>
         </div>
+
+        <div class="pt-3 border-t border-cyber-border flex justify-end gap-2">
+          <button type="button" onclick="cerrarModalRol()" class="px-4 py-2 border border-slate-700 text-slate-400 hover:text-white rounded-xl font-mono">Cancelar</button>
+          <button type="submit" class="px-5 py-2 bg-cyber-purple hover:bg-purple-600 text-white font-bold rounded-xl font-mono shadow-md">Guardar Rol</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL ADAPTATIVO: TRASPASO DE CARTERA POR BAJA O CAMBIO DE FUNCIÓN -->
+  <div id="modalTraspasoBaja" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden flex items-center justify-center p-3 sm:p-4">
+    <div class="glass-panel border border-cyber-rose rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center border-b border-cyber-border pb-2">
+        <h3 id="modalTraspasoTitulo" class="text-sm font-black uppercase text-cyber-rose font-mono flex items-center gap-2">
+          <i class="fas fa-triangle-exclamation animate-pulse"></i> Traspaso de Cartera Obligatorio
+        </h3>
+        <button onclick="cancelarTraspasoModal()" class="text-slate-400 hover:text-white text-lg font-bold p-1">✕</button>
+      </div>
+
+      <div class="p-3.5 rounded-xl border border-cyber-rose/40 bg-rose-950/20 space-y-1 text-xs">
+        <p id="modalTraspasoTextoIntro" class="text-slate-300 leading-relaxed"></p>
+        <span class="text-[10px] font-mono text-amber-400 block font-bold">
+          Para evitar que los candidatos queden desatendidos, transfiérelos a un asesor activo.
+        </span>
+      </div>
+
+      <div>
+        <label class="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+          Reasignar Candidatos a Reclutador Activo:
+        </label>
+        <select id="selectReceptorTraspaso" class="w-full bg-cyber-bg border border-cyber-amber rounded-xl p-2.5 text-xs text-white focus:outline-none font-bold">
+          <option value="">-- Mover a Bolsa General (Sin Asignar) --</option>
+        </select>
+      </div>
+
+      <div class="pt-3 border-t border-cyber-border flex justify-end gap-2">
+        <button type="button" onclick="cancelarTraspasoModal()" class="px-3.5 py-2 border border-slate-700 text-slate-400 rounded-xl font-mono text-xs">Cancelar</button>
+        <button type="button" id="btnConfirmarTraspaso" onclick="ejecutarTraspasoYGuardar()" class="px-4 py-2 bg-cyber-rose hover:bg-rose-600 text-white font-bold rounded-xl font-mono text-xs shadow-md">
+          Confirmar Traspaso y Aplicar
+        </button>
       </div>
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
-  <!-- LÓGICA CORE DE GOBERNANZA FIREBASE -->
+  <!-- SDK FIREBASE V10 MODULAR (AUTH + DATABASE) -->
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { 
-      getAuth, onAuthStateChanged, createUserWithEmailAndPassword, sendPasswordResetEmail 
-    } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+      getAuth, onAuthStateChanged, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut 
+    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
     import { 
-      getDatabase, ref, onValue, push, set, update, remove, 
-      serverTimestamp, query, orderByChild, equalTo, get 
-    } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+      getDatabase, ref, get, set, push, update, remove, 
+      onValue, query, orderByChild, equalTo, serverTimestamp 
+    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDxgP1YnycCEqkQ2vr3SPkwc9QMhtG8Zqw",
@@ -440,800 +483,970 @@
       measurementId: "G-DH2LD3BJEF"
     };
 
-    const appMain = initializeApp(firebaseConfig);
-    const authMain = getAuth(appMain);
-    const db = getDatabase(appMain);
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getDatabase(app);
 
-    // Instancia secundaria para aprovisionamiento sin perder sesión del administrador
-    const appSecondary = initializeApp(firebaseConfig, "StaffProvisioningApp");
+    // App secundaria para aprovisionar usuarios auth sin cerrar la sesión maestra
+    const appSecondary = initializeApp(firebaseConfig, "ProvisioningStaffM5");
     const authSecondary = getAuth(appSecondary);
 
-    const rolesRef = ref(db, 'roles_dinamicos');
-    const staffRef = ref(db, 'usuarios_reclutadores');
-    const empresasRef = ref(db, 'empresas');
-    const agendaRef = ref(db, 'modulo_3_agenda');
-    const logsRef = ref(db, 'modulo_7_logs');
-
-    // CATÁLOGO DE MÓDULOS DEL SISTEMA
-    const MODULOS_SISTEMA = [
-      { id: 'm1_empresas', label: 'M1: Empresas y Cuentas' },
-      { id: 'm2_vacantes', label: 'M2: Extracción Vacantes (IA)' },
-      { id: 'm3_agenda', label: 'M3: Agenda y Postulantes' },
-      { id: 'm3_supervision', label: 'M3.2: Torre de Control & SLA' },
-      { id: 'm4_metricas', label: 'M4: Métricas Demográficas' },
-      { id: 'm5_staff', label: 'M5.1: Gobernanza y Staff' },
-      { id: 'm5_2_cobertura', label: 'M5.2: Cobertura & Cuotas' },
-      { id: 'm6_transporte', label: 'M6.1: Rutas y Transporte' },
-      { id: 'm6_extractor', label: 'M6.2: Extractor y Geocatálogos INEGI' },
-      { id: 'm7_logs', label: 'M7: Auditoría y Logs' },
+    const MODULOS_CATALOGO = [
+      { id: 'm1_empresas', label: 'M1: Empresas Clientes' },
+      { id: 'm2_vacantes', label: 'M2: Vacantes & Motor IA' },
+      { id: 'm3_agenda', label: 'M3: Agenda & Candidatos' },
+      { id: 'm3_supervision', label: 'M3.2: Torre Supervisión' },
+      { id: 'm4_metricas', label: 'M4: Analítica & KPIs' },
+      { id: 'm5_staff', label: 'M5: Gobernanza & Staff' },
+      { id: 'm6_transporte', label: 'M6: Transporte & Rutas' },
+      { id: 'm7_logs', label: 'M7: Centro Forense Logs' },
       { id: 'm8_creador', label: 'M8: Creador de Módulos' }
     ];
 
-    let currentUserMaster = null;
-    let globalRoles = {};
+    let usuarioSesion = {
+      uid: null,
+      nombre: "Cargando...",
+      email: "",
+      nivel: 1,
+      scope: "personal",
+      todasLasEmpresas: false,
+      empresas: []
+    };
+
     let globalStaff = {};
+    let globalRoles = {};
     let globalEmpresas = {};
-    let pendingReasignacionData = null; // Almacena el payload pendiente cuando se requiere traspaso
+    let pendingTraspasoData = null;
 
-    const modalRolInstance = new bootstrap.Modal(document.getElementById('modalRol'));
-    const modalBajaInstance = new bootstrap.Modal(document.getElementById('modalBajaReasignacion'));
+    // -------------------------------------------------------------
+    // 1. RESOLUCIÓN DE IDENTIDAD & CANDADO ZERO-TRUST
+    // -------------------------------------------------------------
+    document.addEventListener("DOMContentLoaded", () => {
+      inicializarSeguridadM5();
+    });
 
-    function sanitize(str) {
-      if (!str) return '';
-      return String(str).replace(/[&<>"']/g, function(m) {
-        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m];
-      });
-    }
+    function inicializarSeguridadM5() {
+      onAuthStateChanged(auth, async (user) => {
+        const candado = document.getElementById('candadoSeguridad');
+        const panel = document.getElementById('panelGobernanza');
+        const badgeJerarquia = document.getElementById('badgeJerarquiaActual');
 
-    async function registrarLog(evento, detalle, antes = null, despues = null) {
-      try {
-        await push(logsRef, {
-          modulo: "M5_STAFF_GOBERNANZA",
-          ejecutadoPor: currentUserMaster ? currentUserMaster.email : "Master Admin",
-          uidEjecutor: currentUserMaster ? currentUserMaster.uid : null,
-          evento: evento,
-          detalle: detalle,
-          datosPrevios: antes,
-          datosNuevos: despues,
-          timestamp: serverTimestamp()
-        });
-      } catch (e) {
-        console.error("Log error:", e);
-      }
-    }
-
-    // 1. CANDADO ZERO-TRUST Y VERIFICACIÓN DE SESIÓN
-    onAuthStateChanged(authMain, async (user) => {
-      const badge = document.getElementById('userMasterBadge');
-      const panel = document.getElementById('panelGobernanza');
-      const candado = document.getElementById('candadoSeguridad');
-
-      if (user) {
-        currentUserMaster = user;
-        const snap = await get(ref(db, `usuarios_reclutadores/${user.uid}`));
-        
-        if (snap.exists() && snap.val().nivel >= 4) {
-          candado.classList.add('d-none');
-          panel.style.display = 'block';
-          badge.className = "badge bg-success text-white px-3 py-2";
-          badge.innerHTML = `<i class="bi bi-shield-fill-check me-1"></i>Master: ${sanitize(user.email)}`;
-        } else {
-          panel.style.display = 'none';
-          candado.classList.remove('d-none');
+        if (!user) {
+          window.location.href = "acceso.html";
+          return;
         }
-      } else {
-        currentUserMaster = null;
-        panel.style.display = 'none';
-        candado.classList.remove('d-none');
-      }
-    });
 
-    // 2. TOGGLE DE CONTRASEÑA (VER / OCULTAR)
-    const btnToggle = document.getElementById('btnTogglePassword');
-    const inputPass = document.getElementById('staffPassword');
-    const iconToggle = document.getElementById('iconTogglePassword');
-
-    btnToggle.addEventListener('click', () => {
-      const isPass = inputPass.getAttribute('type') === 'password';
-      inputPass.setAttribute('type', isPass ? 'text' : 'password');
-      iconToggle.className = isPass ? 'bi bi-eye-slash text-warning' : 'bi bi-eye';
-    });
-
-    // 3. GENERADOR DE CONTRASEÑAS SEGURAS
-    document.getElementById('btnGenerarPass').addEventListener('click', () => {
-      const charset = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%*";
-      let pass = "";
-      for (let i = 0; i < 9; i++) {
-        pass += charset.charAt(Math.floor(Math.random() * charset.length));
-      }
-      inputPass.value = pass;
-      inputPass.setAttribute('type', 'text');
-      iconToggle.className = 'bi bi-eye-slash text-warning';
-    });
-
-    // 4. MATRIZ CRUD CANÓNICA PARA ROLES
-    function renderMatrizCrud() {
-      const body = document.getElementById('matrizCrudBody');
-      body.innerHTML = '';
-      MODULOS_SISTEMA.forEach(m => {
-        body.innerHTML += `
-          <tr>
-            <td class="text-start fw-bold text-light">${m.label}</td>
-            <td><input class="form-check-input crud-cb" type="checkbox" id="ver_${m.id}"></td>
-            <td><input class="form-check-input crud-cb" type="checkbox" id="crear_${m.id}"></td>
-            <td><input class="form-check-input crud-cb" type="checkbox" id="editar_${m.id}"></td>
-            <td><input class="form-check-input crud-cb" type="checkbox" id="eliminar_${m.id}"></td>
-          </tr>`;
-      });
-    }
-    renderMatrizCrud();
-
-    // 5. GESTIÓN DE ROLES DINÁMICOS
-    window.prepararNuevoRol = () => {
-      document.getElementById('formNuevoRol').reset();
-      document.getElementById('rolIdHidden').value = '';
-      document.getElementById('modalRolTitle').innerHTML = `<i class="bi bi-shield-plus me-2"></i>Crear Nuevo Rol Dinámico`;
-      renderMatrizCrud();
-      modalRolInstance.show();
-    };
-
-    document.getElementById('formNuevoRol').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const rolId = document.getElementById('rolIdHidden').value;
-      const nombre = document.getElementById('rolNombre').value.trim();
-      const nivel = parseInt(document.getElementById('rolNivel').value);
-      const scope = document.getElementById('rolScope').value;
-
-      const permisos = {};
-      MODULOS_SISTEMA.forEach(m => {
-        permisos[m.id] = {
-          ver: document.getElementById(`ver_${m.id}`).checked,
-          crear: document.getElementById(`crear_${m.id}`).checked,
-          editar: document.getElementById(`editar_${m.id}`).checked,
-          eliminar: document.getElementById(`eliminar_${m.id}`).checked
-        };
-      });
-
-      const payload = { nombre, nivelJerarquico: nivel, scope, permisos, updatedAt: serverTimestamp() };
-
-      try {
-        if (rolId) {
-          await update(ref(db, `roles_dinamicos/${rolId}`), payload);
-        } else {
-          await set(push(rolesRef), payload);
-        }
-        await registrarLog("ROL_DINAMICO_GUARDADO", `Rol ${nombre} establecido.`, null, payload);
-        modalRolInstance.hide();
-      } catch (err) {
-        alert("Error al guardar el rol: " + err.message);
-      }
-    });
-
-    onValue(rolesRef, (snapshot) => {
-      const tabla = document.getElementById('tablaRolesBody');
-      const selectRol = document.getElementById('staffRol');
-      tabla.innerHTML = '';
-      selectRol.innerHTML = '<option value="" disabled selected>Selecciona un rol...</option>';
-
-      if (snapshot.exists()) {
-        globalRoles = snapshot.val();
-        Object.keys(globalRoles).forEach(key => {
-          const r = globalRoles[key];
-          
-          const opt = document.createElement('option');
-          opt.value = key;
-          opt.textContent = `${sanitize(r.nombre)} (Nivel ${r.nivelJerarquico} - ${r.scope.toUpperCase()})`;
-          selectRol.appendChild(opt);
-
-          let badgesPermisos = '';
-          if (r.permisos) {
-            Object.keys(r.permisos).forEach(mId => {
-              const p = r.permisos[mId];
-              if (p.ver || p.crear || p.editar || p.eliminar) {
-                badgesPermisos += `<span class="badge bg-secondary me-1" style="font-size:0.68rem;">${mId.split('_')[0].toUpperCase()}</span>`;
-              }
-            });
+        try {
+          const snapUser = await get(ref(db, `usuarios_reclutadores/${user.uid}`));
+          if (!snapUser.exists()) {
+            candado.classList.remove('hidden');
+            panel.classList.add('hidden');
+            return;
           }
 
-          tabla.innerHTML += `
-            <tr>
-              <td class="ps-4 fw-bold text-warning">${sanitize(r.nombre)}</td>
-              <td><span class="badge bg-info text-dark">Nivel ${r.nivelJerarquico}</span></td>
-              <td><span class="badge bg-dark border border-secondary">${r.scope}</span></td>
-              <td>${badgesPermisos || '<small class="text-muted">Sin permisos</small>'}</td>
-              <td class="text-end pe-4">
-                <button class="btn btn-action btn-edit me-1" onclick="editarRol('${key}')"><i class="bi bi-pencil-fill"></i></button>
-                <button class="btn btn-action btn-del" onclick="eliminarRol('${key}')"><i class="bi bi-trash-fill"></i></button>
-              </td>
-            </tr>`;
-        });
-      }
-    });
-
-    window.editarRol = (id) => {
-      const r = globalRoles[id];
-      if (!r) return;
-      document.getElementById('rolIdHidden').value = id;
-      document.getElementById('rolNombre').value = r.nombre;
-      document.getElementById('rolNivel').value = r.nivelJerarquico;
-      document.getElementById('rolScope').value = r.scope;
-      renderMatrizCrud();
-
-      if (r.permisos) {
-        Object.keys(r.permisos).forEach(m => {
-          if (document.getElementById(`ver_${m}`)) {
-            document.getElementById(`ver_${m}`).checked = !!r.permisos[m].ver;
-            document.getElementById(`crear_${m}`).checked = !!r.permisos[m].crear;
-            document.getElementById(`editar_${m}`).checked = !!r.permisos[m].editar;
-            document.getElementById(`eliminar_${m}`).checked = !!r.permisos[m].eliminar;
+          const val = snapUser.val();
+          if (val.estatus !== 'Activo') {
+            alert("Tu cuenta se encuentra suspendida o inactiva.");
+            await signOut(auth);
+            window.location.href = "acceso.html";
+            return;
           }
-        });
-      }
-      document.getElementById('modalRolTitle').innerHTML = `<i class="bi bi-pencil-square me-2"></i>Editar Rol Dinámico`;
-      modalRolInstance.show();
-    };
 
-    window.eliminarRol = async (id) => {
-      if (confirm("¿Estás seguro de eliminar este rol dinámico? Los usuarios con este rol perderán sus reglas.")) {
-        const previo = globalRoles[id];
-        await remove(ref(db, `roles_dinamicos/${id}`));
-        await registrarLog("ELIMINACION_ROL", `Rol ID ${id} eliminado.`, previo, null);
-      }
-    };
+          const nivelNum = parseInt(val.nivel) || 2;
 
-    // CONTROL DEL SWITCH DIRECTIVO
-    const chkOperaReclutador = document.getElementById('chkOperaComoReclutador');
-    const lblOperaReclutador = document.getElementById('lblOperaComoReclutador');
+          // Regla: M5 solo es accesible por Nivel 4 (Directores/Supervisores) y Nivel 5 (Master)
+          if (nivelNum < 4) {
+            candado.classList.remove('hidden');
+            panel.classList.add('hidden');
+            return;
+          }
 
-    chkOperaReclutador.addEventListener('change', () => {
-      if (chkOperaReclutador.checked) {
-        lblOperaReclutador.textContent = "Sí (Opera como Reclutador y Asesor)";
-        lblOperaReclutador.className = "form-check-label fw-bold text-success ms-2";
-      } else {
-        lblOperaReclutador.textContent = "No (Solo Supervisión y Dirección)";
-        lblOperaReclutador.className = "form-check-label fw-bold text-light ms-2";
-      }
-    });
+          usuarioSesion = {
+            uid: user.uid,
+            nombre: val.nombre || user.email,
+            email: user.email,
+            nivel: nivelNum,
+            scope: val.scope || "personal",
+            todasLasEmpresas: nivelNum >= 4 && (val.scope === 'global' || (Array.isArray(val.empresas) && val.empresas.includes("TODAS"))),
+            empresas: Array.isArray(val.empresas) ? val.empresas.map(e => sanitizarKey(e)) : []
+          };
 
-    // 6. LÓGICA DEDUCTIVA: AJUSTES AL CAMBIAR DE ROL
-    document.getElementById('staffRol').addEventListener('change', (e) => {
-      const rolKey = e.target.value;
-      const rol = globalRoles[rolKey];
-      if (!rol) return;
+          candado.classList.add('hidden');
+          panel.classList.remove('hidden');
 
-      const groupCoord = document.getElementById('groupCoordinadorPadre');
-      const containerEmpresas = document.getElementById('empresasContainer');
-      const badgeScope = document.getElementById('scopeBadge');
-      const groupOpera = document.getElementById('groupOperaComoReclutador');
+          badgeJerarquia.textContent = usuarioSesion.nivel >= 5 
+            ? "Jerarquía: Master Administrador (Nivel 5)" 
+            : `Jerarquía: Director / Supervisor (Nivel ${usuarioSesion.nivel})`;
 
-      if (rol.scope === 'global') {
-        badgeScope.className = "badge bg-success";
-        badgeScope.textContent = "Acceso Total a Todas las Empresas";
-        containerEmpresas.classList.add('opacity-50', 'pe-none');
-        document.querySelectorAll('.emp-cb').forEach(cb => cb.checked = true);
-      } else {
-        badgeScope.className = "badge bg-info text-dark";
-        badgeScope.textContent = "Asignación Manual por Zona";
-        containerEmpresas.classList.remove('opacity-50', 'pe-none');
-      }
+          // Si es Nivel 4, no puede crear nuevos roles dinámicos (solo Master Nivel 5)
+          if (usuarioSesion.nivel < 5) {
+            document.getElementById('btnCrearNuevoRol')?.classList.add('hidden');
+          }
 
-      if (rol.nivelJerarquico < 3) {
-        groupCoord.classList.remove('d-none');
-        cargarCoordinadoresSelect();
-        
-        // Niveles 1 y 2 siempre son operativos
-        groupOpera.classList.add('d-none');
-        chkOperaReclutador.checked = true;
-        lblOperaReclutador.textContent = "Sí (Operativo)";
-      } else {
-        groupCoord.classList.add('d-none');
-        document.getElementById('staffCoordinadorPadre').value = '';
-        
-        // Niveles 3, 4 y 5 muestran la pregunta directiva
-        groupOpera.classList.remove('d-none');
-        chkOperaReclutador.checked = false;
-        lblOperaReclutador.textContent = "No (Solo Supervisión y Dirección)";
-        lblOperaReclutador.className = "form-check-label fw-bold text-light ms-2";
-      }
-    });
+          escucharDatosEnTiempoReal();
 
-    function cargarCoordinadoresSelect(selectedId = '') {
-      const select = document.getElementById('staffCoordinadorPadre');
-      select.innerHTML = '<option value="">Sin Coordinador Directo...</option>';
-      Object.keys(globalStaff).forEach(k => {
-        const u = globalStaff[k];
-        if (u.estatus === 'Activo' && u.nivel >= 3) {
-          const isSel = k === selectedId ? 'selected' : '';
-          select.innerHTML += `<option value="${k}" ${isSel}>${sanitize(u.nombre)} (${sanitize(u.nombreRol || 'Líder')})</option>`;
+        } catch (e) {
+          console.error("Error validando autenticación M5:", e);
+          candado.classList.remove('hidden');
         }
       });
     }
 
-    // 7. CARGA DE EMPRESAS
-    onValue(empresasRef, (snapshot) => {
-      const container = document.getElementById('empresasContainer');
-      container.innerHTML = '';
-      if (snapshot.exists()) {
-        globalEmpresas = snapshot.val();
-        Object.keys(globalEmpresas).forEach(k => {
-          const emp = globalEmpresas[k];
-          const nombre = typeof emp === 'string' ? emp : (emp.nombreComercial || k);
-          const zona = emp.zonaOperacion || emp.zona || 'General';
-          container.innerHTML += `
-            <div class="form-check">
-              <input class="form-check-input emp-cb" type="checkbox" value="${sanitize(nombre)}" id="e_${k}">
-              <label class="form-check-label small" for="e_${k}">${sanitize(nombre)} <span class="text-muted">(${sanitize(zona)})</span></label>
-            </div>`;
-        });
-      }
-    });
+    function sanitizarKey(str) {
+      return (str || "general").toLowerCase().trim()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]/g, "_")
+        .replace(/_+/g, "_")
+        .replace(/^_|_$/g, "");
+    }
 
-    // 8. INTERCEPTOR DE GUARDADO CON AUDITORÍA DE CANDIDATOS ACTIVOS
-    document.getElementById('formStaff').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const id = document.getElementById('staffId').value;
-      const rolKey = document.getElementById('staffRol').value;
-      const email = document.getElementById('staffEmail').value.trim();
-      const password = document.getElementById('staffPassword').value.trim();
-      const nuevoEstatus = document.getElementById('staffEstatus').value;
+    // -------------------------------------------------------------
+    // 2. ESCUCHADORES EN TIEMPO REAL (STAFF, ROLES, EMPRESAS)
+    // -------------------------------------------------------------
+    function escucharDatosEnTiempoReal() {
+      // Escuchar Roles
+      onValue(ref(db, 'roles_dinamicos'), (snap) => {
+        globalRoles = snap.val() || {};
+        poblarSelectorRoles();
+        renderizarTablaRolesDinamicos();
+      });
 
-      const rol = globalRoles[rolKey];
-      if (!rol) {
-        alert("Selecciona un rol dinámico válido.");
+      // Escuchar Empresas
+      onValue(ref(db, 'empresas'), (snap) => {
+        globalEmpresas = snap.val() || {};
+        poblarCheckboxesEmpresas();
+      });
+
+      // Escuchar Staff
+      onValue(ref(db, 'usuarios_reclutadores'), (snap) => {
+        globalStaff = snap.val() || {};
+        poblarSelectoresMandosTerna();
+        renderizarDirectorioStaff();
+      });
+    }
+
+    function poblarSelectorRoles() {
+      const select = document.getElementById('selectRolDinamico');
+      select.innerHTML = '<option value="">-- Selecciona un Rol Dinámico --</option>';
+
+      Object.entries(globalRoles).forEach(([k, r]) => {
+        // Regla de escalada de privilegios: Nivel 4 no puede asignar rol Nivel 5[cite: 7]
+        if (usuarioSesion.nivel < 5 && r.nivelJerarquico >= 5) return;
+
+        const opt = document.createElement('option');
+        opt.value = k;
+        opt.textContent = `${r.nombre} (Nivel ${r.nivelJerarquico} • ${r.scope.toUpperCase()})`;
+        select.appendChild(opt);
+      });
+    }
+
+    function poblarCheckboxesEmpresas() {
+      const cont = document.getElementById('contenedorEmpresasCheckboxes');
+      cont.innerHTML = '';
+
+      const keys = Object.keys(globalEmpresas);
+      if (keys.length === 0) {
+        cont.innerHTML = '<span class="text-slate-500 text-xs font-mono">No hay empresas en catálogo (M1).</span>';
         return;
       }
 
-      // Evaluación del nuevo estado operativo
-      const nuevoOperaComoReclutador = rol.nivelJerarquico < 3 
-        ? true 
-        : document.getElementById('chkOperaComoReclutador').checked;
+      keys.forEach(k => {
+        const emp = globalEmpresas[k];
+        const nom = typeof emp === 'object' ? (emp.nombreComercial || emp.nombre || k) : emp;
+        const div = document.createElement('label');
+        div.className = "flex items-center gap-2 p-2 rounded-lg bg-slate-900/60 hover:bg-slate-800/80 cursor-pointer border border-cyber-border/40 text-xs text-slate-300";
+        div.innerHTML = `
+          <input type="checkbox" value="${k}" onchange="alCambiarEmpresaCheckbox(this, '${k}')" class="chk-empresa rounded bg-cyber-bg border-cyber-border text-cyber-accent focus:ring-0">
+          <span class="truncate font-medium">${nom}</span>
+        `;
+        cont.appendChild(div);
+      });
+    }
 
-      // Si el usuario ya existe, verificar si está perdiendo facultades operativas
-      if (id && globalStaff[id]) {
-        const estadoPrevio = globalStaff[id];
-        const prevOpera = estadoPrevio.operaComoReclutador === true || 
-          (estadoPrevio.operaComoReclutador === undefined && (estadoPrevio.nivel === undefined || estadoPrevio.nivel < 3));
+    // Poblar selectores de Supervisor (N4) y Coordinador (N3)
+    function poblarSelectoresMandosTerna() {
+      const selSup = document.getElementById('selectSupervisorPadre');
+      const selCoord = document.getElementById('selectCoordinadorPadre');
 
-        const pasaAInactivo = (nuevoEstatus === 'Inactivo' && estadoPrevio.estatus === 'Activo');
-        const pierdeFacultadReclutador = (prevOpera && !nuevoOperaComoReclutador && nuevoEstatus === 'Activo');
+      const valSupActual = selSup.value;
+      const valCoordActual = selCoord.value;
 
-        if (pasaAInactivo || pierdeFacultadReclutador) {
-          // Consultar en tiempo real cuántos candidatos tiene asignados en M3
-          const cantCandidatos = await contarCandidatosActivos(id);
+      selSup.innerHTML = '<option value="">-- Sin Supervisor Asignado --</option>';
+      selCoord.innerHTML = '<option value="">-- Sin Coordinador Directo --</option>';
 
-          if (cantCandidatos > 0) {
-            // Requiere traspaso: preparamos el contexto y abrimos el modal adaptativo
-            const motivo = pasaAInactivo ? 'BAJA' : 'CAMBIO_FUNCION';
-            pendingReasignacionData = {
-              id, rolKey, email, password, nuevoEstatus, nuevoOperaComoReclutador, motivo, totalCandidatos: cantCandidatos
-            };
-            abrirAsistenteTraspaso(id, motivo, cantCandidatos);
+      Object.entries(globalStaff).forEach(([uid, u]) => {
+        if (u.estatus !== 'Activo') return;
+        const opt = document.createElement('option');
+        opt.value = uid;
+        opt.textContent = `${u.nombre} (${u.nombreRol || 'Líder'})`;
+
+        if (u.nivel === 4) {
+          selSup.appendChild(opt.cloneNode(true));
+        } else if (u.nivel === 3) {
+          selCoord.appendChild(opt.cloneNode(true));
+        }
+      });
+
+      if (valSupActual) selSup.value = valSupActual;
+      if (valCoordActual) selCoord.value = valCoordActual;
+    }
+
+    // -------------------------------------------------------------
+    // 3. INTELIGENCIA DE HERENCIA RELACIONAL DE TERNA
+    // -------------------------------------------------------------
+    window.alCambiarCoordinadorPadre = () => {
+      const coordId = document.getElementById('selectCoordinadorPadre').value;
+      if (!coordId || !globalStaff[coordId]) return;
+
+      const coord = globalStaff[coordId];
+      // Si el coordinador ya tiene asignado un supervisor, el reclutador lo hereda automáticamente
+      if (coord.supervisorPadreId) {
+        document.getElementById('selectSupervisorPadre').value = coord.supervisorPadreId;
+      }
+    };
+
+    window.alCambiarSupervisorPadre = () => {
+      // Supervisor manual
+    };
+
+    // Al marcar una empresa para el colaborador, verificar si hereda terna
+    window.alCambiarEmpresaCheckbox = (chk, empKey) => {
+      if (!chk.checked) return;
+      const empData = globalEmpresas[empKey];
+      if (!empData || typeof empData !== 'object') return;
+
+      const rolId = document.getElementById('selectRolDinamico').value;
+      const rol = globalRoles[rolId];
+      const nivel = rol ? rol.nivelJerarquico : 2;
+
+      // Si es reclutador (N2) y la empresa ya tiene terna definida, heredar mandos
+      if (nivel <= 2) {
+        if (empData.coordinadorId && globalStaff[empData.coordinadorId]) {
+          document.getElementById('selectCoordinadorPadre').value = empData.coordinadorId;
+        }
+        if (empData.supervisorId && globalStaff[empData.supervisorId]) {
+          document.getElementById('selectSupervisorPadre').value = empData.supervisorId;
+        }
+      }
+    };
+
+    // -------------------------------------------------------------
+    // 4. LÓGICA DE ROLES, NIVELES Y SWITCH OPERATIVO
+    // -------------------------------------------------------------
+    window.alCambiarRolSeleccionado = () => {
+      const rolId = document.getElementById('selectRolDinamico').value;
+      const rol = globalRoles[rolId];
+      if (!rol) return;
+
+      const badgeScope = document.getElementById('badgeAlcanceScope');
+      const boxSwitch = document.getElementById('boxSwitchReclutador');
+      const chkSwitch = document.getElementById('chkOperaComoReclutador');
+      const lblSwitch = document.getElementById('lblSwitchReclutador');
+
+      // Scope de empresas
+      if (rol.scope === 'global') {
+        badgeScope.textContent = "Scope: Global Total (Todas las empresas por defecto)";
+        badgeScope.className = "text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800";
+        document.querySelectorAll('.chk-empresa').forEach(c => { c.checked = true; c.disabled = true; });
+      } else {
+        badgeScope.textContent = "Scope: Asignación Manual por Cartera";
+        badgeScope.className = "text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700";
+        document.querySelectorAll('.chk-empresa').forEach(c => { c.disabled = false; });
+      }
+
+      // Reglas para Reclutador (Nivel 2)[cite: 7]
+      if (rol.nivelJerarquico <= 2) {
+        boxSwitch.classList.add('hidden');
+        chkSwitch.checked = true;
+        lblSwitch.textContent = "Sí (Reclutador Operativo por Defecto)";
+        lblSwitch.className = "ml-3 text-xs font-mono font-bold text-cyber-emerald";
+      } else {
+        // Niveles 3, 4 y 5: Switch manual, por defecto en false para directivos[cite: 7]
+        boxSwitch.classList.remove('hidden');
+        chkSwitch.checked = false;
+        lblSwitch.textContent = "No (Solo Mando y Supervisión)";
+        lblSwitch.className = "ml-3 text-xs font-mono font-bold text-slate-400";
+      }
+    };
+
+    window.actualizarTextoSwitchReclutador = () => {
+      const chk = document.getElementById('chkOperaComoReclutador');
+      const lbl = document.getElementById('lblSwitchReclutador');
+      if (chk.checked) {
+        lbl.textContent = "Sí (Opera como Reclutador Activo)";
+        lbl.className = "ml-3 text-xs font-mono font-bold text-cyber-emerald";
+      } else {
+        lbl.textContent = "No (Solo Mando y Supervisión)";
+        lbl.className = "ml-3 text-xs font-mono font-bold text-slate-400";
+      }
+    };
+
+    // -------------------------------------------------------------
+    // 5. GUARDADO DE COLABORADOR CON AUDITORÍA DE CANDIDATOS
+    // -------------------------------------------------------------
+    window.procesarGuardadoColaborador = async (e) => {
+      e.preventDefault();
+
+      const uid = document.getElementById('staffUidHidden').value;
+      const rolId = document.getElementById('selectRolDinamico').value;
+      const rol = globalRoles[rolId];
+      if (!rol) return alert("Selecciona un rol dinámico válido.");
+
+      const nuevoEstatus = document.getElementById('selectEstatusOperativo').value;
+      const chkSwitch = document.getElementById('chkOperaComoReclutador');
+      const nuevoOpera = rol.nivelJerarquico <= 2 ? true : chkSwitch.checked;
+
+      // Si el colaborador ya existe, revisar si pierde cartera para no dejar candidatos huérfanos
+      if (uid && globalStaff[uid]) {
+        const previo = globalStaff[uid];
+        const prevOpera = previo.operaComoReclutador === true || (previo.operaComoReclutador === undefined && (previo.nivel || 2) <= 2);
+
+        const seDesactiva = (nuevoEstatus === 'Inactivo' && previo.estatus === 'Activo');
+        const pierdeReclutador = (prevOpera && !nuevoOpera && nuevoEstatus === 'Activo');
+
+        if (seDesactiva || pierdeReclutador) {
+          const conteo = await contarCandidatosEnCartera(uid);
+          if (conteo > 0) {
+            const motivo = seDesactiva ? 'BAJA_PERSONAL' : 'RETIRO_FUNCION_OPERATIVA';
+            pendingTraspasoData = { uid, rolId, nuevoEstatus, nuevoOpera, motivo, conteo };
+            abrirModalTraspasoBaja(uid, motivo, conteo);
             return;
           }
         }
       }
 
-      // Si es nuevo, o no pierde facultades, o tiene 0 candidatos: guardado directo
-      await procesarGuardado(id, rolKey, email, password, null, null);
-    });
+      await ejecutarGuardadoEnFirebase(uid, rolId, null, null);
+    };
 
-    // Función de conteo de candidatos asignados
-    async function contarCandidatosActivos(uid) {
+    async function contarCandidatosEnCartera(uid) {
       try {
-        const q = query(agendaRef, orderByChild("reclutadorId"), equalTo(uid));
-        const snap = await get(q);
-        if (snap.exists()) {
-          return Object.keys(snap.val()).length;
-        }
-      } catch (err) {
-        console.error("Error al auditar candidatos asignados:", err);
+        const snap = await get(query(ref(db, 'postulantes'), orderByChild('reclutadorId'), equalTo(uid)));
+        if (snap.exists()) return Object.keys(snap.val()).length;
+      } catch (e) {
+        console.warn("No se pudo auditar cartera:", e);
       }
       return 0;
     }
 
-    // 9. MODAL POLIVALENTE ADAPTATIVO
-    function abrirAsistenteTraspaso(idColaborador, motivo, cantCandidatos) {
-      const u = globalStaff[idColaborador];
-      const header = document.getElementById('modalReasignacionHeader');
-      const content = document.getElementById('modalReasignacionContent');
-      const title = document.getElementById('modalReasignacionTitle');
-      const alertBox = document.getElementById('modalReasignacionAlert');
-      const introTxt = document.getElementById('modalReasignacionTextoIntro');
-      const btnConfirmar = document.getElementById('btnConfirmarReasignacionBaja');
+    function abrirModalTraspasoBaja(uid, motivo, conteo) {
+      const u = globalStaff[uid] || {};
+      const intro = document.getElementById('modalTraspasoTextoIntro');
+      intro.innerHTML = `El colaborador <strong>${u.nombre}</strong> tiene actualmente <span class="text-cyber-rose font-bold">${conteo} candidato(s)</span> bajo su titularidad.`;
 
-      if (motivo === 'BAJA') {
-        content.className = "modal-content border-danger";
-        header.className = "modal-header bg-danger text-white";
-        title.innerHTML = `<i class="fas fa-user-minus me-2"></i>Baja Operativa de Personal`;
-        alertBox.className = "p-3 mb-3 rounded-3 border border-danger bg-danger bg-opacity-10";
-        introTxt.innerHTML = `
-          El colaborador <strong class="text-warning">${sanitize(u.nombre)}</strong> cambiará su estatus a <strong>Inactivo</strong>.<br>
-          Tiene actualmente <span class="badge bg-danger fs-6">${cantCandidatos} candidato(s) asignado(s)</span> que requieren seguimiento inmediato.
-        `;
-        btnConfirmar.className = "btn btn-danger btn-sm fw-bold";
-        btnConfirmar.textContent = "Confirmar Baja y Transferir";
-      } else {
-        content.className = "modal-content border-warning";
-        header.className = "modal-header bg-warning text-dark";
-        title.innerHTML = `<i class="fas fa-exchange-alt me-2 text-dark"></i>Ajuste Directivo: Retiro de Función Reclutadora`;
-        alertBox.className = "p-3 mb-3 rounded-3 border border-warning bg-warning bg-opacity-10";
-        introTxt.innerHTML = `
-          El mando <strong class="text-warning">${sanitize(u.nombre)}</strong> pasará a <strong>Solo Supervisión</strong> y ya no figurará en las listas de selección.<br>
-          Actualmente tiene <span class="badge bg-warning text-dark fs-6">${cantCandidatos} candidato(s) activo(s)</span> asignados en su cartera.
-        `;
-        btnConfirmar.className = "btn btn-warning btn-sm fw-bold";
-        btnConfirmar.textContent = "Aplicar Cambio y Transferir";
-      }
+      const sel = document.getElementById('selectReceptorTraspaso');
+      sel.innerHTML = '<option value="">-- Mover a Bolsa General (Sin Asignar) --</option>';
 
-      // Llenar selector ÚNICAMENTE con reclutadores que cumplan: estatus === 'Activo' && operaComoReclutador === true
-      const select = document.getElementById('selectNuevoReceptor');
-      select.innerHTML = '<option value="">Sin reasignar (Mover a Bolsa General)</option>';
-      
-      Object.keys(globalStaff).forEach(k => {
-        if (k !== idColaborador) {
-          const cand = globalStaff[k];
-          const candRol = globalRoles[cand.rolId] || {};
-          const candNivel = cand.nivel || candRol.nivelJerarquico || 1;
-          
-          const esOperativo = cand.operaComoReclutador === true || 
-            (cand.operaComoReclutador === undefined && candNivel < 3);
-
-          if (cand.estatus === 'Activo' && esOperativo) {
-            select.innerHTML += `<option value="${k}">${sanitize(cand.nombre)} (${sanitize(cand.nombreRol || 'Reclutador')})</option>`;
+      Object.entries(globalStaff).forEach(([k, rec]) => {
+        if (k !== uid && rec.estatus === 'Activo') {
+          const esOp = rec.operaComoReclutador === true || (rec.operaComoReclutador === undefined && (rec.nivel || 2) <= 2);
+          if (esOp) {
+            sel.innerHTML += `<option value="${k}">${rec.nombre} (${rec.nombreRol || 'Asesor'})</option>`;
           }
         }
       });
 
-      modalBajaInstance.show();
+      document.getElementById('modalTraspasoBaja').classList.remove('hidden');
     }
 
-    window.cancelarBajaModal = () => {
-      modalBajaInstance.hide();
-      pendingReasignacionData = null;
+    window.cancelarTraspasoModal = () => {
+      document.getElementById('modalTraspasoBaja').classList.add('hidden');
+      pendingTraspasoData = null;
     };
 
-    document.getElementById('btnConfirmarReasignacionBaja').onclick = async () => {
-      const receptorId = document.getElementById('selectNuevoReceptor').value;
-      modalBajaInstance.hide();
-      
-      if (pendingReasignacionData) {
-        const { id, rolKey, email, password, motivo } = pendingReasignacionData;
-        await procesarGuardado(id, rolKey, email, password, receptorId || null, motivo);
-        pendingReasignacionData = null;
-      }
+    window.ejecutarTraspasoYGuardar = async () => {
+      if (!pendingTraspasoData) return;
+      const receptorUid = document.getElementById('selectReceptorTraspaso').value;
+      const { uid, rolId, motivo } = pendingTraspasoData;
+
+      document.getElementById('modalTraspasoBaja').classList.add('hidden');
+      await ejecutarGuardadoEnFirebase(uid, rolId, receptorUid || null, motivo);
+      pendingTraspasoData = null;
     };
 
-    // 10. REASIGNACIÓN EN LOTE EN TIEMPO REAL
-    async function reasignarCandidatosBaja(idEmisor, receptorId, motivoTraspaso) {
-      try {
-        const q = query(agendaRef, orderByChild("reclutadorId"), equalTo(idEmisor));
-        const snap = await get(q);
-        if (snap.exists()) {
-          const agendaData = snap.val();
-          const emisorNombre = globalStaff[idEmisor] ? globalStaff[idEmisor].nombre : "Asesor Anterior";
-          const receptorNombre = globalStaff[receptorId] ? globalStaff[receptorId].nombre : "Bolsa General";
-          const updates = {};
-          let count = 0;
-
-          Object.keys(agendaData).forEach(k => {
-            updates[`modulo_3_agenda/${k}/reclutadorId`] = receptorId || null;
-            updates[`modulo_3_agenda/${k}/reclutadorNombre`] = receptorNombre;
-            updates[`modulo_3_agenda/${k}/ultimaReasignacion`] = serverTimestamp();
-            count++;
-          });
-
-          await update(ref(db), updates);
-
-          const tipoLog = (motivoTraspaso === 'BAJA') 
-            ? "REASIGNACION_POR_BAJA" 
-            : "REASIGNACION_POR_CAMBIO_ROL_DIRECTIVO";
-
-          await registrarLog(
-            tipoLog, 
-            `Se reasignaron masivamente ${count} postulantes de ${emisorNombre} a ${receptorNombre}. Motivo: ${motivoTraspaso}`
-          );
-
-          return count;
-        }
-      } catch (err) {
-        console.error("Error al reasignar candidatos:", err);
-      }
-      return 0;
-    }
-
-    // 11. PROCESAR GUARDADO DEFINITIVO
-    async function procesarGuardado(id, rolKey, email, password, receptorBajaId = null, motivoTraspaso = null) {
-      const rol = globalRoles[rolKey];
-      if (!rol) {
-        alert("Selecciona un rol dinámico válido.");
-        return;
-      }
+    async function ejecutarGuardadoEnFirebase(uid, rolId, receptorId = null, motivo = null) {
+      const rol = globalRoles[rolId];
+      const isNew = !uid;
+      const email = document.getElementById('staffEmail').value.trim();
+      const password = document.getElementById('staffPassword').value.trim();
+      const supervisorId = document.getElementById('selectSupervisorPadre').value || null;
+      const coordinadorId = document.getElementById('selectCoordinadorPadre').value || null;
 
       const empresasSeleccionadas = [];
       if (rol.scope === 'global') {
         empresasSeleccionadas.push("TODAS");
       } else {
-        document.querySelectorAll('.emp-cb:checked').forEach(cb => empresasSeleccionadas.push(cb.value));
+        document.querySelectorAll('.chk-empresa:checked').forEach(c => empresasSeleccionadas.push(c.value));
       }
 
-      let uidColaborador = id;
-      const isNew = !id;
-
-      const operaComoReclutadorFinal = rol.nivelJerarquico < 3 
-        ? true 
-        : document.getElementById('chkOperaComoReclutador').checked;
+      let uidFinal = uid;
 
       try {
         if (isNew) {
-          if (!password || password.length < 6) {
-            alert("Para crear un nuevo usuario debes indicar una contraseña de al menos 6 caracteres.");
-            return;
-          }
+          if (!password || password.length < 6) return alert("Ingresa una contraseña válida de al menos 6 caracteres.");
           const cred = await createUserWithEmailAndPassword(authSecondary, email, password);
-          uidColaborador = cred.user.uid;
+          uidFinal = cred.user.uid;
         }
 
-        const enviarReset = document.getElementById('chkEnviarResetMail').checked;
-        if (enviarReset && email) {
-          try {
-            await sendPasswordResetEmail(authSecondary, email);
-          } catch (resetErr) {
-            console.warn("No se pudo enviar el correo de restablecimiento automático:", resetErr);
+        const operaComoReclutadorFinal = rol.nivelJerarquico <= 2 
+          ? true 
+          : document.getElementById('chkOperaComoReclutador').checked;
+
+        // Inyección canónica de permisos con candados M7 y M8[cite: 7]
+        const permisosModulosInyectados = {};
+        MODULOS_CATALOGO.forEach(m => {
+          const pRol = (rol.permisos && rol.permisos[m.id]) ? rol.permisos[m.id] : { ver: false, crear: false, editar: false, eliminar: false };
+          
+          let canCrear = pRol.crear || false;
+          let canEditar = pRol.editar || false;
+          let canEliminar = pRol.eliminar || false;
+
+          // Candado duro: Nivel 4 o menor tiene prohibido editar o borrar en M7 y M8[cite: 7]
+          if (rol.nivelJerarquico < 5 && (m.id === 'm7_logs' || m.id === 'm8_creador')) {
+            canCrear = false;
+            canEditar = false;
+            canEliminar = false;
           }
-        }
+
+          permisosModulosInyectados[m.id] = {
+            ver: pRol.ver || false,
+            crear: canCrear,
+            editar: canEditar,
+            eliminar: canEliminar
+          };
+        });
 
         const payload = {
-          uid: uidColaborador,
+          uid: uidFinal,
           nombre: document.getElementById('staffNombre').value.trim(),
           email: email,
           telefono: document.getElementById('staffTelefono').value.trim().replace(/\D/g, ''),
-          rolId: rolKey,
+          rolId: rolId,
           nombreRol: rol.nombre,
           nivel: rol.nivelJerarquico,
           scope: rol.scope,
           operaComoReclutador: operaComoReclutadorFinal,
-          coordinadorPadreId: document.getElementById('staffCoordinadorPadre').value || null,
+          supervisorPadreId: supervisorId,
+          coordinadorPadreId: coordinadorId,
           empresas: empresasSeleccionadas,
-          estatus: document.getElementById('staffEstatus').value,
-          debeCambiarPassword: isNew,
+          estatus: document.getElementById('selectEstatusOperativo').value,
+          permisosModulos: permisosModulosInyectados,
           updatedAt: serverTimestamp()
         };
 
-        await set(ref(db, `usuarios_reclutadores/${uidColaborador}`), payload);
+        // Guardar colaborador
+        await set(ref(db, `usuarios_reclutadores/${uidFinal}`), payload);
 
-        let mensajeCandidatos = "";
-        if (receptorBajaId !== undefined && motivoTraspaso) {
-          const totalTraspasados = await reasignarCandidatosBaja(id, receptorBajaId, motivoTraspaso);
-          mensajeCandidatos = ` Se reasignaron ${totalTraspasados} candidatos exitosamente.`;
+        // Herencia inversa: Si es un Coordinador (N3), vincular sus empresas y reclutadores
+        if (payload.nivel === 3 && empresasSeleccionadas.length > 0) {
+          for (let empKey of empresasSeleccionadas) {
+            if (empKey !== "TODAS") {
+              await update(ref(db, `empresas/${empKey}`), { coordinadorId: uidFinal });
+              // Asignar a los reclutadores de esa empresa este coordinador
+              Object.entries(globalStaff).forEach(async ([recUid, rec]) => {
+                if (rec.nivel <= 2 && Array.isArray(rec.empresas) && rec.empresas.includes(empKey)) {
+                  await update(ref(db, `usuarios_reclutadores/${recUid}`), { coordinadorPadreId: uidFinal });
+                }
+              });
+            }
+          }
         }
 
-        await registrarLog(
-          isNew ? "ALTA_COLABORADOR_AUTH" : "MODIFICACION_COLABORADOR",
-          `Colaborador ${payload.nombre} (${payload.email}) procesado con éxito. Opera como reclutador: ${operaComoReclutadorFinal ? 'SÍ' : 'NO'}.${mensajeCandidatos}`,
-          id ? globalStaff[id] : null,
-          payload
-        );
+        // Traspaso de cartera si aplica
+        if (receptorId !== undefined && motivo) {
+          await traspasarCarteraCandidatos(uidFinal, receptorId, motivo);
+        }
 
-        cancelarEdicionStaff();
-        alert(`Colaborador ${payload.nombre} guardado correctamente.${mensajeCandidatos}`);
+        // Registro inmutable en Caja Negra (M7)[cite: 2, 5]
+        await push(ref(db, 'modulo_7_logs'), {
+          modulo: "M5_STAFF",
+          evento: isNew ? "ALTA_COLABORADOR" : "EDICION_COLABORADOR",
+          ejecutadoPor: usuarioSesion.nombre,
+          uidEjecutor: usuarioSesion.uid,
+          detalle: `Se procesó la cuenta de ${payload.nombre} (${payload.email}) como ${payload.nombreRol} (N${payload.nivel}). Opera como reclutador: ${operaComoReclutadorFinal ? 'SÍ' : 'NO'}.`,
+          timestamp: serverTimestamp()
+        });
+
+        cancelarEdicionColaborador();
+        alert(`¡Colaborador ${payload.nombre} guardado exitosamente!`);
+
       } catch (err) {
-        console.error("Error al guardar staff:", err);
-        alert("Ocurrió un error al procesar la cuenta: " + err.message);
+        alert("Error al guardar: " + err.message);
       }
     }
 
-    // 12. PREPARAR Y CANCELAR EDICIÓN
-    window.prepararEdicionStaff = (id) => {
-      const u = globalStaff[id];
-      if (!u) return;
+    async function traspasarCarteraCandidatos(emisorUid, receptorUid, motivo) {
+      try {
+        const snap = await get(query(ref(db, 'postulantes'), orderByChild('reclutadorId'), equalTo(emisorUid)));
+        if (!snap.exists()) return;
 
-      const tabTrigger = document.querySelector('#tab-staff-link');
-      if (tabTrigger) {
-        const tabInstance = bootstrap.Tab.getOrCreateInstance(tabTrigger);
-        tabInstance.show();
+        const postulantes = snap.val();
+        const receptorNom = globalStaff[receptorUid]?.nombre || "Bolsa General";
+        const updates = {};
+        let count = 0;
+
+        Object.keys(postulantes).forEach(k => {
+          updates[`postulantes/${k}/reclutadorId`] = receptorUid || null;
+          updates[`postulantes/${k}/reclutadorNombre`] = receptorNom;
+          updates[`postulantes/${k}/asesor`] = receptorNom;
+          updates[`postulantes/${k}/ultimaReasignacion`] = new Date().toISOString();
+          count++;
+        });
+
+        await update(ref(db), updates);
+
+        await push(ref(db, 'modulo_7_logs'), {
+          modulo: "M5_STAFF",
+          evento: "TRASPASO_CARTERA_MASIVO",
+          ejecutadoPor: usuarioSesion.nombre,
+          uidEjecutor: usuarioSesion.uid,
+          detalle: `Se traspasaron ${count} candidatos de ${globalStaff[emisorUid]?.nombre || emisorUid} hacia ${receptorNom}. Motivo: ${motivo}.`,
+          timestamp: serverTimestamp()
+        });
+      } catch (e) {
+        console.error("Error traspasando candidatos:", e);
+      }
+    }
+
+    // -------------------------------------------------------------
+    // 6. RENDERIZADO ADAPTABLE DEL DIRECTORIO (CARDS & TABLA)
+    // -------------------------------------------------------------
+    function renderizarDirectorioStaff() {
+      const contenedorCards = document.getElementById('directorioCardsMobile');
+      const tbodyDesktop = document.getElementById('directorioTablaDesktop');
+      const lblTotal = document.getElementById('txtConteoStaffTotal');
+
+      contenedorCards.innerHTML = '';
+      tbodyDesktop.innerHTML = '';
+
+      const uids = Object.keys(globalStaff);
+      lblTotal.textContent = `${uids.length} Colaboradores`;
+
+      if (uids.length === 0) {
+        contenedorCards.innerHTML = '<div class="p-6 text-center text-slate-500 font-mono text-xs col-span-2">No hay colaboradores registrados.</div>';
+        tbodyDesktop.innerHTML = '<tr><td colspan="7" class="p-6 text-center text-slate-500 font-mono">No hay colaboradores registrados.</td></tr>';
+        return;
       }
 
-      document.getElementById('staffId').value = id;
+      uids.forEach(uid => {
+        const u = globalStaff[uid];
+        const rol = globalRoles[u.rolId] || {};
+        const nivel = u.nivel || rol.nivelJerarquico || 2;
+        const esActivo = u.estatus === 'Activo';
+
+        // Badge Reclutador Activo o Solo Mando
+        let badgeReclutador = '';
+        if (nivel >= 3) {
+          badgeReclutador = u.operaComoReclutador === true
+            ? `<span class="bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[9px] font-mono px-2 py-0.5 rounded font-bold"><i class="fas fa-headset me-1"></i>Asesor Activo</span>`
+            : `<span class="bg-slate-800 text-slate-400 border border-slate-700 text-[9px] font-mono px-2 py-0.5 rounded"><i class="fas fa-eye me-1"></i>Solo Mando</span>`;
+        }
+
+        // Terna de mando
+        const supNombre = globalStaff[u.supervisorPadreId]?.nombre || '—';
+        const coordNombre = globalStaff[u.coordinadorPadreId]?.nombre || '—';
+
+        // Empresas
+        const listaEmpresas = Array.isArray(u.empresas) ? u.empresas : [];
+        const textoEmpresas = listaEmpresas.includes("TODAS") 
+          ? `<span class="text-cyber-cyan font-bold"><i class="fas fa-globe me-1"></i>Todas</span>`
+          : (listaEmpresas.length > 0 ? `${listaEmpresas.slice(0, 2).join(', ')}${listaEmpresas.length > 2 ? '...' : ''}` : 'Sin asignar');
+
+        // 1. RENDERIZADO TARJETA TÁCTICA PARA MÓVILES (<1024px)
+        const card = document.createElement('div');
+        card.className = "glass-panel p-4 rounded-2xl border border-cyber-border space-y-3 shadow-md flex flex-col justify-between";
+        card.innerHTML = `
+          <div class="space-y-2">
+            <div class="flex justify-between items-start gap-2">
+              <div>
+                <h3 class="font-black text-white text-sm leading-tight">${u.nombre}</h3>
+                <span class="text-[11px] text-slate-400 font-mono block">${u.email}</span>
+              </div>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold font-mono ${esActivo ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'}">
+                ${u.estatus}
+              </span>
+            </div>
+
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <span class="bg-cyber-accent/10 text-cyber-accent border border-cyber-accent/30 text-[10px] px-2 py-0.5 rounded font-mono font-bold">
+                ${rol.nombre || u.nombreRol || 'Colaborador'} (N${nivel})
+              </span>
+              ${badgeReclutador}
+            </div>
+
+            <div class="text-[11px] text-slate-400 space-y-0.5 font-mono pt-1 border-t border-cyber-border/40">
+              <div><strong>Terna:</strong> Coord: ${coordNombre} • Sup: ${supNombre}</div>
+              <div><strong>Empresas:</strong> ${textoEmpresas}</div>
+            </div>
+          </div>
+
+          <!-- BOTONES TÁCTILES ACCESIBLES -->
+          <div class="pt-2 border-t border-cyber-border flex items-center justify-between gap-2">
+            <button onclick="enviarWhatsAppAcceso('${u.telefono}', '${u.nombre}', '${u.email}')" class="flex-1 py-2 px-3 rounded-xl bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/30 font-mono text-[11px] font-bold flex items-center justify-center gap-1.5 touch-target">
+              <i class="fab fa-whatsapp text-sm"></i> Contactar
+            </button>
+            <button onclick="prepararEdicionColaborador('${uid}')" class="p-2 rounded-xl bg-cyber-cyan/20 hover:bg-cyber-cyan text-cyber-cyan hover:text-slate-950 border border-cyber-cyan/30 touch-target flex items-center justify-center">
+              <i class="fas fa-pen text-xs"></i>
+            </button>
+            <button onclick="enviarEmailResetPass('${u.email}', '${u.nombre}')" class="p-2 rounded-xl bg-cyber-amber/20 hover:bg-cyber-amber text-cyber-amber hover:text-slate-950 border border-cyber-amber/30 touch-target flex items-center justify-center" title="Enviar reseteo de clave">
+              <i class="fas fa-key text-xs"></i>
+            </button>
+          </div>
+        `;
+        contenedorCards.appendChild(card);
+
+        // 2. RENDERIZADO FILA DE TABLA PARA DESKTOP (>=1024px)
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-900/40 border-b border-cyber-border/30 transition-colors";
+        tr.innerHTML = `
+          <td class="p-3.5 pl-6">
+            <div class="font-bold text-white">${u.nombre}</div>
+            <div class="text-[11px] text-slate-400 font-mono">${u.email}</div>
+          </td>
+          <td class="p-3.5">
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <span class="bg-cyber-accent/10 text-cyber-accent border border-cyber-accent/20 px-2 py-0.5 rounded font-mono font-bold text-[11px]">
+                ${rol.nombre || u.nombreRol || 'Colaborador'}
+              </span>
+              <span class="bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded text-[10px] font-mono">N${nivel}</span>
+            </div>
+            <div class="mt-1">${badgeReclutador}</div>
+          </td>
+          <td class="p-3.5">
+            <button onclick="enviarWhatsAppAcceso('${u.telefono}', '${u.nombre}', '${u.email}')" class="bg-emerald-500/10 hover:bg-emerald-500 text-emerald-400 hover:text-slate-950 border border-emerald-500/30 px-2.5 py-1 rounded-lg font-mono text-[11px] font-bold flex items-center gap-1 transition">
+              <i class="fab fa-whatsapp"></i> ${u.telefono || 'Sin WhatsApp'}
+            </button>
+          </td>
+          <td class="p-3.5 text-[11px] font-mono">
+            <div><span class="text-slate-500">Coord:</span> <span class="text-white">${coordNombre}</span></div>
+            <div><span class="text-slate-500">Sup:</span> <span class="text-slate-300">${supNombre}</span></div>
+          </td>
+          <td class="p-3.5 text-[11px] font-mono">${textoEmpresas}</td>
+          <td class="p-3.5">
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold font-mono ${esActivo ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'}">
+              ${u.estatus}
+            </span>
+          </td>
+          <td class="p-3.5 text-right pr-6 whitespace-nowrap space-x-1">
+            <button onclick="prepararEdicionColaborador('${uid}')" class="p-2 rounded-lg bg-cyber-cyan/15 hover:bg-cyber-cyan text-cyber-cyan hover:text-slate-950 border border-cyber-cyan/30 transition" title="Editar Ficha">
+              <i class="fas fa-pen text-xs"></i>
+            </button>
+            <button onclick="enviarEmailResetPass('${u.email}', '${u.nombre}')" class="p-2 rounded-lg bg-cyber-amber/15 hover:bg-cyber-amber text-cyber-amber hover:text-slate-950 border border-cyber-amber/30 transition" title="Enviar clave por correo">
+              <i class="fas fa-envelope-open-text text-xs"></i>
+            </button>
+            <button onclick="eliminarColaboradorDefinitivo('${uid}')" class="p-2 rounded-lg bg-rose-500/15 hover:bg-rose-500 text-rose-400 hover:text-white border border-rose-500/30 transition" title="Eliminar Registro">
+              <i class="fas fa-trash text-xs"></i>
+            </button>
+          </td>
+        `;
+        tbodyDesktop.appendChild(tr);
+      });
+    }
+
+    // -------------------------------------------------------------
+    // 7. PREPARAR Y CANCELAR EDICIÓN DE COLABORADOR
+    // -------------------------------------------------------------
+    window.prepararEdicionColaborador = (uid) => {
+      const u = globalStaff[uid];
+      if (!u) return;
+
+      document.getElementById('staffUidHidden').value = uid;
       document.getElementById('staffNombre').value = u.nombre || '';
       document.getElementById('staffEmail').value = u.email || '';
       document.getElementById('staffEmail').readOnly = true;
       document.getElementById('staffPassword').value = '';
       document.getElementById('staffTelefono').value = u.telefono || '';
-      document.getElementById('staffEstatus').value = u.estatus || 'Activo';
+      document.getElementById('selectEstatusOperativo').value = u.estatus || 'Activo';
 
-      const selectRol = document.getElementById('staffRol');
-      selectRol.value = u.rolId || '';
+      document.getElementById('selectRolDinamico').value = u.rolId || '';
+      alCambiarRolSeleccionado();
 
       const rol = globalRoles[u.rolId];
-      const groupCoord = document.getElementById('groupCoordinadorPadre');
-      const containerEmpresas = document.getElementById('empresasContainer');
-      const badgeScope = document.getElementById('scopeBadge');
-      const groupOpera = document.getElementById('groupOperaComoReclutador');
-      const chkOpera = document.getElementById('chkOperaComoReclutador');
-      const lblOpera = document.getElementById('lblOperaComoReclutador');
+      const nivel = u.nivel || (rol ? rol.nivelJerarquico : 2);
 
-      const nivelJerarquico = rol ? rol.nivelJerarquico : (u.nivel || 1);
-
-      if (rol) {
-        if (rol.scope === 'global' || u.scope === 'global') {
-          badgeScope.className = "badge bg-success";
-          badgeScope.textContent = "Acceso Total a Todas las Empresas";
-          containerEmpresas.classList.add('opacity-50', 'pe-none');
-        } else {
-          badgeScope.className = "badge bg-info text-dark";
-          badgeScope.textContent = "Asignación Manual por Zona";
-          containerEmpresas.classList.remove('opacity-50', 'pe-none');
-        }
-
-        if (nivelJerarquico < 3) {
-          groupCoord.classList.remove('d-none');
-          cargarCoordinadoresSelect(u.coordinadorPadreId || '');
-          groupOpera.classList.add('d-none');
-          chkOpera.checked = true;
-        } else {
-          groupCoord.classList.add('d-none');
-          document.getElementById('staffCoordinadorPadre').value = '';
-          
-          groupOpera.classList.remove('d-none');
-          chkOpera.checked = u.operaComoReclutador === true;
-          if (chkOpera.checked) {
-            lblOpera.textContent = "Sí (Opera como Reclutador y Asesor)";
-            lblOpera.className = "form-check-label fw-bold text-success ms-2";
-          } else {
-            lblOpera.textContent = "No (Solo Supervisión y Dirección)";
-            lblOpera.className = "form-check-label fw-bold text-light ms-2";
-          }
-        }
+      if (nivel >= 3) {
+        document.getElementById('chkOperaComoReclutador').checked = u.operaComoReclutador === true;
+        actualizarTextoSwitchReclutador();
       }
+
+      document.getElementById('selectSupervisorPadre').value = u.supervisorPadreId || '';
+      document.getElementById('selectCoordinadorPadre').value = u.coordinadorPadreId || '';
 
       const listaEmpresas = Array.isArray(u.empresas) ? u.empresas : [];
-      const esGlobal = listaEmpresas.includes("TODAS") || u.scope === 'global';
-
-      document.querySelectorAll('.emp-cb').forEach(cb => {
-        cb.checked = esGlobal || listaEmpresas.includes(cb.value);
+      document.querySelectorAll('.chk-empresa').forEach(cb => {
+        cb.checked = listaEmpresas.includes("TODAS") || listaEmpresas.includes(cb.value);
       });
 
-      document.getElementById('btnCancelarStaff').classList.remove('d-none');
-      document.getElementById('formModeBadge').className = "badge bg-warning text-dark fw-bold";
-      document.getElementById('formModeBadge').textContent = `Editando a: ${u.nombre}`;
-      document.getElementById('btnSubmitStaff').innerHTML = `<i class="bi bi-pencil-square me-1"></i> Actualizar Ficha`;
+      document.getElementById('btnCancelarEdicion').classList.remove('hidden');
+      document.getElementById('badgeModoEdicion').className = "text-[10px] font-mono px-2.5 py-1 rounded-full bg-cyber-amber text-slate-950 font-bold";
+      document.getElementById('badgeModoEdicion').textContent = `Editando: ${u.nombre}`;
+      document.getElementById('btnSubmitColaborador').innerHTML = `<i class="fas fa-pen-to-square"></i> Actualizar Colaborador`;
 
-      document.getElementById('formStaff').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      window.scrollTo({ top: document.getElementById('formColaborador').offsetTop - 30, behavior: 'smooth' });
     };
 
-    window.cancelarEdicionStaff = () => {
-      document.getElementById('formStaff').reset();
-      document.getElementById('staffId').value = '';
+    window.cancelarEdicionColaborador = () => {
+      document.getElementById('formColaborador').reset();
+      document.getElementById('staffUidHidden').value = '';
       document.getElementById('staffEmail').readOnly = false;
-      document.getElementById('btnCancelarStaff').classList.add('d-none');
-      
-      document.getElementById('formModeBadge').className = "badge bg-dark border border-secondary text-light";
-      document.getElementById('formModeBadge').textContent = `Nuevo Colaborador`;
-      
-      document.getElementById('btnSubmitStaff').innerHTML = `<i class="bi bi-shield-check me-1"></i> Guardar y Aplicar Reglas`;
-      document.getElementById('groupCoordinadorPadre').classList.add('d-none');
-      document.getElementById('groupOperaComoReclutador').classList.add('d-none');
-      
-      const containerEmpresas = document.getElementById('empresasContainer');
-      containerEmpresas.classList.remove('opacity-50', 'pe-none');
-      
-      const badgeScope = document.getElementById('scopeBadge');
-      badgeScope.textContent = 'Ajustado por Rol';
-      badgeScope.className = 'badge bg-secondary';
+      document.getElementById('btnCancelarEdicion').classList.add('hidden');
 
-      document.querySelectorAll('.emp-cb').forEach(cb => cb.checked = false);
+      document.getElementById('badgeModoEdicion').className = "text-[10px] font-mono px-2.5 py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700";
+      document.getElementById('badgeModoEdicion').textContent = `Modo: Nuevo Colaborador`;
+      document.getElementById('btnSubmitColaborador').innerHTML = `<i class="fas fa-floppy-disk"></i> Guardar y Aplicar Reglas`;
+
+      alCambiarRolSeleccionado();
+      document.querySelectorAll('.chk-empresa').forEach(cb => { cb.checked = false; cb.disabled = false; });
     };
 
-    // 13. RESTABLECIMIENTO DE CONTRASEÑA
-    window.enviarEmailReseteo = async (email, nombre) => {
-      if (confirm(`¿Enviar correo de restablecimiento de contraseña a ${nombre} (${email})?`)) {
-        try {
-          await sendPasswordResetEmail(authSecondary, email);
-          alert(`Correo de restablecimiento enviado exitosamente a: ${email}`);
-          await registrarLog("ENVIO_RESET_PASSWORD", `Se envió email de reseteo a ${email}`);
-        } catch (e) {
-          alert("Error al enviar el correo: " + e.message);
-        }
+    window.eliminarColaboradorDefinitivo = async (uid) => {
+      if (usuarioSesion.nivel < 5) {
+        return alert("Acción restringida. La eliminación definitiva de staff es exclusiva de Master Administrador (Nivel 5).");
       }
-    };
 
-    // 14. MENSAJE WHATSAPP
-    window.enviarWhatsAppAcceso = (tel, nombre, email) => {
-      const portalUrl = window.location.origin;
-      const msg = encodeURIComponent(
-        `¡Hola ${nombre}! Te damos la bienvenida al equipo. Tu cuenta de acceso al Sistema de Reclutamiento está activa.\n\n` +
-        `👤 Usuario: ${email}\n` +
-        `🌐 Acceso al Portal: ${portalUrl}\n\n` +
-        `Si recibiste un correo de restablecimiento, define tu clave personal desde el enlace. Si no, comunícate con tu coordinador.`
-      );
-      window.open(`https://wa.me/52${tel}?text=${msg}`, '_blank');
-    };
-
-    // 15. DIRECTORIO EN TIEMPO REAL
-    onValue(staffRef, (snapshot) => {
-      document.getElementById('statusDot').className = "status-dot status-connected";
-      document.getElementById('connectionText').textContent = "Conexión en línea con Firebase Realtime";
-      const tabla = document.getElementById('tablaStaffBody');
-      tabla.innerHTML = '';
-
-      if (snapshot.exists()) {
-        globalStaff = snapshot.val();
-        let total = 0;
-        const totalEmpresasSistema = Object.keys(globalEmpresas).length;
-
-        Object.keys(globalStaff).forEach(key => {
-          total++;
-          const u = globalStaff[key];
-          const rol = globalRoles[u.rolId] || {};
-          const nivel = u.nivel || rol.nivelJerarquico || 1;
-
-          let badgeOperatividad = '';
-          if (nivel >= 3) {
-            if (u.operaComoReclutador === true) {
-              badgeOperatividad = `<div class="mt-1"><span class="badge bg-success bg-opacity-75 text-white" style="font-size: 0.68rem;"><i class="fas fa-headset me-1"></i>Asesor Activo</span></div>`;
-            } else {
-              badgeOperatividad = `<div class="mt-1"><span class="badge bg-secondary text-light" style="font-size: 0.68rem;"><i class="fas fa-eye me-1"></i>Solo Supervisión</span></div>`;
-            }
-          }
-
-          const esScopeGlobal = (u.scope || '').toLowerCase() === 'global' || 
-                                (rol.scope || '').toLowerCase() === 'global';
-          const listaEmpresasUsuario = Array.isArray(u.empresas) ? u.empresas : [];
-          const tieneEtiquetaTodas = listaEmpresasUsuario.includes("TODAS");
-          const tieneTodasManuales = totalEmpresasSistema > 0 && listaEmpresasUsuario.length >= totalEmpresasSistema;
-
-          let coberturaTxt = '';
-          if (esScopeGlobal || tieneEtiquetaTodas || tieneTodasManuales) {
-            coberturaTxt = `<span class="badge bg-success py-1 px-2.5 shadow-sm"><i class="fas fa-globe me-1"></i>Todas las Empresas</span>`;
-          } else if (listaEmpresasUsuario.length > 0) {
-            coberturaTxt = `<small class="text-light">${sanitize(listaEmpresasUsuario.slice(0, 2).join(', '))}${listaEmpresasUsuario.length > 2 ? '...' : ''}</small>`;
-          } else {
-            coberturaTxt = `<small class="text-muted">Sin cobertura directa</small>`;
-          }
-
-          tabla.innerHTML += `
-            <tr>
-              <td class="ps-4">
-                <div class="fw-bold text-white">${sanitize(u.nombre)}</div>
-                <small class="text-muted">${sanitize(u.email)}</small>
-              </td>
-              <td>
-                <span class="badge bg-warning text-dark">${sanitize(rol.nombre || u.nombreRol || 'Sin Rol')}</span>
-                <span class="badge bg-dark border border-secondary ms-1">N${nivel}</span>
-                ${badgeOperatividad}
-              </td>
-              <td>
-                <button class="btn btn-wa btn-sm rounded-pill py-0 px-2" onclick="enviarWhatsAppAcceso('${u.telefono}', '${sanitize(u.nombre)}', '${sanitize(u.email)}')">
-                  <i class="fab fa-whatsapp me-1"></i>${sanitize(u.telefono)}
-                </button>
-              </td>
-              <td>${coberturaTxt}</td>
-              <td><span class="badge ${u.estatus === 'Activo' ? 'bg-success' : 'bg-danger'}">${sanitize(u.estatus)}</span></td>
-              <td class="text-end pe-4">
-                <button class="btn btn-action btn-mail me-1" title="Enviar enlace de restablecimiento de contraseña" onclick="enviarEmailReseteo('${u.email}', '${sanitize(u.nombre)}')">
-                  <i class="bi bi-envelope-at-fill"></i>
-                </button>
-                <button class="btn btn-action btn-edit me-1" title="Editar ficha" onclick="prepararEdicionStaff('${key}')">
-                  <i class="bi bi-pencil-fill"></i>
-                </button>
-                <button class="btn btn-action btn-del" title="Eliminar colaborador" onclick="eliminarStaff('${key}')">
-                  <i class="bi bi-trash-fill"></i>
-                </button>
-              </td>
-            </tr>`;
+      const u = globalStaff[uid];
+      if (confirm(`¿Eliminar definitivamente al colaborador "${u?.nombre || uid}"? Esta acción revocará todos sus accesos al sistema.`)) {
+        await remove(ref(db, `usuarios_reclutadores/${uid}`));
+        await push(ref(db, 'modulo_7_logs'), {
+          modulo: "M5_STAFF",
+          evento: "BAJA_DEFINITIVA_STAFF",
+          ejecutadoPor: usuarioSesion.nombre,
+          uidEjecutor: usuarioSesion.uid,
+          detalle: `Se eliminó definitivamente la cuenta de ${u?.nombre} (${u?.email}).`,
+          timestamp: serverTimestamp()
         });
-        document.getElementById('totalStaffBadge').textContent = `${total} Personal`;
-      } else {
-        tabla.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-muted">No se encontraron cuentas activas.</td></tr>`;
+        alert("Colaborador eliminado del sistema.");
       }
-    });
+    };
 
-    window.eliminarStaff = async (id) => {
-      const u = globalStaff[id];
-      if (confirm(`¿Eliminar de forma definitiva a ${u?.nombre || 'este colaborador'}? Esta acción revocará todos sus accesos al sistema.`)) {
-        await remove(ref(db, `usuarios_reclutadores/${id}`));
-        await registrarLog("ELIMINACION_STAFF", `Colaborador ${u?.nombre} (${id}) eliminado del sistema.`, u, null);
+    // -------------------------------------------------------------
+    // 8. ROLES DINÁMICOS & MATRIZ CRUD
+    // -------------------------------------------------------------
+    function renderizarTablaRolesDinamicos() {
+      const tbody = document.getElementById('tablaRolesDinamicosBody');
+      tbody.innerHTML = '';
+
+      Object.entries(globalRoles).forEach(([id, r]) => {
+        const modulosActivos = r.permisos 
+          ? Object.keys(r.permisos).filter(m => r.permisos[m].ver).map(m => m.split('_')[0].toUpperCase()).join(', ') 
+          : 'Sin módulos';
+
+        tbody.innerHTML += `
+          <tr class="hover:bg-slate-900/40 border-b border-cyber-border/30">
+            <td class="p-3.5 font-bold text-white">${r.nombre}</td>
+            <td class="p-3.5 text-center"><span class="px-2 py-0.5 rounded bg-slate-800 border border-slate-700">N${r.nivelJerarquico}</span></td>
+            <td class="p-3.5 text-center text-cyber-cyan uppercase">${r.scope}</td>
+            <td class="p-3.5 text-slate-400">${modulosActivos}</td>
+            <td class="p-3.5 text-right">
+              ${usuarioSesion.nivel >= 5 ? `
+              <button onclick="editarRolPlantilla('${id}')" class="p-2 rounded-lg bg-cyber-purple/20 hover:bg-cyber-purple text-purple-300 hover:text-white border border-purple-500/30">
+                <i class="fas fa-pen text-xs"></i>
+              </button>` : '<span class="text-slate-600 text-xs">—</span>'}
+            </td>
+          </tr>
+        `;
+      });
+    }
+
+    function renderizarMatrizCrudModal() {
+      const tbody = document.getElementById('matrizCrudTbody');
+      tbody.innerHTML = '';
+
+      MODULOS_CATALOGO.forEach(m => {
+        tbody.innerHTML += `
+          <tr class="hover:bg-slate-900/40 border-b border-cyber-border/30">
+            <td class="p-2 text-left pl-3 text-slate-300 font-bold">${m.label}</td>
+            <td class="p-2"><input type="checkbox" id="m_ver_${m.id}" class="crud-check rounded bg-cyber-bg border-cyber-border text-cyber-purple"></td>
+            <td class="p-2"><input type="checkbox" id="m_crear_${m.id}" class="crud-check rounded bg-cyber-bg border-cyber-border text-cyber-purple"></td>
+            <td class="p-2"><input type="checkbox" id="m_editar_${m.id}" class="crud-check rounded bg-cyber-bg border-cyber-border text-cyber-purple"></td>
+            <td class="p-2"><input type="checkbox" id="m_borrar_${m.id}" class="crud-check rounded bg-cyber-bg border-cyber-border text-cyber-purple"></td>
+          </tr>
+        `;
+      });
+    }
+
+    window.alCambiarNivelEnModalRol = () => {
+      const nivel = parseInt(document.getElementById('rolInputNivel').value);
+      // Candado de gobernanza: Nivel <= 4 bloquea borrado en M7 y M8[cite: 7]
+      const chkM7Borrar = document.getElementById('m_borrar_m7_logs');
+      const chkM7Editar = document.getElementById('m_editar_m7_logs');
+      const chkM8Borrar = document.getElementById('m_borrar_m8_creador');
+      const chkM8Editar = document.getElementById('m_editar_m8_creador');
+
+      if (nivel < 5) {
+        if (chkM7Borrar) { chkM7Borrar.checked = false; chkM7Borrar.disabled = true; }
+        if (chkM7Editar) { chkM7Editar.checked = false; chkM7Editar.disabled = true; }
+        if (chkM8Borrar) { chkM8Borrar.checked = false; chkM8Borrar.disabled = true; }
+        if (chkM8Editar) { chkM8Editar.checked = false; chkM8Editar.disabled = true; }
+      } else {
+        if (chkM7Borrar) chkM7Borrar.disabled = false;
+        if (chkM7Editar) chkM7Editar.disabled = false;
+        if (chkM8Borrar) chkM8Borrar.disabled = false;
+        if (chkM8Editar) chkM8Editar.disabled = false;
       }
+    };
+
+    window.abrirModalCrearRol = () => {
+      document.getElementById('formModalRol').reset();
+      document.getElementById('rolIdHidden').value = '';
+      document.getElementById('modalRolTitulo').innerHTML = `<i class="fas fa-shield-plus"></i> Crear Nuevo Rol Dinámico`;
+      renderizarMatrizCrudModal();
+      alCambiarNivelEnModalRol();
+      document.getElementById('modalRolDinamico').classList.remove('hidden');
+    };
+
+    window.editarRolPlantilla = (rolId) => {
+      const r = globalRoles[rolId];
+      if (!r) return;
+
+      document.getElementById('rolIdHidden').value = rolId;
+      document.getElementById('rolInputNombre').value = r.nombre || '';
+      document.getElementById('rolInputNivel').value = r.nivelJerarquico || 2;
+      document.getElementById('rolInputScope').value = r.scope || 'regional';
+
+      renderizarMatrizCrudModal();
+
+      if (r.permisos) {
+        Object.entries(r.permisos).forEach(([mId, p]) => {
+          if (document.getElementById(`m_ver_${mId}`)) document.getElementById(`m_ver_${mId}`).checked = !!p.ver;
+          if (document.getElementById(`m_crear_${mId}`)) document.getElementById(`m_crear_${mId}`).checked = !!p.crear;
+          if (document.getElementById(`m_editar_${mId}`)) document.getElementById(`m_editar_${mId}`).checked = !!p.editar;
+          if (document.getElementById(`m_borrar_${mId}`)) document.getElementById(`m_borrar_${mId}`).checked = !!p.eliminar;
+        });
+      }
+
+      alCambiarNivelEnModalRol();
+      document.getElementById('modalRolTitulo').innerHTML = `<i class="fas fa-pen-to-square"></i> Editar Rol Dinámico`;
+      document.getElementById('modalRolDinamico').classList.remove('hidden');
+    };
+
+    window.cerrarModalRol = () => {
+      document.getElementById('modalRolDinamico').classList.add('hidden');
+    };
+
+    window.guardarPlantillaRol = async (e) => {
+      e.preventDefault();
+      const rolId = document.getElementById('rolIdHidden').value;
+      const nombre = document.getElementById('rolInputNombre').value.trim();
+      const nivel = parseInt(document.getElementById('rolInputNivel').value);
+      const scope = document.getElementById('rolInputScope').value;
+
+      const permisos = {};
+      MODULOS_CATALOGO.forEach(m => {
+        let ver = document.getElementById(`m_ver_${m.id}`)?.checked || false;
+        let crear = document.getElementById(`m_crear_${m.id}`)?.checked || false;
+        let editar = document.getElementById(`m_editar_${m.id}`)?.checked || false;
+        let borrar = document.getElementById(`m_borrar_${m.id}`)?.checked || false;
+
+        // Candado Nivel 4 en M7 y M8[cite: 7]
+        if (nivel < 5 && (m.id === 'm7_logs' || m.id === 'm8_creador')) {
+          crear = false;
+          editar = false;
+          borrar = false;
+        }
+
+        permisos[m.id] = { ver, crear, editar, eliminar: borrar };
+      });
+
+      const payload = {
+        nombre,
+        nivelJerarquico: nivel,
+        scope,
+        permisos,
+        updatedAt: serverTimestamp()
+      };
+
+      try {
+        if (rolId) {
+          await update(ref(db, `roles_dinamicos/${rolId}`), payload);
+        } else {
+          await set(push(ref(db, 'roles_dinamicos')), payload);
+        }
+
+        await push(ref(db, 'modulo_7_logs'), {
+          modulo: "M5_STAFF",
+          evento: "GUARDADO_ROL_PLANTILLA",
+          ejecutadoPor: usuarioSesion.nombre,
+          uidEjecutor: usuarioSesion.uid,
+          detalle: `Se configuró la plantilla del rol ${nombre} (Nivel ${nivel} • ${scope}).`,
+          timestamp: serverTimestamp()
+        });
+
+        cerrarModalRol();
+        alert("Plantilla de rol guardada exitosamente.");
+      } catch (err) {
+        alert("Error: " + err.message);
+      }
+    };
+
+    // -------------------------------------------------------------
+    // 9. CONTROLES AUXILIARES, PESTAÑAS & WHATSAPP
+    // -------------------------------------------------------------
+    window.cambiarPestana = (tab) => {
+      const secStaff = document.getElementById('pestanaStaff');
+      const secRoles = document.getElementById('pestanaRoles');
+      const btnStaff = document.getElementById('btnTabStaff');
+      const btnRoles = document.getElementById('btnTabRoles');
+
+      if (tab === 'STAFF') {
+        secStaff.classList.remove('hidden');
+        secRoles.classList.add('hidden');
+        btnStaff.className = "shrink-0 px-4 py-2.5 rounded-xl font-mono text-xs font-bold uppercase transition-all flex items-center gap-2 bg-cyber-accent text-slate-950 shadow-glow-accent touch-target";
+        btnRoles.className = "shrink-0 px-4 py-2.5 rounded-xl font-mono text-xs font-bold uppercase transition-all flex items-center gap-2 glass-panel text-slate-300 hover:bg-cyber-cardAlt hover:text-white border border-cyber-border touch-target";
+      } else {
+        secStaff.classList.add('hidden');
+        secRoles.classList.remove('hidden');
+        btnStaff.className = "shrink-0 px-4 py-2.5 rounded-xl font-mono text-xs font-bold uppercase transition-all flex items-center gap-2 glass-panel text-slate-300 hover:bg-cyber-cardAlt hover:text-white border border-cyber-border touch-target";
+        btnRoles.className = "shrink-0 px-4 py-2.5 rounded-xl font-mono text-xs font-bold uppercase transition-all flex items-center gap-2 bg-cyber-purple text-white shadow-md touch-target";
+      }
+    };
+
+    window.toggleVisibilidadPassword = () => {
+      const input = document.getElementById('staffPassword');
+      const icon = document.getElementById('iconTogglePass');
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'fas fa-eye-slash text-cyber-amber';
+      } else {
+        input.type = 'password';
+        icon.className = 'fas fa-eye text-slate-400';
+      }
+    };
+
+    window.generarPasswordAleatorio = () => {
+      const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%*";
+      let pass = "";
+      for (let i = 0; i < 9; i++) pass += chars.charAt(Math.floor(Math.random() * chars.length));
+      const input = document.getElementById('staffPassword');
+      input.value = pass;
+      input.type = 'text';
+      document.getElementById('iconTogglePass').className = 'fas fa-eye-slash text-cyber-amber';
+    };
+
+    window.enviarEmailResetPass = async (email, nombre) => {
+      if (!confirm(`¿Enviar enlace de restablecimiento de contraseña a ${nombre} (${email})?`)) return;
+      try {
+        await sendPasswordResetEmail(authSecondary, email);
+        alert(`Correo de restablecimiento enviado a: ${email}`);
+        await push(ref(db, 'modulo_7_logs'), {
+          modulo: "M5_STAFF",
+          evento: "RESET_PASSWORD_EMAIL",
+          ejecutadoPor: usuarioSesion.nombre,
+          uidEjecutor: usuarioSesion.uid,
+          detalle: `Se envió link de cambio de contraseña a ${nombre} (${email}).`,
+          timestamp: serverTimestamp()
+        });
+      } catch (e) {
+        alert("Error al enviar email: " + e.message);
+      }
+    };
+
+    window.enviarWhatsAppAcceso = (tel, nombre, email) => {
+      if (!tel) return alert("El colaborador no tiene teléfono registrado.");
+      const msg = `¡Hola ${nombre}! Te damos la bienvenida al equipo. Tu cuenta en el Sistema ERP está activa.\n\n` +
+                  `👤 Usuario: ${email}\n` +
+                  `🌐 Portal: ${window.location.origin}\n\n` +
+                  `Si requieres asistencia o asignación de contraseñas, comunícate con tu coordinación.`;
+      window.open(`https://wa.me/52${tel}?text=${encodeURIComponent(msg)}`, '_blank');
     };
   </script>
 </body>
