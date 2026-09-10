@@ -1,28 +1,25 @@
-name: El Centinela de las 9 PM
+name: Ejecutor Centinela Watchdog
 
 on:
   schedule:
-    # 03:00 UTC equivale a las 21:00 (9:00 PM) hora del Centro de México (CST)
-    - cron: '0 3 * * *'
-  workflow_dispatch: # Permite activar el script manualmente desde GitHub Actions
+    - cron: '0 */6 * * *' # Ejecuta automáticamente cada 6 horas
+  workflow_dispatch: # Botón manual "Run workflow" en la pestaña Actions
 
 jobs:
-  enviar-recordatorios:
+  centinela-check:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Descargar repositorio
+      - name: Descargar Código del Repositorio
         uses: actions/checkout@v4
 
-      - name: Configurar Node.js 24
+      - name: Configurar Node.js Runtime
         uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: 20
 
-      - name: Instalar dependencias rápidas
-        run: npm install firebase-admin isomorphic-fetch
-
-      - name: Ejecutar el Centinela
+      - name: Ejecutar Script Centinela
         env:
-          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           FIREBASE_DB_URL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com"
+          FIREBASE_SECRET: ${{ secrets.FIREBASE_DB_SECRET }}
         run: node .github/workflows/script-centinela.js
