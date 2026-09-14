@@ -68,7 +68,7 @@
     </div>
     <h2 class="text-xl sm:text-2xl font-black text-white tracking-tight uppercase">Acceso Restringido por Gobernanza</h2>
     <p class="text-slate-300 text-sm mt-2 leading-relaxed">
-      Este módulo es exclusivo para Mando Directivo (Nivel 4+) y Dirección General (Nivel 5). Tus credenciales actuales no permiten administrar la estructura de staff.
+      Este módulo es exclusivo para personal con privilegios activos de administración sobre Staff y Gobernanza. Tus credenciales actuales no permiten gestionar esta área.
     </p>
     <a href="admin.html" class="mt-6 inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-cyber-accent hover:bg-cyber-accentHover text-slate-950 font-black text-xs uppercase tracking-wider transition-all shadow-glow-accent touch-target">
       <i class="fas fa-arrow-left"></i> Volver al Panel Principal
@@ -96,7 +96,7 @@
           Estructura Matricial & Control de Cuentas
         </h1>
         <p class="text-slate-300 text-xs sm:text-sm">
-          Administración de colaboradores, asignación multijefe (N:M) por división operativa y gobernanza jerárquica directa.
+          Administración de colaboradores, asignación multijefe (N:M) por división operativa y cumplimiento RBAC canónico en tiempo real.
         </p>
       </div>
 
@@ -130,7 +130,7 @@
     <div id="pestanaStaff" class="space-y-6">
       
       <!-- FORMULARIO DE ALTA / EDICIÓN -->
-      <section class="glass-panel rounded-3xl border border-cyber-border overflow-hidden shadow-glow-card">
+      <section class="glass-panel rounded-3xl border border-cyber-border overflow-hidden shadow-glow-card" id="seccionFormularioStaff">
         <div class="p-4 sm:p-5 border-b border-cyber-border bg-slate-950/40 flex justify-between items-center flex-wrap gap-2">
           <div class="flex items-center gap-2.5">
             <span class="w-9 h-9 rounded-xl bg-cyber-accent/10 border border-cyber-accent/30 text-cyber-accent flex items-center justify-center text-sm shadow-inner">
@@ -423,7 +423,7 @@
             <h2 class="text-sm sm:text-base font-black uppercase text-cyber-purple tracking-wide flex items-center gap-2">
               <i class="fas fa-shield-virus"></i> Motor de Roles & Matriz Canónica
             </h2>
-            <p class="text-xs text-slate-300">Define los privilegios de Ver, Crear, Editar y Borrar para cada módulo del sistema.</p>
+            <p class="text-xs text-slate-300">Define los privilegios de Ver, Crear, Editar y Borrar para cada módulo. Los cambios se propagan de inmediato a todos los usuarios asignados.</p>
           </div>
           <button onclick="abrirModalCrearRol()" id="btnCrearNuevoRol" class="px-4 py-2 rounded-xl bg-cyber-purple hover:bg-purple-600 text-white font-bold text-xs uppercase tracking-wider transition shadow-md touch-target flex items-center gap-1.5">
             <i class="fas fa-plus"></i> Crear Nuevo Rol
@@ -637,16 +637,51 @@
       uid: null,
       nombre: "Cargando...",
       email: "",
+      rolId: null,
       nivel: 1,
       scope: "personal",
       todasLasEmpresas: false,
-      empresas: []
+      empresas: [],
+      rawUser: {}
     };
 
     let globalStaff = {};
     let globalRoles = {};
     let globalEmpresas = {};
     let pendingTraspasoData = null;
+
+    // MOTOR DE AUDITORÍA Y COMPROBACIÓN CANÓNICA RBAC
+    const RBAC = {
+      puede(moduloId, accion) {
+        if (!usuarioSesion.uid) return false;
+        if (usuarioSesion.nivel >= 5) return true;
+
+        if ((moduloId === 'm7_logs' || moduloId === 'm8_creador') && (accion === 'editar' || accion === 'eliminar')) {
+          return false;
+        }
+
+        // 1. Consulta la plantilla viva de roles en memoria
+        const rolVivo = globalRoles[usuarioSesion.rolId];
+        if (rolVivo && rolVivo.permisos && rolVivo.permisos[moduloId]) {
+          return !!rolVivo.permisos[moduloId][accion];
+        }
+
+        // 2. Fallback al objeto inyectado en el perfil del usuario
+        if (usuarioSesion.rawUser?.permisosModulos?.[moduloId]) {
+          return !!usuarioSesion.rawUser.permisosModulos[moduloId][accion];
+        }
+
+        return false;
+      },
+
+      asegurar(moduloId, accion, mensajeError = "Acción denegada por Gobernanza RBAC.") {
+        if (!this.puede(moduloId, accion)) {
+          alert(`⛔ ALERTA RBAC: ${mensajeError}`);
+          throw new Error(`Permiso denegado: [${moduloId} -> ${accion}]`);
+        }
+        return true;
+      }
+    };
 
     document.addEventListener("DOMContentLoaded", () => {
       inicializarSeguridadM5();
@@ -681,34 +716,60 @@
 
           const nivelNum = parseInt(val.nivel) || 2;
 
-          if (nivelNum < 4) {
-            candado.classList.remove('hidden');
-            panel.classList.add('hidden');
-            return;
-          }
-
           usuarioSesion = {
             uid: user.uid,
             nombre: val.nombre || user.email,
             email: user.email,
+            rolId: val.rolId || null,
             nivel: nivelNum,
             scope: val.scope || "personal",
             todasLasEmpresas: nivelNum >= 4 && (val.scope === 'global' || (Array.isArray(val.empresas) && val.empresas.includes("TODAS"))),
-            empresas: Array.isArray(val.empresas) ? val.empresas.map(e => sanitizarKey(e)) : []
+            empresas: Array.isArray(val.empresas) ? val.empresas.map(e => sanitizarKey(e)) : [],
+            rawUser: val
           };
 
-          candado.classList.add('hidden');
-          panel.classList.remove('hidden');
+          // Escuchar roles y verificar de forma viva el permiso de acceso a M5
+          onValue(ref(db, 'roles_dinamicos'), (snap) => {
+            globalRoles = snap.val() || {};
 
-          badgeJerarquia.textContent = usuarioSesion.nivel >= 5 
-            ? "Jerarquía: Master Administrador (Nivel 5)" 
-            : `Jerarquía: Director / Supervisor (Nivel ${usuarioSesion.nivel})`;
+            // Validar acceso dinámico a este módulo
+            if (!RBAC.puede('m5_staff', 'ver')) {
+              candado.classList.remove('hidden');
+              panel.classList.add('hidden');
+              return;
+            }
 
-          if (usuarioSesion.nivel < 5) {
-            document.getElementById('btnCrearNuevoRol')?.classList.add('hidden');
-          }
+            candado.classList.add('hidden');
+            panel.classList.remove('hidden');
 
-          escucharDatosEnTiempoReal();
+            badgeJerarquia.textContent = usuarioSesion.nivel >= 5 
+              ? "Jerarquía: Master Administrador (Nivel 5)" 
+              : `Jerarquía: ${val.nombreRol || 'Mando'} (Nivel ${usuarioSesion.nivel})`;
+
+            aplicarGobernanzaInterfazM5();
+            poblarSelectorRoles();
+            renderizarTablaRolesDinamicos();
+          });
+
+          onValue(ref(db, 'empresas'), (snap) => {
+            globalEmpresas = snap.val() || {};
+            poblarCheckboxesEmpresas();
+          });
+
+          onValue(ref(db, 'usuarios_reclutadores'), (snap) => {
+            globalStaff = snap.val() || {};
+            
+            // Mantener reactivo el usuario de sesión si su rol cambia externamente
+            if (globalStaff[usuarioSesion.uid]) {
+              usuarioSesion.rawUser = globalStaff[usuarioSesion.uid];
+              usuarioSesion.rolId = globalStaff[usuarioSesion.uid].rolId;
+              usuarioSesion.nivel = parseInt(globalStaff[usuarioSesion.uid].nivel) || 2;
+            }
+
+            poblarCheckboxesMandosMatriciales();
+            renderizarDirectorioStaff();
+            renderizarTableroMatricial();
+          });
 
         } catch (e) {
           console.error("Error validando autenticación M5:", e);
@@ -717,32 +778,29 @@
       });
     }
 
+    function aplicarGobernanzaInterfazM5() {
+      // Bloqueo de creación de roles dinámicos
+      if (!RBAC.puede('m5_staff', 'crear') || usuarioSesion.nivel < 5) {
+        document.getElementById('btnCrearNuevoRol')?.classList.add('hidden');
+      } else {
+        document.getElementById('btnCrearNuevoRol')?.classList.remove('hidden');
+      }
+
+      // Bloqueo de creación y edición de staff
+      const seccionForm = document.getElementById('seccionFormularioStaff');
+      if (!RBAC.puede('m5_staff', 'crear') && !RBAC.puede('m5_staff', 'editar')) {
+        seccionForm?.classList.add('hidden');
+      } else {
+        seccionForm?.classList.remove('hidden');
+      }
+    }
+
     function sanitizarKey(str) {
       return (str || "general").toLowerCase().trim()
         .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
         .replace(/[^a-z0-9]/g, "_")
         .replace(/_+/g, "_")
         .replace(/^_|_$/g, "");
-    }
-
-    function escucharDatosEnTiempoReal() {
-      onValue(ref(db, 'roles_dinamicos'), (snap) => {
-        globalRoles = snap.val() || {};
-        poblarSelectorRoles();
-        renderizarTablaRolesDinamicos();
-      });
-
-      onValue(ref(db, 'empresas'), (snap) => {
-        globalEmpresas = snap.val() || {};
-        poblarCheckboxesEmpresas();
-      });
-
-      onValue(ref(db, 'usuarios_reclutadores'), (snap) => {
-        globalStaff = snap.val() || {};
-        poblarCheckboxesMandosMatriciales();
-        renderizarDirectorioStaff();
-        renderizarTableroMatricial();
-      });
     }
 
     function poblarSelectorRoles() {
@@ -888,7 +946,6 @@
       const rol = globalRoles[rolId];
       const nivel = rol ? (parseInt(rol.nivelJerarquico) || 2) : 2;
 
-      // Autoseleccionar mandos únicamente para niveles operativos
       if (nivel <= 2) {
         if (empData.coordinadorId) {
           const chkCoord = document.querySelector(`.chk-coordinador[value="${empData.coordinadorId}"]`);
@@ -916,7 +973,6 @@
       actualizarConteoMandos();
     };
 
-    // GOBERNANZA REACTIVA DE MANDOS SEGÚN NIVEL JERÁRQUICO
     window.alCambiarRolSeleccionado = () => {
       const rolId = document.getElementById('selectRolDinamico').value;
       const rol = globalRoles[rolId];
@@ -936,35 +992,29 @@
       const chkSwitch = document.getElementById('chkOperaComoReclutador');
       const lblSwitch = document.getElementById('lblSwitchReclutador');
 
-      // 1. Reajuste de Línea de Mando según Jerarquía Pura
       if (nivel >= 5) {
-        // Nivel 5: Dirección General / Master
         colSup.classList.add('hidden');
         colCoord.classList.add('hidden');
         bannerDirecta.classList.remove('hidden');
         txtBanner.textContent = "👑 Dirección General / Máxima Autoridad del ERP. No cuenta con subordinación ni supervisión.";
         document.querySelectorAll('.chk-supervisor, .chk-coordinador').forEach(c => c.checked = false);
       } else if (nivel === 4 || esRRHH) {
-        // Nivel 4: Director / Supervisor / Administrador RRHH
         colSup.classList.add('hidden');
         colCoord.classList.add('hidden');
         bannerDirecta.classList.remove('hidden');
         txtBanner.textContent = "🛡️ Mando Directivo / Staff Central: Dependencia directa y reporte exclusivo hacia Dirección General.";
         document.querySelectorAll('.chk-supervisor, .chk-coordinador').forEach(c => c.checked = false);
       } else if (nivel === 3) {
-        // Nivel 3: Coordinadores / Implants (Solo eligen Supervisor titular)
         colSup.classList.remove('hidden');
         colCoord.classList.add('hidden');
         bannerDirecta.classList.add('hidden');
         document.querySelectorAll('.chk-coordinador').forEach(c => c.checked = false);
       } else {
-        // Nivel 1 y 2: Reclutadores Operativos (Eligen Coordinador y Supervisor)
         colSup.classList.remove('hidden');
         colCoord.classList.remove('hidden');
         bannerDirecta.classList.add('hidden');
       }
 
-      // 2. Perímetro (Scope)
       if (rol.scope === 'global') {
         badgeScope.textContent = "Scope: Global Total (Todas las empresas)";
         badgeScope.className = "text-xs font-mono px-2.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 font-bold";
@@ -975,7 +1025,6 @@
         document.querySelectorAll('.chk-empresa').forEach(c => { c.disabled = false; });
       }
 
-      // 3. Switch Reclutador Activo
       if (nivel <= 2) {
         boxSwitch.classList.add('hidden');
         chkSwitch.checked = true;
@@ -1003,11 +1052,14 @@
       }
     };
 
-    // GUARDADO DE STAFF CON SANEAMIENTO JERÁRQUICO
+    // GUARDADO DE COLABORADOR CON VALIDACIÓN RBAC ESTRICTA
     window.procesarGuardadoColaborador = async (e) => {
       e.preventDefault();
 
       const uid = document.getElementById('staffUidHidden').value;
+      const accion = uid ? 'editar' : 'crear';
+      RBAC.asegurar('m5_staff', accion, `No cuentas con autorización para ${accion.toUpperCase()} personal en Staff.`);
+
       const rolId = document.getElementById('selectRolDinamico').value;
       const rol = globalRoles[rolId];
       if (!rol) return alert("Selecciona un rol dinámico válido.");
@@ -1092,20 +1144,16 @@
       const nombreRol = (rol.nombre || '').toLowerCase();
       const esRRHH = nombreRol.includes('rrhh') || nombreRol.includes('recursos humanos');
 
-      // Saneamiento estricto de subordinación según gobernanza limpia
       let supervisoresFinales = [];
       let coordinadoresFinales = [];
 
       if (nivelJerarquico >= 5 || nivelJerarquico === 4 || esRRHH) {
-        // Directores, N5 y RRHH no tienen mandos superiores en estos selectores
         supervisoresFinales = [];
         coordinadoresFinales = [];
       } else if (nivelJerarquico === 3) {
-        // Coordinadores e Implants solo tienen Supervisores
         document.querySelectorAll('.chk-supervisor:checked').forEach(c => supervisoresFinales.push(c.value));
         coordinadoresFinales = [];
       } else {
-        // Reclutadores Operativos tienen ambos
         document.querySelectorAll('.chk-supervisor:checked').forEach(c => supervisoresFinales.push(c.value));
         document.querySelectorAll('.chk-coordinador:checked').forEach(c => coordinadoresFinales.push(c.value));
       }
@@ -1176,7 +1224,6 @@
 
         await set(ref(db, `usuarios_reclutadores/${uidFinal}`), payload);
 
-        // AUTO-REPARACIÓN ATÓMICA DE TERNA EN NODO EMPRESAS
         if (empresasSeleccionadas.length > 0) {
           for (let empKey of empresasSeleccionadas) {
             if (empKey !== "TODAS") {
@@ -1188,7 +1235,6 @@
                 await update(ref(db), updatesEmpresa);
               }
 
-              // Herencia inversa para reclutadores de esa empresa
               if (payload.nivel === 3) {
                 Object.entries(globalStaff).forEach(async ([recUid, rec]) => {
                   if (rec.nivel <= 2 && Array.isArray(rec.empresas) && rec.empresas.includes(empKey)) {
@@ -1276,7 +1322,6 @@
       }
     }
 
-    // RENDERIZADO DEL DIRECTORIO (CARDS & TABLA CON GOBERNANZA LIMPIA)
     function renderizarDirectorioStaff() {
       const contenedorCards = document.getElementById('directorioCardsMobile');
       const tbodyDesktop = document.getElementById('directorioTablaDesktop');
@@ -1293,6 +1338,9 @@
         tbodyDesktop.innerHTML = '<tr><td colspan="7" class="p-6 text-center text-slate-500 font-mono">No hay colaboradores registrados.</td></tr>';
         return;
       }
+
+      const puedeEditarStaff = RBAC.puede('m5_staff', 'editar');
+      const puedeEliminarStaff = RBAC.puede('m5_staff', 'eliminar');
 
       uids.forEach(uid => {
         const u = globalStaff[uid];
@@ -1321,7 +1369,6 @@
         const txtSupervisores = sups.length > 0 ? sups.join(', ') : '—';
         const txtCoordinadores = coords.length > 0 ? coords.join(', ') : '—';
 
-        // LÓGICA DE GOBERNANZA: Renderizado limpio según nivel
         let bloqueMandoHTML = '';
         let bloqueMandoMobileHTML = '';
 
@@ -1386,9 +1433,10 @@
             <button onclick="copiarFichaAcceso('${u.nombre}', '${u.email}', '${rol.nombre || u.nombreRol || 'Colaborador'}', ${nivel}, '${u.division || 'todas'}')" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 touch-target flex items-center justify-center" title="Copiar Ficha al Portapapeles">
               <i class="fas fa-copy text-xs"></i>
             </button>
+            ${puedeEditarStaff ? `
             <button onclick="prepararEdicionColaborador('${uid}')" class="p-2.5 rounded-xl bg-cyber-cyan/20 hover:bg-cyber-cyan text-cyber-cyan hover:text-slate-950 border border-cyber-cyan/30 touch-target flex items-center justify-center">
               <i class="fas fa-pen text-xs"></i>
-            </button>
+            </button>` : ''}
             <button onclick="enviarEmailResetPass('${u.email}', '${u.nombre}')" class="p-2.5 rounded-xl bg-cyber-amber/20 hover:bg-cyber-amber text-cyber-amber hover:text-slate-950 border border-cyber-amber/30 touch-target flex items-center justify-center">
               <i class="fas fa-key text-xs"></i>
             </button>
@@ -1432,22 +1480,23 @@
             </span>
           </td>
           <td class="p-4 text-right pr-6 whitespace-nowrap space-x-1">
+            ${puedeEditarStaff ? `
             <button onclick="prepararEdicionColaborador('${uid}')" class="p-2 rounded-lg bg-cyber-cyan/15 hover:bg-cyber-cyan text-cyber-cyan hover:text-slate-950 border border-cyber-cyan/30 transition" title="Editar Ficha">
               <i class="fas fa-pen text-xs"></i>
-            </button>
+            </button>` : ''}
             <button onclick="enviarEmailResetPass('${u.email}', '${u.nombre}')" class="p-2 rounded-lg bg-cyber-amber/15 hover:bg-cyber-amber text-cyber-amber hover:text-slate-950 border border-cyber-amber/30 transition" title="Enviar enlace de reseteo">
               <i class="fas fa-envelope-open-text text-xs"></i>
             </button>
+            ${puedeEliminarStaff ? `
             <button onclick="eliminarColaboradorDefinitivo('${uid}')" class="p-2 rounded-lg bg-rose-500/15 hover:bg-rose-500 text-rose-400 hover:text-white border border-rose-500/30 transition" title="Eliminar Colaborador">
               <i class="fas fa-trash text-xs"></i>
-            </button>
+            </button>` : ''}
           </td>
         `;
         tbodyDesktop.appendChild(tr);
       });
     }
 
-    // TABLERO MATRICIAL (PESTAÑA 2)
     function renderizarTableroMatricial() {
       const contSup = document.getElementById('contenedorArbolSupervisores');
       const contCoord = document.getElementById('contenedorArbolCoordinadores');
@@ -1551,8 +1600,9 @@
       });
     }
 
-    // MODAL DE ASIGNACIÓN ÁGIL
     window.abrirModalAsignacionAgil = (mandoUid, tipoMando) => {
+      RBAC.asegurar('m5_staff', 'editar', "No tienes privilegios para reasignar células operativas.");
+
       const mando = globalStaff[mandoUid];
       if (!mando) return;
 
@@ -1607,6 +1657,8 @@
     };
 
     window.guardarAsignacionAgil = async () => {
+      RBAC.asegurar('m5_staff', 'editar', "No tienes privilegios para modificar asignaciones matriciales.");
+
       const mandoUid = document.getElementById('modalAsignacionMandoUid').value;
       const tipoMando = document.getElementById('modalAsignacionTipoMando').value;
 
@@ -1669,7 +1721,6 @@
       }
     };
 
-    // ROLES DINÁMICOS & MATRIZ CRUD
     function renderizarTablaRolesDinamicos() {
       const tbody = document.getElementById('tablaRolesDinamicosBody');
       tbody.innerHTML = '';
@@ -1734,6 +1785,9 @@
     };
 
     window.abrirModalCrearRol = () => {
+      if (usuarioSesion.nivel < 5) {
+        return alert("Solo Master Administrador (Nivel 5) puede registrar nuevos roles canónicos.");
+      }
       document.getElementById('formModalRol').reset();
       document.getElementById('rolIdHidden').value = '';
       document.getElementById('modalRolTitulo').innerHTML = `<i class="fas fa-shield-plus"></i> Crear Nuevo Rol Dinámico`;
@@ -1743,6 +1797,9 @@
     };
 
     window.editarRolPlantilla = (rolId) => {
+      if (usuarioSesion.nivel < 5) {
+        return alert("Solo Master Administrador (Nivel 5) puede editar matrices de roles.");
+      }
       const r = globalRoles[rolId];
       if (!r) return;
 
@@ -1771,8 +1828,13 @@
       document.getElementById('modalRolDinamico').classList.add('hidden');
     };
 
+    // PROPAGACIÓN ATÓMICA EN CASCADA HACIA USUARIOS CONECTADOS
     window.guardarPlantillaRol = async (e) => {
       e.preventDefault();
+      if (usuarioSesion.nivel < 5) {
+        return alert("Acción restringida: Se requiere perfil Master Administrador.");
+      }
+
       const rolId = document.getElementById('rolIdHidden').value;
       const nombre = document.getElementById('rolInputNombre').value.trim();
       const nivel = parseInt(document.getElementById('rolInputNivel').value);
@@ -1794,7 +1856,7 @@
         permisos[m.id] = { ver, crear, editar, eliminar: borrar };
       });
 
-      const payload = {
+      const payloadRol = {
         nombre,
         nivelJerarquico: nivel,
         scope,
@@ -1803,29 +1865,52 @@
       };
 
       try {
+        let finalRolId = rolId;
+
         if (rolId) {
-          await update(ref(db, `roles_dinamicos/${rolId}`), payload);
+          await update(ref(db, `roles_dinamicos/${rolId}`), payloadRol);
         } else {
-          await set(push(ref(db, 'roles_dinamicos')), payload);
+          const newRef = push(ref(db, 'roles_dinamicos'));
+          await set(newRef, payloadRol);
+          finalRolId = newRef.key;
+        }
+
+        // PROPAGACIÓN ATÓMICA EN CASCADA
+        let usuariosSincronizados = 0;
+        if (finalRolId) {
+          const updatesUsuarios = {};
+          
+          Object.entries(globalStaff).forEach(([uid, u]) => {
+            if (u.rolId === finalRolId) {
+              updatesUsuarios[`usuarios_reclutadores/${uid}/permisosModulos`] = permisos;
+              updatesUsuarios[`usuarios_reclutadores/${uid}/scope`] = scope;
+              updatesUsuarios[`usuarios_reclutadores/${uid}/nivel`] = nivel;
+              updatesUsuarios[`usuarios_reclutadores/${uid}/nombreRol`] = nombre;
+              usuariosSincronizados++;
+            }
+          });
+
+          if (Object.keys(updatesUsuarios).length > 0) {
+            await update(ref(db), updatesUsuarios);
+          }
         }
 
         await push(ref(db, 'modulo_7_logs'), {
           modulo: "M5_STAFF",
-          evento: "GUARDADO_ROL_PLANTILLA",
+          evento: "GUARDADO_Y_PROPAGACION_ROL",
           ejecutadoPor: usuarioSesion.nombre,
           uidEjecutor: usuarioSesion.uid,
-          detalle: `Se configuró la plantilla del rol ${nombre} (Nivel ${nivel} • ${scope}).`,
+          detalle: `Se actualizó la matriz del rol "${nombre}" (N${nivel} • ${scope}) y se sincronizó en vivo hacia ${usuariosSincronizados} colaboradores vinculados.`,
           timestamp: serverTimestamp()
         });
 
         cerrarModalRol();
-        alert("Plantilla de rol guardada exitosamente.");
+        alert(`✅ Matriz de Rol guardada exitosamente.\n\nSe sincronizaron en tiempo real los permisos de ${usuariosSincronizados} colaborador(es).`);
       } catch (err) {
-        alert("Error al guardar rol: " + err.message);
+        alert("Error al guardar y propagar rol: " + err.message);
       }
     };
 
-    // CONTROLES DE PESTAÑAS, EDICIÓN & AUXILIARES
     window.cambiarPestana = (tab) => {
       const secStaff = document.getElementById('pestanaStaff');
       const secMatriz = document.getElementById('pestanaMatriz');
@@ -1858,6 +1943,8 @@
     };
 
     window.prepararEdicionColaborador = (uid) => {
+      RBAC.asegurar('m5_staff', 'editar', "No tienes autorización para editar fichas de personal.");
+
       const u = globalStaff[uid];
       if (!u) return;
 
@@ -1935,9 +2022,7 @@
     };
 
     window.eliminarColaboradorDefinitivo = async (uid) => {
-      if (usuarioSesion.nivel < 5) {
-        return alert("Acción restringida. La eliminación de cuentas es exclusiva de Master Administrador (Nivel 5).");
-      }
+      RBAC.asegurar('m5_staff', 'eliminar', "No tienes privilegios para eliminar colaboradores del sistema.");
 
       const u = globalStaff[uid];
       if (confirm(`¿Eliminar definitivamente a "${u?.nombre || uid}"? Esta acción revocará todos sus accesos.`)) {
