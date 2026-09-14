@@ -160,6 +160,7 @@
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 16px;
+            margin-bottom: 16px;
         }
 
         .generated-link-box {
@@ -235,7 +236,21 @@
         .btn-clear { background: var(--primary-blue); color: #fff; }
         .btn-delete { background: var(--primary-red); color: #fff; }
 
-        .search-wrapper { position: relative; margin-bottom: 20px; }
+        /* Filtros ergonómicos */
+        .filter-bar-wrapper {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .search-wrapper { 
+            position: relative; 
+            flex: 1; 
+            min-width: 250px;
+        }
+
         .search-icon { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
         .search-control { padding-left: 42px; padding-right: 120px; }
         .counter-badge { position: absolute; right: 15px; top: 50%; transform: translateY(-50%); font-size: 0.72rem; color: var(--text-muted); font-weight: 600; }
@@ -266,6 +281,23 @@
             background: rgba(255,255,255,0.05);
         }
 
+        /* Badges de División Minimalistas */
+        .badge-division {
+            font-size: 0.68rem;
+            font-weight: 600;
+            padding: 2px 7px;
+            border-radius: 4px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .badge-div-norte { background: rgba(56, 189, 248, 0.12); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); }
+        .badge-div-centro { background: rgba(168, 85, 247, 0.12); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3); }
+        .badge-div-sur { background: rgba(34, 197, 94, 0.12); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); }
+        .badge-div-none { background: rgba(148, 163, 184, 0.12); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.3); }
+
         /* Semáforos */
         .select-status-master {
             font-size: 0.75rem;
@@ -290,6 +322,7 @@
         @media (max-width: 768px) {
             .inputs-horizontal-row, .action-button-row { grid-template-columns: 1fr; }
             .generated-link-box { flex-direction: column; align-items: stretch; }
+            .filter-bar-wrapper { flex-direction: column; align-items: stretch; }
         }
     </style>
 </head>
@@ -349,6 +382,7 @@
             </div>
             
             <form id="empresaForm" onsubmit="event.preventDefault();">
+                <!-- FILA 1: IDENTIDAD Y ASIGNACIÓN TERRITORIAL -->
                 <div class="inputs-horizontal-row">
                     <div>
                         <label class="form-label-tech"><i class="fa-solid fa-fingerprint"></i> ID Único *</label>
@@ -359,6 +393,19 @@
                         <input type="text" id="inputNombre" class="form-control-tech w-100" placeholder="Ej: Hyundai Glovis" required>
                     </div>
                     <div>
+                        <label class="form-label-tech"><i class="fa-solid fa-earth-americas"></i> División Operativa *</label>
+                        <select id="inputDivision" class="form-select-tech w-100" required>
+                            <option value="" disabled selected>Selecciona división...</option>
+                            <option value="norte">División Norte</option>
+                            <option value="centro">División Centro</option>
+                            <option value="sur">División Sur</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- FILA 2: OPERACIÓN, LOCALIZACIÓN Y RECURSOS -->
+                <div class="inputs-horizontal-row">
+                    <div>
                         <label class="form-label-tech"><i class="fa-solid fa-toggle-on"></i> Semáforo Operativo Inicial</label>
                         <select id="inputStatusMaster" class="form-select-tech w-100">
                             <option value="Disponible">🟢 Disponible (Abierta)</option>
@@ -368,10 +415,6 @@
                         </select>
                     </div>
                     <div>
-                        <label class="form-label-tech"><i class="fa-solid fa-location-dot"></i> Dirección Física Completa *</label>
-                        <input type="text" id="inputDireccion" class="form-control-tech w-100" placeholder="Ej: Av. Industrial #500, Pesquería, N.L." required>
-                    </div>
-                    <div>
                         <label class="form-label-tech"><i class="fa-solid fa-map-location-dot"></i> Google Maps URL *</label>
                         <input type="text" id="inputUbicacion" class="form-control-tech w-100" placeholder="https://maps.app.goo.gl/..." required>
                     </div>
@@ -379,6 +422,12 @@
                         <label class="form-label-tech"><i class="fa-solid fa-image"></i> URL del Logo Corporativo</label>
                         <input type="text" id="inputImagen" class="form-control-tech w-100" placeholder="https://ejemplo.com/logo.png">
                     </div>
+                </div>
+
+                <!-- FILA 3: DIRECCIÓN FÍSICA -->
+                <div class="mb-3">
+                    <label class="form-label-tech"><i class="fa-solid fa-location-dot"></i> Dirección Física Completa *</label>
+                    <input type="text" id="inputDireccion" class="form-control-tech w-100" placeholder="Ej: Av. Industrial #500, Pesquería, N.L." required>
                 </div>
 
                 <!-- ENLACE PÚBLICO AUTO-GENERADO -->
@@ -407,12 +456,22 @@
             </form>
         </section>
 
-        <!-- TABLA PRINCIPAL DE EMPRESAS CON CONTROL DE SEMÁFOROS -->
+        <!-- TABLA PRINCIPAL DE EMPRESAS CON FILTRO POR DIVISIÓN Y SEMÁFOROS -->
         <section class="panel-box">
-            <div class="search-wrapper">
-                <i class="fa-solid fa-magnifying-glass search-icon"></i>
-                <input type="text" id="inputBuscar" oninput="filtrarTabla()" class="form-control-tech search-control w-100" placeholder="Buscar por nombre, ID o estatus...">
-                <span id="contadorRegistros" class="counter-badge"><i class="fa-solid fa-box-archive"></i> 0 empresas</span>
+            <div class="filter-bar-wrapper">
+                <div class="search-wrapper">
+                    <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                    <input type="text" id="inputBuscar" oninput="filtrarTabla()" class="form-control-tech search-control w-100" placeholder="Buscar por nombre, ID o estatus...">
+                    <span id="contadorRegistros" class="counter-badge"><i class="fa-solid fa-box-archive"></i> 0 empresas</span>
+                </div>
+                <div style="min-width: 200px;">
+                    <select id="filtroDivision" onchange="filtrarTabla()" class="form-select-tech w-100">
+                        <option value="TODAS">🌐 Todas las Divisiones</option>
+                        <option value="norte">División Norte</option>
+                        <option value="centro">División Centro</option>
+                        <option value="sur">División Sur</option>
+                    </select>
+                </div>
             </div>
 
             <div class="table-responsive">
@@ -421,7 +480,7 @@
                         <tr>
                             <th>Logo</th>
                             <th>ID</th>
-                            <th>Nombre Comercial</th>
+                            <th>Empresa / División</th>
                             <th class="text-center">Semáforo Maestro</th>
                             <th class="text-center">Vacantes / M2</th>
                             <th class="text-end">Acciones</th>
@@ -513,7 +572,6 @@
         let catalogoVacantesDetalles = {};
         let modalVacantesInstance = null;
 
-        // EXPONER AL ÁMBITO GLOBAL
         window.repararImperfeccionesKeys = repararImperfeccionesKeys;
 
         document.addEventListener("DOMContentLoaded", () => {
@@ -540,7 +598,6 @@
             inicializarSeguridadM1();
         });
 
-        // 1. RESOLUCIÓN DE IDENTIDAD Y APLICACIÓN DE GOBERNANZA RBAC
         function inicializarSeguridadM1() {
             auth.onAuthStateChanged(user => {
                 if (!user) {
@@ -564,7 +621,6 @@
 
                     const nivelNum = parseInt(val.nivel) || 2;
 
-                    // BLOQUEO A OPERATIVOS: Nivel 1 y 2 no tienen función en catálogo de empresas clientes
                     if (nivelNum < 3) {
                         alert("Acceso Restringido. El Módulo 1 está reservado para Coordinación y Dirección.");
                         window.location.href = "m3_agenda.html";
@@ -616,13 +672,11 @@
                 bannerConsulta.classList.add("d-none");
                 if (btnReparar) btnReparar.classList.remove("d-none");
             } else if (usuarioSesion.nivel === 3) {
-                // Coordinadores: Consulta autorizada de sus clientes. No pueden crear ni borrar empresas.
                 badgeScope.className = "badge bg-warning border border-light text-dark px-3 py-2 font-monospace";
                 badgeScope.textContent = `Scope: Célula Coordinada (${usuarioSesion.empresas.length} Empresas)`;
                 bannerConsulta.classList.remove("d-none");
                 if (btnReparar) btnReparar.classList.add("d-none");
                 
-                // Bloquear formulario maestro
                 btnGuardar.classList.add("d-none");
                 btnBorrarCascada.classList.add("d-none");
                 inputsForm.forEach(inp => {
@@ -657,17 +711,23 @@
             return usuarioSesion.todasLasEmpresas || usuarioSesion.empresas.includes(keyLimpia);
         }
 
+        function getDivisionBadge(divRaw) {
+            const div = (divRaw || "").toLowerCase();
+            if (div === "norte") return `<span class="badge-division badge-div-norte"><i class="fa-solid fa-compass"></i> Norte</span>`;
+            if (div === "centro") return `<span class="badge-division badge-div-centro"><i class="fa-solid fa-location-crosshairs"></i> Centro</span>`;
+            if (div === "sur") return `<span class="badge-division badge-div-sur"><i class="fa-solid fa-map-pin"></i> Sur</span>`;
+            return `<span class="badge-division badge-div-none">Sin División</span>`;
+        }
+
         function renderizarTablaEmpresas() {
             const tbody = document.getElementById("tablaBodyEmpresas");
             tbody.innerHTML = "";
             
-            // Filtrar empresas visibles según el scope del usuario
             const keysVisibles = Object.keys(catalogoEmpresasCompleto).filter(k => tieneAccesoAEmpresa(k));
-
-            document.getElementById("contadorRegistros").innerHTML = `<i class="fa-solid fa-box-archive"></i> ${keysVisibles.length} empresas autorizadas`;
 
             if (keysVisibles.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-muted">No tienes empresas asignadas bajo tu coordinación.</td></tr>`;
+                document.getElementById("contadorRegistros").innerHTML = `<i class="fa-solid fa-box-archive"></i> 0 empresas`;
                 return;
             }
 
@@ -683,15 +743,18 @@
                 const keySanitizada = sanitizarKey(key);
                 const vacsEmp = catalogoVacantesDetalles[key] || catalogoVacantesDetalles[keySanitizada] || {};
                 const totalVacs = Object.keys(vacsEmp).length;
-
-                // Restricción: Solo Nivel >= 4 puede alterar el semáforo maestro del cliente
                 const selectorSemaforoDisabled = usuarioSesion.nivel < 4 ? "disabled style='pointer-events:none; opacity:0.85;'" : "";
+                const badgeDiv = getDivisionBadge(emp.division);
 
                 const tr = document.createElement("tr");
+                tr.setAttribute("data-division", (emp.division || "none").toLowerCase());
                 tr.innerHTML = `
                     <td><img src="${emp.imagen || ''}" onerror="this.src='https://placehold.co/100x100/0b1329/fff?text=Logo'" class="logo-preview-cell"></td>
                     <td class="font-monospace text-warning">${emp.id || key}</td>
-                    <td class="fw-bold text-white">${emp.nombre || ''}</td>
+                    <td>
+                        <div class="fw-bold text-white mb-1">${emp.nombre || ''}</div>
+                        <div>${badgeDiv}</div>
+                    </td>
                     <td class="text-center">
                         <select onchange="cambiarEstatusMaestroEmpresa('${key}', this.value)" class="select-status-master ${claseSelect}" ${selectorSemaforoDisabled}>
                             <option value="Disponible" ${estatus === 'Disponible' ? 'selected' : ''}>🟢 Disponible</option>
@@ -725,9 +788,10 @@
                 `;
                 tbody.appendChild(tr);
             });
+
+            filtrarTabla();
         }
 
-        // 2. CAMBIO DE SEMÁFORO MAESTRO POR EMPRESA (NIVEL >= 4)
         async function cambiarEstatusMaestroEmpresa(empKey, nuevoEstatus) {
             if (usuarioSesion.nivel < 4) {
                 alert("Acción restringida. Solo la Dirección General puede alterar el semáforo operativo maestro de un cliente.");
@@ -751,7 +815,6 @@
             }
         }
 
-        // 3. MODAL Y SEMÁFORO INDIVIDUAL POR VACANTE
         window.abrirModalVacantes = (empKey) => {
             if (!tieneAccesoAEmpresa(empKey)) {
                 return alert("No tienes autorización para consultar las vacantes de esta empresa.");
@@ -821,7 +884,6 @@
             }
         }
 
-        // 4. GUARDAR O EDITAR EMPRESA (NIVEL >= 4)
         async function guardarEmpresa() {
             if (usuarioSesion.nivel < 4) {
                 return alert("Acción restringida. Solo la Dirección General puede crear o modificar fichas maestras de clientes.");
@@ -830,13 +892,14 @@
             const rawID = document.getElementById("inputID").value;
             const id = sanitizarKey(rawID);
             const nombre = document.getElementById("inputNombre").value.trim();
+            const division = document.getElementById("inputDivision").value;
             const direccion = document.getElementById("inputDireccion").value.trim();
             const ubicacion = document.getElementById("inputUbicacion").value.trim();
             const imagen = document.getElementById("inputImagen").value.trim();
             const link = document.getElementById("linkAutogenerado").value.trim();
             const estatusOperativo = document.getElementById("inputStatusMaster").value;
 
-            if (!id || !nombre || !direccion || !ubicacion) {
+            if (!id || !nombre || !division || !direccion || !ubicacion) {
                 alert("Rellena todos los campos obligatorios (*)");
                 return;
             }
@@ -845,6 +908,7 @@
                 id: id,
                 nombre: nombre,
                 nombreComercial: nombre,
+                division: division,
                 direccion: direccion,
                 ubicacion: ubicacion,
                 imagen: imagen,
@@ -862,11 +926,11 @@
                     evento: "GUARDADO_EMPRESA",
                     ejecutadoPor: usuarioSesion.nombre,
                     uidEjecutor: usuarioSesion.uid,
-                    detalle: `Se registró/actualizó la ficha de la empresa ${nombre} [${id.toUpperCase()}]. Estatus: ${estatusOperativo}.`,
+                    detalle: `Se registró/actualizó la ficha de la empresa ${nombre} [${id.toUpperCase()}]. División: ${division.toUpperCase()}. Estatus: ${estatusOperativo}.`,
                     timestamp: firebase.database.ServerValue.TIMESTAMP
                 });
 
-                alert(`Empresa [${id.toUpperCase()}] guardada correctamente.`);
+                alert(`Empresa [${id.toUpperCase()}] guardada correctamente en División ${division.toUpperCase()}.`);
                 limpiarFormulario();
             } catch (err) {
                 alert("Error al guardar empresa: " + err.message);
@@ -880,6 +944,7 @@
             document.getElementById("inputID").value = sanitizarKey(emp.id || key);
             document.getElementById("inputID").disabled = true; 
             document.getElementById("inputNombre").value = emp.nombre || emp.nombreComercial || '';
+            document.getElementById("inputDivision").value = emp.division || '';
             document.getElementById("inputDireccion").value = emp.direccion || '';
             document.getElementById("inputUbicacion").value = emp.ubicacion || '';
             document.getElementById("inputImagen").value = emp.imagen || '';
@@ -893,7 +958,6 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        // 5. ELIMINACIÓN EN CASCADA (ESTRICTAMENTE NIVEL >= 4)
         async function eliminarEmpresaDirecto(key) {
             if (usuarioSesion.nivel < 4) {
                 return alert("Acción restringida. Solo la Dirección General puede eliminar empresas del catálogo.");
@@ -937,6 +1001,7 @@
         function limpiarFormulario() {
             document.getElementById("empresaForm").reset();
             document.getElementById("inputID").disabled = false;
+            document.getElementById("inputDivision").value = "";
             document.getElementById("linkAutogenerado").value = "https://valdomtec-arch.github.io/bolsa-trabajo-principal/vacante.html?empresa=";
             document.getElementById("btnAbrirEnlace").href = "#";
             document.getElementById("txtModoEdicionLabel").textContent = "Nueva Empresa";
@@ -950,13 +1015,30 @@
         }
 
         function filtrarTabla() {
-            const txt = document.getElementById("inputBuscar").value.toLowerCase();
-            document.querySelectorAll("#tablaBodyEmpresas tr").forEach(fila => {
-                fila.style.display = fila.textContent.toLowerCase().includes(txt) ? "" : "none";
+            const txt = (document.getElementById("inputBuscar").value || "").toLowerCase().trim();
+            const divSeleccionada = (document.getElementById("filtroDivision").value || "TODAS").toLowerCase();
+            const filas = document.querySelectorAll("#tablaBodyEmpresas tr");
+
+            let visibles = 0;
+
+            filas.forEach(fila => {
+                const filaDiv = (fila.getAttribute("data-division") || "none").toLowerCase();
+                const textoFila = fila.textContent.toLowerCase();
+
+                const coincideTexto = txt === "" || textoFila.includes(txt);
+                const coincideDiv = divSeleccionada === "todas" || filaDiv === divSeleccionada;
+
+                if (coincideTexto && coincideDiv) {
+                    fila.style.display = "";
+                    visibles++;
+                } else {
+                    fila.style.display = "none";
+                }
             });
+
+            document.getElementById("contadorRegistros").innerHTML = `<i class="fa-solid fa-box-archive"></i> ${visibles} empresas`;
         }
 
-        // 6. MOTOR DE SANEAMIENTO Y MIGRACIÓN AUTOMÁTICA EN FIREBASE
         async function repararImperfeccionesKeys() {
             if (usuarioSesion.nivel < 4) {
                 return alert("Esta acción de mantenimiento de base de datos requiere perfil Directivo (Nivel >= 4).");
@@ -984,9 +1066,6 @@
                     const keyLimpia = sanitizarKey(keyOriginal);
 
                     if (keyOriginal !== keyLimpia) {
-                        console.log(`[M1 Saneador] Migrando "${keyOriginal}" -> "${keyLimpia}"`);
-
-                        // 1. Clonar empresa bajo clave sanitizada
                         const datosActualizados = {
                             ...empData,
                             id: keyLimpia
@@ -994,7 +1073,6 @@
                         await db.ref(`empresas/${keyLimpia}`).set(datosActualizados);
                         await db.ref(`empresas/${keyOriginal}`).remove();
 
-                        // 2. Trasladar vacantes huérfanas si existen
                         if (vacantes[keyOriginal]) {
                             const vacsPrevias = vacantes[keyLimpia] || {};
                             await db.ref(`vacantes_detalles/${keyLimpia}`).update({
@@ -1004,7 +1082,6 @@
                             await db.ref(`vacantes_detalles/${keyOriginal}`).remove();
                         }
 
-                        // 3. Trasladar rutas si existen
                         if (rutas[keyOriginal]) {
                             await db.ref(`rutas/${keyLimpia}`).update(rutas[keyOriginal]);
                             await db.ref(`rutas/${keyOriginal}`).remove();
@@ -1014,7 +1091,6 @@
                     }
                 }
 
-                // Registrar auditoría en M7
                 await db.ref("modulo_7_logs").push({
                     modulo: "M1_EMPRESAS",
                     evento: "SANEAMIENTO_CLAVES_FIREBASE",
@@ -1025,9 +1101,9 @@
                 });
 
                 if (migracionesRealizadas > 0) {
-                    alert(`✅ ¡Saneamiento completado con éxito!\n\nSe repararon ${migracionesRealizadas} empresas (incluyendo Soriana). Ahora sus claves coinciden con M2 y las vacantes se desplegarán inmediatamente.`);
+                    alert(`✅ ¡Saneamiento completado con éxito!\n\nSe repararon ${migracionesRealizadas} empresas.`);
                 } else {
-                    alert("✨ Excelente: No se detectaron claves imperfectas. Todas las empresas en Firebase cumplen con el formato estándar.");
+                    alert("✨ No se detectaron claves imperfectas. Todas las empresas en Firebase cumplen con el formato estándar.");
                 }
 
             } catch (err) {
