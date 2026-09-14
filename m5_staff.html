@@ -96,7 +96,7 @@
           Estructura Matricial & Control de Cuentas
         </h1>
         <p class="text-slate-300 text-xs sm:text-sm">
-          Administración de colaboradores, asignación multijefe (N:M) por división operativa y sincronización de ternas.
+          Administración de colaboradores, asignación multijefe (N:M) por división operativa y gobernanza jerárquica directa.
         </p>
       </div>
 
@@ -239,36 +239,39 @@
             </label>
           </div>
 
-          <!-- BLOQUE 3: ESTRUCTURA MATRICIAL MULTI-JEFE -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl border border-cyber-border bg-slate-950/40">
-            <div>
+          <!-- BLOQUE 3: ESTRUCTURA MATRICIAL JERÁRQUICA LIMPIA -->
+          <div id="bloqueMandosMatriciales" class="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl border border-cyber-border bg-slate-950/40">
+            <div id="columnaSupervisoresWrapper">
               <div class="flex justify-between items-center mb-1.5">
                 <label class="text-xs font-mono uppercase text-cyber-purple font-black flex items-center gap-1.5">
-                  <i class="fas fa-user-shield"></i> Supervisores Vinculados (Múltiples)
+                  <i class="fas fa-user-shield"></i> Supervisor Titular / Célula
                 </label>
                 <span id="badgeConteoSup" class="text-[11px] font-mono text-slate-400">0 asignados</span>
               </div>
               <div id="contenedorSupervisoresCheckboxes" class="max-h-36 overflow-y-auto p-2.5 bg-cyber-bg border border-cyber-border rounded-xl space-y-1.5 custom-scrollbar text-xs">
                 <span class="text-slate-500 italic">Cargando supervisores...</span>
               </div>
-              <span class="text-[11px] text-slate-400 font-mono mt-1 block">Se adhieren automáticamente al agregar empresas de otros supervisores.</span>
             </div>
 
-            <div>
+            <div id="columnaCoordinadoresWrapper">
               <div class="flex justify-between items-center mb-1.5">
                 <label class="text-xs font-mono uppercase text-cyber-cyan font-black flex items-center gap-1.5">
-                  <i class="fas fa-sitemap"></i> Coordinadores Vinculados (Múltiples)
+                  <i class="fas fa-sitemap"></i> Coordinadores Vinculados
                 </label>
                 <span id="badgeConteoCoord" class="text-[11px] font-mono text-slate-400">0 asignados</span>
               </div>
               <div id="contenedorCoordinadoresCheckboxes" class="max-h-36 overflow-y-auto p-2.5 bg-cyber-bg border border-cyber-border rounded-xl space-y-1.5 custom-scrollbar text-xs">
                 <span class="text-slate-500 italic">Cargando coordinadores...</span>
               </div>
-              <span class="text-[11px] text-slate-400 font-mono mt-1 block">Heredan automáticamente a sus supervisores correspondientes.</span>
+            </div>
+
+            <div id="bannerJerarquiaDirectaWrapper" class="col-span-1 sm:col-span-2 hidden p-3 rounded-xl border border-amber-500/30 bg-amber-950/20 text-xs font-mono text-amber-300 flex items-center gap-2">
+              <i class="fas fa-crown text-base"></i>
+              <span id="txtJerarquiaDirectaDetalle">Este rango rinde cuentas directamente a la Dirección General.</span>
             </div>
           </div>
 
-          <!-- BLOQUE 4: EMPRESAS ASIGNADAS CON HERENCIA AUTOMÁTICA -->
+          <!-- BLOQUE 4: EMPRESAS ASIGNADAS -->
           <div class="space-y-2">
             <div class="flex justify-between items-center">
               <label class="text-xs font-mono uppercase text-slate-300 font-bold flex items-center gap-1.5">
@@ -321,7 +324,7 @@
                 <th class="p-4 pl-6">Colaborador / Cuenta</th>
                 <th class="p-4">Rol / Jerarquía / División</th>
                 <th class="p-4">Contacto</th>
-                <th class="p-4">Línea de Mando Matricial</th>
+                <th class="p-4">Línea de Mando Jerárquica</th>
                 <th class="p-4">Empresas</th>
                 <th class="p-4">Estatus</th>
                 <th class="p-4 text-right pr-6">Acciones</th>
@@ -366,7 +369,7 @@
             <i class="fas fa-triangle-exclamation"></i>
           </div>
           <div>
-            <span class="text-xs font-mono uppercase text-slate-400 block font-bold">Personal Huérfano (Sin Mando)</span>
+            <span class="text-xs font-mono uppercase text-slate-400 block font-bold">Reclutadores sin Coordinador</span>
             <span id="kpiTotalHuerfanos" class="text-xl font-black text-cyber-rose font-mono">0</span>
           </div>
         </div>
@@ -756,7 +759,6 @@
       });
     }
 
-    // BADGES CANÓNICOS PARA DIVISIÓN EN M5
     function getDivisionBadgeM5(divRaw) {
       const div = (divRaw || "todas").toLowerCase();
       if (div === "norte") return `<span class="bg-sky-500/10 text-sky-400 border border-sky-500/30 text-[10px] font-mono px-2 py-0.5 rounded font-bold uppercase"><i class="fas fa-compass me-1"></i>Norte</span>`;
@@ -882,34 +884,87 @@
       const empData = globalEmpresas[empKey];
       if (!empData || typeof empData !== 'object') return;
 
-      if (empData.coordinadorId) {
-        const chkCoord = document.querySelector(`.chk-coordinador[value="${empData.coordinadorId}"]`);
-        if (chkCoord && !chkCoord.checked) {
-          chkCoord.checked = true;
-          window.alCambiarCoordinadorMatricial(chkCoord, empData.coordinadorId);
-        }
-      }
+      const rolId = document.getElementById('selectRolDinamico').value;
+      const rol = globalRoles[rolId];
+      const nivel = rol ? (parseInt(rol.nivelJerarquico) || 2) : 2;
 
-      if (empData.supervisorId) {
-        const chkSup = document.querySelector(`.chk-supervisor[value="${empData.supervisorId}"]`);
-        if (chkSup && !chkSup.checked) {
-          chkSup.checked = true;
+      // Autoseleccionar mandos únicamente para niveles operativos
+      if (nivel <= 2) {
+        if (empData.coordinadorId) {
+          const chkCoord = document.querySelector(`.chk-coordinador[value="${empData.coordinadorId}"]`);
+          if (chkCoord && !chkCoord.checked) {
+            chkCoord.checked = true;
+            window.alCambiarCoordinadorMatricial(chkCoord, empData.coordinadorId);
+          }
+        }
+
+        if (empData.supervisorId) {
+          const chkSup = document.querySelector(`.chk-supervisor[value="${empData.supervisorId}"]`);
+          if (chkSup && !chkSup.checked) {
+            chkSup.checked = true;
+          }
+        }
+      } else if (nivel === 3) {
+        if (empData.supervisorId) {
+          const chkSup = document.querySelector(`.chk-supervisor[value="${empData.supervisorId}"]`);
+          if (chkSup && !chkSup.checked) {
+            chkSup.checked = true;
+          }
         }
       }
 
       actualizarConteoMandos();
     };
 
+    // GOBERNANZA REACTIVA DE MANDOS SEGÚN NIVEL JERÁRQUICO
     window.alCambiarRolSeleccionado = () => {
       const rolId = document.getElementById('selectRolDinamico').value;
       const rol = globalRoles[rolId];
       if (!rol) return;
+
+      const nivel = parseInt(rol.nivelJerarquico) || 2;
+      const nombreRol = (rol.nombre || '').toLowerCase();
+      const esRRHH = nombreRol.includes('rrhh') || nombreRol.includes('recursos humanos');
+
+      const colSup = document.getElementById('columnaSupervisoresWrapper');
+      const colCoord = document.getElementById('columnaCoordinadoresWrapper');
+      const bannerDirecta = document.getElementById('bannerJerarquiaDirectaWrapper');
+      const txtBanner = document.getElementById('txtJerarquiaDirectaDetalle');
 
       const badgeScope = document.getElementById('badgeAlcanceScope');
       const boxSwitch = document.getElementById('boxSwitchReclutador');
       const chkSwitch = document.getElementById('chkOperaComoReclutador');
       const lblSwitch = document.getElementById('lblSwitchReclutador');
 
+      // 1. Reajuste de Línea de Mando según Jerarquía Pura
+      if (nivel >= 5) {
+        // Nivel 5: Dirección General / Master
+        colSup.classList.add('hidden');
+        colCoord.classList.add('hidden');
+        bannerDirecta.classList.remove('hidden');
+        txtBanner.textContent = "👑 Dirección General / Máxima Autoridad del ERP. No cuenta con subordinación ni supervisión.";
+        document.querySelectorAll('.chk-supervisor, .chk-coordinador').forEach(c => c.checked = false);
+      } else if (nivel === 4 || esRRHH) {
+        // Nivel 4: Director / Supervisor / Administrador RRHH
+        colSup.classList.add('hidden');
+        colCoord.classList.add('hidden');
+        bannerDirecta.classList.remove('hidden');
+        txtBanner.textContent = "🛡️ Mando Directivo / Staff Central: Dependencia directa y reporte exclusivo hacia Dirección General.";
+        document.querySelectorAll('.chk-supervisor, .chk-coordinador').forEach(c => c.checked = false);
+      } else if (nivel === 3) {
+        // Nivel 3: Coordinadores / Implants (Solo eligen Supervisor titular)
+        colSup.classList.remove('hidden');
+        colCoord.classList.add('hidden');
+        bannerDirecta.classList.add('hidden');
+        document.querySelectorAll('.chk-coordinador').forEach(c => c.checked = false);
+      } else {
+        // Nivel 1 y 2: Reclutadores Operativos (Eligen Coordinador y Supervisor)
+        colSup.classList.remove('hidden');
+        colCoord.classList.remove('hidden');
+        bannerDirecta.classList.add('hidden');
+      }
+
+      // 2. Perímetro (Scope)
       if (rol.scope === 'global') {
         badgeScope.textContent = "Scope: Global Total (Todas las empresas)";
         badgeScope.className = "text-xs font-mono px-2.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 font-bold";
@@ -920,7 +975,8 @@
         document.querySelectorAll('.chk-empresa').forEach(c => { c.disabled = false; });
       }
 
-      if (rol.nivelJerarquico <= 2) {
+      // 3. Switch Reclutador Activo
+      if (nivel <= 2) {
         boxSwitch.classList.add('hidden');
         chkSwitch.checked = true;
         lblSwitch.textContent = "Sí (Reclutador Operativo por Defecto)";
@@ -931,6 +987,8 @@
         lblSwitch.textContent = "No (Solo Mando y Supervisión)";
         lblSwitch.className = "ml-3 text-xs font-mono font-bold text-slate-400";
       }
+
+      actualizarConteoMandos();
     };
 
     window.actualizarTextoSwitchReclutador = () => {
@@ -945,7 +1003,7 @@
       }
     };
 
-    // GUARDADO DE STAFF CON DIVISIÓN TERRITORIAL
+    // GUARDADO DE STAFF CON SANEAMIENTO JERÁRQUICO
     window.procesarGuardadoColaborador = async (e) => {
       e.preventDefault();
 
@@ -1030,12 +1088,27 @@
       const email = document.getElementById('staffEmail').value.trim();
       const password = document.getElementById('staffPassword').value.trim();
       const divisionStaff = document.getElementById('selectStaffDivision').value;
+      const nivelJerarquico = parseInt(rol.nivelJerarquico) || 2;
+      const nombreRol = (rol.nombre || '').toLowerCase();
+      const esRRHH = nombreRol.includes('rrhh') || nombreRol.includes('recursos humanos');
 
-      const supervisoresSeleccionados = [];
-      document.querySelectorAll('.chk-supervisor:checked').forEach(c => supervisoresSeleccionados.push(c.value));
+      // Saneamiento estricto de subordinación según gobernanza limpia
+      let supervisoresFinales = [];
+      let coordinadoresFinales = [];
 
-      const coordinadoresSeleccionados = [];
-      document.querySelectorAll('.chk-coordinador:checked').forEach(c => coordinadoresSeleccionados.push(c.value));
+      if (nivelJerarquico >= 5 || nivelJerarquico === 4 || esRRHH) {
+        // Directores, N5 y RRHH no tienen mandos superiores en estos selectores
+        supervisoresFinales = [];
+        coordinadoresFinales = [];
+      } else if (nivelJerarquico === 3) {
+        // Coordinadores e Implants solo tienen Supervisores
+        document.querySelectorAll('.chk-supervisor:checked').forEach(c => supervisoresFinales.push(c.value));
+        coordinadoresFinales = [];
+      } else {
+        // Reclutadores Operativos tienen ambos
+        document.querySelectorAll('.chk-supervisor:checked').forEach(c => supervisoresFinales.push(c.value));
+        document.querySelectorAll('.chk-coordinador:checked').forEach(c => coordinadoresFinales.push(c.value));
+      }
 
       const empresasSeleccionadas = [];
       if (rol.scope === 'global') {
@@ -1053,7 +1126,7 @@
           uidFinal = cred.user.uid;
         }
 
-        const operaComoReclutadorFinal = rol.nivelJerarquico <= 2 
+        const operaComoReclutadorFinal = nivelJerarquico <= 2 
           ? true 
           : document.getElementById('chkOperaComoReclutador').checked;
 
@@ -1064,7 +1137,7 @@
           let canEditar = pRol.editar || false;
           let canEliminar = pRol.eliminar || false;
 
-          if (rol.nivelJerarquico < 5 && (m.id === 'm7_logs' || m.id === 'm8_creador')) {
+          if (nivelJerarquico < 5 && (m.id === 'm7_logs' || m.id === 'm8_creador')) {
             canCrear = false;
             canEditar = false;
             canEliminar = false;
@@ -1086,14 +1159,14 @@
           division: divisionStaff,
           rolId: rolId,
           nombreRol: rol.nombre,
-          nivel: rol.nivelJerarquico,
+          nivel: nivelJerarquico,
           scope: rol.scope,
           operaComoReclutador: operaComoReclutadorFinal,
           
-          supervisoresIds: supervisoresSeleccionados,
-          coordinadoresIds: coordinadoresSeleccionados,
-          supervisorPadreId: supervisoresSeleccionados[0] || null,
-          coordinadorPadreId: coordinadoresSeleccionados[0] || null,
+          supervisoresIds: supervisoresFinales,
+          coordinadoresIds: coordinadoresFinales,
+          supervisorPadreId: supervisoresFinales[0] || null,
+          coordinadorPadreId: coordinadoresFinales[0] || null,
           
           empresas: empresasSeleccionadas,
           estatus: document.getElementById('selectEstatusOperativo').value,
@@ -1115,7 +1188,7 @@
                 await update(ref(db), updatesEmpresa);
               }
 
-              // Herencia inversa para reclutadores
+              // Herencia inversa para reclutadores de esa empresa
               if (payload.nivel === 3) {
                 Object.entries(globalStaff).forEach(async ([recUid, rec]) => {
                   if (rec.nivel <= 2 && Array.isArray(rec.empresas) && rec.empresas.includes(empKey)) {
@@ -1143,7 +1216,7 @@
           evento: isNew ? "ALTA_COLABORADOR" : "EDICION_COLABORADOR",
           ejecutadoPor: usuarioSesion.nombre,
           uidEjecutor: usuarioSesion.uid,
-          detalle: `Se registró/actualizó a ${payload.nombre} (${payload.email}) [División: ${divisionStaff.toUpperCase()}]. Supervisores: ${supervisoresSeleccionados.length}, Coordinadores: ${coordinadoresSeleccionados.length}.`,
+          detalle: `Se registró/actualizó a ${payload.nombre} (${payload.email}) [División: ${divisionStaff.toUpperCase()} - Nivel ${nivelJerarquico}].`,
           timestamp: serverTimestamp()
         });
 
@@ -1156,7 +1229,7 @@
                              `*Rol Asignado:* ${payload.nombreRol} (Nivel ${payload.nivel})\n` +
                              `*División:* ${divisionStaff.toUpperCase()}\n` +
                              `*Enlace:* ${portalUrl}\n\n` +
-                             `_Favor de ingresar y cambiar su contraseña._`;
+                             `_Favor de ingresar y cambiar su contraseña de ser necesario._`;
           navigator.clipboard.writeText(textoFicha).catch(() => {});
           alert(`¡Colaborador ${payload.nombre} creado con éxito!\n\n📋 Las credenciales temporales se copiaron a tu portapapeles.`);
         } else {
@@ -1203,7 +1276,7 @@
       }
     }
 
-    // RENDERIZADO DEL DIRECTORIO (CARDS & TABLA)
+    // RENDERIZADO DEL DIRECTORIO (CARDS & TABLA CON GOBERNANZA LIMPIA)
     function renderizarDirectorioStaff() {
       const contenedorCards = document.getElementById('directorioCardsMobile');
       const tbodyDesktop = document.getElementById('directorioTablaDesktop');
@@ -1225,6 +1298,8 @@
         const u = globalStaff[uid];
         const rol = globalRoles[u.rolId] || {};
         const nivel = u.nivel || rol.nivelJerarquico || 2;
+        const nombreRolRaw = (rol.nombre || u.nombreRol || 'Colaborador').toLowerCase();
+        const esRRHH = nombreRolRaw.includes('rrhh') || nombreRolRaw.includes('recursos humanos');
         const esActivo = u.estatus === 'Activo';
         const badgeDiv = getDivisionBadgeM5(u.division);
 
@@ -1245,6 +1320,30 @@
 
         const txtSupervisores = sups.length > 0 ? sups.join(', ') : '—';
         const txtCoordinadores = coords.length > 0 ? coords.join(', ') : '—';
+
+        // LÓGICA DE GOBERNANZA: Renderizado limpio según nivel
+        let bloqueMandoHTML = '';
+        let bloqueMandoMobileHTML = '';
+
+        if (nivel >= 5) {
+          bloqueMandoHTML = `<span class="text-amber-400 font-bold font-mono"><i class="fas fa-crown me-1"></i>Dirección Suprema</span>`;
+          bloqueMandoMobileHTML = `<div><strong class="text-amber-400">Jerarquía:</strong> Máxima Autoridad</div>`;
+        } else if (nivel === 4 || esRRHH) {
+          bloqueMandoHTML = `<span class="text-slate-300 font-mono text-xs"><strong class="text-amber-400"><i class="fas fa-arrow-up me-1"></i>Dirección General</strong></span>`;
+          bloqueMandoMobileHTML = `<div><strong class="text-amber-400">Dependencia:</strong> Dirección General</div>`;
+        } else if (nivel === 3) {
+          bloqueMandoHTML = `<div><span class="text-cyber-purple font-bold">Sup:</span> <span class="text-slate-200">${txtSupervisores}</span></div>`;
+          bloqueMandoMobileHTML = `<div><strong class="text-cyber-purple">Supervisor:</strong> ${txtSupervisores}</div>`;
+        } else {
+          bloqueMandoHTML = `
+            <div><span class="text-cyber-cyan font-bold">Coord:</span> <span class="text-slate-200">${txtCoordinadores}</span></div>
+            <div><span class="text-cyber-purple font-bold">Sup:</span> <span class="text-slate-300">${txtSupervisores}</span></div>
+          `;
+          bloqueMandoMobileHTML = `
+            <div><strong class="text-cyber-cyan">Coordinadores:</strong> ${txtCoordinadores}</div>
+            <div><strong class="text-cyber-purple">Supervisores:</strong> ${txtSupervisores}</div>
+          `;
+        }
 
         const listaEmpresas = Array.isArray(u.empresas) ? u.empresas : [];
         const textoEmpresas = listaEmpresas.includes("TODAS") 
@@ -1275,8 +1374,7 @@
             </div>
 
             <div class="text-xs text-slate-300 space-y-1 font-mono pt-2 border-t border-cyber-border/40">
-              <div><strong class="text-cyber-cyan">Coordinadores:</strong> ${txtCoordinadores}</div>
-              <div><strong class="text-cyber-purple">Supervisores:</strong> ${txtSupervisores}</div>
+              ${bloqueMandoMobileHTML}
               <div><strong class="text-slate-400">Empresas:</strong> ${textoEmpresas}</div>
             </div>
           </div>
@@ -1326,10 +1424,7 @@
               </button>
             </div>
           </td>
-          <td class="p-4 text-xs font-mono">
-            <div><span class="text-cyber-cyan font-bold">Coord:</span> <span class="text-slate-200">${txtCoordinadores}</span></div>
-            <div><span class="text-cyber-purple font-bold">Sup:</span> <span class="text-slate-300">${txtSupervisores}</span></div>
-          </td>
+          <td class="p-4 text-xs font-mono">${bloqueMandoHTML}</td>
           <td class="p-4 text-xs font-mono">${textoEmpresas}</td>
           <td class="p-4">
             <span class="px-2.5 py-0.5 rounded-full text-xs font-bold font-mono ${esActivo ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'}">
@@ -1352,7 +1447,7 @@
       });
     }
 
-    // RENDERIZADO DEL TABLERO MATRICIAL (PESTAÑA 2)
+    // TABLERO MATRICIAL (PESTAÑA 2)
     function renderizarTableroMatricial() {
       const contSup = document.getElementById('contenedorArbolSupervisores');
       const contCoord = document.getElementById('contenedorArbolCoordinadores');
@@ -1370,8 +1465,6 @@
           if (coords.length === 0) totalHuerfanos++;
         } else if (u.nivel === 3) {
           totalCoord++;
-          const sups = Array.isArray(u.supervisoresIds) ? u.supervisoresIds : (u.supervisorPadreId ? [u.supervisorPadreId] : []);
-          if (sups.length === 0) totalHuerfanos++;
         } else if (u.nivel === 4) {
           totalSup++;
         }
