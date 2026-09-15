@@ -1119,7 +1119,6 @@
                 estatus = v.estatus || v.estado || "Disponible";
             }
 
-            // Excluir sólo si explícitamente está pausada, cerrada o inactiva
             const estatusNorm = limpiaTexto(estatus);
             if (estatusNorm.includes('inactiv') || estatusNorm.includes('cerrad') || estatusNorm.includes('pausad')) {
                 return;
@@ -1134,11 +1133,9 @@
             }
         };
 
-        // 1. Buscar en nodo `vacantes_detalles` con llave sanitizada y directa
         if (todasLasVacantes[idSanitizado]) recolectar(todasLasVacantes[idSanitizado]);
         if (todasLasVacantes[idEmpresa]) recolectar(todasLasVacantes[idEmpresa]);
 
-        // 2. Si no hay, buscar dentro del objeto de la empresa (`empresas[idEmpresa].vacantes`)
         const empDirecta = todasLasEmpresas[idEmpresa] || todasLasEmpresas[idSanitizado];
         if (empDirecta && empDirecta.vacantes) {
             recolectar(empDirecta.vacantes);
@@ -1454,7 +1451,6 @@
     window.seleccionarEmpresaParaPostulacion = function(empresaKey) {
         const selectEmpresa = document.getElementById('empresa');
         if (selectEmpresa) {
-            // Intentar matchear directamente o por sanitización
             let optionFound = false;
             for (let i = 0; i < selectEmpresa.options.length; i++) {
                 if (selectEmpresa.options[i].value === empresaKey || sanitizarKey(selectEmpresa.options[i].value) === sanitizarKey(empresaKey)) {
@@ -1552,7 +1548,6 @@
                 selectVacante.appendChild(opt);
             });
         } else {
-            // Opción por defecto para no bloquear la postulación si aún no han dado de alta vacantes en M1
             const optDefecto = document.createElement('option');
             optDefecto.value = "Ayudante General / Vacante Operativa";
             optDefecto.textContent = "Ayudante General / Vacante Operativa";
@@ -1725,42 +1720,65 @@
         try {
             const { existe, titular } = await verificarTitularidadCandidato(curp, telefono);
 
+            // =========================================================================
+            // CASO 1: CANDIDATO CON PROCESO ACTIVO PREVIO (BLOQUEO DE DUPLICADO)
+            // =========================================================
+            if (existe && titular) {
+                const asesorFinalNombre = titular.reclutadorNombre || titular.asesor || "Tu Asesor Titular";
+                let telTitular = titular.telefonoAsesor || fallbackTelefonoGuardia;
+
+                if (titular.reclutadorId && todosLosUsuarios[titular.reclutadorId]?.telefono) {
+                    telTitular = todosLosUsuarios[titular.reclutadorId].telefono;
+                }
+
+                let telLimpio = String(telTitular).replace(/\D/g, '');
+                if (telLimpio.length === 10) telLimpio = "52" + telLimpio;
+                if (!telLimpio) telLimpio = fallbackTelefonoGuardia;
+
+                alert(
+                    `⚠️ PROCESO ACTIVO ENCONTRADO\n\n` +
+                    `Hola ${nombre}, identificamos que ya cuentas con una postulación previa asignada al asesor: ${asesorFinalNombre}.\n\n` +
+                    `Para evitar duplicidad en el sistema, no se registrará un nuevo folio. Te pondremos en contacto directo con tu asesor asignado para dar seguimiento a tu entrevista.`
+                );
+
+                const mensajeSeguimiento = `*SEGUIMIENTO DE POSTULACIÓN*%0A%0A` +
+                                `• *Folio Activo:* ${titular.id || 'Existente'}%0A` +
+                                `• *Candidato:* ${encodeURIComponent(nombre)}%0A` +
+                                `• *CURP:* ${encodeURIComponent(curp)}%0A` +
+                                `• *Teléfono:* ${encodeURIComponent(telefono)}%0A` +
+                                `• *Mensaje:* Hola ${encodeURIComponent(asesorFinalNombre)}, me comunico para dar seguimiento a mi proceso de reclutamiento activo.`;
+
+                const urlWhatsAppSeguimiento = `https://wa.me/${telLimpio}?text=${mensajeSeguimiento}`;
+
+                btn.disabled = false;
+                btn.innerHTML = `<i class="fab fa-whatsapp me-2"></i> Enviar Postulación por WhatsApp`;
+
+                window.location.href = urlWhatsAppSeguimiento;
+                return; // <-- DETIENE LA EJECUCIÓN: Evita el guardado doble en postulantes y m3_agenda
+            }
+
+            // =========================================================================
+            // CASO 2: POSTULACIÓN NUEVA (REGISTRO REGULAR)
+            // =========================================================================
             let asesorFinalId = null;
             let asesorFinalNombre = "Asesor Asignado";
             let telefonoFinalReclutador = fallbackTelefonoGuardia;
             let objetoAsesor = null;
 
-            if (existe && titular) {
-                asesorFinalId = titular.reclutadorId || null;
-                asesorFinalNombre = titular.reclutadorNombre || titular.asesor || "Tu Asesor Titular";
-
-                if (asesorFinalId && todosLosUsuarios[asesorFinalId]) {
-                    objetoAsesor = todosLosUsuarios[asesorFinalId];
-                    telefonoFinalReclutador = objetoAsesor.telefono || fallbackTelefonoGuardia;
-                } else if (titular.telefonoAsesor) {
-                    telefonoFinalReclutador = titular.telefonoAsesor;
+            if (selectAsesor.value === "AUTO") {
+                const asignado = resolverAsesorEquitativo(empresaId);
+                if (asignado) {
+                    asesorFinalId = asignado.uid;
+                    asesorFinalNombre = asignado.nombre;
+                    telefonoFinalReclutador = asignado.telefono;
+                    objetoAsesor = asignado.usuarioData;
                 }
-
-                alert(
-                    `ℹ️ Hola ${nombre}, identificamos que ya cuentas con un proceso abierto con tu asesor: ${asesorFinalNombre}.\n\n` +
-                    `Te comunicaremos directamente con tu asesor asignado para continuar tu trámite.`
-                );
             } else {
-                if (selectAsesor.value === "AUTO") {
-                    const asignado = resolverAsesorEquitativo(empresaId);
-                    if (asignado) {
-                        asesorFinalId = asignado.uid;
-                        asesorFinalNombre = asignado.nombre;
-                        telefonoFinalReclutador = asignado.telefono;
-                        objetoAsesor = asignado.usuarioData;
-                    }
-                } else {
-                    const optSel = selectAsesor.options[selectAsesor.selectedIndex];
-                    asesorFinalId = selectAsesor.value;
-                    asesorFinalNombre = optSel.dataset.nombre || "Asesor Asignado";
-                    telefonoFinalReclutador = optSel.dataset.telefono || fallbackTelefonoGuardia;
-                    objetoAsesor = todosLosUsuarios[asesorFinalId] || null;
-                }
+                const optSel = selectAsesor.options[selectAsesor.selectedIndex];
+                asesorFinalId = selectAsesor.value;
+                asesorFinalNombre = optSel.dataset.nombre || "Asesor Asignado";
+                telefonoFinalReclutador = optSel.dataset.telefono || fallbackTelefonoGuardia;
+                objetoAsesor = todosLosUsuarios[asesorFinalId] || null;
             }
 
             let telLimpio = String(telefonoFinalReclutador).replace(/\D/g, '');
@@ -1838,12 +1856,12 @@
                             `• *Vacante:* ${encodeURIComponent(vacante)}%0A` +
                             `• *Asesor:* ${encodeURIComponent(asesorFinalNombre)}`;
 
-            const urlWhatsApp = `https://api.whatsapp.com/send?phone=${telLimpio}&text=${mensaje}`;
+            const urlWhatsApp = `https://wa.me/${telLimpio}?text=${mensaje}`;
 
             btn.disabled = false;
             btn.innerHTML = `<i class="fab fa-whatsapp me-2"></i> Enviar Postulación por WhatsApp`;
 
-            window.open(urlWhatsApp, '_blank');
+            window.location.href = urlWhatsApp;
 
         } catch (error) {
             console.error("Error al procesar la postulación:", error);
