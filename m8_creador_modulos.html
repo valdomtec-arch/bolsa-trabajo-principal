@@ -77,7 +77,7 @@
                 <a href="admin.html" class="bg-cyber-cardAlt hover:bg-slate-800 text-slate-300 border border-slate-700 font-mono text-xs px-3.5 py-2.5 rounded-xl flex items-center gap-1.5 transition-all">
                     <i class="fas fa-arrow-left"></i> Volver a CoreHub
                 </a>
-                <button onclick="ejecutarChequeoSaludArchivos()" title="Verificar existencia de archivos HTML en servidor" class="bg-cyber-cyan/15 hover:bg-cyber-cyan/25 text-cyber-cyan border border-cyber-cyan/40 font-mono text-xs px-3.5 py-2.5 rounded-xl flex items-center gap-1.5 transition-all font-bold">
+                <button onclick="ejecutarChequeoSaludArchivos()" title="Verificar existencia de archivos HTML en servidor o runtime virtual" class="bg-cyber-cyan/15 hover:bg-cyber-cyan/25 text-cyber-cyan border border-cyber-cyan/40 font-mono text-xs px-3.5 py-2.5 rounded-xl flex items-center gap-1.5 transition-all font-bold">
                     <i class="fas fa-heart-pulse"></i> Auditar Salud HTTP
                 </button>
             </div>
@@ -141,8 +141,8 @@
                     </div>
 
                     <div>
-                        <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1 font-bold">Ruta Relativa / Archivo HTML</label>
-                        <input type="text" id="inputUrl" required placeholder="m6_extractor_coordenadas.html" oninput="actualizarPreviewEnVivo()" class="w-full bg-[#06101e] border border-slate-700 rounded-lg p-2.5 text-cyber-cyan font-mono focus:outline-none focus:border-cyber-accent">
+                        <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1 font-bold">Ruta Relativa / Archivo HTML o Runtime Virtual</label>
+                        <input type="text" id="inputUrl" placeholder="visor.html?mod=mi_modulo (Opcional, se autogenera)" oninput="actualizarPreviewEnVivo()" class="w-full bg-[#06101e] border border-slate-700 rounded-lg p-2.5 text-cyber-cyan font-mono focus:outline-none focus:border-cyber-accent">
                     </div>
 
                     <div>
@@ -150,7 +150,7 @@
                         <textarea id="inputDescripcion" rows="2" required placeholder="Cosecha masiva oficial INEGI DENUE, ingestor satelital KML/KMZ y mantenimiento de coordenadas." oninput="actualizarPreviewEnVivo()" class="w-full bg-[#06101e] border border-slate-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyber-accent resize-none"></textarea>
                     </div>
 
-                    <!-- GOBERNANZA RBAC DINÁMICA (LECTURA REAL DE ROLES_DINAMICOS) -->
+                    <!-- GOBERNANZA RBAC DINÁMICA -->
                     <div class="border border-cyber-border rounded-xl p-3 bg-[#06101e]/60 space-y-2">
                         <div class="flex justify-between items-center">
                             <span class="text-[10px] font-mono font-bold text-cyber-purple uppercase flex items-center gap-1.5">
@@ -216,15 +216,15 @@
                     </div>
                 </div>
 
-                <!-- CONTENEDOR RÁPIDO DE SALUD DE ENLACES -->
+                <!-- ESTADO RÁPIDO DE SALUD -->
                 <div class="bg-[#06101e] border border-slate-800 rounded-xl p-3.5 space-y-2">
                     <div class="flex items-center justify-between text-xs font-mono">
                         <span class="text-slate-300 font-bold flex items-center gap-1.5">
-                            <i class="fas fa-stethoscope text-emerald-400"></i> Estado del Enlace Físico
+                            <i class="fas fa-stethoscope text-emerald-400"></i> Estado del Enlace
                         </span>
                         <span id="lblSaludStatus" class="text-[10px] text-slate-400">Listo para chequear</span>
                     </div>
-                    <p class="text-[10px] text-slate-500">Comprueba automáticamente si el archivo HTML especificado ya se encuentra alojado en tu servidor web.</p>
+                    <p class="text-[10px] text-slate-500">Comprueba si el archivo físico está alojado o si cuenta con runtime virtual guardado en Firebase.</p>
                 </div>
             </div>
 
@@ -302,7 +302,7 @@
                             <th class="p-3">Módulo / Título</th>
                             <th class="p-3">Ruta Física / Key</th>
                             <th class="p-3">Gobernanza RBAC</th>
-                            <th class="p-3 text-center">Salud HTTP</th>
+                            <th class="p-3 text-center">Salud HTTP / Runtime</th>
                             <th class="p-3 text-center">Estado</th>
                             <th class="p-3 text-right w-28">Acciones</th>
                         </tr>
@@ -399,6 +399,7 @@
                             descripcion: m.descripcion || "",
                             tipo: m.tipo || "standard",
                             activo: m.activo !== false,
+                            codigo_fuente: m.codigo_fuente || null,
                             roles_permitidos: Array.isArray(m.roles_permitidos) ? m.roles_permitidos : []
                         });
                     }
@@ -448,6 +449,8 @@
                     return r;
                 }).join(", ") || "Solo SuperAdmin";
 
+                const esVirtual = (mod.url || "").includes("visor.html") || !!mod.codigo_fuente;
+
                 tbody.innerHTML += `
                     <tr class="hover:bg-slate-900/60 border-b border-slate-800/40 transition">
                         <td class="p-3 text-center text-cyber-purple font-bold">${mod.orden}</td>
@@ -455,6 +458,7 @@
                             <div class="font-bold text-white flex items-center gap-2">
                                 <span class="w-6 h-6 rounded bg-cyber-cardAlt flex items-center justify-center text-cyber-cyan text-xs"><i class="fas ${mod.icono}"></i></span>
                                 <span>${mod.titulo}</span>
+                                ${esVirtual ? '<span class="text-[9px] bg-cyan-950/80 text-cyan-300 border border-cyan-500/30 px-1.5 py-0.2 rounded font-mono">VIRTUAL</span>' : ''}
                             </div>
                             <div class="text-[10px] text-slate-400 font-sans mt-0.5 truncate max-w-xs">${mod.descripcion}</div>
                         </td>
@@ -493,7 +497,7 @@
             if (!iconoVal.startsWith("fa-")) iconoVal = "fa-" + iconoVal;
             const ordenVal = document.getElementById("inputOrden").value || 8;
             const tipoVal = document.getElementById("selectTipo").value;
-            const urlVal = document.getElementById("inputUrl").value.trim() || `${idVal}.html`;
+            const urlVal = document.getElementById("inputUrl").value.trim() || `visor.html?mod=${idVal}`;
             const descVal = document.getElementById("inputDescripcion").value.trim() || "Descripción del módulo en tiempo real...";
 
             document.getElementById("sandboxCardTitle").textContent = tituloVal;
@@ -515,7 +519,7 @@
             }
         }
 
-        // 5. INYECCIÓN ATÓMICA EN CADENA (MODULOS_CONFIG + ROLES_DINAMICOS + M7_LOGS)
+        // 5. INYECCIÓN ATÓMICA EN CADENA (CON CÓDIGO FUENTE INCLUIDO)
         async function guardarModuloAtómico(e) {
             e.preventDefault();
 
@@ -529,12 +533,20 @@
             const rolesSeleccionados = [];
             document.querySelectorAll(".check-rol-item:checked").forEach(cb => rolesSeleccionados.push(cb.value));
 
-            // Agregar siempre roles de administración si existen
+            // Asegurar rol administrador
             Object.entries(diccionarioRoles).forEach(([rId, r]) => {
                 if (r.nivelJerarquico === 5 && !rolesSeleccionados.includes(rId)) {
                     rolesSeleccionados.push(rId);
                 }
             });
+
+            // OBTENCIÓN DEL CÓDIGO HTML COMPILADO EN EL VISOR
+            const codigoCompilado = document.getElementById("visorCodigoGenerado").value.trim();
+            let urlDestino = document.getElementById("inputUrl").value.trim();
+
+            if (!urlDestino) {
+                urlDestino = `visor.html?mod=${moduloKey}`;
+            }
 
             const moduloPayload = {
                 id: moduloKey,
@@ -542,10 +554,11 @@
                 icono: iconoLimpio,
                 orden: Number(document.getElementById("inputOrden").value),
                 tipo: document.getElementById("selectTipo").value,
-                url: document.getElementById("inputUrl").value.trim(),
+                url: urlDestino,
                 descripcion: document.getElementById("inputDescripcion").value.trim(),
                 roles_permitidos: rolesSeleccionados,
                 activo: true,
+                codigo_fuente: codigoCompilado || null, // <- Almacenamiento en Firebase
                 ultimaActualizacion: Date.now()
             };
 
@@ -569,20 +582,20 @@
                     };
                 });
 
-                // C) Ejecutar actualización atómica multi-nodo
+                // C) Ejecutar actualización atómica
                 await db.ref().update(updates);
 
-                // D) Registrar evento en modulo_7_logs
+                // D) Registro de auditoría en modulo_7_logs
                 await db.ref("modulo_7_logs").push({
                     modulo: "M8_CREADOR_MODULOS",
                     evento: editKey ? "MODIFICACION_MODULO" : "ALTA_MODULO_DINAMICO",
-                    detalle: `Módulo ${moduloPayload.titulo} (${moduloKey}) inyectado y vinculado con ${rolesSeleccionados.length} roles en RBAC.`,
+                    detalle: `Módulo ${moduloPayload.titulo} (${moduloKey}) inyectado con URL '${moduloPayload.url}'. Código persistido: ${moduloPayload.codigo_fuente ? 'SÍ' : 'NO'}.`,
                     ejecutadoPor: "Administrador Master",
                     timestamp: firebase.database.ServerValue.TIMESTAMP,
                     datosNuevos: moduloPayload
                 });
 
-                alert(`✅ Módulo "${moduloPayload.titulo}" inyectado exitosamente con gobernanza RBAC activa.`);
+                alert(`✅ Módulo "${moduloPayload.titulo}" inyectado exitosamente en Firebase.`);
                 limpiarFormularioCompleto();
 
             } catch (err) {
@@ -610,7 +623,7 @@
         }
 
         async function eliminarModuloAtómico(key) {
-            if (!confirm(`⚠️ ¿Deseas desvincular y eliminar el módulo "${key}" de Firebase y revocarlo de roles_dinamicos?`)) return;
+            if (!confirm(`⚠️ ¿Deseas desvincular y purgar el módulo "${key}" de Firebase?`)) return;
 
             try {
                 const updates = {};
@@ -648,6 +661,12 @@
             document.getElementById("inputUrl").value = m.url;
             document.getElementById("inputDescripcion").value = m.descripcion;
 
+            if (m.codigo_fuente) {
+                document.getElementById("visorCodigoGenerado").value = m.codigo_fuente;
+                document.getElementById("btnCopiarCodigo").disabled = false;
+                document.getElementById("btnDescargarHtml").disabled = false;
+            }
+
             document.getElementById("lblTituloForm").textContent = `Editando: ${m.titulo}`;
             document.getElementById("btnGuardarModulo").innerHTML = '<i class="fas fa-check"></i> Actualizar en Cascada';
 
@@ -667,10 +686,13 @@
             document.getElementById("inputOrden").value = catalogoModulos.length + 1;
             document.getElementById("lblTituloForm").textContent = "Definición de Módulo";
             document.getElementById("btnGuardarModulo").innerHTML = '<i class="fas fa-bolt"></i> Guardar e Inyectar en Cascada';
+            document.getElementById("visorCodigoGenerado").value = "";
+            document.getElementById("btnCopiarCodigo").disabled = true;
+            document.getElementById("btnDescargarHtml").disabled = true;
             actualizarPreviewEnVivo();
         }
 
-        // 6. CHEQUEO DE SALUD HTTP EN TIEMPO REAL
+        // 6. CHEQUEO DE SALUD HTTP / VIRTUAL EN TIEMPO REAL
         async function ejecutarChequeoSaludArchivos() {
             for (const mod of catalogoModulos) {
                 const td = document.getElementById(`salud_${mod.key}`);
@@ -678,20 +700,28 @@
 
                 td.innerHTML = `<span class="text-amber-400 text-[10px] animate-pulse">Chequeando...</span>`;
 
-                try {
-                    const res = await fetch(mod.url, { method: 'HEAD' });
-                    if (res.ok) {
-                        td.innerHTML = `<span class="text-emerald-400 font-bold text-[10px]"><i class="fas fa-circle-check me-1"></i>200 OK</span>`;
+                if ((mod.url || "").includes("visor.html")) {
+                    if (mod.codigo_fuente && mod.codigo_fuente.length > 50) {
+                        td.innerHTML = `<span class="text-cyan-400 font-bold text-[10px]"><i class="fas fa-bolt me-1"></i>Runtime OK</span>`;
                     } else {
-                        td.innerHTML = `<span class="text-rose-400 font-bold text-[10px]"><i class="fas fa-circle-xmark me-1"></i>${res.status} Not Found</span>`;
+                        td.innerHTML = `<span class="text-rose-400 font-bold text-[10px]"><i class="fas fa-triangle-exclamation me-1"></i>Sin Código</span>`;
                     }
-                } catch (e) {
-                    td.innerHTML = `<span class="text-amber-400 font-bold text-[10px]"><i class="fas fa-triangle-exclamation me-1"></i>Local / CORS</span>`;
+                } else {
+                    try {
+                        const res = await fetch(mod.url, { method: 'HEAD' });
+                        if (res.ok) {
+                            td.innerHTML = `<span class="text-emerald-400 font-bold text-[10px]"><i class="fas fa-circle-check me-1"></i>200 OK</span>`;
+                        } else {
+                            td.innerHTML = `<span class="text-rose-400 font-bold text-[10px]"><i class="fas fa-circle-xmark me-1"></i>${res.status} Not Found</span>`;
+                        }
+                    } catch (e) {
+                        td.innerHTML = `<span class="text-amber-400 font-bold text-[10px]"><i class="fas fa-triangle-exclamation me-1"></i>Local / CORS</span>`;
+                    }
                 }
             }
         }
 
-        // 7. COMPILADOR DE CÓDIGO CON IA GEMINI (CON PRESET GEO/KML)
+        // 7. COMPILADOR DE CÓDIGO CON IA GEMINI
         async function ejecutarCompilacionConGemini() {
             const apiKey = document.getElementById("apiKeyGeminiModule").value.trim();
             const promptUser = document.getElementById("promptModuloIA").value.trim();
@@ -703,7 +733,7 @@
             if (!promptUser) return alert("⚠️ Describe en lenguaje natural las funciones del módulo.");
 
             btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Compilando con Gemini 2.5...';
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Compilando con Gemini...';
             visor.value = "// Conectando con Gemini API para compilar arquitectura Cyber-Dark...";
 
             const idSugerido = sanitizarKey(document.getElementById("inputModuloId").value || "m9_nuevo_modulo");
@@ -749,7 +779,14 @@
                 visor.value = codigoHtml;
                 document.getElementById("btnCopiarCodigo").disabled = false;
                 document.getElementById("btnDescargarHtml").disabled = false;
-                alert("✅ Módulo compilado con éxito. Puedes copiarlo o descargarlo directamente.");
+
+                // Asignar automáticamente ruta a visor.html si no hay ruta física asignada
+                if (!document.getElementById("inputUrl").value.trim() || document.getElementById("inputUrl").value.endsWith(".html")) {
+                    document.getElementById("inputUrl").value = `visor.html?mod=${idSugerido}`;
+                }
+                actualizarPreviewEnVivo();
+
+                alert("✅ Módulo compilado con éxito. Ahora puedes pulsar 'Guardar e Inyectar en Cascada'.");
 
             } catch (err) {
                 visor.value = `// Error de compilación: ${err.message}`;
