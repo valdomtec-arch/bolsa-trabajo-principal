@@ -563,6 +563,19 @@
             iniciarCentinelaWatchdog();
         });
 
+        // RESOLVEDOR DE SEXO VIVO / RETROACTIVO (CURP + BASE DE DATOS)
+        function resolverSexoCandidato(sexoExistente, curp) {
+            if (sexoExistente === "Masculino" || sexoExistente === "Femenino") {
+                return sexoExistente;
+            }
+            if (curp && typeof curp === 'string' && curp.length >= 11) {
+                const c = curp.charAt(10).toUpperCase();
+                if (c === 'H') return "Masculino";
+                if (c === 'M') return "Femenino";
+            }
+            return "Indistinto";
+        }
+
         function cambiarModoReloj(modo) {
             modoRelojActual = modo;
             const btn12 = document.getElementById('btnModo12h');
@@ -1020,7 +1033,7 @@
             cargarPostulantes();
         }
 
-        // RENDERIZADO CON NUEVOS ESTATUS, BADGES DE DIVISIÓN, RUTAS Y PERMISOS RBAC VIVOS
+        // RENDERIZADO CON NUEVOS ESTATUS, BADGES DE DIVISIÓN, RUTAS Y DEDUCCIÓN DE SEXO
         function cargarPostulantes() {
             const contCards = document.getElementById("postulantesCardsMobile");
             const tbodyDesktop = document.getElementById("tablaPostulantesDesktop");
@@ -1089,8 +1102,13 @@
                 else if (estatus === "Proceso Terminado") cTerm++;
                 else if (estatus === "Declinante" || estatus === "No Apto Entrevista" || estatus === "No Apto Medico") cDecl++;
 
-                if (p.sexo === "Masculino" || p.sexo === "Femenino") metricaSexo[p.sexo]++;
-                else metricaSexo["Otro"]++;
+                // DEDUCCIÓN Y NORMALIZACIÓN VIVA DE SEXO (CURP O ATRIBUTO GUARDADO)
+                const sexoReal = resolverSexoCandidato(p.sexo, p.curp);
+                if (sexoReal === "Masculino" || sexoReal === "Femenino") {
+                    metricaSexo[sexoReal]++;
+                } else {
+                    metricaSexo["Otro"]++;
+                }
 
                 const edadNum = parseInt(p.edad) || 0;
                 if (edadNum >= 18 && edadNum <= 25) metricaEdad["18-25"]++;
@@ -1217,7 +1235,7 @@
                     <td class="p-3.5">${badgeSla}</td>
                     <td class="p-3.5 font-mono text-xs">
                         <div class="text-amber-300 font-bold">${p.curp || 'S/CURP'}</div>
-                        <div class="text-slate-400 text-[11px]">${p.sexo || 'Indistinto'} • ${p.edad || 0} años</div>
+                        <div class="text-slate-400 text-[11px]">${sexoReal} • ${p.edad || 0} años</div>
                     </td>
                     <td class="p-3.5">
                         <div class="flex items-center gap-1.5 flex-wrap">
@@ -1539,10 +1557,14 @@
                 const divisionEmp = catalogoEmpresas[sanitizarKey(empKey)]?.division || "centro";
                 const rutaSeleccionada = document.getElementById("editRuta").value;
 
+                // DEDUCCIÓN Y ASEGURAMIENTO DEL SEXO AL GUARDAR
+                const sexoActualizado = resolverSexoCandidato(todosLosPostulantes[id]?.sexo, curp);
+
                 const updates = {
                     nombre: document.getElementById("editNombre").value.trim(),
                     telefono: telefono,
                     curp: curp,
+                    sexo: sexoActualizado,
                     estatus: document.getElementById("editEstatus").value,
                     empresaId: empKey,
                     division: divisionEmp,
@@ -1583,7 +1605,7 @@
                 }
 
                 cerrarModal();
-                alert("Expediente, ruta, titularidad y terna matricial guardados con éxito.");
+                alert("Expediente, demografía, ruta, titularidad y terna matricial guardados con éxito.");
             } catch (err) {
                 alert("Error al guardar: " + err.message);
             } finally {
@@ -1616,6 +1638,7 @@
                     const empKey = sanitizarKey(p.empresaId || p.empresa || "");
                     const empData = catalogoEmpresas[empKey] || {};
                     const rutaExport = p.rutaTransporteSeleccionada || p.rutaNombre || p.ruta || "Sin Ruta";
+                    const sexoExport = resolverSexoCandidato(p.sexo, p.curp);
 
                     dataExport.push({
                         "ID": id,
@@ -1623,7 +1646,7 @@
                         "Teléfono": p.telefono,
                         "CURP": p.curp,
                         "Edad": p.edad,
-                        "Sexo": p.sexo,
+                        "Sexo": sexoExport,
                         "División": (p.division || empData.division || "centro").toUpperCase(),
                         "Empresa": p.empresa || p.empresaId,
                         "Vacante": p.nombreVacante || p.vacante,
