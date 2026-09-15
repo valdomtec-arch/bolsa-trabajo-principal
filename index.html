@@ -1722,7 +1722,7 @@
 
             // =========================================================================
             // CASO 1: CANDIDATO CON PROCESO ACTIVO PREVIO (BLOQUEO DE DUPLICADO)
-            // =========================================================
+            // =========================================================================
             if (existe && titular) {
                 const asesorFinalNombre = titular.reclutadorNombre || titular.asesor || "Tu Asesor Titular";
                 let telTitular = titular.telefonoAsesor || fallbackTelefonoGuardia;
@@ -1758,7 +1758,7 @@
             }
 
             // =========================================================================
-            // CASO 2: POSTULACIÓN NUEVA (REGISTRO REGULAR)
+            // CASO 2: POSTULACIÓN NUEVA (REGISTRO REGULAR CON DEDUCCIÓN DE SEXO)
             // =========================================================================
             let asesorFinalId = null;
             let asesorFinalNombre = "Asesor Asignado";
@@ -1812,6 +1812,14 @@
                 if (!coordinadorPadreIdFinal) coordinadorPadreIdFinal = objetoAsesor.coordinadorPadreId || null;
             }
 
+            // DEDUCCIÓN ESTRICTA DEL SEXO DESDE LA POSICIÓN 11 DE LA CURP
+            let sexoCalculado = "Otro";
+            if (curp.length >= 11) {
+                const charSexo = curp.charAt(10).toUpperCase();
+                if (charSexo === 'H') sexoCalculado = "Masculino";
+                else if (charSexo === 'M') sexoCalculado = "Femenino";
+            }
+
             // Persistencia en Firebase
             await push(ref(db, 'postulantes'), {
                 id: timestampId,
@@ -1819,6 +1827,7 @@
                 curp: curp,
                 telefono: telefono,
                 edad: edad,
+                sexo: sexoCalculado, // <-- Campo inyectado para m3_agenda
                 empresa: empresaTexto,
                 empresaId: empresaId,
                 nombreVacante: vacante,
@@ -1841,7 +1850,7 @@
                 modulo: "INDEX_PUBLICO",
                 evento: "NUEVA_POSTULACION_CANDIDATO",
                 ejecutadoPor: "Portal Público",
-                detalle: `Candidato ${nombre} (${curp}) para ${empresaTexto} [${vacante}] asignado a: ${asesorFinalNombre}.`,
+                detalle: `Candidato ${nombre} (${curp} - ${sexoCalculado}) para ${empresaTexto} [${vacante}] asignado a: ${asesorFinalNombre}.`,
                 timestamp: serverTimestamp()
             });
 
@@ -1850,6 +1859,7 @@
                             `• *Folio:* ${timestampId}%0A` +
                             `• *Nombre:* ${encodeURIComponent(nombre)}%0A` +
                             `• *CURP:* ${encodeURIComponent(curp)}%0A` +
+                            `• *Sexo:* ${encodeURIComponent(sexoCalculado)}%0A` +
                             `• *Teléfono:* ${encodeURIComponent(telefono)}%0A` +
                             `• *Edad:* ${encodeURIComponent(edad)} años%0A` +
                             `• *Empresa:* ${encodeURIComponent(empresaTexto)}%0A` +
