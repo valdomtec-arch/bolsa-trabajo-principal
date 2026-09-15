@@ -609,6 +609,20 @@
             pointer-events: none;
             user-select: none;
         }
+
+        /* Banner de Modo Asistido */
+        .banner-modo-asistido {
+            background: rgba(168, 85, 247, 0.12);
+            border: 1px solid rgba(168, 85, 247, 0.35);
+            border-radius: 10px;
+            padding: 10px 14px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.82rem;
+            color: #d8b4fe;
+        }
     </style>
 </head>
 <body>
@@ -736,13 +750,21 @@
                 </div>
 
                 <div class="links-section" id="contenedorFormularioPostulacion">
-                    <h3 style="color: var(--white); margin-bottom: 16px; font-size: 1.15rem; border-bottom: 2px solid rgba(56, 189, 248, 0.15); padding-bottom: 8px;">
+                    <h3 style="color: var(--white); margin-bottom: 12px; font-size: 1.15rem; border-bottom: 2px solid rgba(56, 189, 248, 0.15); padding-bottom: 8px;">
                         <i class="fas fa-user-pen"></i> Agendar Entrevista y Postular
                     </h3>
+
+                    <!-- MODO ASISTIDO (SWITCH PARA RECLUTADORES) -->
+                    <div class="banner-modo-asistido">
+                        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; margin:0; text-transform:none; font-weight:600;">
+                            <input type="checkbox" id="chkModoAsistido" onchange="alternarModoAsistido()" style="width:18px; height:18px; min-height:auto;">
+                            <span><i class="fa-solid fa-headset text-purple-400 me-1"></i> Soy Asesor / Captura Asistida para Candidato</span>
+                        </label>
+                    </div>
                     
                     <form id="formPostulacion" onsubmit="enviarPostulacion(event)">
                         <div class="form-group">
-                            <label for="postNombre">Nombre Completo:</label>
+                            <label for="postNombre">Nombre Completo del Candidato:</label>
                             <input type="text" id="postNombre" required placeholder="Ej: Juan Pérez">
                         </div>
 
@@ -784,7 +806,7 @@
 
                         <div class="form-group">
                             <label for="selReclutador" style="color: var(--wf-accent-blue); font-weight: bold;">
-                                <i class="fas fa-headset"></i> Selecciona al Asesor que te Atiende:
+                                <i class="fas fa-headset"></i> Asesor Asignado:
                             </label>
                             <select id="selReclutador" required>
                                 <option value="">Cargando asesores autorizados...</option>
@@ -850,6 +872,7 @@
     let estructuraRutasGlobal = {}; 
     let tieneRutasHabilitadas = false;
     let nombreEmpresaMaestro = "";
+    let divisionEmpresaMaestro = "centro";
     let ubicacionEmpresaMaestro = ""; 
     let bannersCorporativosEmpresa = "";
     let estatusOperativoEmpresa = "Disponible";
@@ -871,6 +894,12 @@
         const inputFecha = document.getElementById('postFechaEntrevista');
         if (inputFecha) inputFecha.min = new Date().toISOString().split('T')[0];
 
+        // Detección de parámetro ?modo=asistido
+        if (urlParams.get('modo') === 'asistido') {
+            const chk = document.getElementById('chkModoAsistido');
+            if (chk) { chk.checked = true; alternarModoAsistido(); }
+        }
+
         document.getElementById('txtFiltroColonia')?.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 e.preventDefault();
@@ -878,6 +907,18 @@
             }
         });
     });
+
+    function alternarModoAsistido() {
+        const esAsistido = document.getElementById('chkModoAsistido').checked;
+        const btn = document.getElementById('btnSubmitForm');
+        if (esAsistido) {
+            btn.innerHTML = `<i class="fab fa-whatsapp"></i> Guardar y Notificar al Candidato por WhatsApp`;
+            btn.style.backgroundColor = '#a855f7';
+        } else {
+            btn.innerHTML = `<i class="fab fa-whatsapp"></i> Confirmar Cita y Enviar WhatsApp`;
+            btn.style.backgroundColor = 'var(--green-whatsapp)';
+        }
+    }
 
     function renderizarUbicacionEmpresa(lugar, mapaUrl) {
         const contenedor = document.getElementById('mainEmpresaLugarContainer');
@@ -969,6 +1010,7 @@
                     if (infoMaestra) {
                         objetoEmpresaRaw = infoMaestra;
                         nombreEmpresaMaestro = infoMaestra.nombreComercial || infoMaestra.nombre || infoMaestra.razonSocial || "";
+                        divisionEmpresaMaestro = (infoMaestra.division || 'centro').toLowerCase();
                         ubicacionEmpresaMaestro = infoMaestra.direccion || infoMaestra.ubicacion || infoMaestra.lugarOrigen || "";
                         bannersCorporativosEmpresa = infoMaestra.bannersCorporativos || "";
                         estatusOperativoEmpresa = infoMaestra.estatusOperativo || "Disponible";
@@ -1109,7 +1151,7 @@
             } else {
                 contenedorForm.classList.remove('form-bloqueado');
                 btnSubmit.disabled = false;
-                btnSubmit.innerHTML = `<i class="fab fa-whatsapp"></i> Confirmar Cita y Enviar WhatsApp`;
+                alternarModoAsistido();
             }
         }
 
@@ -1635,7 +1677,6 @@
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    // CARGA DE ASESORES AUTORIZADOS CON GOBERNANZA RBAC (operaComoReclutador)
     async function cargarCatalogoReclutadores() {
         const selectElement = document.getElementById("selReclutador");
         try {
@@ -1658,8 +1699,6 @@
                     const tieneTelefono = Boolean(rec.telefono);
 
                     const nivel = rec.nivel !== undefined ? parseInt(rec.nivel) : 2;
-                    
-                    // GOBERNANZA M5: Permitir a cualquier rango que tenga el flag operaComoReclutador activado
                     const facultadReclutar = rec.operaComoReclutador === true || 
                         (rec.operaComoReclutador === undefined && nivel <= 2);
 
@@ -1709,16 +1748,18 @@
         return { edad: isNaN(edadCalculada) ? "Indistinto" : String(edadCalculada), sexo: sexo };
     }
 
-    // VERIFICACIÓN DE LEAD OWNERSHIP
+    // VERIFICACIÓN ESTRICTA DE LEAD OWNERSHIP POR CURP Y TELÉFONO
     async function verificarTitularidadCandidato(curp, telefono) {
         try {
+            const estatusLiberados = ['Declinante', 'No Apto Medico', 'No Apto Entrevista'];
+
             const snapCurp = await db.ref('postulantes').orderByChild('curp').equalTo(curp).once('value');
             if (snapCurp.exists()) {
                 const list = snapCurp.val();
                 for (const key of Object.keys(list)) {
                     const post = list[key];
-                    if (post.estatus !== 'Contratado' && post.estatus !== 'Declinante' && (post.reclutadorId || post.asesor)) {
-                        return { existe: true, titular: post };
+                    if (!estatusLiberados.includes(post.estatus) && (post.reclutadorId || post.asesor)) {
+                        return { existe: true, titular: post, keyOriginal: key };
                     }
                 }
             }
@@ -1728,18 +1769,18 @@
                 const list = snapTel.val();
                 for (const key of Object.keys(list)) {
                     const post = list[key];
-                    if (post.estatus !== 'Contratado' && post.estatus !== 'Declinante' && (post.reclutadorId || post.asesor)) {
-                        return { existe: true, titular: post };
+                    if (!estatusLiberados.includes(post.estatus) && (post.reclutadorId || post.asesor)) {
+                        return { existe: true, titular: post, keyOriginal: key };
                     }
                 }
             }
         } catch (e) {
             console.warn("No se pudo verificar titularidad en Firebase:", e);
         }
-        return { existe: false, titular: null };
+        return { existe: false, titular: null, keyOriginal: null };
     }
 
-    // ENVÍO DE POSTULACIÓN CON HERENCIA DE TERNA Y AUDITORÍA
+    // ENVÍO DE POSTULACIÓN CON BLINDAJE ANTI-DUPLICIDAD Y ROLES INVERTIDOS EN WHATSAPP
     window.enviarPostulacion = async function(e) {
         e.preventDefault();
         
@@ -1761,6 +1802,7 @@
         const inputOcultoPunto = document.getElementById('selPuntoRecoleccion');
         const selectReclutador = document.getElementById("selReclutador");
         const btnSubmit = document.getElementById('btnSubmitForm');
+        const esModoAsistido = document.getElementById('chkModoAsistido').checked;
         
         const puntoElegido = inputOcultoPunto.value ? inputOcultoPunto.value : "No aplica / No seleccionado";
 
@@ -1773,14 +1815,21 @@
         btnSubmit.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Validando titularidad de expediente...`;
 
         try {
-            const { existe, titular } = await verificarTitularidadCandidato(curp, telefono);
+            const { existe, titular, keyOriginal } = await verificarTitularidadCandidato(curp, telefono);
 
             let telefonoDestino = "";
             let nombreReclutadorCorto = "";
             let reclutadorIdFinal = null;
             let objetoAsesor = null;
 
+            // BLINDAJE ANTI-DUPLICIDAD: Reutilizar clave existente si ya cuenta con proceso activo
+            let timestampId = "WF-" + Math.floor(100000 + Math.random() * 900000);
+            let esActualizacion = false;
+
             if (existe && titular) {
+                timestampId = keyOriginal || titular.id || timestampId;
+                esActualizacion = true;
+
                 reclutadorIdFinal = titular.reclutadorId || null;
                 nombreReclutadorCorto = titular.reclutadorNombre || titular.asesor || "Tu Asesor Titular";
 
@@ -1794,8 +1843,8 @@
                 }
 
                 alert(
-                    `ℹ️ Hola ${nombre}, identificamos que ya cuentas con un proceso abierto con tu asesor: ${nombreReclutadorCorto}.\n\n` +
-                    `Por política de seguimiento y para no perder tu avance, te canalizaremos directamente con él.`
+                    `ℹ️ Hola ${nombre}, identificamos que ya cuentas con un expediente activo en el sistema atendido por: ${nombreReclutadorCorto}.\n\n` +
+                    `Se actualizaron los datos de tu cita para no duplicar registros y respetar el seguimiento con tu asesor.`
                 );
             } else {
                 const opcionSeleccionada = selectReclutador.options[selectReclutador.selectedIndex];
@@ -1805,12 +1854,14 @@
                 if (reclutadorIdFinal) objetoAsesor = catalogoUsuariosGlobal[reclutadorIdFinal] || null;
             }
 
-            let telLimpio = String(telefonoDestino).replace(/\D/g, '');
-            if (telLimpio.length === 10) telLimpio = "52" + telLimpio;
-            if (!telLimpio) telLimpio = fallbackTelefonoReclutador;
+            let telReclutadorLimpio = String(telefonoDestino).replace(/\D/g, '');
+            if (telReclutadorLimpio.length === 10) telReclutadorLimpio = "52" + telReclutadorLimpio;
+            if (!telReclutadorLimpio) telReclutadorLimpio = fallbackTelefonoReclutador;
+
+            let telCandidatoLimpio = String(telefono).replace(/\D/g, '');
+            if (telCandidatoLimpio.length === 10) telCandidatoLimpio = "52" + telCandidatoLimpio;
 
             const datosExtraidos = extraerDatosCurp(curp);
-            const timestampId = "WF-" + Math.floor(100000 + Math.random() * 900000);
             const fechaYHoraActual = new Date().toLocaleString();
             
             const vacanteNombreFinal = datosVacanteGlobal ? (datosVacanteGlobal.nombreVacante || datosVacanteGlobal.vacanteNombre || datosVacanteGlobal.puesto || "Desconocida") : "Desconocida";
@@ -1818,7 +1869,6 @@
 
             const urlAcuseDigital = `https://valdomtec-arch.github.io/bolsa-trabajo-principal/acuse.html?folio=${timestampId}&vacante=${encodeURIComponent(vacanteNombreFinal)}&empresa=${encodeURIComponent(empresaNombreFinal)}`;
 
-            // DEDUCCIÓN Y HERENCIA MATRICIAL DE LA TERNA
             let supervisoresArray = [];
             let supervisorPadreIdFinal = (objetoEmpresaRaw && objetoEmpresaRaw.supervisorId) ? objetoEmpresaRaw.supervisorId : null;
 
@@ -1846,6 +1896,7 @@
                 sexo: datosExtraidos.sexo,
                 empresa: empresaNombreFinal,
                 empresaId: empresaLimpia,
+                division: divisionEmpresaMaestro,
                 vacante: vacanteNombreFinal,
                 nombreVacante: vacanteNombreFinal,
                 fechaEntrevista: fechaEntrevista,
@@ -1853,64 +1904,96 @@
                 diaEntrevista: `${fechaEntrevista} ${horaEntrevista}`,
                 estatus: "Postulado",
                 
-                // Asignación operativa
                 asesor: nombreReclutadorCorto,
                 reclutadorId: reclutadorIdFinal,
                 reclutadorNombre: nombreReclutadorCorto,
-                telefonoAsesor: telLimpio,
+                telefonoAsesor: telReclutadorLimpio,
                 
-                // Herencia matricial M5
                 supervisorPadreId: supervisorPadreIdFinal,
                 supervisoresIds: supervisoresArray,
                 coordinadorPadreId: coordinadorPadreIdFinal,
                 coordinadoresIds: coordinadoresArray,
                 
                 rutaTransporteSeleccionada: puntoElegido,
+                rutaNombre: puntoElegido,
+                ruta: puntoElegido,
                 urlAcusePdf: urlAcuseDigital,
+                origenRegistro: esModoAsistido ? "RECLUTADOR_ASISTIDO" : "CANDIDATO_PORTAL",
                 fechaRegistro: fechaYHoraActual,
                 timestamp: firebase.database.ServerValue.TIMESTAMP
             };
 
-            await db.ref(`postulantes/${timestampId}`).set(payloadPostulante);
+            // PERSISTENCIA SIN DUPLICADOS
+            if (esActualizacion) {
+                await db.ref(`postulantes/${timestampId}`).update(payloadPostulante);
+            } else {
+                await db.ref(`postulantes/${timestampId}`).set(payloadPostulante);
+            }
 
             // Registro inmutable en Caja Negra (M7)
             await db.ref('modulo_7_logs').push({
                 modulo: "VACANTE_PUBLICO",
-                evento: "NUEVA_POSTULACION_CANDIDATO",
-                ejecutadoPor: "Portal Vacante (Postulación)",
-                detalle: `Candidato ${nombre} (${curp}) agendó entrevista para ${empresaNombreFinal} [${vacanteNombreFinal}]. Asesor: ${nombreReclutadorCorto}. Folio: ${timestampId}.`,
+                evento: esActualizacion ? "ACTUALIZACION_TITULARIDAD_POSTULACION" : "NUEVA_POSTULACION_CANDIDATO",
+                ejecutadoPor: esModoAsistido ? `Asesor: ${nombreReclutadorCorto}` : "Portal Vacante (Público)",
+                detalle: `Candidato ${nombre} (${curp}) [${esActualizacion ? 'EXPEDIENTE REUTILIZADO' : 'NUEVO'}]. Asesor: ${nombreReclutadorCorto}. Folio: ${timestampId}.`,
                 timestamp: firebase.database.ServerValue.TIMESTAMP
             });
 
-            const mensajeWhatsApp = `¡Hola! Me acabo de postular a una vacante y agendé mi cita.\n\n` +
-                                    `*📌 Detalles de mi Postulación:*\n` +
-                                    `• *Folio:* ${timestampId}\n` +
-                                    `• *Puesto:* ${payloadPostulante.vacante}\n` +
-                                    `• *Empresa:* ${payloadPostulante.empresa}\n` +
-                                    `• *Ruta y Parada:* ${puntoElegido}\n\n` +
-                                    `*📅 Cita de Entrevista Agendada:*\n` +
-                                    `• *Fecha:* ${fechaEntrevista}\n` +
-                                    `• *Horario:* ${horaEntrevista}\n\n` +
-                                    `*👤 Mis Datos de Contacto:*\n` +
-                                    `• *Nombre:* ${payloadPostulante.nombre}\n` +
-                                    `• *Teléfono:* ${payloadPostulante.telefono}\n` +
-                                    `• *CURP:* ${payloadPostulante.curp}\n\n` +
-                                    `*📄 Mi Acuse Digital Oficial:*\n` +
-                                    `${urlAcuseDigital}\n\n` +
-                                    `_Atendido por: ${nombreReclutadorCorto}_`;
+            // =========================================================================
+            // INVERSIÓN DINÁMICA DE EMISOR Y DESTINATARIO EN WHATSAPP
+            // =========================================================================
+            let telefonoWhatsappDestino = "";
+            let mensajeWhatsApp = "";
+
+            if (esModoAsistido) {
+                // ESCENARIO 2: Reclutador (Emisor) -> Candidato (Destinatario)
+                telefonoWhatsappDestino = telCandidatoLimpio;
+                mensajeWhatsApp = `¡Hola *${nombre}*! Te saludamos del área de Reclutamiento y Selección.\n\n` +
+                                  `Hemos completado tu registro oficial para la vacante *${vacanteNombreFinal}* en *${empresaNombreFinal}*.\n\n` +
+                                  `*📌 Detalles de tu Cita de Entrevista:*\n` +
+                                  `• *Folio de Expediente:* ${timestampId}\n` +
+                                  `• *Fecha:* ${fechaEntrevista}\n` +
+                                  `• *Horario:* ${horaEntrevista}\n` +
+                                  `• *Ruta / Parada:* ${puntoElegido}\n\n` +
+                                  `*👤 Tu Asesor Asignado:*\n` +
+                                  `• *Nombre:* ${nombreReclutadorCorto}\n` +
+                                  `• *WhatsApp:* +${telReclutadorLimpio}\n\n` +
+                                  `*📄 Consulta tu Acuse Digital Oficial:*\n` +
+                                  `${urlAcuseDigital}\n\n` +
+                                  `_Favor de presentarte con tu identificación oficial (INE) y CURP en mano._`;
+            } else {
+                // ESCENARIO 1: Candidato (Emisor) -> Reclutador (Destinatario)
+                telefonoWhatsappDestino = telReclutadorLimpio;
+                mensajeWhatsApp = `¡Hola! Me acabo de postular a una vacante y agendé mi cita.\n\n` +
+                                  `*📌 Detalles de mi Postulación:*\n` +
+                                  `• *Folio:* ${timestampId}\n` +
+                                  `• *Puesto:* ${vacanteNombreFinal}\n` +
+                                  `• *Empresa:* ${empresaNombreFinal}\n` +
+                                  `• *Ruta y Parada:* ${puntoElegido}\n\n` +
+                                  `*📅 Cita de Entrevista Agendada:*\n` +
+                                  `• *Fecha:* ${fechaEntrevista}\n` +
+                                  `• *Horario:* ${horaEntrevista}\n\n` +
+                                  `*👤 Mis Datos de Contacto:*\n` +
+                                  `• *Nombre:* ${nombre}\n` +
+                                  `• *Teléfono:* ${telefono}\n` +
+                                  `• *CURP:* ${curp}\n\n` +
+                                  `*📄 Mi Acuse Digital Oficial:*\n` +
+                                  `${urlAcuseDigital}\n\n` +
+                                  `_Atendido por: ${nombreReclutadorCorto}_`;
+            }
 
             document.getElementById('formPostulacion').reset();
             btnSubmit.disabled = false;
-            btnSubmit.innerHTML = `<i class="fab fa-whatsapp"></i> Confirmar Cita y Enviar WhatsApp`;
+            alternarModoAsistido();
             
             setTimeout(() => {
-                window.location.href = `https://wa.me/${telLimpio}?text=${encodeURIComponent(mensajeWhatsApp)}`;
+                window.location.href = `https://wa.me/${telefonoWhatsappDestino}?text=${encodeURIComponent(mensajeWhatsApp)}`;
             }, 500);
             
         } catch (err) {
             alert(`❌ Error al procesar datos: ${err.message}`);
             btnSubmit.disabled = false;
-            btnSubmit.innerHTML = `<i class="fab fa-whatsapp"></i> Confirmar Cita y Enviar WhatsApp`;
+            alternarModoAsistido();
         }
     };
 
