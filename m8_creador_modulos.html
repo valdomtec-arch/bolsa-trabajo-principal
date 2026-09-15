@@ -31,7 +31,7 @@
                     }
                 }
             }
-        }
+        };
     </script>
     <style>
         ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -458,7 +458,7 @@
                             <div class="font-bold text-white flex items-center gap-2">
                                 <span class="w-6 h-6 rounded bg-cyber-cardAlt flex items-center justify-center text-cyber-cyan text-xs"><i class="fas ${mod.icono}"></i></span>
                                 <span>${mod.titulo}</span>
-                                ${esVirtual ? '<span class="text-[9px] bg-cyan-950/80 text-cyan-300 border border-cyan-500/30 px-1.5 py-0.2 rounded font-mono">VIRTUAL</span>' : ''}
+                                ${esVirtual ? '<span class="text-[9px] bg-cyan-950/80 text-cyan-300 border border-cyan-500/30 px-1.5 py-0.5 rounded font-mono">VIRTUAL</span>' : ''}
                             </div>
                             <div class="text-[10px] text-slate-400 font-sans mt-0.5 truncate max-w-xs">${mod.descripcion}</div>
                         </td>
@@ -519,7 +519,7 @@
             }
         }
 
-        // 5. INYECCIÓN ATÓMICA EN CADENA (CON CÓDIGO FUENTE INCLUIDO)
+        // 5. INYECCIÓN ATÓMICA EN CADENA
         async function guardarModuloAtómico(e) {
             e.preventDefault();
 
@@ -533,14 +533,12 @@
             const rolesSeleccionados = [];
             document.querySelectorAll(".check-rol-item:checked").forEach(cb => rolesSeleccionados.push(cb.value));
 
-            // Asegurar rol administrador
             Object.entries(diccionarioRoles).forEach(([rId, r]) => {
                 if (r.nivelJerarquico === 5 && !rolesSeleccionados.includes(rId)) {
                     rolesSeleccionados.push(rId);
                 }
             });
 
-            // OBTENCIÓN DEL CÓDIGO HTML COMPILADO EN EL VISOR
             const codigoCompilado = document.getElementById("visorCodigoGenerado").value.trim();
             let urlDestino = document.getElementById("inputUrl").value.trim();
 
@@ -558,7 +556,7 @@
                 descripcion: document.getElementById("inputDescripcion").value.trim(),
                 roles_permitidos: rolesSeleccionados,
                 activo: true,
-                codigo_fuente: codigoCompilado || null, // <- Almacenamiento en Firebase
+                codigo_fuente: codigoCompilado || null,
                 ultimaActualizacion: Date.now()
             };
 
@@ -568,10 +566,8 @@
 
             try {
                 const updates = {};
-                // A) Guardar en modulos_config
                 updates[`modulos_config/${moduloKey}`] = moduloPayload;
 
-                // B) Inyectar bandera en roles_dinamicos
                 Object.keys(diccionarioRoles).forEach(rolId => {
                     const tieneAcceso = rolesSeleccionados.includes(rolId);
                     updates[`roles_dinamicos/${rolId}/permisos/${moduloKey}`] = {
@@ -582,10 +578,8 @@
                     };
                 });
 
-                // C) Ejecutar actualización atómica
                 await db.ref().update(updates);
 
-                // D) Registro de auditoría en modulo_7_logs
                 await db.ref("modulo_7_logs").push({
                     modulo: "M8_CREADOR_MODULOS",
                     evento: editKey ? "MODIFICACION_MODULO" : "ALTA_MODULO_DINAMICO",
@@ -739,26 +733,20 @@
             const idSugerido = sanitizarKey(document.getElementById("inputModuloId").value || "m9_nuevo_modulo");
             const tituloSugerido = document.getElementById("inputTitulo").value || "Nuevo Módulo ERP";
 
-            const promptEstructural = `
-                Eres el Arquitecto de Software Principal de un ERP empresarial con tema "Cyber-Dark" Tailwind CSS y Firebase.
-                Genera el código HTML MONOLÍTICO COMPLETO, FUNCIONAL Y LISTO PARA PRODUCCIÓN para el siguiente requerimiento:
-
-                REQUERIMIENTO:
-                "${promptUser}"
-
-                PRESET ARQUITECTÓNICO: ${preset}
-                ID MÓDULO: ${idSugerido}
-                TÍTULO: ${tituloSugerido}
-
-                REGLAS TÉCNICAS ESTRICTAS:
-                1. Archivo único HTML5 con Tailwind CSS (<script src="https://cdn.tailwindcss.com"></script>) y FontAwesome 6 (<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">).
-                2. Si el preset es "geo_extractor", incluye Leaflet CSS/JS (<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/> y <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>) y JSZip (<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>).
-                3. Estética visual "Cyber-Dark" exacta: Fondo 'bg-[#030712]', tarjetas 'bg-[#0b1329]', bordes 'rgba(30, 58, 138, 0.4)', textos 'text-slate-200' y acentos naranja '#ff6600' y cyan '#06b6d4'.
-                4. Conexión nativa a Firebase Realtime Database con la URL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com".
-                5. CADA ACCIÓN CRÍTICA DEBE REPORTAR A "modulo_7_logs" con: modulo, evento, detalle, timestamp: firebase.database.ServerValue.TIMESTAMP.
-                6. Botón en el header para "Volver a CoreHub" enlazando a "admin.html".
-                7. Devuelve EXCLUSIVAMENTE el código HTML dentro de un bloque markdown, sin texto conversacional introductorio ni explicaciones.
-            `;
+            const promptEstructural = "Eres el Arquitecto de Software Principal de un ERP empresarial con tema Cyber-Dark Tailwind CSS y Firebase.\n" +
+                "Genera el código HTML MONOLÍTICO COMPLETO, FUNCIONAL Y LISTO PARA PRODUCCIÓN para el siguiente requerimiento:\n\n" +
+                "REQUERIMIENTO: " + promptUser + "\n" +
+                "PRESET ARQUITECTÓNICO: " + preset + "\n" +
+                "ID MÓDULO: " + idSugerido + "\n" +
+                "TÍTULO: " + tituloSugerido + "\n\n" +
+                "REGLAS TÉCNICAS ESTRICTAS:\n" +
+                "1. Archivo único HTML5 con Tailwind CDN y FontAwesome 6.\n" +
+                "2. Si el preset es 'geo_extractor', incluye Leaflet CSS/JS y JSZip.\n" +
+                "3. Estética visual Cyber-Dark: Fondo bg-[#030712], tarjetas bg-[#0b1329], bordes rgba(30, 58, 138, 0.4), textos text-slate-200 y acentos naranja #ff6600 y cyan #06b6d4.\n" +
+                "4. Conexión nativa a Firebase Realtime Database con la URL: https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com\n" +
+                "5. CADA ACCIÓN CRÍTICA DEBE REPORTAR A modulo_7_logs con: modulo, evento, detalle, timestamp: firebase.database.ServerValue.TIMESTAMP.\n" +
+                "6. Botón en el header para 'Volver a CoreHub' enlazando a admin.html.\n" +
+                "7. Devuelve EXCLUSIVAMENTE el código HTML dentro de un bloque markdown, sin texto conversacional.";
 
             try {
                 const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
@@ -780,7 +768,6 @@
                 document.getElementById("btnCopiarCodigo").disabled = false;
                 document.getElementById("btnDescargarHtml").disabled = false;
 
-                // Asignar automáticamente ruta a visor.html si no hay ruta física asignada
                 if (!document.getElementById("inputUrl").value.trim() || document.getElementById("inputUrl").value.endsWith(".html")) {
                     document.getElementById("inputUrl").value = `visor.html?mod=${idSugerido}`;
                 }
