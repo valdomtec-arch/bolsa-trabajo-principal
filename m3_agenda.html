@@ -1449,7 +1449,6 @@
                 });
             }
 
-            // Si el candidato seleccionó una parada específica que no coincide con la cabecera exacta de la ruta, se inyecta
             if (rutaActual && rutaActual !== "SIN_RUTA" && rutaActual !== "No aplica / No seleccionado" && !rutaEncontrada) {
                 editRuta.innerHTML += `<option value="${rutaActual}" selected>📍 ${rutaActual}</option>`;
             }
@@ -1459,7 +1458,7 @@
             document.getElementById("modalEditar").classList.add("hidden");
         }
 
-        // GUARDADO DE EXPEDIENTE CON CANDADO ANTI-DUPLICIDAD POR CURP
+        // GUARDADO DE EXPEDIENTE CON DOBLE CANDADO ANTI-DUPLICIDAD (CURP Y TELÉFONO)
         async function guardarCambiosAdmin() {
             RBAC.asegurar('m3_agenda', 'editar', "No tienes permisos para modificar expedientes.");
 
@@ -1480,12 +1479,13 @@
             }
 
             // =========================================================================
-            // CANDADO ESTRICTO ANTI-DUPLICIDAD POR CURP (PROTECCIÓN DE COMISIONES)
+            // CANDADO ESTRICTO ANTI-DUPLICIDAD POR CURP Y TELÉFONO (PROTECCIÓN DE CARTERA)
             // =========================================================================
             const registroDuplicado = Object.entries(todosLosPostulantes).find(([key, post]) => {
                 if (key === id) return false; // Ignora el propio expediente en edición
-                const curpRegistrada = (post.curp || '').toString().trim().toUpperCase();
-                return curpRegistrada === curp;
+                const curpReg = (post.curp || '').toString().trim().toUpperCase();
+                const telReg = (post.telefono || '').toString().replace(/\D/g, '');
+                return (curpReg && curpReg === curp) || (telReg && telReg === telefono);
             });
 
             if (registroDuplicado) {
@@ -1493,14 +1493,15 @@
                 const titularAsignado = dupData.reclutadorNombre || dupData.asesor || "Asesor no especificado";
                 const empresaTitular = dupData.empresa || dupData.empresaId || "Sin Empresa";
                 const estatusTitular = normalizarEstatus(dupData.estatus || dupData.status);
+                const motivoCoincidencia = ((dupData.curp || '').trim().toUpperCase() === curp) ? `CURP "${curp}"` : `Teléfono "${telefono}"`;
 
                 alert(`⛔ BLOQUEO DE DUPLICIDAD POR GOBERNANZA:\n\n` +
-                      `La CURP "${curp}" ya se encuentra registrada en la base de datos bajo la titularidad de otro reclutador.\n\n` +
-                      `• Expediente Oficial: ${dupData.nombre || 'Candidato Registrado'}\n` +
-                      `• Asesor Titular (Comisión): ${titularAsignado}\n` +
+                      `El dato (${motivoCoincidencia}) ya pertenece a otro candidato registrado.\n\n` +
+                      `• Candidato Oficial: ${dupData.nombre || 'Candidato Registrado'}\n` +
+                      `• Asesor Titular: ${titularAsignado}\n` +
                       `• Empresa Asignada: ${empresaTitular}\n` +
-                      `• Estatus Operativo: ${estatusTitular}\n\n` +
-                      `Por política de comisiones y control institucional, un candidato no puede pertenecer a dos asesores simultáneamente.`);
+                      `• Estatus: ${estatusTitular}\n\n` +
+                      `Operación abortada para proteger la cartera y comisiones.`);
                 return;
             }
             // =========================================================================
