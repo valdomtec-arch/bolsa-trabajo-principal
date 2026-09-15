@@ -353,7 +353,7 @@
                                 <i class="fas fa-bus-simple me-1"></i> Ruta de Transporte
                             </label>
                             <select id="editRuta" class="w-full bg-cyber-card border border-cyber-border text-white rounded-xl p-2.5 focus:outline-none focus:border-cyber-amber touch-target font-bold">
-                                <option value="SIN_RUTA">-- Sin Asignación / Propio --</option>
+                                <option value="SIN_RUTA">-- Traslado Propio / Sin Ruta --</option>
                             </select>
                         </div>
                     </div>
@@ -1020,7 +1020,7 @@
             cargarPostulantes();
         }
 
-        // RENDERIZADO CON NUEVOS ESTATUS, BADGES DE DIVISIÓN Y PERMISOS RBAC VIVOS
+        // RENDERIZADO CON NUEVOS ESTATUS, BADGES DE DIVISIÓN, RUTAS Y PERMISOS RBAC VIVOS
         function cargarPostulantes() {
             const contCards = document.getElementById("postulantesCardsMobile");
             const tbodyDesktop = document.getElementById("tablaPostulantesDesktop");
@@ -1050,8 +1050,10 @@
                 const empKey = sanitizarKey(p.empresaId || p.empresa || "");
                 const recId = p.reclutadorId || p.agenteId || "";
                 const vacNombre = p.nombreVacante || p.vacante || "Sin Vacante";
-                const rutaNombre = p.rutaNombre || p.ruta || "Sin Ruta Asignada";
                 
+                // LECTURA ROBUSTA DE RUTA COMPATIBLE CON TODOS LOS MÓDULOS
+                const rutaCapturada = p.rutaTransporteSeleccionada || p.rutaNombre || p.ruta || "";
+
                 const empData = catalogoEmpresas[empKey] || {};
                 const divisionEmpresa = (p.division || empData.division || 'centro').toLowerCase();
 
@@ -1069,7 +1071,7 @@
                 if (filtroSoloDesfasadosActivo && (!estaEnSLA || horas <= 24)) return;
 
                 if (busq) {
-                    const str = `${p.nombre || ''} ${p.curp || ''} ${p.telefono || ''} ${vacNombre} ${rutaNombre}`.toLowerCase();
+                    const str = `${p.nombre || ''} ${p.curp || ''} ${p.telefono || ''} ${vacNombre} ${rutaCapturada}`.toLowerCase();
                     if (!str.includes(busq)) return;
                 }
 
@@ -1126,8 +1128,11 @@
                     ? `<div class="text-xs bg-amber-500/10 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded font-mono font-bold mt-1 inline-flex items-center gap-1"><i class="fas fa-calendar-check"></i> ${tieneCita}</div>`
                     : `<div class="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded font-mono mt-1 inline-flex items-center gap-1"><i class="fas fa-clock"></i> Pendiente</div>`;
 
-                const rutaHtml = (rutaNombre && rutaNombre !== "Sin Ruta Asignada" && rutaNombre !== "SIN_RUTA")
-                    ? `<div class="text-[10px] text-amber-300 font-mono flex items-center gap-1 mt-0.5"><i class="fas fa-bus-simple"></i> ${rutaNombre}</div>`
+                // RENDERIZADO VISIBLE DE LA RUTA
+                const rutaHtml = (rutaCapturada && rutaCapturada !== "SIN_RUTA" && rutaCapturada !== "Sin Ruta Asignada" && rutaCapturada !== "No aplica / No seleccionado")
+                    ? `<div class="text-[11px] text-amber-300 font-mono font-bold flex items-center gap-1.5 mt-1 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-md break-words max-w-xs">
+                         <i class="fas fa-bus-simple text-amber-400 shrink-0"></i> <span>${rutaCapturada}</span>
+                       </div>`
                     : `<div class="text-[10px] text-slate-500 font-mono mt-0.5"><i class="fas fa-person-walking"></i> Traslado Propio</div>`;
 
                 const msgWA = `Hola *${p.nombre}*, te saludamos de Reclutamiento para la vacante *${vacNombre}* en *${nombreEmpresa}*. Tu estatus es: *${estatus}*.`;
@@ -1378,7 +1383,10 @@
             editEmpresa.value = catalogoEmpresas[currentEmpresa] ? currentEmpresa : "SIN_EMPRESA";
             
             poblarVacantesEnModal(p.nombreVacante || p.vacante);
-            poblarRutasEnModal(p.rutaNombre || p.ruta);
+            
+            // LECTURA ROBUSTA DE RUTA AL ABRIR MODAL
+            const rutaGuardada = p.rutaTransporteSeleccionada || p.rutaNombre || p.ruta || "";
+            poblarRutasEnModal(rutaGuardada);
 
             const citaRaw = p.diaEntrevista || p.fechaEntrevista || "";
             if (citaRaw.includes(" ")) {
@@ -1415,23 +1423,35 @@
             }
         }
 
+        // CARGA DINÁMICA DE RUTAS EN EL MODAL
         function poblarRutasEnModal(rutaActual) {
             const empSel = sanitizarKey(document.getElementById("editEmpresa").value);
             const editRuta = document.getElementById("editRuta");
-            editRuta.innerHTML = '<option value="SIN_RUTA">-- Sin Asignación / Propio --</option>';
+            editRuta.innerHTML = '<option value="SIN_RUTA">-- Traslado Propio / Sin Ruta --</option>';
 
             const rutasEmp = catalogoRutas[empSel] || {};
             const rutasEntries = Object.entries(rutasEmp);
 
+            let rutaEncontrada = false;
+
             if (rutasEntries.length > 0) {
                 rutasEntries.forEach(([rId, rVal]) => {
-                    const nomRuta = typeof rVal === 'object' ? (rVal.nombre || rVal.ruta || rId) : rVal;
-                    editRuta.innerHTML += `<option value="${nomRuta}">${nomRuta}</option>`;
+                    const nomRuta = typeof rVal === 'object' ? (rVal.nombreRuta || rVal.nombre || rVal.ruta || rId) : rVal;
+                    
+                    const isSelected = Boolean(rutaActual && (
+                        rutaActual === nomRuta || 
+                        rutaActual.startsWith(nomRuta) || 
+                        nomRuta.startsWith(rutaActual)
+                    ));
+
+                    if (isSelected) rutaEncontrada = true;
+                    editRuta.innerHTML += `<option value="${nomRuta}" ${isSelected ? 'selected' : ''}>${nomRuta}</option>`;
                 });
             }
 
-            if (rutaActual && rutaActual !== "SIN_RUTA") {
-                editRuta.value = rutaActual;
+            // Si el candidato seleccionó una parada específica que no coincide con la cabecera exacta de la ruta, se inyecta
+            if (rutaActual && rutaActual !== "SIN_RUTA" && rutaActual !== "No aplica / No seleccionado" && !rutaEncontrada) {
+                editRuta.innerHTML += `<option value="${rutaActual}" selected>📍 ${rutaActual}</option>`;
             }
         }
 
@@ -1439,6 +1459,7 @@
             document.getElementById("modalEditar").classList.add("hidden");
         }
 
+        // GUARDADO DE EXPEDIENTE CON CANDADO ANTI-DUPLICIDAD POR CURP
         async function guardarCambiosAdmin() {
             RBAC.asegurar('m3_agenda', 'editar', "No tienes permisos para modificar expedientes.");
 
@@ -1462,7 +1483,7 @@
             // CANDADO ESTRICTO ANTI-DUPLICIDAD POR CURP (PROTECCIÓN DE COMISIONES)
             // =========================================================================
             const registroDuplicado = Object.entries(todosLosPostulantes).find(([key, post]) => {
-                if (key === id) return false;
+                if (key === id) return false; // Ignora el propio expediente en edición
                 const curpRegistrada = (post.curp || '').toString().trim().toUpperCase();
                 return curpRegistrada === curp;
             });
@@ -1526,6 +1547,9 @@
                     division: divisionEmp,
                     nombreVacante: document.getElementById("editVacante").value,
                     vacante: document.getElementById("editVacante").value,
+                    
+                    // PERSISTENCIA HOMOLOGADA DE RUTAS
+                    rutaTransporteSeleccionada: rutaSeleccionada,
                     rutaNombre: rutaSeleccionada,
                     ruta: rutaSeleccionada,
                     
@@ -1590,6 +1614,7 @@
                 if (puedeVerCandidato(p)) {
                     const empKey = sanitizarKey(p.empresaId || p.empresa || "");
                     const empData = catalogoEmpresas[empKey] || {};
+                    const rutaExport = p.rutaTransporteSeleccionada || p.rutaNombre || p.ruta || "Sin Ruta";
 
                     dataExport.push({
                         "ID": id,
@@ -1601,7 +1626,7 @@
                         "División": (p.division || empData.division || "centro").toUpperCase(),
                         "Empresa": p.empresa || p.empresaId,
                         "Vacante": p.nombreVacante || p.vacante,
-                        "Ruta_Transporte": p.rutaNombre || p.ruta || "Sin Ruta",
+                        "Ruta_Transporte": rutaExport,
                         "Estatus_Operativo": normalizarEstatus(p.estatus || p.status),
                         "Cita": p.diaEntrevista || "Sin Cita",
                         "Reclutador": p.reclutadorNombre || "Sin Asignar",
