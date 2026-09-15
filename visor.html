@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cargando Módulo...</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Firebase SDK V8 -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+</head>
+<body class="bg-[#030712] text-slate-200 h-screen w-screen overflow-hidden flex flex-col m-0 p-0 font-sans">
+
+    <!-- BARRA SUPERIOR DE NAVEGACIÓN -->
+    <header class="h-12 bg-[#0b1329] border-b border-blue-900/40 px-4 flex items-center justify-between z-50">
+        <div class="flex items-center gap-3">
+            <a href="admin.html" class="text-xs font-mono text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 px-2.5 py-1.5 rounded-lg transition flex items-center gap-1.5">
+                <i class="fas fa-arrow-left"></i> Volver a CoreHub
+            </a>
+            <span id="moduloTituloHeader" class="text-sm font-bold text-white font-mono flex items-center gap-2">
+                <i class="fas fa-cube text-[#ff6600]"></i> Ingestando Entorno...
+            </span>
+        </div>
+        <div class="flex items-center gap-2">
+            <span class="text-[10px] font-mono bg-cyan-950/60 text-cyan-400 border border-cyan-500/30 px-2 py-0.5 rounded">
+                Runtime Virtual
+            </span>
+            <button onclick="location.reload()" title="Recargar vista" class="text-slate-400 hover:text-cyan-400 text-xs px-2 py-1">
+                <i class="fas fa-rotate-right"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- ESTADO DE CARGA -->
+    <div id="loader" class="flex-1 flex flex-col items-center justify-center space-y-3">
+        <i class="fas fa-circle-notch fa-spin text-3xl text-[#ff6600]"></i>
+        <p class="text-xs font-mono text-slate-400">Descargando módulo desde Firebase...</p>
+    </div>
+
+    <!-- PANTALLA SI OCURRE UN ERROR -->
+    <div id="errorBox" class="hidden flex-1 flex flex-col items-center justify-center space-y-3 p-6 text-center">
+        <i class="fas fa-triangle-exclamation text-4xl text-rose-500"></i>
+        <h2 class="text-base font-bold text-white">No se pudo cargar el módulo</h2>
+        <p id="errorMsg" class="text-xs font-mono text-slate-400 max-w-md"></p>
+        <a href="admin.html" class="mt-4 bg-slate-800 text-xs px-4 py-2 rounded-lg text-slate-200 hover:bg-slate-700">Regresar al CoreHub</a>
+    </div>
+
+    <!-- EL MARCO DONDE SE RENDERIZARÁ EL MÓDULO -->
+    <iframe id="iframeRuntime" class="hidden w-full flex-1 border-0" sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-modals"></iframe>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyDxgP1YnycCEqkQ2vr3SPkwc9QMhtG8Zqw",
+            authDomain: "bolsa-de-trabajo-a52e4.firebaseapp.com",
+            databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com",
+            projectId: "bolsa-de-trabajo-a52e4",
+            storageBucket: "bolsa-de-trabajo-a52e4.firebasestorage.app",
+            messagingSenderId: "592492733212",
+            appId: "1:592492733212:web:88e8ec243bd53608b6d0d9"
+        };
+
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        const params = new URLSearchParams(window.location.search);
+        const modKey = params.get("mod");
+
+        async function cargarModuloDesdeFirebase() {
+            const loader = document.getElementById("loader");
+            const errorBox = document.getElementById("errorBox");
+            const iframe = document.getElementById("iframeRuntime");
+
+            if (!modKey) {
+                mostrarError("No se indicó el identificador del módulo en la barra de direcciones (falta ?mod=...).");
+                return;
+            }
+
+            try {
+                const snap = await db.ref(`modulos_config/${modKey}`).once("value");
+                const mod = snap.val();
+
+                if (!mod) {
+                    mostrarError(`El módulo "${modKey}" no existe registrado en Firebase.`);
+                    return;
+                }
+
+                if (mod.activo === false) {
+                    mostrarError(`El módulo "${mod.titulo || modKey}" está pausado por el administrador.`);
+                    return;
+                }
+
+                if (!mod.codigo_fuente) {
+                    mostrarError(`El módulo "${mod.titulo}" existe, pero no tiene código HTML guardado en Firebase. Debes compilarlo y guardarlo desde M8.`);
+                    return;
+                }
+
+                // Cambiar el título superior
+                document.title = mod.titulo || "Módulo ERP";
+                document.getElementById("moduloTituloHeader").innerHTML = `
+                    <i class="fas ${mod.icono || 'fa-cube'} text-[#ff6600]"></i> ${mod.titulo}
+                `;
+
+                // Ocultar cargador y mostrar iframe
+                loader.classList.add("hidden");
+                iframe.classList.remove("hidden");
+
+                // Escribir el código HTML directamente en el iframe
+                const frameDoc = iframe.contentWindow.document;
+                frameDoc.open();
+                frameDoc.write(mod.codigo_fuente);
+                frameDoc.close();
+
+            } catch (err) {
+                mostrarError("Error al consultar Firebase: " + err.message);
+            }
+        }
+
+        function mostrarError(texto) {
+            document.getElementById("loader").classList.add("hidden");
+            document.getElementById("iframeRuntime").classList.add("hidden");
+            document.getElementById("errorBox").classList.remove("hidden");
+            document.getElementById("errorMsg").textContent = texto;
+        }
+
+        document.addEventListener("DOMContentLoaded", cargarModuloDesdeFirebase);
+    </script>
+</body>
+</html>
