@@ -80,6 +80,9 @@
                 <button onclick="ejecutarChequeoSaludArchivos()" title="Verificar existencia de archivos HTML en servidor o runtime virtual" class="bg-cyber-cyan/15 hover:bg-cyber-cyan/25 text-cyber-cyan border border-cyber-cyan/40 font-mono text-xs px-3.5 py-2.5 rounded-xl flex items-center gap-1.5 transition-all font-bold">
                     <i class="fas fa-heart-pulse"></i> Auditar Salud HTTP
                 </button>
+                <button onclick="ejecutarSaneamientoHuerfanos()" title="Detectar y purgar nodos huérfanos o módulos vacíos" class="bg-rose-950/40 hover:bg-rose-900/60 text-rose-400 border border-rose-500/40 font-mono text-xs px-3.5 py-2.5 rounded-xl flex items-center gap-1.5 transition-all font-bold">
+                    <i class="fas fa-broom"></i> Depurar Huérfanos
+                </button>
             </div>
         </header>
 
@@ -663,6 +666,81 @@
             }
         }
 
+        // 6. RUTINA FORENSE: SANEAMIENTO Y PURGADO DE HUÉRFANOS
+        async function ejecutarSaneamientoHuerfanos() {
+            if (!confirm("🧹 ¿Iniciar escaneo de módulos huérfanos o sin código en Firebase?\n\nEsta rutina detectará registros incompletos o desalineados entre 'modulos_config' y 'configuracion_sistema/modulos_dinamicos'.")) {
+                return;
+            }
+
+            try {
+                const [snapConfig, snapDinamicos] = await Promise.all([
+                    db.ref("modulos_config").once("value"),
+                    db.ref("configuracion_sistema/modulos_dinamicos").once("value")
+                ]);
+
+                const modulosConfig = snapConfig.val() || {};
+                const modulosDinamicos = snapDinamicos.val() || {};
+
+                const todasLasKeys = Array.from(new Set([
+                    ...Object.keys(modulosConfig),
+                    ...Object.keys(modulosDinamicos)
+                ]));
+
+                const huerfanos = [];
+
+                todasLasKeys.forEach(key => {
+                    const enConfig = modulosConfig[key];
+                    const enDinamicos = modulosDinamicos[key];
+
+                    const tieneCodigo = (enConfig && enConfig.codigo_fuente) || 
+                                        (enDinamicos && (enDinamicos.codigo_fuente || enDinamicos.html || enDinamicos.codigo));
+
+                    if (!enConfig || !enDinamicos || !tieneCodigo) {
+                        huerfanos.push({
+                            key: key,
+                            titulo: (enConfig && enConfig.titulo) || (enDinamicos && (enDinamicos.nombre || enDinamicos.titulo)) || key,
+                            motivo: !tieneCodigo ? "Sin código ejecutable" : (!enConfig ? "Falta en modulos_config" : "Falta en modulos_dinamicos")
+                        });
+                    }
+                });
+
+                if (huerfanos.length === 0) {
+                    alert("✨ Tu base de datos está limpia. Todos los módulos registrados tienen coherencia y código fuente.");
+                    return;
+                }
+
+                const detalle = huerfanos.map(h => `• [${h.key}] "${h.titulo}": ${h.motivo}`).join("\n");
+                const proceder = confirm(`Se encontraron ${huerfanos.length} nodo(s) huérfano(s) o incompletos:\n\n${detalle}\n\n¿Deseas purgarlos definitivamente de Firebase y limpiar sus permisos RBAC?`);
+
+                if (!proceder) return;
+
+                const updates = {};
+                huerfanos.forEach(h => {
+                    updates[`modulos_config/${h.key}`] = null;
+                    updates[`configuracion_sistema/modulos_dinamicos/${h.key}`] = null;
+
+                    Object.keys(diccionarioRoles).forEach(rolId => {
+                        updates[`roles_dinamicos/${rolId}/permisos/${h.key}`] = null;
+                    });
+                });
+
+                await db.ref().update(updates);
+
+                await db.ref("modulo_7_logs").push({
+                    modulo: "M8_CREADOR_MODULOS",
+                    evento: "SANEAMIENTO_BASE_DATOS",
+                    detalle: `Se purgaron ${huerfanos.length} nodos huérfanos: ${huerfanos.map(x => x.key).join(", ")}.`,
+                    ejecutadoPor: "Administrador Master",
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                });
+
+                alert(`✅ Se purgaron exitosamente ${huerfanos.length} nodo(s) huérfano(s). La base de datos ha quedado saneada.`);
+
+            } catch (err) {
+                alert("Error durante el saneamiento: " + err.message);
+            }
+        }
+
         function cargarParaEditar(key) {
             const m = catalogoModulos.find(x => x.key === key);
             if (!m) return;
@@ -708,7 +786,7 @@
             actualizarPreviewEnVivo();
         }
 
-        // 6. CHEQUEO DE SALUD HTTP / VIRTUAL EN TIEMPO REAL
+        // 7. CHEQUEO DE SALUD HTTP / VIRTUAL EN TIEMPO REAL
         async function ejecutarChequeoSaludArchivos() {
             for (const mod of catalogoModulos) {
                 const td = document.getElementById(`salud_${mod.key}`);
@@ -737,7 +815,7 @@
             }
         }
 
-        // 7. COMPILADOR DE CÓDIGO CON IA GEMINI (CON REGLAS ARQUITECTÓNICAS ESTRICTAS)
+        // 8. COMPILADOR DE CÓDIGO CON IA GEMINI (CON REGLAS ARQUITECTÓNICAS ESTRICTAS)
         async function ejecutarCompilacionConGemini() {
             const apiKey = document.getElementById("apiKeyGeminiModule").value.trim();
             const promptUser = document.getElementById("promptModuloIA").value.trim();
