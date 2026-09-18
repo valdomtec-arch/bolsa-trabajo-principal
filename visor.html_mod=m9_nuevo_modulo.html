@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nuevo Módulo ERP - m9_nuevo_modulo</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome 6 CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" integrity="sha512-Fo3rlrZj/k7ujTnHg4CGR2D7kSs0v4LLanw2qksYuRlEzO+tcaEPQogQ0KaoGN26/zrn20ImR1DfuLWnOo7aBA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <style>
+        /* Custom scrollbar for Cyber-Dark theme */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #030712; /* Dark background */
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #06b6d4; /* Cyan accent */
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #ff6600; /* Orange accent on hover */
+        }
+        /* Custom styles for the Cyber-Dark theme */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #030712; /* Cyber-Dark background */
+            color: #e2e8f0; /* text-slate-200 */
+        }
+        .card {
+            background-color: #0b1329; /* Card background */
+            border: 1px solid rgba(30, 58, 138, 0.4); /* Border color */
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .btn-primary {
+            background-color: #ff6600; /* Orange accent */
+            color: #030712; /* Dark text for contrast */
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            font-weight: 600;
+            transition: background-color 0.2s;
+        }
+        .btn-primary:hover {
+            background-color: #e65c00; /* Darker orange on hover */
+        }
+        .btn-secondary {
+            background-color: #06b6d4; /* Cyan accent */
+            color: #030712; /* Dark text for contrast */
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            font-weight: 600;
+            transition: background-color 0.2s;
+        }
+        .btn-secondary:hover {
+            background-color: #059cb3; /* Darker cyan on hover */
+        }
+        .input-field, .select-field, .textarea-field {
+            background-color: #030712; /* Dark background for inputs */
+            border: 1px solid rgba(30, 58, 138, 0.4); /* Border color */
+            color: #e2e8f0; /* text-slate-200 */
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.375rem;
+            width: 100%;
+        }
+        .input-field:focus, .select-field:focus, .textarea-field:focus {
+            outline: none;
+            border-color: #ff6600; /* Orange focus border */
+            box-shadow: 0 0 0 1px #ff6600;
+        }
+        .tab-button {
+            padding: 0.75rem 1.5rem;
+            border-bottom: 2px solid transparent;
+            color: #e2e8f0;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .tab-button:hover {
+            color: #ff6600;
+        }
+        .tab-button.active {
+            border-color: #ff6600;
+            color: #ff6600;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid rgba(30, 58, 138, 0.4);
+        }
+        th {
+            background-color: rgba(30, 58, 138, 0.2);
+            color: #06b6d4; /* Cyan for headers */
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 0.875rem;
+        }
+        tr:hover {
+            background-color: rgba(30, 58, 138, 0.1);
+        }
+        .modal-overlay {
+            background-color: rgba(0, 0, 0, 0.7);
+        }
+        .modal-content {
+            background-color: #0b1329;
+            border: 1px solid rgba(30, 58, 138, 0.4);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+    <!-- Header -->
+    <header class="bg-[#0b1329] p-4 shadow-lg flex justify-between items-center border-b border-[rgba(30, 58, 138, 0.4)]">
+        <h1 class="text-2xl font-bold text-[#ff6600]">
+            <i class="fas fa-archive mr-2 text-[#06b6d4]"></i> m9_nuevo_modulo: Nuevo Módulo ERP
+        </h1>
+        <button onclick="window.location.href='admin.html'" class="btn-secondary flex items-center">
+            <i class="fas fa-arrow-left mr-2"></i> Volver a CoreHub
+        </button>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 p-6">
+        <div class="max-w-7xl mx-auto card p-6">
+            <!-- Tabs for Active and Discarded Candidates -->
+            <div class="flex border-b border-[rgba(30, 58, 138, 0.4)] mb-6">
+                <button id="tab-active" class="tab-button active" onclick="showTab('active')">
+                    <i class="fas fa-users mr-2"></i> Candidatos Activos
+                </button>
+                <button id="tab-discarded" class="tab-button" onclick="showTab('discarded')">
+                    <i class="fas fa-trash-alt mr-2"></i> Expedientes Descartados
+                </button>
+            </div>
+
+            <!-- Active Candidates Section -->
+            <div id="active-candidates-section" class="tab-content">
+                <h2 class="text-xl font-semibold text-[#06b6d4] mb-4">Candidatos en Flujo Activo</h2>
+                <div class="overflow-x-auto mb-4">
+                    <table class="min-w-full">
+                        <thead>
+                            <tr>
+                                <th class="w-12"><input type="checkbox" id="select-all-active" class="form-checkbox h-4 w-4 text-[#ff6600] rounded border-gray-300 focus:ring-[#ff6600] bg-[#030712] border-[rgba(30, 58, 138, 0.4)]"></th>
+                                <th>ID</th>
+                                <th>Nombre</th>
+                                <th>Email</th>
+                                <th>Teléfono</th>
+                                <th>Fecha Registro</th>
+                            </tr>
+                        </thead>
+                        <tbody id="active-candidates-table-body">
+                            <!-- Active candidates will be loaded here -->
+                            <tr><td colspan="6" class="text-center py-4 text-slate-400">Cargando candidatos activos...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <button id="discard-selected-btn" class="btn-primary flex items-center">
+                    <i class="fas fa-minus-circle mr-2"></i> Descartar Candidato(s) Seleccionado(s)
+                </button>
+            </div>
+
+            <!-- Discarded Candidates Section -->
+            <div id="discarded-candidates-section" class="tab-content hidden">
+                <h2 class="text-xl font-semibold text-[#06b6d4] mb-4">Expedientes Descartados</h2>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Nombre</th>
+                                <th>Email</th>
+                                <th>Motivo Descarte</th>
+                                <th>Fecha Descarte</th>
+                                <th>Usuario Descarte</th>
+                            </tr>
+                        </thead>
+                        <tbody id="discarded-candidates-table-body">
+                            <!-- Discarded candidates will be loaded here -->
+                            <tr><td colspan="6" class="text-center py-4 text-slate-400">Cargando expedientes descartados...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Descarte Reason Modal -->
+    <div id="descarte-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 hidden modal-overlay">
+        <div class="modal-content p-6 rounded-lg shadow-xl w-full max-w-md">
+            <h3 class="text-xl font-bold text-[#ff6600] mb-4">Confirmar Descarte de Candidato(s)</h3>
+            <p class="text-slate-300 mb-4">Por favor, especifique el motivo del descarte para los candidatos seleccionados.</p>
+            <div class="mb-4">
+                <label for="descarte-reason" class="block text-slate-200 text-sm font-bold mb-2">Motivo de Descarte:</label>
+                <textarea id="descarte-reason" class="textarea-field" rows="4" placeholder="Ej: No cumple perfil, Rechazado por cliente, Candidato retiró postulación..."></textarea>
+            </div>
+            <div class="flex justify-end space-x-4">
+                <button id="cancel-descarte-btn" class="btn-secondary">Cancelar</button>
+                <button id="confirm-descarte-btn" class="btn-primary">Confirmar Descarte</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com",
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        // --- Logging Function ---
+        function logAction(modulo, evento, detalle) {
+            const logsRef = database.ref('modulo_7_logs');
+            logsRef.push({
+                modulo: modulo,
+                evento: evento,
+                detalle: detalle,
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            }).catch(error => {
+                console.error("Error al registrar log:", error);
+            });
+        }
+
+        // --- UI State Management ---
+        let currentTab = 'active';
+
+        function showTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
+            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+
+            document.getElementById(`${tabName}-candidates-section`).classList.remove('hidden');
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+            currentTab = tabName;
+
+            // Refresh data when switching tabs
+            if (tabName === 'active') {
+                loadActiveCandidates();
+            } else if (tabName === 'discarded') {
+                loadDiscardedCandidates();
+            }
+        }
+
+        // --- Load Active Candidates ---
+        async function loadActiveCandidates() {
+            const tableBody = document.getElementById('active-candidates-table-body');
+            tableBody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-slate-400"><i class="fas fa-spinner fa-spin mr-2"></i> Cargando candidatos activos...</td></tr>';
+            
+            try {
+                const snapshot = await database.ref('postulantes/').once('value');
+                const candidates = snapshot.val();
+                
+                tableBody.innerHTML = ''; // Clear loading message
+
+                if (candidates) {
+                    Object.entries(candidates).forEach(([id, data]) => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td><input type="checkbox" class="candidate-checkbox h-4 w-4 text-[#ff6600] rounded border-gray-300 focus:ring-[#ff6600] bg-[#030712] border-[rgba(30, 58, 138, 0.4)]" data-id="${id}"></td>
+                            <td>${id}</td>
+                            <td>${data.nombre || 'N/A'}</td>
+                            <td>${data.email || 'N/A'}</td>
+                            <td>${data.telefono || 'N/A'}</td>
+                            <td>${data.fechaRegistro ? new Date(data.fechaRegistro).toLocaleDateString() : 'N/A'}</td>
+                        `;
+                        tableBody.appendChild(row);
+                    });
+                    logAction('m9_nuevo_modulo', 'Lectura', 'Candidatos activos cargados exitosamente.');
+                } else {
+                    tableBody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-slate-400">No hay candidatos activos.</td></tr>';
+                }
+            } catch (error) {
+                console.error("Error al cargar candidatos activos:", error);
+                tableBody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-red-500">Error al cargar candidatos.</td></tr>';
+                logAction('m9_nuevo_modulo', 'Error', `Error al cargar candidatos activos: ${error.message}`);
+            }
+        }
+
+        // --- Load Discarded Candidates ---
+        async function loadDiscardedCandidates() {
+            const tableBody = document.getElementById('discarded-candidates-table-body');
+            tableBody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-slate-400"><i class="fas fa-spinner fa-spin mr-2"></i> Cargando expedientes descartados...</td></tr>';
+
+            try {
+                const snapshot = await database.ref('expedientes_descartados/').once('value');
+                const discardedCandidates = snapshot.val();
+
+                tableBody.innerHTML = ''; // Clear loading message
+
+                if (discardedCandidates) {
+                    Object.entries(discardedCandidates).forEach(([id, data]) => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${id}</td>
+                            <td>${data.nombre || 'N/A'}</td>
+                            <td>${data.email || 'N/A'}</td>
+                            <td>${data.motivoDescarte || 'Sin motivo'}</td>
+                            <td>${data.fechaDescarte ? new Date(data.fechaDescarte).toLocaleDateString() : 'N/A'}</td>
+                            <td>${data.usuarioDescarte || 'Sistema'}</td>
+                        `;
+                        tableBody.appendChild(row);
+                    });
+                    logAction('m9_nuevo_modulo', 'Lectura', 'Expedientes descartados cargados exitosamente.');
+                } else {
+                    tableBody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-slate-400">No hay expedientes descartados.</td></tr>';
+                }
+            } catch (error) {
+                console.error("Error al cargar expedientes descartados:", error);
+                tableBody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-red-500">Error al cargar expedientes.</td></tr>';
+                logAction('m9_nuevo_modulo', 'Error', `Error al cargar expedientes descartados: ${error.message}`);
+            }
+        }
+
+        // --- Descarte Logic ---
+        document.getElementById('discard-selected-btn').addEventListener('click', () => {
+            const selectedCheckboxes = document.querySelectorAll('#active-candidates-table-body .candidate-checkbox:checked');
+            if (selectedCheckboxes.length === 0) {
+                alert('Por favor, selecciona al menos un candidato para descartar.');
+                return;
+            }
+            document.getElementById('descarte-modal').classList.remove('hidden');
+            document.getElementById('descarte-reason').value = ''; // Clear previous reason
+        });
+
+        document.getElementById('cancel-descarte-btn').addEventListener('click', () => {
+            document.getElementById('descarte-modal').classList.add('hidden');
+        });
+
+        document.getElementById('confirm-descarte-btn').addEventListener('click', async () => {
+            const descarteReason = document.getElementById('descarte-reason').value.trim();
+            if (!descarteReason) {
+                alert('El motivo de descarte es obligatorio.');
+                return;
+            }
+
+            const selectedCheckboxes = document.querySelectorAll('#active-candidates-table-body .candidate-checkbox:checked');
+            const candidateIdsToDiscard = Array.from(selectedCheckboxes).map(cb => cb.dataset.id);
+
+            document.getElementById('descarte-modal').classList.add('hidden'); // Hide modal immediately
+
+            try {
+                for (const candidateId of candidateIdsToDiscard) {
+                    const candidateRef = database.ref(`postulantes/${candidateId}`);
+                    const snapshot = await candidateRef.once('value');
+                    const candidateData = snapshot.val();
+
+                    if (candidateData) {
+                        const discardedCandidateData = {
+                            ...candidateData,
+                            motivoDescarte: descarteReason,
+                            fechaDescarte: firebase.database.ServerValue.TIMESTAMP,
+                            usuarioDescarte: 'AdminUser' // Placeholder: In a real app, get from auth context
+                        };
+
+                        await database.ref(`expedientes_descartados/${candidateId}`).set(discardedCandidateData);
+                        await candidateRef.remove(); // Remove from active postulantes
+
+                        logAction('m9_nuevo_modulo', 'Descarte', `Candidato ${candidateId} descartado. Motivo: ${descarteReason}`);
+                    }
+                }
+                alert('Candidato(s) descartado(s) exitosamente.');
+                loadActiveCandidates(); // Refresh active list
+                if (currentTab === 'discarded') {
+                    loadDiscardedCandidates(); // Refresh discarded list if on that tab
+                }
+            } catch (error) {
+                console.error("Error al descartar candidato(s):", error);
+                alert('Error al descartar candidato(s). Revisa la consola para más detalles.');
+                logAction('m9_nuevo_modulo', 'Error', `Error al descartar candidato(s): ${error.message}`);
+            }
+        });
+
+        // --- Select All Checkbox ---
+        document.getElementById('select-all-active').addEventListener('change', (event) => {
+            const isChecked = event.target.checked;
+            document.querySelectorAll('#active-candidates-table-body .candidate-checkbox').forEach(checkbox => {
+                checkbox.checked = isChecked;
+            });
+        });
+
+        // --- Initial Load ---
+        document.addEventListener('DOMContentLoaded', () => {
+            showTab('active'); // Load active candidates by default
+        });
+    </script>
+</body>
+</html>
