@@ -64,7 +64,7 @@
         const db = firebase.database();
 
         const params = new URLSearchParams(window.location.search);
-        const modKey = params.get("mod");
+        const modKey = (params.get("mod") || "").trim();
 
         async function cargarModuloDesdeFirebase() {
             const loader = document.getElementById("loader");
@@ -72,13 +72,26 @@
             const iframe = document.getElementById("iframeRuntime");
 
             if (!modKey) {
-                mostrarError("No se indicó el identificador del módulo en la barra de direcciones (falta ?mod=...).");
+                mostrarError("No se indicó el identificador del módulo en la URL (falta ?mod=...).");
                 return;
             }
 
             try {
-                const snap = await db.ref(`modulos_config/${modKey}`).once("value");
-                const mod = snap.val();
+                let mod = null;
+
+                // 1. Intento primario: modulos_config
+                const snapConfig = await db.ref(`modulos_config/${modKey}`).once("value");
+                if (snapConfig.exists()) {
+                    mod = snapConfig.val();
+                }
+
+                // 2. Intento de respaldo: configuracion_sistema/modulos_dinamicos
+                if (!mod || (!mod.codigo_fuente && !mod.html && !mod.codigo)) {
+                    const snapDinamicos = await db.ref(`configuracion_sistema/modulos_dinamicos/${modKey}`).once("value");
+                    if (snapDinamicos.exists()) {
+                        mod = snapDinamicos.val();
+                    }
+                }
 
                 if (!mod) {
                     mostrarError(`El módulo "${modKey}" no existe registrado en Firebase.`);
@@ -86,29 +99,43 @@
                 }
 
                 if (mod.activo === false) {
-                    mostrarError(`El módulo "${mod.titulo || modKey}" está pausado por el administrador.`);
+                    mostrarError(`El módulo "${mod.titulo || mod.nombre || modKey}" está pausado por el administrador.`);
                     return;
                 }
 
-                if (!mod.codigo_fuente) {
-                    mostrarError(`El módulo "${mod.titulo}" existe, pero no tiene código HTML guardado en Firebase. Debes compilarlo y guardarlo desde M8.`);
+                // Resuelve el código HTML sin importar cómo fue nombrado el campo
+                const codigoFuente = mod.codigo_fuente || mod.html || mod.codigo;
+
+                if (!codigoFuente || codigoFuente.trim().length < 20) {
+                    const nombreMod = mod.titulo || mod.nombre || modKey;
+                    mostrarError(`El módulo "${nombreMod}" existe, pero no contiene código HTML guardado en Firebase. Debes compilarlo y guardarlo desde M8.`);
                     return;
                 }
 
-                // Cambiar el título superior
-                document.title = mod.titulo || "Módulo ERP";
-                document.getElementById("moduloTituloHeader").innerHTML = `
-                    <i class="fas ${mod.icono || 'fa-cube'} text-[#ff6600]"></i> ${mod.titulo}
-                `;
+                const tituloFinal = mod.titulo || mod.nombre || "Módulo ERP";
+                document.title = tituloFinal;
 
-                // Ocultar cargador y mostrar iframe
+                // Formateo del icono (soporta clases fa-* o etiquetas <i> completas)
+                let iconoHtml = `<i class="fas fa-cube text-[#ff6600]"></i>`;
+                if (mod.icono) {
+                    if (mod.icono.includes("<i")) {
+                        iconoHtml = mod.icono;
+                    } else {
+                        const claseIcono = mod.icono.startsWith("fa-") ? mod.icono : `fa-${mod.icono}`;
+                        iconoHtml = `<i class="fas ${claseIcono} text-[#ff6600]"></i>`;
+                    }
+                }
+
+                document.getElementById("moduloTituloHeader").innerHTML = `${iconoHtml} <span>${tituloFinal}</span>`;
+
+                // Ocultar cargador y desplegar iframe
                 loader.classList.add("hidden");
                 iframe.classList.remove("hidden");
 
-                // Escribir el código HTML directamente en el iframe
+                // Inyección del documento HTML compilado
                 const frameDoc = iframe.contentWindow.document;
                 frameDoc.open();
-                frameDoc.write(mod.codigo_fuente);
+                frameDoc.write(codigoFuente);
                 frameDoc.close();
 
             } catch (err) {
