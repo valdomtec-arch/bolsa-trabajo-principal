@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Módulo 8: AI Module Factory & Orquestador Arquitectónico</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        cyber: {
+                            bg: '#030712',
+                            card: '#0b1329',
+                            cardAlt: '#111c38',
+                            border: 'rgba(30, 58, 138, 0.4)',
+                            accent: '#ff6600',
+                            accentHover: '#e05500',
+                            cyan: '#06b6d4',
+                            amber: '#f59e0b',
+                            emerald: '#10b981',
+                            purple: '#a855f7',
+                            rose: '#ef4444'
+                        }
+                    }
+                }
+            }
+        };
+    </script>
+    <style>
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #030712; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #ff6600; }
+
+        .glass-card {
+            background: rgba(11, 19, 41, 0.75);
+            border: 1px solid rgba(30, 58, 138, 0.4);
+            backdrop-filter: blur(12px);
+            border-radius: 16px;
+        }
+
+        .border-orange-accent {
+            border-top: 3px solid #ff6600;
+        }
+    </style>
+</head>
+<body class="bg-cyber-bg text-slate-200 font-sans p-3 sm:p-5 md:p-6 min-h-screen antialiased selection:bg-cyber-accent selection:text-white">
+
+    <div class="max-w-7xl mx-auto space-y-6">
+        
+        <!-- HEADER PRINCIPAL -->
+        <header class="glass-card border-orange-accent p-5 sm:p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shadow-2xl">
+            <div>
+                <div class="flex items-center gap-2 flex-wrap mb-1">
+                    <span class="bg-cyber-accent/10 text-cyber-accent border border-cyber-accent/20 text-xs px-3 py-0.5 rounded-full font-mono font-bold tracking-wider uppercase inline-flex items-center gap-1.5">
+                        <i class="fas fa-screwdriver-wrench"></i> Arquitectura ERP & Meta-Generador
+                    </span>
+                    <span id="badgeEstadoServer" class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Sincronizador Atómico Activo
+                    </span>
+                </div>
+                <h1 class="text-xl sm:text-2xl md:text-3xl font-extrabold text-white tracking-tight">AI Module Factory & Gestor Dinámico</h1>
+                <p class="text-slate-400 text-xs sm:text-sm mt-0.5">Construye vistas con IA Gemini, inyecta roles en RBAC y valida la salud de enlaces en tiempo real.</p>
+            </div>
+            
+            <div class="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
+                <a href="m6_extractor_coordenadas.html" class="bg-cyan-950/40 hover:bg-cyan-900/60 text-cyber-cyan border border-cyan-500/40 font-mono text-xs px-3.5 py-2.5 rounded-xl flex items-center gap-1.5 transition-all">
+                    <i class="fas fa-satellite"></i> M6.2 Extractor Geo
+                </a>
+                <a href="admin.html" class="bg-cyber-cardAlt hover:bg-slate-800 text-slate-300 border border-slate-700 font-mono text-xs px-3.5 py-2.5 rounded-xl flex items-center gap-1.5 transition-all">
+                    <i class="fas fa-arrow-left"></i> Volver a CoreHub
+                </a>
+                <button onclick="ejecutarChequeoSaludArchivos()" title="Verificar existencia de archivos HTML en servidor o runtime virtual" class="bg-cyber-cyan/15 hover:bg-cyber-cyan/25 text-cyber-cyan border border-cyber-cyan/40 font-mono text-xs px-3.5 py-2.5 rounded-xl flex items-center gap-1.5 transition-all font-bold">
+                    <i class="fas fa-heart-pulse"></i> Auditar Salud HTTP
+                </button>
+            </div>
+        </header>
+
+        <!-- SECCIÓN 1: FORMULARIO, PREVIEW EN VIVO Y COMPILADOR IA -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- FORMULARIO DE METADATOS Y VINCULACIÓN RBAC (7 Cols) -->
+            <div class="lg:col-span-7 glass-card p-5 sm:p-6 shadow-xl space-y-4">
+                <div class="flex justify-between items-center border-b border-cyber-border pb-3">
+                    <div class="flex items-center gap-2">
+                        <h2 class="text-sm font-bold text-white uppercase font-mono flex items-center gap-2">
+                            <i class="fas fa-sliders text-cyber-accent"></i> <span id="lblTituloForm">Definición de Módulo</span>
+                        </h2>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="cargarPlantillaM6Extractor()" title="Pre-llenar plantilla del Extractor INEGI M6.2" class="bg-cyan-950/60 hover:bg-cyan-900 text-cyber-cyan border border-cyan-500/40 px-2 py-1 rounded text-[10px] font-mono font-bold transition">
+                            <i class="fas fa-satellite me-1"></i>Precargar M6.2
+                        </button>
+                        <span class="text-[10px] font-mono text-slate-400">/modulos_config</span>
+                    </div>
+                </div>
+
+                <form id="formModulo" onsubmit="guardarModuloAtómico(event)" class="space-y-3.5 text-xs">
+                    <input type="hidden" id="editModuloKey">
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1 font-bold">Identificador Único (Key)</label>
+                            <input type="text" id="inputModuloId" required placeholder="Ej: m6_extractor_coordenadas" oninput="actualizarPreviewEnVivo()" class="w-full bg-[#06101e] border border-slate-700 rounded-lg p-2.5 text-white font-mono focus:outline-none focus:border-cyber-accent">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1 font-bold">Título de la Tarjeta</label>
+                            <input type="text" id="inputTitulo" required placeholder="Ej: Extractor & Geocatálogos INEGI" oninput="actualizarPreviewEnVivo()" class="w-full bg-[#06101e] border border-slate-700 rounded-lg p-2.5 text-white focus:outline-none focus:border-cyber-accent">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                            <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1 font-bold">Icono FontAwesome</label>
+                            <div class="flex gap-2">
+                                <input type="text" id="inputIcono" required value="fa-cubes" placeholder="fa-satellite" oninput="actualizarPreviewEnVivo()" class="flex-1 bg-[#06101e] border border-slate-700 rounded-lg p-2 text-white font-mono focus:outline-none focus:border-cyber-accent">
+                                <div id="previewIconoBox" class="w-9 h-9 rounded-lg bg-cyber-cardAlt border border-slate-700 flex items-center justify-center text-cyber-cyan text-sm">
+                                    <i class="fas fa-cubes"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1 font-bold">Orden en Menú</label>
+                            <input type="number" id="inputOrden" required value="8" min="1" oninput="actualizarPreviewEnVivo()" class="w-full bg-[#06101e] border border-slate-700 rounded-lg p-2 text-white font-mono focus:outline-none focus:border-cyber-accent">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1 font-bold">Tipo / Nivel</label>
+                            <select id="selectTipo" onchange="actualizarPreviewEnVivo()" class="w-full bg-[#06101e] border border-slate-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyber-accent">
+                                <option value="standard">Standard (Operativo)</option>
+                                <option value="critical">Critical (Mandos / Dirección)</option>
+                                <option value="core">Core (Arquitectura / Infraestructura)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1 font-bold">Ruta Relativa / Archivo HTML o Runtime Virtual</label>
+                        <input type="text" id="inputUrl" placeholder="visor.html?mod=mi_modulo (Opcional, se autogenera)" oninput="actualizarPreviewEnVivo()" class="w-full bg-[#06101e] border border-slate-700 rounded-lg p-2.5 text-cyber-cyan font-mono focus:outline-none focus:border-cyber-accent">
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1 font-bold">Descripción Operativa</label>
+                        <textarea id="inputDescripcion" rows="2" required placeholder="Cosecha masiva oficial INEGI DENUE, ingestor satelital KML/KMZ y mantenimiento de coordenadas." oninput="actualizarPreviewEnVivo()" class="w-full bg-[#06101e] border border-slate-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyber-accent resize-none"></textarea>
+                    </div>
+
+                    <!-- GOBERNANZA RBAC DINÁMICA -->
+                    <div class="border border-cyber-border rounded-xl p-3 bg-[#06101e]/60 space-y-2">
+                        <div class="flex justify-between items-center">
+                            <span class="text-[10px] font-mono font-bold text-cyber-purple uppercase flex items-center gap-1.5">
+                                <i class="fas fa-user-lock"></i> Inyección Automática de Permisos (roles_dinamicos)
+                            </span>
+                            <span class="text-[9px] text-slate-400">Selecciona quién puede visualizar el módulo</span>
+                        </div>
+                        <div id="contenedorCheckboxesRoles" class="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1 text-[11px]">
+                            <span class="text-slate-500 italic">Cargando roles oficiales...</span>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-2 pt-2">
+                        <button type="submit" id="btnGuardarModulo" class="flex-1 bg-cyber-accent hover:bg-cyber-accentHover text-white font-bold py-2.5 px-4 rounded-xl transition shadow-lg flex items-center justify-center gap-2">
+                            <i class="fas fa-bolt"></i> Guardar e Inyectar en Cascada
+                        </button>
+                        <button type="button" onclick="limpiarFormularioCompleto()" class="bg-cyber-cardAlt hover:bg-slate-800 text-slate-300 font-mono py-2.5 px-4 rounded-xl border border-slate-700 transition">
+                            Limpiar
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- LIVE SANDBOX PREVIEW (5 Cols) -->
+            <div class="lg:col-span-5 glass-card p-5 sm:p-6 shadow-xl flex flex-col justify-between space-y-4">
+                <div>
+                    <div class="flex justify-between items-center border-b border-cyber-border pb-3 mb-4">
+                        <h2 class="text-sm font-bold text-cyber-cyan uppercase font-mono flex items-center gap-2">
+                            <i class="fas fa-eye"></i> Live Sandbox Preview
+                        </h2>
+                        <span class="text-[10px] bg-cyber-cyan/15 text-cyber-cyan px-2 py-0.5 rounded font-mono font-bold">admin.html Replica</span>
+                    </div>
+
+                    <p class="text-[11px] text-slate-400 mb-4">Así es exactamente como se renderizará la tarjeta dentro del panel maestro CoreHub:</p>
+
+                    <!-- TARJETA SIMULADA -->
+                    <div id="sandboxCard" class="bg-[#0b1329] border border-cyber-border hover:border-cyber-accent rounded-2xl p-5 shadow-2xl transition-all space-y-3 relative overflow-hidden group">
+                        <div class="flex justify-between items-start">
+                            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-cyber-cardAlt to-[#1e293b] border border-slate-700 flex items-center justify-center text-xl text-cyber-cyan shadow-inner" id="sandboxCardIcon">
+                                <i class="fas fa-cubes"></i>
+                            </div>
+                            <span id="sandboxCardBadge" class="text-[10px] font-mono px-2 py-0.5 rounded font-bold uppercase tracking-wider bg-slate-800 text-slate-300 border border-slate-700">
+                                Standard
+                            </span>
+                        </div>
+
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs font-mono text-cyber-purple font-bold" id="sandboxCardOrden">#8</span>
+                                <h3 class="text-sm font-bold text-white group-hover:text-cyber-accent transition-colors" id="sandboxCardTitle">Título del Módulo</h3>
+                            </div>
+                            <p class="text-[11px] text-slate-400 mt-1 line-clamp-2" id="sandboxCardDesc">
+                                Descripción del módulo en tiempo real...
+                            </p>
+                        </div>
+
+                        <div class="pt-3 border-t border-slate-800/80 flex justify-between items-center text-[10px] font-mono text-slate-400">
+                            <span class="text-cyber-cyan truncate max-w-[180px]" id="sandboxCardUrl">modulo.html</span>
+                            <span class="text-slate-500 flex items-center gap-1">
+                                <i class="fas fa-arrow-up-right-from-square"></i> Abrir
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ESTADO RÁPIDO DE SALUD -->
+                <div class="bg-[#06101e] border border-slate-800 rounded-xl p-3.5 space-y-2">
+                    <div class="flex items-center justify-between text-xs font-mono">
+                        <span class="text-slate-300 font-bold flex items-center gap-1.5">
+                            <i class="fas fa-stethoscope text-emerald-400"></i> Estado del Enlace
+                        </span>
+                        <span id="lblSaludStatus" class="text-[10px] text-slate-400">Listo para chequear</span>
+                    </div>
+                    <p class="text-[10px] text-slate-500">Comprueba si el archivo físico está alojado o si cuenta con runtime virtual guardado en Firebase.</p>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- SECCIÓN 2: COMPILADOR Y GENERADOR DE CÓDIGO CON IA GEMINI -->
+        <div class="glass-card p-5 sm:p-6 shadow-xl space-y-4">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-cyber-border pb-3">
+                <div>
+                    <h2 class="text-sm font-bold text-amber-400 uppercase font-mono flex items-center gap-2">
+                        <i class="fas fa-robot text-amber-400"></i> Gemini AI Module Compiler (Generador de Código Monolítico)
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-0.5">Describe lo que necesitas en lenguaje natural y la IA creará el archivo HTML funcional con estética Cyber-Dark y conexión Firebase Modular v10.</p>
+                </div>
+                <div class="flex items-center gap-2 w-full sm:w-auto">
+                    <input type="password" id="apiKeyGeminiModule" placeholder="Pega tu Gemini API Key..." class="bg-[#06101e] border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-amber-500 flex-1 sm:w-64">
+                </div>
+            </div>
+
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1 font-bold">Instrucción del Módulo (Prompt Funcional)</label>
+                    <textarea id="promptModuloIA" rows="3" placeholder="Ej: Crea un submódulo satelital para cosechar parques industriales del INEGI o importar KML con visor Leaflet y CRUD granular conectado a /geocodigos_maestros/." class="w-full bg-[#06101e] border border-slate-700 rounded-lg p-3 text-xs text-white focus:outline-none focus:border-amber-500 resize-none font-sans"></textarea>
+                </div>
+
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex items-center gap-2">
+                        <select id="presetPlantillaIA" class="bg-[#06101e] border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-300 focus:outline-none">
+                            <option value="crud">Preset: Formulario de Captura + Tabla de Auditoría (Estilo M1 / M5)</option>
+                            <option value="ia_engine">Preset: Procesador Dual con Archivos e IA (Estilo M2 / M6)</option>
+                            <option value="geo_extractor">Preset: Ingestor Satelital, KML/KMZ y Batches Masivos (Estilo M6.2)</option>
+                            <option value="analytics">Preset: Tablero Analítico y KPIs (Estilo M4)</option>
+                        </select>
+                        <button type="button" onclick="ejecutarCompilacionConGemini()" id="btnCompilarIA" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-2 transition shadow-lg shadow-amber-500/10">
+                            <i class="fas fa-wand-magic-sparkles"></i> Compilar Código con IA
+                        </button>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="copiarCodigoCompilado()" id="btnCopiarCodigo" disabled class="bg-cyber-cardAlt hover:bg-slate-800 disabled:opacity-40 disabled:pointer-events-none text-slate-200 border border-slate-700 font-mono text-xs px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition">
+                            <i class="fas fa-copy"></i> Copiar Código
+                        </button>
+                        <button type="button" onclick="descargarArchivoHtmlCompilado()" id="btnDescargarHtml" disabled class="bg-emerald-600/20 hover:bg-emerald-600 disabled:opacity-40 disabled:pointer-events-none text-emerald-400 hover:text-white border border-emerald-500/30 font-mono text-xs px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition font-bold">
+                            <i class="fas fa-download"></i> Descargar .html
+                        </button>
+                    </div>
+                </div>
+
+                <!-- VISOR DE CÓDIGO GENERADO -->
+                <div class="mt-2">
+                    <textarea id="visorCodigoGenerado" readonly placeholder="El código HTML compilado listo para producción aparecerá aquí tras presionar 'Compilar Código con IA'..." class="w-full h-56 bg-[#030712] border border-slate-800 rounded-xl p-3 text-xs font-mono text-emerald-400 focus:outline-none resize-none custom-scrollbar"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECCIÓN 3: CATÁLOGO DE MÓDULOS REGISTRADOS & SALUD DEL SISTEMA -->
+        <div class="glass-card p-5 sm:p-6 shadow-xl space-y-4">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-cyber-border pb-3">
+                <div>
+                    <h2 class="text-sm font-bold text-white uppercase font-mono flex items-center gap-2">
+                        <i class="fas fa-cubes text-cyber-purple"></i> Módulos Registrados en el Sistema
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-0.5">Controla la visibilidad, estado activo/pausado y coherencia física de cada módulo en Firebase.</p>
+                </div>
+                <span id="badgeConteoModulos" class="text-xs font-mono bg-cyber-purple/15 text-cyber-purple border border-cyber-purple/30 px-3 py-1 rounded-lg font-bold">
+                    0 Módulos Activos
+                </span>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs border-collapse font-sans">
+                    <thead>
+                        <tr class="bg-[#06101e] border-b border-slate-800 text-slate-400 uppercase font-mono font-bold">
+                            <th class="p-3 w-12 text-center"># Ord</th>
+                            <th class="p-3">Módulo / Título</th>
+                            <th class="p-3">Ruta Física / Key</th>
+                            <th class="p-3">Gobernanza RBAC</th>
+                            <th class="p-3 text-center">Salud HTTP / Runtime</th>
+                            <th class="p-3 text-center">Estado</th>
+                            <th class="p-3 text-right w-28">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaModulosBody" class="divide-y divide-slate-800/40 text-slate-300 font-mono">
+                        <tr><td colspan="7" class="p-6 text-center text-slate-500 italic">Cargando catálogo dinámico de módulos...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- FIREBASE SDK V8 -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyDxgP1YnycCEqkQ2vr3SPkwc9QMhtG8Zqw",
+            authDomain: "bolsa-de-trabajo-a52e4.firebaseapp.com",
+            databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com",
+            projectId: "bolsa-de-trabajo-a52e4",
+            storageBucket: "bolsa-de-trabajo-a52e4.firebasestorage.app",
+            messagingSenderId: "592492733212",
+            appId: "1:592492733212:web:88e8ec243bd53608b6d0d9"
+        };
+
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        let catalogoModulos = [];
+        let diccionarioRoles = {};
+
+        document.addEventListener("DOMContentLoaded", () => {
+            inicializarEscuchadorRolesDinamicos();
+            inicializarEscuchadorModulos();
+            actualizarPreviewEnVivo();
+        });
+
+        function sanitizarKey(str) {
+            return (str || "modulo").toLowerCase().trim()
+                .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+                .replace(/[^a-z0-9]/g, "_")
+                .replace(/_+/g, "_")
+                .replace(/^_|_$/g, "");
+        }
+
+        // 1. CARGA DINÁMICA DE ROLES EN VIVO DESDE ROLES_DINAMICOS
+        function inicializarEscuchadorRolesDinamicos() {
+            db.ref("roles_dinamicos").on("value", snap => {
+                const data = snap.val() || {};
+                diccionarioRoles = data;
+
+                const contenedor = document.getElementById("contenedorCheckboxesRoles");
+                contenedor.innerHTML = "";
+
+                if (Object.keys(data).length === 0) {
+                    contenedor.innerHTML = `<span class="text-slate-500 italic">No hay roles configurados en M5.</span>`;
+                    return;
+                }
+
+                Object.entries(data).forEach(([rolId, r]) => {
+                    const label = document.createElement("label");
+                    label.className = "flex items-center gap-2 cursor-pointer text-slate-300 hover:text-white transition";
+                    const esAdmin = (r.nivelJerarquico === 5 || (r.nombre || "").toLowerCase().includes("administrador"));
+
+                    label.innerHTML = `
+                        <input type="checkbox" value="${rolId}" data-rolnombre="${r.nombre}" 
+                            class="check-rol-item rounded bg-[#06101e] border-slate-700 text-cyber-accent focus:ring-0" 
+                            ${esAdmin ? 'checked disabled' : ''}>
+                        <span>${r.nombre} <b class="text-slate-500 text-[9px]">(N${r.nivelJerarquico || 1})</b></span>
+                    `;
+                    contenedor.appendChild(label);
+                });
+            });
+        }
+
+        // 2. ESCUCHADOR MASTER DE MODULOS_CONFIG
+        function inicializarModulos() {
+            db.ref("modulos_config").on("value", snap => {
+                const data = snap.val() || {};
+                catalogoModulos = [];
+
+                Object.entries(data).forEach(([key, m]) => {
+                    if (typeof m === 'object' && m !== null) {
+                        catalogoModulos.push({
+                            key: key,
+                            id: m.id || key,
+                            titulo: m.titulo || "Sin Título",
+                            icono: m.icono || "fa-cubes",
+                            orden: Number(m.orden) || 99,
+                            url: m.url || "#",
+                            descripcion: m.descripcion || "",
+                            tipo: m.tipo || "standard",
+                            activo: m.activo !== false,
+                            codigo_fuente: m.codigo_fuente || m.html || null,
+                            roles_permitidos: Array.isArray(m.roles_permitidos) ? m.roles_permitidos : []
+                        });
+                    }
+                });
+
+                catalogoModulos.sort((a, b) => a.orden - b.orden);
+                document.getElementById("badgeConteoModulos").textContent = `${catalogoModulos.filter(x => x.activo).length} de ${catalogoModulos.length} Módulos Activos`;
+                renderizarTablaModulos();
+            });
+        }
+        window.inicializarEscuchadorModulos = inicializarModulos;
+
+        // PRECARGAR PLANTILLA DEL SUBMÓDULO M6.2 EXTRACTOR GEO
+        function cargarPlantillaM6Extractor() {
+            document.getElementById("editModuloKey").value = "";
+            document.getElementById("inputModuloId").value = "m6_extractor_coordenadas";
+            document.getElementById("inputModuloId").disabled = false;
+            document.getElementById("inputTitulo").value = "Extractor & Geocatálogos INEGI";
+            document.getElementById("inputIcono").value = "fa-satellite";
+            document.getElementById("inputOrden").value = 7;
+            document.getElementById("selectTipo").value = "core";
+            document.getElementById("inputUrl").value = "m6_extractor_coordenadas.html";
+            document.getElementById("inputDescripcion").value = "Cosecha oficial DENUE INEGI, ingestor satelital KML/KMZ y mantenimiento de coordenadas.";
+
+            actualizarPreviewEnVivo();
+            window.scrollTo({ top: document.getElementById("formModulo").offsetTop - 50, behavior: 'smooth' });
+        }
+        window.cargarPlantillaM6Extractor = cargarPlantillaM6Extractor;
+
+        // 3. RENDERIZADO TABULAR CON AUDITORÍA FORENSE Y ESTADOS
+        function renderizarTablaModulos() {
+            const tbody = document.getElementById("tablaModulosBody");
+            tbody.innerHTML = "";
+
+            if (catalogoModulos.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-500 italic">No hay módulos configurados en Firebase.</td></tr>`;
+                return;
+            }
+
+            catalogoModulos.forEach(mod => {
+                const badgeActivo = mod.activo
+                    ? `<span class="bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded text-[10px] font-bold">ACTIVO</span>`
+                    : `<span class="bg-rose-500/15 text-rose-400 border border-rose-500/30 px-2 py-0.5 rounded text-[10px] font-bold">PAUSADO</span>`;
+
+                const nombresRoles = mod.roles_permitidos.map(r => {
+                    if (diccionarioRoles[r]) return diccionarioRoles[r].nombre;
+                    return r;
+                }).join(", ") || "Solo SuperAdmin";
+
+                const esVirtual = (mod.url || "").includes("visor.html") || !!mod.codigo_fuente;
+
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-900/60 border-b border-slate-800/40 transition">
+                        <td class="p-3 text-center text-cyber-purple font-bold">${mod.orden}</td>
+                        <td class="p-3">
+                            <div class="font-bold text-white flex items-center gap-2">
+                                <span class="w-6 h-6 rounded bg-cyber-cardAlt flex items-center justify-center text-cyber-cyan text-xs"><i class="fas ${mod.icono}"></i></span>
+                                <span>${mod.titulo}</span>
+                                ${esVirtual ? '<span class="text-[9px] bg-cyan-950/80 text-cyan-300 border border-cyan-500/30 px-1.5 py-0.5 rounded font-mono">VIRTUAL</span>' : ''}
+                            </div>
+                            <div class="text-[10px] text-slate-400 font-sans mt-0.5 truncate max-w-xs">${mod.descripcion}</div>
+                        </td>
+                        <td class="p-3 font-mono">
+                            <div class="text-cyber-cyan">${mod.url}</div>
+                            <div class="text-[9px] text-slate-500">ID: ${mod.key}</div>
+                        </td>
+                        <td class="p-3 text-slate-300 font-sans text-[11px] max-w-xs truncate" title="${nombresRoles}">
+                            ${nombresRoles}
+                        </td>
+                        <td class="p-3 text-center" id="salud_${mod.key}">
+                            <span class="text-slate-500 text-[10px] font-mono">Sin testear</span>
+                        </td>
+                        <td class="p-3 text-center">${badgeActivo}</td>
+                        <td class="p-3 text-right whitespace-nowrap space-x-1">
+                            <button onclick="toggleEstadoModulo('${mod.key}', ${mod.activo})" title="${mod.activo ? 'Pausar módulo' : 'Activar módulo'}" class="p-1.5 hover:bg-slate-800 rounded transition text-xs">
+                                ${mod.activo ? '⏸️' : '▶️'}
+                            </button>
+                            <button onclick="cargarParaEditar('${mod.key}')" title="Editar Metadatos" class="p-1.5 text-cyber-cyan hover:bg-slate-800 rounded transition text-xs">
+                                <i class="fas fa-pen"></i>
+                            </button>
+                            <button onclick="eliminarModuloAtómico('${mod.key}')" title="Eliminar Módulo" class="p-1.5 text-rose-400 hover:bg-slate-800 rounded transition text-xs">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        // 4. LIVE SANDBOX PREVIEWER EN TIEMPO REAL
+        function actualizarPreviewEnVivo() {
+            const idVal = sanitizarKey(document.getElementById("inputModuloId").value);
+            const tituloVal = document.getElementById("inputTitulo").value.trim() || "Título del Módulo";
+            let iconoVal = document.getElementById("inputIcono").value.trim() || "fa-cubes";
+            if (!iconoVal.startsWith("fa-")) iconoVal = "fa-" + iconoVal;
+            const ordenVal = document.getElementById("inputOrden").value || 8;
+            const tipoVal = document.getElementById("selectTipo").value;
+            const urlVal = document.getElementById("inputUrl").value.trim() || `visor.html?mod=${idVal}`;
+            const descVal = document.getElementById("inputDescripcion").value.trim() || "Descripción del módulo en tiempo real...";
+
+            document.getElementById("sandboxCardTitle").textContent = tituloVal;
+            document.getElementById("sandboxCardOrden").textContent = `#${ordenVal}`;
+            document.getElementById("sandboxCardDesc").textContent = descVal;
+            document.getElementById("sandboxCardUrl").textContent = urlVal;
+            
+            document.getElementById("sandboxCardIcon").innerHTML = `<i class="fas ${iconoVal}"></i>`;
+            document.getElementById("previewIconoBox").innerHTML = `<i class="fas ${iconoVal}"></i>`;
+
+            const badge = document.getElementById("sandboxCardBadge");
+            badge.textContent = tipoVal;
+            if (tipoVal === "critical") {
+                badge.className = "text-[10px] font-mono px-2 py-0.5 rounded font-bold uppercase tracking-wider bg-rose-500/15 text-rose-400 border border-rose-500/30";
+            } else if (tipoVal === "core") {
+                badge.className = "text-[10px] font-mono px-2 py-0.5 rounded font-bold uppercase tracking-wider bg-cyber-purple/15 text-cyber-purple border border-cyber-purple/30";
+            } else {
+                badge.className = "text-[10px] font-mono px-2 py-0.5 rounded font-bold uppercase tracking-wider bg-slate-800 text-slate-300 border border-slate-700";
+            }
+        }
+
+        // 5. INYECCIÓN ATÓMICA EN CADENA CON DOBLE PERSISTENCIA EN ESPEJO
+        async function guardarModuloAtómico(e) {
+            e.preventDefault();
+
+            const editKey = document.getElementById("editModuloKey").value.trim();
+            const idRaw = document.getElementById("inputModuloId").value.trim();
+            const moduloKey = editKey || sanitizarKey(idRaw);
+
+            let iconoLimpio = document.getElementById("inputIcono").value.trim();
+            if (!iconoLimpio.startsWith("fa-")) iconoLimpio = "fa-" + iconoLimpio;
+
+            const rolesSeleccionados = [];
+            document.querySelectorAll(".check-rol-item:checked").forEach(cb => rolesSeleccionados.push(cb.value));
+
+            Object.entries(diccionarioRoles).forEach(([rId, r]) => {
+                if (r.nivelJerarquico === 5 && !rolesSeleccionados.includes(rId)) {
+                    rolesSeleccionados.push(rId);
+                }
+            });
+
+            const codigoCompilado = document.getElementById("visorCodigoGenerado").value.trim();
+            let urlDestino = document.getElementById("inputUrl").value.trim();
+
+            if (!urlDestino) {
+                urlDestino = `visor.html?mod=${moduloKey}`;
+            }
+
+            const moduloPayload = {
+                id: moduloKey,
+                titulo: document.getElementById("inputTitulo").value.trim(),
+                icono: iconoLimpio,
+                orden: Number(document.getElementById("inputOrden").value),
+                tipo: document.getElementById("selectTipo").value,
+                url: urlDestino,
+                descripcion: document.getElementById("inputDescripcion").value.trim(),
+                roles_permitidos: rolesSeleccionados,
+                activo: true,
+                codigo_fuente: codigoCompilado || null,
+                ultimaActualizacion: Date.now()
+            };
+
+            const btn = document.getElementById("btnGuardarModulo");
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Inyectando en Cadena...';
+
+            try {
+                const updates = {};
+                // 1. Guardar en modulos_config (para el catálogo de M8)
+                updates[`modulos_config/${moduloKey}`] = moduloPayload;
+
+                // 2. Guardar en configuracion_sistema/modulos_dinamicos (para visor.html)
+                updates[`configuracion_sistema/modulos_dinamicos/${moduloKey}`] = {
+                    id: moduloKey,
+                    nombre: moduloPayload.titulo,
+                    titulo: moduloPayload.titulo,
+                    descripcion: moduloPayload.descripcion,
+                    icono: `<i class="fas ${iconoLimpio}"></i>`,
+                    url: moduloPayload.url,
+                    tipo: moduloPayload.tipo,
+                    fechaCreacion: new Date().toLocaleDateString('es-MX'),
+                    codigo_fuente: codigoCompilado || null,
+                    html: codigoCompilado || null,
+                    activo: true
+                };
+
+                // Inyección en roles dinámicos RBAC
+                Object.keys(diccionarioRoles).forEach(rolId => {
+                    const tieneAcceso = rolesSeleccionados.includes(rolId);
+                    updates[`roles_dinamicos/${rolId}/permisos/${moduloKey}`] = {
+                        ver: tieneAcceso,
+                        crear: tieneAcceso,
+                        editar: tieneAcceso,
+                        eliminar: (diccionarioRoles[rolId].nivelJerarquico >= 4 && tieneAcceso)
+                    };
+                });
+
+                await db.ref().update(updates);
+
+                await db.ref("modulo_7_logs").push({
+                    modulo: "M8_CREADOR_MODULOS",
+                    evento: editKey ? "MODIFICACION_MODULO" : "ALTA_MODULO_DINAMICO",
+                    detalle: `Módulo ${moduloPayload.titulo} (${moduloKey}) inyectado en espejo con URL '${moduloPayload.url}'. Código persistido: ${moduloPayload.codigo_fuente ? 'SÍ' : 'NO'}.`,
+                    ejecutadoPor: "Administrador Master",
+                    timestamp: firebase.database.ServerValue.TIMESTAMP,
+                    datosNuevos: moduloPayload
+                });
+
+                alert(`✅ Módulo "${moduloPayload.titulo}" inyectado exitosamente en Firebase en ambas rutas.`);
+                limpiarFormularioCompleto();
+
+            } catch (err) {
+                alert("Error en la inyección atómica: " + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-bolt"></i> Guardar e Inyectar en Cascada';
+            }
+        }
+
+        async function toggleEstadoModulo(key, estadoActual) {
+            const nuevoEstado = !estadoActual;
+            try {
+                const updates = {};
+                updates[`modulos_config/${key}/activo`] = nuevoEstado;
+                updates[`configuracion_sistema/modulos_dinamicos/${key}/activo`] = nuevoEstado;
+                await db.ref().update(updates);
+
+                await db.ref("modulo_7_logs").push({
+                    modulo: "M8_CREADOR_MODULOS",
+                    evento: "ESTADO_MODULO",
+                    detalle: `Módulo ${key} cambiado a: ${nuevoEstado ? 'ACTIVO' : 'PAUSADO'}`,
+                    ejecutadoPor: "Administrador Master",
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                });
+            } catch (e) {
+                alert("Error al cambiar estado: " + e.message);
+            }
+        }
+
+        async function eliminarModuloAtómico(key) {
+            if (!confirm(`⚠️ ¿Deseas desvincular y purgar el módulo "${key}" de Firebase?`)) return;
+
+            try {
+                const updates = {};
+                updates[`modulos_config/${key}`] = null;
+                updates[`configuracion_sistema/modulos_dinamicos/${key}`] = null;
+                Object.keys(diccionarioRoles).forEach(rId => {
+                    updates[`roles_dinamicos/${rId}/permisos/${key}`] = null;
+                });
+
+                await db.ref().update(updates);
+                await db.ref("modulo_7_logs").push({
+                    modulo: "M8_CREADOR_MODULOS",
+                    evento: "BAJA_MODULO",
+                    detalle: `Módulo ${key} purgado de modulos_config, modulos_dinamicos y roles_dinamicos`,
+                    ejecutadoPor: "Administrador Master",
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                });
+
+                alert(`✅ Módulo "${key}" eliminado.`);
+            } catch (e) {
+                alert("Error al eliminar: " + e.message);
+            }
+        }
+
+        function cargarParaEditar(key) {
+            const m = catalogoModulos.find(x => x.key === key);
+            if (!m) return;
+
+            document.getElementById("editModuloKey").value = m.key;
+            document.getElementById("inputModuloId").value = m.key;
+            document.getElementById("inputModuloId").disabled = true;
+            document.getElementById("inputTitulo").value = m.titulo;
+            document.getElementById("inputIcono").value = m.icono;
+            document.getElementById("inputOrden").value = m.orden;
+            document.getElementById("selectTipo").value = m.tipo || "standard";
+            document.getElementById("inputUrl").value = m.url;
+            document.getElementById("inputDescripcion").value = m.descripcion;
+
+            if (m.codigo_fuente) {
+                document.getElementById("visorCodigoGenerado").value = m.codigo_fuente;
+                document.getElementById("btnCopiarCodigo").disabled = false;
+                document.getElementById("btnDescargarHtml").disabled = false;
+            }
+
+            document.getElementById("lblTituloForm").textContent = `Editando: ${m.titulo}`;
+            document.getElementById("btnGuardarModulo").innerHTML = '<i class="fas fa-check"></i> Actualizar en Cascada';
+
+            document.querySelectorAll(".check-rol-item").forEach(cb => {
+                cb.checked = m.roles_permitidos.includes(cb.value);
+            });
+
+            actualizarPreviewEnVivo();
+            window.scrollTo({ top: document.getElementById("formModulo").offsetTop - 50, behavior: 'smooth' });
+        }
+
+        function limpiarFormularioCompleto() {
+            document.getElementById("editModuloKey").value = "";
+            document.getElementById("formModulo").reset();
+            document.getElementById("inputModuloId").disabled = false;
+            document.getElementById("inputIcono").value = "fa-cubes";
+            document.getElementById("inputOrden").value = catalogoModulos.length + 1;
+            document.getElementById("lblTituloForm").textContent = "Definición de Módulo";
+            document.getElementById("btnGuardarModulo").innerHTML = '<i class="fas fa-bolt"></i> Guardar e Inyectar en Cascada';
+            document.getElementById("visorCodigoGenerado").value = "";
+            document.getElementById("btnCopiarCodigo").disabled = true;
+            document.getElementById("btnDescargarHtml").disabled = true;
+            actualizarPreviewEnVivo();
+        }
+
+        // 6. CHEQUEO DE SALUD HTTP / VIRTUAL EN TIEMPO REAL
+        async function ejecutarChequeoSaludArchivos() {
+            for (const mod of catalogoModulos) {
+                const td = document.getElementById(`salud_${mod.key}`);
+                if (!td) continue;
+
+                td.innerHTML = `<span class="text-amber-400 text-[10px] animate-pulse">Chequeando...</span>`;
+
+                if ((mod.url || "").includes("visor.html")) {
+                    if (mod.codigo_fuente && mod.codigo_fuente.length > 50) {
+                        td.innerHTML = `<span class="text-cyan-400 font-bold text-[10px]"><i class="fas fa-bolt me-1"></i>Runtime OK</span>`;
+                    } else {
+                        td.innerHTML = `<span class="text-rose-400 font-bold text-[10px]"><i class="fas fa-triangle-exclamation me-1"></i>Sin Código</span>`;
+                    }
+                } else {
+                    try {
+                        const res = await fetch(mod.url, { method: 'HEAD' });
+                        if (res.ok) {
+                            td.innerHTML = `<span class="text-emerald-400 font-bold text-[10px]"><i class="fas fa-circle-check me-1"></i>200 OK</span>`;
+                        } else {
+                            td.innerHTML = `<span class="text-rose-400 font-bold text-[10px]"><i class="fas fa-circle-xmark me-1"></i>${res.status} Not Found</span>`;
+                        }
+                    } catch (e) {
+                        td.innerHTML = `<span class="text-amber-400 font-bold text-[10px]"><i class="fas fa-triangle-exclamation me-1"></i>Local / CORS</span>`;
+                    }
+                }
+            }
+        }
+
+        // 7. COMPILADOR DE CÓDIGO CON IA GEMINI (CON REGLAS ARQUITECTÓNICAS ESTRICTAS)
+        async function ejecutarCompilacionConGemini() {
+            const apiKey = document.getElementById("apiKeyGeminiModule").value.trim();
+            const promptUser = document.getElementById("promptModuloIA").value.trim();
+            const preset = document.getElementById("presetPlantillaIA").value;
+            const btn = document.getElementById("btnCompilarIA");
+            const visor = document.getElementById("visorCodigoGenerado");
+
+            if (!apiKey) return alert("⚠️ Ingresa tu Gemini API Key en la barra superior.");
+            if (!promptUser) return alert("⚠️ Describe en lenguaje natural las funciones del módulo.");
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Compilando con Gemini...';
+            visor.value = "// Conectando con Gemini API para compilar arquitectura Cyber-Dark con Firebase Modular v10...";
+
+            const idSugerido = sanitizarKey(document.getElementById("inputModuloId").value || "m9_nuevo_modulo");
+            const tituloSugerido = document.getElementById("inputTitulo").value || "Nuevo Módulo ERP";
+
+            const promptEstructural = `Eres el Arquitecto de Software Principal de un ERP empresarial con tema Cyber-Dark Tailwind CSS y Firebase Modular v10.
+Genera el código HTML MONOLÍTICO COMPLETO, AUTÓNOMO, FUNCIONAL Y LISTO PARA PRODUCCIÓN para el siguiente requerimiento:
+
+REQUERIMIENTO OPERATIVO: ${promptUser}
+PRESET TÉCNICO: ${preset}
+ID MÓDULO: ${idSugerido}
+TÍTULO: ${tituloSugerido}
+
+REGLAS ARQUITECTÓNICAS CORPORATIVAS ESTRICTAS:
+1. Archivo único HTML5 con Tailwind CSS CDN y FontAwesome 6.
+2. Si el preset es 'geo_extractor', incluye Leaflet CSS/JS y JSZip.
+3. Estética visual Cyber-Dark corporativa:
+   - Fondo general: bg-[#030712]
+   - Tarjetas/Contenedores: bg-[#0b1329] con borde rgba(30, 58, 138, 0.4)
+   - Tipografía: text-slate-200 / text-slate-400
+   - Acentos: Naranja #ff6600 (#ea580c), Cyan #06b6d4 y Esmeralda #10b981.
+4. Conexión de Datos (ESTRICTAMENTE Firebase SDK Modular v10 usando ES Modules):
+   Importa:
+   - initializeApp desde "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js"
+   - getDatabase, ref, get, set, push, update, onValue, serverTimestamp desde "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js"
+   Configuración de Firebase:
+   const firebaseConfig = {
+       apiKey: "AIzaSyDxgP1YnycCEqkQ2vr3SPkwc9QMhtG8Zqw",
+       authDomain: "bolsa-de-trabajo-a52e4.firebaseapp.com",
+       databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com",
+       projectId: "bolsa-de-trabajo-a52e4"
+   };
+5. GOBERNANZA DE DATOS E INTEGRIDAD REFERENCIAL:
+   - Los módulos deben consultar, filtrar, auditar o actualizar datos SIN ELIMINAR registros de las tablas operativas maestras (/postulantes, /empresas, /rutas) a menos que se pida explícitamente una purga física.
+6. AUDITORÍA Y TRAZABILIDAD:
+   - Cada evento relevante debe registrar un log en /modulo_7_logs mediante push() con: { modulo: "${idSugerido}", evento, detalle, timestamp: serverTimestamp() }.
+7. HEADER CORPORATIVO:
+   - Incluir botón de retorno con enlace a "admin.html" ('Volver a CoreHub').
+8. FORMATO DE SALIDA:
+   - Devuelve EXCLUSIVAMENTE el código HTML completo y funcional dentro de un bloque markdown \`\`\`html ... \`\`\`, sin introducciones ni comentarios conversacionales.`;
+
+            try {
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: promptEstructural }] }],
+                        generationConfig: { temperature: 0.1 }
+                    })
+                });
+
+                if (!res.ok) throw new Error("Error en la respuesta de Gemini API.");
+                const json = await res.json();
+                let codigoHtml = json.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+                codigoHtml = codigoHtml.replace(/^```html\s*/i, '').replace(/\s*```$/i, '').trim();
+
+                visor.value = codigoHtml;
+                document.getElementById("btnCopiarCodigo").disabled = false;
+                document.getElementById("btnDescargarHtml").disabled = false;
+
+                if (!document.getElementById("inputUrl").value.trim() || document.getElementById("inputUrl").value.endsWith(".html")) {
+                    document.getElementById("inputUrl").value = `visor.html?mod=${idSugerido}`;
+                }
+                actualizarPreviewEnVivo();
+
+                alert("✅ Módulo compilado con éxito. Ahora puedes pulsar 'Guardar e Inyectar en Cascada'.");
+
+            } catch (err) {
+                visor.value = `// Error de compilación: ${err.message}`;
+                alert("Error al compilar con IA: " + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-wand-magic-sparkles me-1"></i> Compilar Código con IA';
+            }
+        }
+
+        function copiarCodigoCompilado() {
+            const visor = document.getElementById("visorCodigoGenerado");
+            if (!visor.value) return;
+            navigator.clipboard.writeText(visor.value);
+            alert("📋 Código HTML copiado al portapapeles.");
+        }
+
+        function descargarArchivoHtmlCompilado() {
+            const visor = document.getElementById("visorCodigoGenerado");
+            if (!visor.value) return;
+
+            const urlInput = document.getElementById("inputUrl").value.trim() || "nuevo_modulo.html";
+            const blob = new Blob([visor.value], { type: "text/html;charset=utf-8" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = urlInput.endsWith(".html") ? urlInput : `${urlInput}.html`;
+            link.click();
+        }
+    </script>
+</body>
+</html>
