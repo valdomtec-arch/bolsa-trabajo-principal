@@ -341,26 +341,26 @@
 
         .haversine-card {
             background: rgba(20, 35, 65, 0.85);
-            padding: 12px 14px;
+            padding: 14px 16px;
             border-radius: 10px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             border-left: 4px solid #22c55e;
-            gap: 10px;
+            gap: 12px;
             flex-wrap: wrap;
         }
 
         .haversine-card-info {
             flex: 1;
-            min-width: 210px;
+            min-width: 220px;
         }
 
         .haversine-card-info strong {
             color: var(--white);
             display: block;
-            font-size: 0.92rem;
-            margin-bottom: 2px;
+            font-size: 0.94rem;
+            margin-bottom: 4px;
         }
 
         .haversine-card-info .empresa-tag {
@@ -370,35 +370,37 @@
 
         .haversine-card-info .info-sub {
             color: var(--text-muted);
-            font-size: 0.78rem;
+            font-size: 0.8rem;
             display: flex;
             flex-wrap: wrap;
-            gap: 8px;
+            gap: 10px;
         }
 
         .haversine-actions {
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
             flex-wrap: wrap;
         }
 
         .haversine-dist-badge {
-            background: rgba(34, 197, 94, 0.15);
+            background: rgba(34, 197, 94, 0.12);
             color: #22c55e;
             font-weight: 800;
-            padding: 5px 10px;
-            border-radius: 15px;
-            font-size: 0.78rem;
+            padding: 6px 12px;
+            border-radius: 12px;
+            font-size: 0.8rem;
             border: 1px solid rgba(34, 197, 94, 0.3);
+            text-align: right;
+            line-height: 1.3;
         }
 
         .btn-select-route {
             background: var(--primary-orange);
             color: var(--white);
-            padding: 8px 12px;
+            padding: 9px 13px;
             border-radius: 8px;
-            font-size: 0.76rem;
+            font-size: 0.78rem;
             font-weight: 800;
             text-transform: uppercase;
             border: none;
@@ -406,7 +408,7 @@
             text-decoration: none;
             display: inline-flex;
             align-items: center;
-            gap: 4px;
+            gap: 5px;
         }
 
         /* SECCIONES Y ENCABEZADOS */
@@ -807,7 +809,6 @@
             border-color: var(--primary-orange);
         }
 
-        /* AJUSTES PARA TABLETS Y DISPOSITIVOS MÓVILES */
         @media (max-width: 860px) {
             .image-card, .skeleton-card {
                 flex: 0 0 calc(100% - 16px);
@@ -826,6 +827,7 @@
             .whatsapp-float { width: 50px; height: 50px; bottom: 16px; right: 16px; font-size: 24px; }
             .links-section { padding: 20px 12px; }
             .form-section { padding: 22px 14px; }
+            .haversine-actions { width: 100%; justify-content: space-between; }
         }
     </style>
 </head>
@@ -867,11 +869,11 @@
             <div class="location-search-title">
                 <i class="fas fa-route"></i> Radar de Empleos y Transporte Cercano
             </div>
-            <span class="location-badge-tag"><i class="fas fa-satellite"></i> Precisión GPS Multi-Parada</span>
+            <span class="location-badge-tag"><i class="fas fa-road"></i> Asfalto Estricto (≤ 5 KM)</span>
         </div>
         
         <p class="location-search-desc">
-            Calcula automáticamente qué rutas de personal y paradas te quedan más cerca para ahorrar tiempo de traslado.
+            Calcula la distancia real por calles hacia la parada más cercana (a pie o en bicicleta) para evitar obstáculos urbanos.
         </p>
 
         <div class="location-input-group">
@@ -1080,6 +1082,7 @@
         return texto ? texto.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim() : "";
     }
 
+    // FASE 1: FILTRO RÁPIDO GEOMÉTRICO (LÍNEA RECTA)
     function calcularHaversineKm(lat1, lon1, lat2, lon2) {
         if (!lat1 || !lon1 || !lat2 || !lon2) return null;
         const R = 6371;
@@ -1092,7 +1095,75 @@
         return parseFloat((R * c).toFixed(2));
     }
 
-    // RESOLUTOR ROBUSTO MULTI-ESTRUCTURA DE VACANTES POR EMPRESA
+    // FASE 2: MATRIZ DE ENRUTAMIENTO VIAL POR ASFALTO (OSRM 1 A N EN 1 SOLA PETICIÓN)
+    async function obtenerMatrizAsfaltoOSRM(latOrigen, lonOrigen, destinos) {
+        if (!destinos || destinos.length === 0) return [];
+
+        const coordsStr = [
+            `${lonOrigen},${latOrigen}`,
+            ...destinos.map(d => `${d.lonRuta},${d.latRuta}`)
+        ].join(';');
+
+        const url = `https://router.project-osrm.org/table/v1/walking/${coordsStr}?sources=0&annotations=distance,duration`;
+
+        try {
+            const resp = await fetch(url);
+            const data = await resp.json();
+
+            if (data.code === 'Ok' && data.distances && data.distances[0]) {
+                const distanciasMetros = data.distances[0].slice(1);
+                const duracionesSegundos = data.durations ? data.durations[0].slice(1) : [];
+
+                return destinos.map((item, idx) => {
+                    const metros = distanciasMetros[idx];
+                    const segundos = duracionesSegundos[idx];
+
+                    if (metros === null || metros === undefined) return null;
+
+                    const kmAsfalto = parseFloat((metros / 1000).toFixed(2));
+                    const minPie = Math.round(segundos / 60);
+                    const minBici = Math.max(1, Math.round((kmAsfalto / 15) * 60)); // Estimación en bicicleta a ~15 km/h
+
+                    return {
+                        ...item,
+                        distanciaAsfaltoKm: kmAsfalto,
+                        tiempoPieMin: minPie,
+                        tiempoBiciMin: minBici,
+                        esAsfaltoEstricto: true
+                    };
+                }).filter(Boolean);
+            }
+        } catch (err) {
+            console.warn("Fallo cálculo matricial OSRM. Aplicando factor vial de respaldo:", err);
+        }
+
+        // Respaldo de contingencia: Factor de sinuosidad urbana si OSRM no responde
+        return destinos.map(item => {
+            const kmAprox = parseFloat((item.distancia * 1.3).toFixed(2));
+            return {
+                ...item,
+                distanciaAsfaltoKm: kmAprox,
+                tiempoPieMin: Math.round((kmAprox / 4.5) * 60),
+                tiempoBiciMin: Math.max(1, Math.round((kmAprox / 15) * 60)),
+                esAsfaltoEstricto: false
+            };
+        });
+    }
+
+    function mostrarSinResultados(contenedor, radioKm) {
+        contenedor.innerHTML = `
+            <div style="padding: 12px; text-align: center;">
+                <p style="color: var(--primary-orange); font-size: 0.9rem; font-weight: 700;">
+                    <i class="fas fa-info-circle"></i> No encontramos paradas a menos de ${radioKm} km accesibles por asfalto.
+                </p>
+                <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 4px;">
+                    Para distancias mayores a 5 km te sugerimos postularte directamente para coordinar transporte con el asesor.
+                </p>
+            </div>
+        `;
+    }
+
+    // RESOLUTOR MULTI-ESTRUCTURA DE VACANTES POR EMPRESA
     function obtenerPuestosEmpresa(idEmpresa) {
         const idSanitizado = sanitizarKey(idEmpresa);
         const vacantesEncontradas = [];
@@ -1282,7 +1353,7 @@
         );
     };
 
-    // RADAR DE TRANSPORTE
+    // RADAR DE TRANSPORTE VIAL ESTRICTO (≤ 5 KM POR ASFALTO)
     window.calcularCercaniaCandidato = async function() {
         const direccionTexto = document.getElementById('userLocationInput').value.trim();
         const contenedorResultados = document.getElementById('haversineResults');
@@ -1293,7 +1364,11 @@
         }
 
         contenedorResultados.style.display = 'flex';
-        contenedorResultados.innerHTML = `<p style="color: var(--text-muted); font-size: 0.85rem;"><i class="fas fa-spinner fa-spin me-2"></i> Calculando rutas y paradas más convenientes para ti...</p>`;
+        contenedorResultados.innerHTML = `
+            <p style="color: var(--text-muted); font-size: 0.85rem;">
+                <i class="fas fa-spinner fa-spin me-2"></i> Mapeando rutas de personal y calculando trayecto exacto por calles...
+            </p>
+        `;
 
         try {
             let latCandidato = null;
@@ -1315,13 +1390,18 @@
             }
 
             if (!latCandidato || !lonCandidato) {
-                contenedorResultados.innerHTML = `<p style="color: #ef4444; font-size: 0.85rem;"><i class="fas fa-exclamation-triangle"></i> No pudimos ubicar esa dirección. Intenta agregar tu municipio o presiona 'Mi Ubicación'.</p>`;
+                contenedorResultados.innerHTML = `
+                    <p style="color: #ef4444; font-size: 0.85rem;">
+                        <i class="fas fa-exclamation-triangle"></i> No pudimos ubicar esa dirección. Intenta agregar tu municipio o presiona 'Mi Ubicación'.
+                    </p>
+                `;
                 return;
             }
 
-            const calculos = [];
-            const RADIO_MAXIMO_KM = 20.0;
+            const preFiltro = [];
+            const RADIO_PRELIMINAR_KM = 5.0;
 
+            // 1. RECOLECCIÓN Y FILTRADO PREVIO EN MEMORIA
             Object.keys(todasLasRutas).forEach(empresaKey => {
                 const rutasEmpresa = todasLasRutas[empresaKey] || {};
                 const datosEmpresa = todasLasEmpresas[empresaKey] || {};
@@ -1341,9 +1421,9 @@
 
                                     if (!isNaN(latP) && !isNaN(lonP)) {
                                         const distKm = calcularHaversineKm(latCandidato, lonCandidato, latP, lonP);
-                                        if (distKm !== null && distKm <= RADIO_MAXIMO_KM) {
+                                        if (distKm !== null && distKm <= RADIO_PRELIMINAR_KM) {
                                             const horarioTexto = (p.horarios || []).map(h => h.formatoCivil).join(' / ') || ruta.horarioPaso || "Turno rotativo";
-                                            calculos.push({
+                                            preFiltro.push({
                                                 empresaKey: empresaKey,
                                                 nombreEmpresa: nombreEmpresa,
                                                 nombreRuta: ruta.nombreRuta || "Ruta de Personal",
@@ -1367,8 +1447,8 @@
 
                             if (!isNaN(latRuta) && !isNaN(lonRuta)) {
                                 const distKm = calcularHaversineKm(latCandidato, lonCandidato, latRuta, lonRuta);
-                                if (distKm !== null && distKm <= RADIO_MAXIMO_KM) {
-                                    calculos.push({
+                                if (distKm !== null && distKm <= RADIO_PRELIMINAR_KM) {
+                                    preFiltro.push({
                                         empresaKey: empresaKey,
                                         nombreEmpresa: nombreEmpresa,
                                         nombreRuta: ruta.nombreRuta || "Ruta de Personal",
@@ -1386,33 +1466,44 @@
                 });
             });
 
-            calculos.sort((a, b) => a.distancia - b.distancia);
-            const mejoresRutas = calculos.slice(0, 4);
+            preFiltro.sort((a, b) => a.distancia - b.distancia);
+            const candidatosParaMatriz = preFiltro.slice(0, 15);
 
-            if (mejoresRutas.length === 0) {
-                contenedorResultados.innerHTML = `
-                    <div style="padding: 10px; text-align: center;">
-                        <p style="color: var(--primary-orange); font-size: 0.9rem; font-weight: 700;">
-                            <i class="fas fa-info-circle"></i> No hay paradas en un radio de ${RADIO_MAXIMO_KM} km de tu ubicación.
-                        </p>
-                        <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 4px;">
-                            Postúlate directamente para coordinar transporte personalizado.
-                        </p>
-                    </div>
-                `;
+            if (candidatosParaMatriz.length === 0) {
+                mostrarSinResultados(contenedorResultados, RADIO_PRELIMINAR_KM);
                 return;
             }
 
+            // 2. CONSULTA VIAL MATRICIAL (OSRM)
+            const rutasConAsfalto = await obtenerMatrizAsfaltoOSRM(latCandidato, lonCandidato, candidatosParaMatriz);
+
+            // 3. TOPE ESTRICTO A 5.0 KM REALES SOBRE ASFALTO
+            const rutasValidas = rutasConAsfalto
+                .filter(r => r.distanciaAsfaltoKm <= 5.0)
+                .sort((a, b) => a.distanciaAsfaltoKm - b.distanciaAsfaltoKm);
+
+            const mejoresRutas = rutasValidas.slice(0, 4);
+
+            if (mejoresRutas.length === 0) {
+                mostrarSinResultados(contenedorResultados, 5.0);
+                return;
+            }
+
+            // 4. DESPLIEGUE EN INTERFAZ
             contenedorResultados.innerHTML = `
-                <div class="haversine-results-header" style="display:flex; justify-content:space-between; padding-bottom:6px; border-bottom:1px solid rgba(255,255,255,0.08);">
-                    <span style="color:#22c55e; font-weight:800; font-size:0.8rem;"><i class="fas fa-check-circle"></i> ${mejoresRutas.length} PARADAS ENCONTRADAS:</span>
-                    <span style="color:var(--text-muted); font-size:0.75rem;">Ordenadas por cercanía</span>
+                <div class="haversine-results-header" style="display:flex; justify-content:space-between; align-items:center; padding-bottom:8px; border-bottom:1px solid rgba(255,255,255,0.08); margin-bottom:10px;">
+                    <span style="color:#22c55e; font-weight:800; font-size:0.82rem;">
+                        <i class="fas fa-road"></i> ${mejoresRutas.length} PARADAS ACCESIBLES EN ASFALTO (≤ 5 KM)
+                    </span>
+                    <span style="color:var(--text-muted); font-size:0.75rem;">
+                        <i class="fas fa-walking"></i> A pie / <i class="fas fa-bicycle"></i> Bici
+                    </span>
                 </div>
             `;
 
             mejoresRutas.forEach((item, index) => {
                 const esMasCercana = index === 0;
-                const linkMaps = `https://www.google.com/maps/search/?api=1&query=${item.latRuta},${item.lonRuta}`;
+                const linkMaps = `https://www.google.com/maps/dir/?api=1&origin=${latCandidato},${lonCandidato}&destination=${item.latRuta},${item.lonRuta}&travelmode=walking`;
                 
                 contenedorResultados.innerHTML += `
                     <div class="haversine-card" style="${esMasCercana ? 'border-left-color: var(--primary-orange); background: rgba(25, 45, 80, 0.95);' : ''}">
@@ -1421,18 +1512,21 @@
                                 <span class="empresa-tag">${item.nombreEmpresa}</span> — ${item.nombreRuta}
                                 ${esMasCercana ? '<span style="background: var(--primary-orange); color: white; font-size: 0.65rem; padding: 2px 6px; border-radius: 10px; margin-left: 6px; font-weight: 800;">MÁS CERCANA</span>' : ''}
                             </strong>
-                            <div class="info-sub">
+                            <div class="info-sub" style="margin-top: 4px;">
                                 <span><i class="fas fa-map-pin" style="color:var(--primary-orange);"></i> ${item.puntoAbordaje}</span>
                                 <span><i class="fas fa-clock" style="color:#f59e0b;"></i> ${item.horario}</span>
                             </div>
                         </div>
 
                         <div class="haversine-actions">
-                            <div class="haversine-dist-badge">
-                                <i class="fas fa-location-dot"></i> A ${item.distancia} km
+                            <div class="haversine-dist-badge" title="Distancia real por calles">
+                                <i class="fas fa-road"></i> ${item.distanciaAsfaltoKm} km
+                                <span style="display:block; font-size:0.7rem; color:var(--text-light); font-weight:normal; margin-top:2px;">
+                                    <i class="fas fa-walking"></i> ${item.tiempoPieMin} min · <i class="fas fa-bicycle"></i> ${item.tiempoBiciMin} min
+                                </span>
                             </div>
-                            <a href="${linkMaps}" target="_blank" rel="noopener noreferrer" class="btn-select-route" style="background: #0f2a4a; border: 1px solid rgba(255,255,255,0.1);" title="Ver parada en Maps">
-                                <i class="fas fa-map-location-dot"></i> Mapa
+                            <a href="${linkMaps}" target="_blank" rel="noopener noreferrer" class="btn-select-route" style="background: #0f2a4a; border: 1px solid rgba(255,255,255,0.1);" title="Ver cómo llegar a pie en Maps">
+                                <i class="fas fa-directions"></i> Ruta
                             </a>
                             <button type="button" class="btn-select-route" onclick="seleccionarEmpresaParaPostulacion('${item.empresaKey}')">
                                 <i class="fas fa-file-signature"></i> Postular
@@ -1444,7 +1538,7 @@
 
         } catch (error) {
             console.error("Error en radar de transporte:", error);
-            contenedorResultados.innerHTML = `<p style="color: #ef4444; font-size: 0.85rem;">Error al calcular distancias. Intenta nuevamente.</p>`;
+            contenedorResultados.innerHTML = `<p style="color: #ef4444; font-size: 0.85rem;">Error al calcular distancias viales. Intenta nuevamente.</p>`;
         }
     };
 
@@ -1466,7 +1560,7 @@
         }
     };
 
-    // ESCUCHADOR PRINCIPAL DE BASE DE DATOS
+    // ESCUCHADOR DE BASE DE DATOS
     onValue(rootRef, (snapshot) => {
         const data = snapshot.val() || {};
         todasLasEmpresas = data.empresas || {}; 
@@ -1496,7 +1590,7 @@
         window.ejecutarBusqueda(e.target.value);
     });
 
-    // POBLAR ASESORES AUTORIZADOS SEGÚN LA EMPRESA ELEGIDA
+    // POBLAR ASESORES
     function actualizarSelectorAsesores(empresaKey) {
         const selectAsesor = document.getElementById('reclutadorAsignado');
         if (!selectAsesor) return;
@@ -1530,7 +1624,7 @@
         });
     }
 
-    // CARGA DE TODAS LAS VACANTES Y ASESORES AL CAMBIAR EMPRESA
+    // CARGA DE VACANTES AL CAMBIAR EMPRESA
     document.getElementById('empresa').addEventListener('change', function(e) {
         const selectVacante = document.getElementById('vacante');
         const idEmpresa = e.target.value; 
@@ -1720,9 +1814,7 @@
         try {
             const { existe, titular } = await verificarTitularidadCandidato(curp, telefono);
 
-            // =========================================================================
-            // CASO 1: CANDIDATO CON PROCESO ACTIVO PREVIO (BLOQUEO DE DUPLICADO)
-            // =========================================================================
+            // CANDIDATO CON PROCESO ACTIVO
             if (existe && titular) {
                 const asesorFinalNombre = titular.reclutadorNombre || titular.asesor || "Tu Asesor Titular";
                 let telTitular = titular.telefonoAsesor || fallbackTelefonoGuardia;
@@ -1754,12 +1846,10 @@
                 btn.innerHTML = `<i class="fab fa-whatsapp me-2"></i> Enviar Postulación por WhatsApp`;
 
                 window.location.href = urlWhatsAppSeguimiento;
-                return; // <-- DETIENE LA EJECUCIÓN: Evita el guardado doble en postulantes y m3_agenda
+                return;
             }
 
-            // =========================================================================
-            // CASO 2: POSTULACIÓN NUEVA (REGISTRO REGULAR CON DEDUCCIÓN DE SEXO)
-            // =========================================================================
+            // POSTULACIÓN NUEVA
             let asesorFinalId = null;
             let asesorFinalNombre = "Asesor Asignado";
             let telefonoFinalReclutador = fallbackTelefonoGuardia;
@@ -1812,7 +1902,6 @@
                 if (!coordinadorPadreIdFinal) coordinadorPadreIdFinal = objetoAsesor.coordinadorPadreId || null;
             }
 
-            // DEDUCCIÓN ESTRICTA DEL SEXO DESDE LA POSICIÓN 11 DE LA CURP
             let sexoCalculado = "Otro";
             if (curp.length >= 11) {
                 const charSexo = curp.charAt(10).toUpperCase();
@@ -1820,14 +1909,13 @@
                 else if (charSexo === 'M') sexoCalculado = "Femenino";
             }
 
-            // Persistencia en Firebase
             await push(ref(db, 'postulantes'), {
                 id: timestampId,
                 nombre: nombre,
                 curp: curp,
                 telefono: telefono,
                 edad: edad,
-                sexo: sexoCalculado, // <-- Campo inyectado para m3_agenda
+                sexo: sexoCalculado,
                 empresa: empresaTexto,
                 empresaId: empresaId,
                 nombreVacante: vacante,
@@ -1845,7 +1933,6 @@
                 timestamp: serverTimestamp()
             });
 
-            // Auditoría M7
             await push(ref(db, 'modulo_7_logs'), {
                 modulo: "INDEX_PUBLICO",
                 evento: "NUEVA_POSTULACION_CANDIDATO",
@@ -1854,7 +1941,6 @@
                 timestamp: serverTimestamp()
             });
 
-            // Mensaje de WhatsApp
             const mensaje = `*NUEVA POSTULACIÓN*%0A%0A` +
                             `• *Folio:* ${timestampId}%0A` +
                             `• *Nombre:* ${encodeURIComponent(nombre)}%0A` +
