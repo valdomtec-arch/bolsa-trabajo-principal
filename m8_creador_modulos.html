@@ -315,7 +315,7 @@
                     <p class="text-xs text-slate-400 mt-0.5">Controla la visibilidad, estado activo/pausado y coherencia física de cada módulo en Firebase.</p>
                 </div>
                 <span id="badgeConteoModulos" class="text-xs font-mono bg-cyber-purple/15 text-cyber-purple border border-cyber-purple/30 px-3 py-1 rounded-lg font-bold">
-                    0 Módulos Activos
+                    0 Módulos Registrados
                 </span>
             </div>
 
@@ -344,7 +344,6 @@
     <!-- MODAL DE PREVISUALIZACIÓN EN VIVO (SANDBOX RUNTIME) -->
     <div id="modalPreviewEditor" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] hidden flex flex-col p-2 sm:p-4 md:p-6 transition-opacity">
         <div class="glass-card flex-1 flex flex-col overflow-hidden border border-cyber-border shadow-2xl rounded-2xl bg-[#0b1329]">
-            <!-- Barra de navegación del preview -->
             <div class="h-12 bg-[#06101e] border-b border-slate-800 px-4 flex items-center justify-between">
                 <div class="flex items-center gap-3">
                     <span class="text-xs font-mono text-cyan-400 flex items-center gap-2 font-bold">
@@ -364,7 +363,6 @@
                 </div>
             </div>
 
-            <!-- Marco iframe aislado -->
             <div class="flex-1 bg-black relative">
                 <iframe id="iframePreviewSandbox" class="w-full h-full border-0" sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-modals"></iframe>
             </div>
@@ -542,36 +540,89 @@
             });
         }
 
-        // 2. ESCUCHADOR MASTER DE MODULOS_CONFIG
-        function inicializarModulos() {
-            db.ref("modulos_config").on("value", snap => {
-                const data = snap.val() || {};
-                catalogoModulos = [];
+        // 2. ESCUCHADOR HÍBRIDO MASTER DE MÓDULOS (modulos_config + modulos_dinamicos)
+        function inicializarEscuchadorModulos() {
+            const renderizarDatosCombinados = async () => {
+                try {
+                    const [snapConfig, snapDinamicos] = await Promise.all([
+                        db.ref("modulos_config").once("value"),
+                        db.ref("configuracion_sistema/modulos_dinamicos").once("value")
+                    ]);
 
-                Object.entries(data).forEach(([key, m]) => {
-                    if (typeof m === 'object' && m !== null) {
-                        catalogoModulos.push({
-                            key: key,
-                            id: m.id || key,
-                            titulo: m.titulo || "Sin Título",
-                            icono: m.icono || "fa-cubes",
-                            orden: Number(m.orden) || 99,
-                            url: m.url || "#",
-                            descripcion: m.descripcion || "",
-                            tipo: m.tipo || "standard",
-                            activo: m.activo !== false,
-                            codigo_fuente: m.codigo_fuente || m.html || null,
-                            roles_permitidos: Array.isArray(m.roles_permitidos) ? m.roles_permitidos : []
-                        });
+                    const dataConfig = snapConfig.val() || {};
+                    const dataDinamicos = snapDinamicos.val() || {};
+
+                    const mapCombinado = new Map();
+
+                    // Cargar desde modulos_config
+                    Object.entries(dataConfig).forEach(([key, m]) => {
+                        if (typeof m === 'object' && m !== null) {
+                            mapCombinado.set(key, {
+                                key: key,
+                                id: m.id || key,
+                                titulo: m.titulo || m.nombre || "Sin Título",
+                                icono: m.icono || "fa-cubes",
+                                orden: Number(m.orden) || 99,
+                                url: m.url || `visor.html?mod=${key}`,
+                                descripcion: m.descripcion || "",
+                                tipo: m.tipo || "standard",
+                                activo: m.activo !== false,
+                                codigo_fuente: m.codigo_fuente || m.html || m.codigo || null,
+                                roles_permitidos: Array.isArray(m.roles_permitidos) ? m.roles_permitidos : []
+                            });
+                        }
+                    });
+
+                    // Complementar desde configuracion_sistema/modulos_dinamicos
+                    Object.entries(dataDinamicos).forEach(([key, d]) => {
+                        if (typeof d === 'object' && d !== null) {
+                            const existente = mapCombinado.get(key);
+                            const iconoLimpio = d.icono && d.icono.includes("<i") 
+                                ? (d.icono.match(/fa-[\w-]+/) ? d.icono.match(/fa-[\w-]+/)[0] : "fa-cubes")
+                                : (d.icono || "fa-cubes");
+
+                            if (!existente) {
+                                mapCombinado.set(key, {
+                                    key: key,
+                                    id: d.id || key,
+                                    titulo: d.titulo || d.nombre || key,
+                                    icono: iconoLimpio,
+                                    orden: Number(d.orden) || 99,
+                                    url: d.url || `visor.html?mod=${key}`,
+                                    descripcion: d.descripcion || "",
+                                    tipo: d.tipo || "standard",
+                                    activo: d.activo !== false,
+                                    codigo_fuente: d.codigo_fuente || d.html || d.codigo || null,
+                                    roles_permitidos: Array.isArray(d.roles_permitidos) ? d.roles_permitidos : []
+                                });
+                            } else if (!existente.codigo_fuente && (d.codigo_fuente || d.html || d.codigo)) {
+                                existente.codigo_fuente = d.codigo_fuente || d.html || d.codigo;
+                            }
+                        }
+                    });
+
+                    catalogoModulos = Array.from(mapCombinado.values());
+                    catalogoModulos.sort((a, b) => a.orden - b.orden);
+
+                    const badgeConteo = document.getElementById("badgeConteoModulos");
+                    if (badgeConteo) {
+                        badgeConteo.textContent = `${catalogoModulos.filter(x => x.activo).length} de ${catalogoModulos.length} Módulos Registrados`;
                     }
-                });
 
-                catalogoModulos.sort((a, b) => a.orden - b.orden);
-                document.getElementById("badgeConteoModulos").textContent = `${catalogoModulos.filter(x => x.activo).length} de ${catalogoModulos.length} Módulos Activos`;
-                renderizarTablaModulos();
-            });
+                    renderizarTablaModulos();
+                } catch (err) {
+                    console.error("Error al cargar módulos híbridos:", err);
+                    const tbody = document.getElementById("tablaModulosBody");
+                    if (tbody) {
+                        tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-rose-400 font-mono">Error al consultar módulos: ${err.message}</td></tr>`;
+                    }
+                }
+            };
+
+            db.ref("modulos_config").on("value", renderizarDatosCombinados);
+            db.ref("configuracion_sistema/modulos_dinamicos").on("value", renderizarDatosCombinados);
         }
-        window.inicializarEscuchadorModulos = inicializarModulos;
+        window.inicializarEscuchadorModulos = inicializarEscuchadorModulos;
 
         // PRECARGAR PLANTILLA DEL SUBMÓDULO M6.2 EXTRACTOR GEO
         function cargarPlantillaM6Extractor() {
@@ -612,12 +663,23 @@
 
                 const esVirtual = (mod.url || "").includes("visor.html") || !!mod.codigo_fuente;
 
+                // Sanitización limpia del icono
+                let iconoTag = `<i class="fas fa-cubes"></i>`;
+                if (mod.icono) {
+                    if (mod.icono.includes("<i")) {
+                        iconoTag = mod.icono;
+                    } else {
+                        const claseFa = mod.icono.startsWith("fa-") ? mod.icono : `fa-${mod.icono}`;
+                        iconoTag = `<i class="fas ${claseFa}"></i>`;
+                    }
+                }
+
                 tbody.innerHTML += `
                     <tr class="hover:bg-slate-900/60 border-b border-slate-800/40 transition">
                         <td class="p-3 text-center text-cyber-purple font-bold">${mod.orden}</td>
                         <td class="p-3">
                             <div class="font-bold text-white flex items-center gap-2">
-                                <span class="w-6 h-6 rounded bg-cyber-cardAlt flex items-center justify-center text-cyber-cyan text-xs"><i class="fas ${mod.icono}"></i></span>
+                                <span class="w-6 h-6 rounded bg-cyber-cardAlt flex items-center justify-center text-cyber-cyan text-xs">${iconoTag}</span>
                                 <span>${mod.titulo}</span>
                                 ${esVirtual ? '<span class="text-[9px] bg-cyan-950/80 text-cyan-300 border border-cyan-500/30 px-1.5 py-0.5 rounded font-mono">VIRTUAL</span>' : ''}
                             </div>
@@ -680,7 +742,7 @@
             }
         }
 
-        // 5. INYECCIÓN ATÓMICA EN CADENA CON DOBLE PERSISTENCIA EN ESPEJO
+        // 5. INYECCIÓN ATÓMICA CON VALIDACIÓN CONTRA SOBRESCRITURA ACCIDENTAL
         async function guardarModuloAtómico(e) {
             e.preventDefault();
 
@@ -691,47 +753,64 @@
             let iconoLimpio = document.getElementById("inputIcono").value.trim();
             if (!iconoLimpio.startsWith("fa-")) iconoLimpio = "fa-" + iconoLimpio;
 
-            const rolesSeleccionados = [];
-            document.querySelectorAll(".check-rol-item:checked").forEach(cb => rolesSeleccionados.push(cb.value));
-
-            Object.entries(diccionarioRoles).forEach(([rId, r]) => {
-                if (r.nivelJerarquico === 5 && !rolesSeleccionados.includes(rId)) {
-                    rolesSeleccionados.push(rId);
-                }
-            });
-
-            // Rescata fielmente lo editado en pantalla
             const codigoCompilado = document.getElementById("visorCodigoGenerado").value.trim();
-            let urlDestino = document.getElementById("inputUrl").value.trim();
-
-            if (!urlDestino) {
-                urlDestino = `visor.html?mod=${moduloKey}`;
-            }
-
-            const moduloPayload = {
-                id: moduloKey,
-                titulo: document.getElementById("inputTitulo").value.trim(),
-                icono: iconoLimpio,
-                orden: Number(document.getElementById("inputOrden").value),
-                tipo: document.getElementById("selectTipo").value,
-                url: urlDestino,
-                descripcion: document.getElementById("inputDescripcion").value.trim(),
-                roles_permitidos: rolesSeleccionados,
-                activo: true,
-                codigo_fuente: codigoCompilado || null,
-                ultimaActualizacion: Date.now()
-            };
+            let urlDestino = document.getElementById("inputUrl").value.trim() || `visor.html?mod=${moduloKey}`;
 
             const btn = document.getElementById("btnGuardarModulo");
             btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Inyectando en Cadena...';
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Validando integridad...';
 
             try {
-                const updates = {};
-                // 1. Guardar en modulos_config
-                updates[`modulos_config/${moduloKey}`] = moduloPayload;
+                // 1. REGLA DE VALIDACIÓN PREVIA EN FIREBASE
+                const snapActual = await db.ref(`modulos_config/${moduloKey}`).once("value");
+                const existePrevio = snapActual.exists();
+                const dataPrevia = existePrevio ? snapActual.val() : null;
 
-                // 2. Guardar en configuracion_sistema/modulos_dinamicos (para visor.html)
+                // Alerta de seguridad si ya tenía código distinto registrado
+                if (existePrevio && dataPrevia.codigo_fuente && dataPrevia.codigo_fuente.trim().length > 20) {
+                    if (dataPrevia.codigo_fuente.trim() !== codigoCompilado) {
+                        const confirmarSobrescritura = confirm(
+                            `⚠️ ADVERTENCIA DE SEGURIDAD:\n\nEl módulo "${dataPrevia.titulo || moduloKey}" ya cuenta con código fuente en Firebase.\n\n¿Deseas SOBRESCRIBIR el código existente con el contenido actual del editor?`
+                        );
+                        if (!confirmarSobrescritura) {
+                            btn.disabled = false;
+                            btn.innerHTML = '<i class="fas fa-bolt"></i> Guardar e Inyectar en Cascada';
+                            return;
+                        }
+                    }
+                }
+
+                // 2. RECUPERAR ROLES
+                const rolesSeleccionados = [];
+                document.querySelectorAll(".check-rol-item:checked").forEach(cb => rolesSeleccionados.push(cb.value));
+
+                Object.entries(diccionarioRoles).forEach(([rId, r]) => {
+                    if (r.nivelJerarquico === 5 && !rolesSeleccionados.includes(rId)) {
+                        rolesSeleccionados.push(rId);
+                    }
+                });
+
+                // 3. FUSIÓN CONSERVADORA DE METADATOS
+                const rolesFinales = (rolesSeleccionados.length > 0) 
+                    ? rolesSeleccionados 
+                    : (dataPrevia && dataPrevia.roles_permitidos ? dataPrevia.roles_permitidos : []);
+
+                const moduloPayload = {
+                    id: moduloKey,
+                    titulo: document.getElementById("inputTitulo").value.trim() || (dataPrevia ? dataPrevia.titulo : "Módulo"),
+                    icono: iconoLimpio,
+                    orden: Number(document.getElementById("inputOrden").value) || (dataPrevia ? dataPrevia.orden : 99),
+                    tipo: document.getElementById("selectTipo").value || (dataPrevia ? dataPrevia.tipo : "standard"),
+                    url: urlDestino,
+                    descripcion: document.getElementById("inputDescripcion").value.trim() || (dataPrevia ? dataPrevia.descripcion : ""),
+                    roles_permitidos: rolesFinales,
+                    activo: dataPrevia ? (dataPrevia.activo !== false) : true,
+                    codigo_fuente: codigoCompilado || (dataPrevia ? dataPrevia.codigo_fuente : null),
+                    ultimaActualizacion: Date.now()
+                };
+
+                const updates = {};
+                updates[`modulos_config/${moduloKey}`] = moduloPayload;
                 updates[`configuracion_sistema/modulos_dinamicos/${moduloKey}`] = {
                     id: moduloKey,
                     nombre: moduloPayload.titulo,
@@ -740,15 +819,14 @@
                     icono: `<i class="fas ${iconoLimpio}"></i>`,
                     url: moduloPayload.url,
                     tipo: moduloPayload.tipo,
-                    fechaCreacion: new Date().toLocaleDateString('es-MX'),
-                    codigo_fuente: codigoCompilado || null,
-                    html: codigoCompilado || null,
-                    activo: true
+                    fechaCreacion: (dataPrevia && dataPrevia.fechaCreacion) || new Date().toLocaleDateString('es-MX'),
+                    codigo_fuente: moduloPayload.codigo_fuente,
+                    html: moduloPayload.codigo_fuente,
+                    activo: moduloPayload.activo
                 };
 
-                // Inyección en roles dinámicos RBAC
                 Object.keys(diccionarioRoles).forEach(rolId => {
-                    const tieneAcceso = rolesSeleccionados.includes(rolId);
+                    const tieneAcceso = rolesFinales.includes(rolId);
                     updates[`roles_dinamicos/${rolId}/permisos/${moduloKey}`] = {
                         ver: tieneAcceso,
                         crear: tieneAcceso,
@@ -761,18 +839,17 @@
 
                 await db.ref("modulo_7_logs").push({
                     modulo: "M8_CREADOR_MODULOS",
-                    evento: editKey ? "MODIFICACION_MODULO" : "ALTA_MODULO_DINAMICO",
-                    detalle: `Módulo ${moduloPayload.titulo} (${moduloKey}) inyectado en espejo con URL '${moduloPayload.url}'. Código persistido: ${moduloPayload.codigo_fuente ? 'SÍ' : 'NO'}.`,
+                    evento: existePrevio ? "INYECCION_CODIGO_MODULO" : "ALTA_MODULO_DINAMICO",
+                    detalle: `Módulo ${moduloPayload.titulo} (${moduloKey}) guardado con validación de sobreescritura. Código inyectado: ${moduloPayload.codigo_fuente ? 'SÍ' : 'NO'}.`,
                     ejecutadoPor: "Administrador Master",
-                    timestamp: firebase.database.ServerValue.TIMESTAMP,
-                    datosNuevos: moduloPayload
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
                 });
 
-                alert(`✅ Módulo "${moduloPayload.titulo}" inyectado exitosamente en Firebase.`);
+                alert(`✅ Módulo "${moduloPayload.titulo}" actualizado e inyectado en Firebase de forma segura.`);
                 limpiarFormularioCompleto();
 
             } catch (err) {
-                alert("Error en la inyección atómica: " + err.message);
+                alert("Error durante la inyección controlada: " + err.message);
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fas fa-bolt"></i> Guardar e Inyectar en Cascada';
@@ -932,10 +1009,10 @@
                         const codigoRemoto = await respuesta.text();
                         visor.value = codigoRemoto;
                     } else {
-                        visor.value = `<!-- No se pudo leer automáticamente (${m.url} status ${respuesta.status}). Puedes pegar o importar su código aquí. -->`;
+                        visor.value = `<!-- No se pudo leer automáticamente (${m.url} status ${respuesta.status}). Puedes importar su archivo aquí con el botón 'Importar .html' -->`;
                     }
                 } catch (error) {
-                    visor.value = `<!-- CORS local o archivo no accesible vía fetch. Puedes importar '${m.url}' usando el botón 'Importar .html' -->`;
+                    visor.value = `<!-- CORS local o archivo no accesible vía fetch directo. Usa el botón 'Importar .html' para cargarlo. -->`;
                 }
                 gestionarEdicionManual();
             } else {
