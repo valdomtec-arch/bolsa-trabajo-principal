@@ -132,11 +132,13 @@
                 loader.classList.add("hidden");
                 iframe.classList.remove("hidden");
 
-                // Inyección del documento HTML compilado
-                const frameDoc = iframe.contentWindow.document;
-                frameDoc.open();
-                frameDoc.write(codigoFuente);
-                frameDoc.close();
+                // Inyección segura del HTML sin document.write (evita SyntaxError en strict mode)
+                if ("srcdoc" in iframe) {
+                    iframe.srcdoc = codigoFuente;
+                } else {
+                    const blob = new Blob([codigoFuente], { type: "text/html; charset=utf-8" });
+                    iframe.src = URL.createObjectURL(blob);
+                }
 
             } catch (err) {
                 mostrarError("Error al consultar Firebase: " + err.message);
