@@ -67,7 +67,7 @@
                     </span>
                 </div>
                 <h1 class="text-xl sm:text-2xl md:text-3xl font-extrabold text-white tracking-tight">AI Module Factory & Gestor Dinámico</h1>
-                <p class="text-slate-400 text-xs sm:text-sm mt-0.5">Construye vistas con IA Gemini, inyecta roles en RBAC y valida la salud de enlaces en tiempo real.</p>
+                <p class="text-slate-400 text-xs sm:text-sm mt-0.5">Construye vistas con IA Gemini, edita código en vivo, inyecta roles en RBAC y valida salud de enlaces.</p>
             </div>
             
             <div class="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
@@ -233,14 +233,14 @@
 
         </div>
 
-        <!-- SECCIÓN 2: COMPILADOR Y GENERADOR DE CÓDIGO CON IA GEMINI -->
+        <!-- SECCIÓN 2: COMPILADOR Y GENERADOR DE CÓDIGO CON IA GEMINI & IDE INTEGRADO -->
         <div class="glass-card p-5 sm:p-6 shadow-xl space-y-4">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-cyber-border pb-3">
                 <div>
                     <h2 class="text-sm font-bold text-amber-400 uppercase font-mono flex items-center gap-2">
-                        <i class="fas fa-robot text-amber-400"></i> Gemini AI Module Compiler (Generador de Código Monolítico)
+                        <i class="fas fa-code-merge text-amber-400"></i> Gemini AI Module Studio & IDE Integrado
                     </h2>
-                    <p class="text-xs text-slate-400 mt-0.5">Describe lo que necesitas en lenguaje natural y la IA creará el archivo HTML funcional con estética Cyber-Dark y conexión Firebase Modular v10.</p>
+                    <p class="text-xs text-slate-400 mt-0.5">Compila con IA, edita libremente estilos y código, prueba en sandbox y descarga tus archivos físicos.</p>
                 </div>
                 <div class="flex items-center gap-2 w-full sm:w-auto">
                     <input type="password" id="apiKeyGeminiModule" placeholder="Pega tu Gemini API Key..." class="bg-[#06101e] border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-amber-500 flex-1 sm:w-64">
@@ -266,19 +266,41 @@
                         </button>
                     </div>
 
-                    <div class="flex items-center gap-2">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <!-- Input oculto para carga local -->
+                        <input type="file" id="inputArchivoLocal" accept=".html,.htm,.txt" class="hidden" onchange="procesarArchivoHtmlSubido(event)">
+
+                        <button type="button" onclick="document.getElementById('inputArchivoLocal').click()" class="bg-blue-600/20 hover:bg-blue-600 text-blue-400 hover:text-white border border-blue-500/30 font-mono text-xs px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition font-bold" title="Cargar un archivo .html local al editor">
+                            <i class="fas fa-file-arrow-up"></i> Importar .html
+                        </button>
+
+                        <button type="button" onclick="abrirModalPreview()" id="btnPreviewModal" disabled class="bg-cyan-600/20 hover:bg-cyan-600 disabled:opacity-40 disabled:pointer-events-none text-cyan-400 hover:text-white border border-cyan-500/30 font-mono text-xs px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition font-bold" title="Probar el código en un entorno aislado sin salir de M8">
+                            <i class="fas fa-play"></i> Previsualizar
+                        </button>
+
                         <button type="button" onclick="copiarCodigoCompilado()" id="btnCopiarCodigo" disabled class="bg-cyber-cardAlt hover:bg-slate-800 disabled:opacity-40 disabled:pointer-events-none text-slate-200 border border-slate-700 font-mono text-xs px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition">
                             <i class="fas fa-copy"></i> Copiar Código
                         </button>
+
                         <button type="button" onclick="descargarArchivoHtmlCompilado()" id="btnDescargarHtml" disabled class="bg-emerald-600/20 hover:bg-emerald-600 disabled:opacity-40 disabled:pointer-events-none text-emerald-400 hover:text-white border border-emerald-500/30 font-mono text-xs px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition font-bold">
                             <i class="fas fa-download"></i> Descargar .html
                         </button>
                     </div>
                 </div>
 
-                <!-- VISOR DE CÓDIGO GENERADO -->
-                <div class="mt-2">
-                    <textarea id="visorCodigoGenerado" readonly placeholder="El código HTML compilado listo para producción aparecerá aquí tras presionar 'Compilar Código con IA'..." class="w-full h-56 bg-[#030712] border border-slate-800 rounded-xl p-3 text-xs font-mono text-emerald-400 focus:outline-none resize-none custom-scrollbar"></textarea>
+                <!-- VISOR Y EDITOR DE CÓDIGO GENERADO (EDITABLE EN VIVO) -->
+                <div class="mt-2 space-y-1">
+                    <div class="flex justify-between items-center px-1">
+                        <span class="text-[10px] font-mono text-emerald-400 flex items-center gap-1.5">
+                            <i class="fas fa-pen-to-square"></i> Editor de Código Fuente (Modifica libremente clases Tailwind, JS o lógica)
+                        </span>
+                        <span id="caracteresCodigo" class="text-[10px] font-mono text-slate-500">0 caracteres</span>
+                    </div>
+                    <textarea id="visorCodigoGenerado" 
+                        oninput="gestionarEdicionManual()"
+                        spellcheck="false"
+                        placeholder="El código HTML compilado aparecerá aquí. Puedes escribir, pegar y editar código directamente en cualquier momento..." 
+                        class="w-full h-80 bg-[#030712] border border-emerald-500/40 rounded-xl p-3 text-xs font-mono text-emerald-400 focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400/40 resize-y custom-scrollbar leading-relaxed selection:bg-emerald-950 selection:text-emerald-200"></textarea>
                 </div>
             </div>
         </div>
@@ -319,6 +341,36 @@
 
     </div>
 
+    <!-- MODAL DE PREVISUALIZACIÓN EN VIVO (SANDBOX RUNTIME) -->
+    <div id="modalPreviewEditor" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] hidden flex flex-col p-2 sm:p-4 md:p-6 transition-opacity">
+        <div class="glass-card flex-1 flex flex-col overflow-hidden border border-cyber-border shadow-2xl rounded-2xl bg-[#0b1329]">
+            <!-- Barra de navegación del preview -->
+            <div class="h-12 bg-[#06101e] border-b border-slate-800 px-4 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <span class="text-xs font-mono text-cyan-400 flex items-center gap-2 font-bold">
+                        <i class="fas fa-play text-cyan-400"></i> Sandbox Virtual de Pruebas
+                    </span>
+                    <span id="previewModLabel" class="text-[11px] text-slate-400 font-mono border-l border-slate-700 pl-3">
+                        Vista previa de desarrollo
+                    </span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="recargarIframeModal()" title="Reiniciar ejecución" class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs px-2.5 py-1.5 rounded-lg transition flex items-center gap-1">
+                        <i class="fas fa-rotate-right"></i> Reiniciar
+                    </button>
+                    <button onclick="cerrarModalPreview()" class="bg-rose-950/60 hover:bg-rose-900 text-rose-300 hover:text-white border border-rose-500/30 text-xs px-3 py-1.5 rounded-lg transition flex items-center gap-1 font-bold">
+                        <i class="fas fa-xmark"></i> Cerrar
+                    </button>
+                </div>
+            </div>
+
+            <!-- Marco iframe aislado -->
+            <div class="flex-1 bg-black relative">
+                <iframe id="iframePreviewSandbox" class="w-full h-full border-0" sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-modals"></iframe>
+            </div>
+        </div>
+    </div>
+
     <!-- FIREBASE SDK V8 -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
@@ -353,6 +405,112 @@
                 .replace(/_+/g, "_")
                 .replace(/^_|_$/g, "");
         }
+
+        // CONTROL DINÁMICO AL EDITAR MANUALMENTE EL CÓDIGO FUENTE
+        function gestionarEdicionManual() {
+            const visor = document.getElementById("visorCodigoGenerado");
+            const btnCopiar = document.getElementById("btnCopiarCodigo");
+            const btnDescargar = document.getElementById("btnDescargarHtml");
+            const btnPreview = document.getElementById("btnPreviewModal");
+            const contador = document.getElementById("caracteresCodigo");
+
+            const longitud = visor.value.length;
+            if (contador) contador.textContent = `${longitud.toLocaleString()} caracteres`;
+
+            const tieneContenido = visor.value.trim().length > 0;
+            if (btnCopiar) btnCopiar.disabled = !tieneContenido;
+            if (btnDescargar) btnDescargar.disabled = !tieneContenido;
+            if (btnPreview) btnPreview.disabled = !tieneContenido;
+        }
+
+        // IMPORTAR ARCHIVO LOCAL .HTML DIRECTAMENTE AL EDITOR
+        function procesarArchivoHtmlSubido(event) {
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+
+            if (!file.name.endsWith('.html') && !file.name.endsWith('.htm') && !file.name.endsWith('.txt')) {
+                alert("Por favor selecciona un archivo con extensión .html o .htm.");
+                event.target.value = "";
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const contenido = e.target.result;
+                const visor = document.getElementById("visorCodigoGenerado");
+                visor.value = contenido;
+                gestionarEdicionManual();
+
+                const inputId = document.getElementById("inputModuloId");
+                const inputUrl = document.getElementById("inputUrl");
+                const inputTitulo = document.getElementById("inputTitulo");
+
+                const nombreLimpio = file.name.replace(/\.[^/.]+$/, "");
+                if (!inputId.value.trim()) {
+                    inputId.value = sanitizarKey(nombreLimpio);
+                }
+                if (!inputUrl.value.trim()) {
+                    inputUrl.value = file.name;
+                }
+                if (!inputTitulo.value.trim()) {
+                    inputTitulo.value = nombreLimpio.replace(/_/g, " ").toUpperCase();
+                }
+
+                actualizarPreviewEnVivo();
+                alert(`✅ Archivo "${file.name}" cargado exitosamente en el editor.`);
+            };
+
+            reader.onerror = function() {
+                alert("Error al intentar leer el archivo local.");
+            };
+
+            reader.readAsText(file, "UTF-8");
+            event.target.value = "";
+        }
+
+        // PREVIEW SANDBOX MODAL
+        function abrirModalPreview() {
+            const visor = document.getElementById("visorCodigoGenerado");
+            const codigo = visor.value;
+
+            if (!codigo || codigo.trim().length === 0) {
+                alert("No hay código en el editor para previsualizar.");
+                return;
+            }
+
+            const modal = document.getElementById("modalPreviewEditor");
+            const iframe = document.getElementById("iframePreviewSandbox");
+            const label = document.getElementById("previewModLabel");
+
+            const titulo = document.getElementById("inputTitulo").value.trim() || "Módulo ERP";
+            const idMod = document.getElementById("inputModuloId").value.trim() || "Runtime local";
+            label.textContent = `${titulo} (${idMod})`;
+
+            iframe.srcdoc = codigo;
+            modal.classList.remove("hidden");
+        }
+
+        function recargarIframeModal() {
+            const visor = document.getElementById("visorCodigoGenerado");
+            const iframe = document.getElementById("iframePreviewSandbox");
+            iframe.srcdoc = visor.value;
+        }
+
+        function cerrarModalPreview() {
+            const modal = document.getElementById("modalPreviewEditor");
+            const iframe = document.getElementById("iframePreviewSandbox");
+            iframe.srcdoc = "about:blank";
+            modal.classList.add("hidden");
+        }
+
+        window.addEventListener("keydown", (e) => {
+            if (e.key === "Escape") {
+                const modal = document.getElementById("modalPreviewEditor");
+                if (modal && !modal.classList.contains("hidden")) {
+                    cerrarModalPreview();
+                }
+            }
+        });
 
         // 1. CARGA DINÁMICA DE ROLES EN VIVO DESDE ROLES_DINAMICOS
         function inicializarEscuchadorRolesDinamicos() {
@@ -480,7 +638,7 @@
                             <button onclick="toggleEstadoModulo('${mod.key}', ${mod.activo})" title="${mod.activo ? 'Pausar módulo' : 'Activar módulo'}" class="p-1.5 hover:bg-slate-800 rounded transition text-xs">
                                 ${mod.activo ? '⏸️' : '▶️'}
                             </button>
-                            <button onclick="cargarParaEditar('${mod.key}')" title="Editar Metadatos" class="p-1.5 text-cyber-cyan hover:bg-slate-800 rounded transition text-xs">
+                            <button onclick="cargarParaEditar('${mod.key}')" title="Editar en Studio" class="p-1.5 text-cyber-cyan hover:bg-slate-800 rounded transition text-xs">
                                 <i class="fas fa-pen"></i>
                             </button>
                             <button onclick="eliminarModuloAtómico('${mod.key}')" title="Eliminar Módulo" class="p-1.5 text-rose-400 hover:bg-slate-800 rounded transition text-xs">
@@ -542,6 +700,7 @@
                 }
             });
 
+            // Rescata fielmente lo editado en pantalla
             const codigoCompilado = document.getElementById("visorCodigoGenerado").value.trim();
             let urlDestino = document.getElementById("inputUrl").value.trim();
 
@@ -569,7 +728,7 @@
 
             try {
                 const updates = {};
-                // 1. Guardar en modulos_config (para el catálogo de M8)
+                // 1. Guardar en modulos_config
                 updates[`modulos_config/${moduloKey}`] = moduloPayload;
 
                 // 2. Guardar en configuracion_sistema/modulos_dinamicos (para visor.html)
@@ -609,7 +768,7 @@
                     datosNuevos: moduloPayload
                 });
 
-                alert(`✅ Módulo "${moduloPayload.titulo}" inyectado exitosamente en Firebase en ambas rutas.`);
+                alert(`✅ Módulo "${moduloPayload.titulo}" inyectado exitosamente en Firebase.`);
                 limpiarFormularioCompleto();
 
             } catch (err) {
@@ -741,7 +900,8 @@
             }
         }
 
-        function cargarParaEditar(key) {
+        // CARGA INTELIGENTE (FIREBASE O DESCARGA FÍSICA .HTML)
+        async function cargarParaEditar(key) {
             const m = catalogoModulos.find(x => x.key === key);
             if (!m) return;
 
@@ -755,10 +915,32 @@
             document.getElementById("inputUrl").value = m.url;
             document.getElementById("inputDescripcion").value = m.descripcion;
 
-            if (m.codigo_fuente) {
-                document.getElementById("visorCodigoGenerado").value = m.codigo_fuente;
-                document.getElementById("btnCopiarCodigo").disabled = false;
-                document.getElementById("btnDescargarHtml").disabled = false;
+            const visor = document.getElementById("visorCodigoGenerado");
+
+            // 1. Si ya tiene código persistido en Firebase
+            if (m.codigo_fuente && m.codigo_fuente.trim().length > 20) {
+                visor.value = m.codigo_fuente;
+                gestionarEdicionManual();
+            } 
+            // 2. Si apunta a un archivo físico local o relativo (.html)
+            else if (m.url && !m.url.includes("visor.html") && m.url.endsWith(".html")) {
+                visor.value = `<!-- Extrayendo código fuente desde el archivo físico: ${m.url}... -->`;
+                gestionarEdicionManual();
+                try {
+                    const respuesta = await fetch(m.url);
+                    if (respuesta.ok) {
+                        const codigoRemoto = await respuesta.text();
+                        visor.value = codigoRemoto;
+                    } else {
+                        visor.value = `<!-- No se pudo leer automáticamente (${m.url} status ${respuesta.status}). Puedes pegar o importar su código aquí. -->`;
+                    }
+                } catch (error) {
+                    visor.value = `<!-- CORS local o archivo no accesible vía fetch. Puedes importar '${m.url}' usando el botón 'Importar .html' -->`;
+                }
+                gestionarEdicionManual();
+            } else {
+                visor.value = "";
+                gestionarEdicionManual();
             }
 
             document.getElementById("lblTituloForm").textContent = `Editando: ${m.titulo}`;
@@ -781,8 +963,7 @@
             document.getElementById("lblTituloForm").textContent = "Definición de Módulo";
             document.getElementById("btnGuardarModulo").innerHTML = '<i class="fas fa-bolt"></i> Guardar e Inyectar en Cascada';
             document.getElementById("visorCodigoGenerado").value = "";
-            document.getElementById("btnCopiarCodigo").disabled = true;
-            document.getElementById("btnDescargarHtml").disabled = true;
+            gestionarEdicionManual();
             actualizarPreviewEnVivo();
         }
 
@@ -815,7 +996,7 @@
             }
         }
 
-        // 8. COMPILADOR DE CÓDIGO CON IA GEMINI (CON REGLAS ARQUITECTÓNICAS ESTRICTAS)
+        // 8. COMPILADOR DE CÓDIGO CON IA GEMINI (CON REGLAS STRICT MODE)
         async function ejecutarCompilacionConGemini() {
             const apiKey = document.getElementById("apiKeyGeminiModule").value.trim();
             const promptUser = document.getElementById("promptModuloIA").value.trim();
@@ -829,6 +1010,7 @@
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Compilando con Gemini...';
             visor.value = "// Conectando con Gemini API para compilar arquitectura Cyber-Dark con Firebase Modular v10...";
+            gestionarEdicionManual();
 
             const idSugerido = sanitizarKey(document.getElementById("inputModuloId").value || "m9_nuevo_modulo");
             const tituloSugerido = document.getElementById("inputTitulo").value || "Nuevo Módulo ERP";
@@ -860,13 +1042,15 @@ REGLAS ARQUITECTÓNICAS CORPORATIVAS ESTRICTAS:
        databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com",
        projectId: "bolsa-de-trabajo-a52e4"
    };
-5. GOBERNANZA DE DATOS E INTEGRIDAD REFERENCIAL:
+5. CUMPLIMIENTO DE STRICT MODE (JAVASCRIPT MODERNO):
+   - PROHIBIDO usar palabras reservadas como identificadores o parámetros (NUNCA uses "eval", "arguments", "interface", "package", "public" ni "private" como nombres de variables, callbacks o parámetros en map/filter/forEach).
+6. GOBERNANZA DE DATOS E INTEGRIDAD REFERENCIAL:
    - Los módulos deben consultar, filtrar, auditar o actualizar datos SIN ELIMINAR registros de las tablas operativas maestras (/postulantes, /empresas, /rutas) a menos que se pida explícitamente una purga física.
-6. AUDITORÍA Y TRAZABILIDAD:
+7. AUDITORÍA Y TRAZABILIDAD:
    - Cada evento relevante debe registrar un log en /modulo_7_logs mediante push() con: { modulo: "${idSugerido}", evento, detalle, timestamp: serverTimestamp() }.
-7. HEADER CORPORATIVO:
+8. HEADER CORPORATIVO:
    - Incluir botón de retorno con enlace a "admin.html" ('Volver a CoreHub').
-8. FORMATO DE SALIDA:
+9. FORMATO DE SALIDA:
    - Devuelve EXCLUSIVAMENTE el código HTML completo y funcional dentro de un bloque markdown \`\`\`html ... \`\`\`, sin introducciones ni comentarios conversacionales.`;
 
             try {
@@ -886,18 +1070,18 @@ REGLAS ARQUITECTÓNICAS CORPORATIVAS ESTRICTAS:
                 codigoHtml = codigoHtml.replace(/^```html\s*/i, '').replace(/\s*```$/i, '').trim();
 
                 visor.value = codigoHtml;
-                document.getElementById("btnCopiarCodigo").disabled = false;
-                document.getElementById("btnDescargarHtml").disabled = false;
+                gestionarEdicionManual();
 
                 if (!document.getElementById("inputUrl").value.trim() || document.getElementById("inputUrl").value.endsWith(".html")) {
                     document.getElementById("inputUrl").value = `visor.html?mod=${idSugerido}`;
                 }
                 actualizarPreviewEnVivo();
 
-                alert("✅ Módulo compilado con éxito. Ahora puedes pulsar 'Guardar e Inyectar en Cascada'.");
+                alert("✅ Módulo compilado con éxito. Ahora puedes editar el código, previsualizarlo o pulsar 'Guardar e Inyectar en Cascada'.");
 
             } catch (err) {
                 visor.value = `// Error de compilación: ${err.message}`;
+                gestionarEdicionManual();
                 alert("Error al compilar con IA: " + err.message);
             } finally {
                 btn.disabled = false;
@@ -909,19 +1093,38 @@ REGLAS ARQUITECTÓNICAS CORPORATIVAS ESTRICTAS:
             const visor = document.getElementById("visorCodigoGenerado");
             if (!visor.value) return;
             navigator.clipboard.writeText(visor.value);
-            alert("📋 Código HTML copiado al portapapeles.");
+            alert("📋 Código copiado al portapapeles.");
         }
 
         function descargarArchivoHtmlCompilado() {
             const visor = document.getElementById("visorCodigoGenerado");
-            if (!visor.value) return;
+            const codigo = visor.value;
+            if (!codigo || codigo.trim().length === 0) {
+                alert("No hay código disponible para descargar.");
+                return;
+            }
 
-            const urlInput = document.getElementById("inputUrl").value.trim() || "nuevo_modulo.html";
-            const blob = new Blob([visor.value], { type: "text/html;charset=utf-8" });
+            let nombreArchivo = "modulo.html";
+            const idModulo = document.getElementById("inputModuloId").value.trim();
+            const urlInput = document.getElementById("inputUrl").value.trim();
+
+            if (urlInput.includes("?mod=")) {
+                const partes = urlInput.split("?mod=");
+                nombreArchivo = (partes[1] || idModulo || "modulo").replace(/[^a-z0-9_]/gi, "") + ".html";
+            } else if (urlInput.endsWith(".html")) {
+                nombreArchivo = urlInput;
+            } else if (idModulo) {
+                nombreArchivo = `${sanitizarKey(idModulo)}.html`;
+            }
+
+            const blob = new Blob([codigo], { type: "text/html;charset=utf-8" });
             const link = document.createElement("a");
             link.href = URL.createObjectURL(blob);
-            link.download = urlInput.endsWith(".html") ? urlInput : `${urlInput}.html`;
+            link.download = nombreArchivo;
+            document.body.appendChild(link);
             link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(link.href);
         }
     </script>
 </body>
