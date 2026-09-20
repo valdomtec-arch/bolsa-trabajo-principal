@@ -314,9 +314,14 @@
                     </h2>
                     <p class="text-xs text-slate-400 mt-0.5">Controla la visibilidad, estado activo/pausado y coherencia física de cada módulo en Firebase.</p>
                 </div>
-                <span id="badgeConteoModulos" class="text-xs font-mono bg-cyber-purple/15 text-cyber-purple border border-cyber-purple/30 px-3 py-1 rounded-lg font-bold">
-                    0 Módulos Registrados
-                </span>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="sembrarModulosOficialesERP()" title="Registrar fichas base de los 8 módulos maestros" class="bg-cyber-purple/20 hover:bg-cyber-purple text-purple-300 hover:text-white border border-purple-500/40 text-xs px-3 py-1.5 rounded-lg transition font-mono font-bold flex items-center gap-1.5">
+                        <i class="fas fa-seedling"></i> Sembrar Módulos ERP
+                    </button>
+                    <span id="badgeConteoModulos" class="text-xs font-mono bg-cyber-purple/15 text-cyber-purple border border-cyber-purple/30 px-3 py-1.5 rounded-lg font-bold">
+                        0 Módulos Registrados
+                    </span>
+                </div>
             </div>
 
             <div class="overflow-x-auto">
@@ -624,6 +629,159 @@
         }
         window.inicializarEscuchadorModulos = inicializarEscuchadorModulos;
 
+        // SEMILLERO: REGISTRA LOS MÓDULOS BASE DEL ERP EN FIREBASE
+        async function sembrarModulosOficialesERP() {
+            if (!confirm("¿Deseas registrar automáticamente las fichas operativas de los módulos nativos (M1 al M8) en Firebase?")) {
+                return;
+            }
+
+            const modulosBase = [
+                {
+                    key: "m1_postulantes",
+                    titulo: "M1: Captura de Candidatos & Postulantes",
+                    icono: "fa-user-plus",
+                    orden: 1,
+                    url: "m1_postulantes.html",
+                    tipo: "standard",
+                    descripcion: "Registro inicial, captura de expedientes y recepción de solicitudes de empleo."
+                },
+                {
+                    key: "m2_vacantes",
+                    titulo: "M2: Requisiciones & Vacantes",
+                    icono: "fa-briefcase",
+                    orden: 2,
+                    url: "m2_vacantes.html",
+                    tipo: "standard",
+                    descripcion: "Gestión de solicitudes de clientes corporativos, perfiles de puesto y cotizaciones."
+                },
+                {
+                    key: "m3_agenda",
+                    titulo: "M3: Agenda de Citas & Entrevistas",
+                    icono: "fa-calendar-check",
+                    orden: 3,
+                    url: "m3_agenda.html",
+                    tipo: "critical",
+                    descripcion: "Coordinación de citas, validación de asistencia, entrevistas operativas y dictamen médico."
+                },
+                {
+                    key: "m4_analitica",
+                    titulo: "M4: Tablero Analítico & KPIs",
+                    icono: "fa-chart-line",
+                    orden: 4,
+                    url: "m4_analitica.html",
+                    tipo: "critical",
+                    descripcion: "Métricas de conversión, efectividad de reclutadores y reportes de cobertura de vacantes."
+                },
+                {
+                    key: "m5_staff",
+                    titulo: "M5: Staff, Usuarios & Gobernanza RBAC",
+                    icono: "fa-users-gear",
+                    orden: 5,
+                    url: "m5_staff.html",
+                    tipo: "core",
+                    descripcion: "Administración de usuarios internos, estructura de roles dinámicos y niveles de acceso jerárquico."
+                },
+                {
+                    key: "m6_transporte",
+                    titulo: "M6: Logística de Transporte de Personal",
+                    icono: "fa-bus",
+                    orden: 6,
+                    url: "m6_transporte.html",
+                    tipo: "standard",
+                    descripcion: "Trazado de rutas, paradas estratégicas y asignación logística de candidatos a unidades de transporte."
+                },
+                {
+                    key: "m6_extractor_coordenadas",
+                    titulo: "M6.2: Extractor INEGI & Geocatálogos",
+                    icono: "fa-satellite",
+                    orden: 7,
+                    url: "m6_extractor_coordenadas.html",
+                    tipo: "core",
+                    descripcion: "Cosecha masiva oficial DENUE INEGI, ingestor satelital KML/KMZ y mantenimiento de coordenadas."
+                },
+                {
+                    key: "m7_auditoria",
+                    titulo: "M7: Bitácora Forense & Logs",
+                    icono: "fa-shield-halved",
+                    orden: 8,
+                    url: "m7_auditoria.html",
+                    tipo: "core",
+                    descripcion: "Trazabilidad inmutable de eventos, auditoría de transacciones y seguridad perimetral."
+                },
+                {
+                    key: "m8_creador_modulos",
+                    titulo: "M8: AI Module Factory & Orquestador",
+                    icono: "fa-wand-magic-sparkles",
+                    orden: 9,
+                    url: "m8_creador_modulos.html",
+                    tipo: "core",
+                    descripcion: "Arquitectura ERP, meta-generador con IA y gestión de módulos dinámicos."
+                }
+            ];
+
+            try {
+                const updates = {};
+                const adminRoles = Object.keys(diccionarioRoles).filter(rId => {
+                    return diccionarioRoles[rId].nivelJerarquico >= 4;
+                });
+
+                modulosBase.forEach(mod => {
+                    const payload = {
+                        id: mod.key,
+                        titulo: mod.titulo,
+                        icono: mod.icono,
+                        orden: mod.orden,
+                        tipo: mod.tipo,
+                        url: mod.url,
+                        descripcion: mod.descripcion,
+                        roles_permitidos: adminRoles,
+                        activo: true,
+                        codigo_fuente: null,
+                        ultimaActualizacion: Date.now()
+                    };
+
+                    updates[`modulos_config/${mod.key}`] = payload;
+                    updates[`configuracion_sistema/modulos_dinamicos/${mod.key}`] = {
+                        id: mod.key,
+                        nombre: mod.titulo,
+                        titulo: mod.titulo,
+                        descripcion: mod.descripcion,
+                        icono: `<i class="fas ${mod.icono}"></i>`,
+                        url: mod.url,
+                        tipo: mod.tipo,
+                        fechaCreacion: new Date().toLocaleDateString('es-MX'),
+                        codigo_fuente: null,
+                        activo: true
+                    };
+
+                    adminRoles.forEach(rId => {
+                        updates[`roles_dinamicos/${rId}/permisos/${mod.key}`] = {
+                            ver: true,
+                            crear: true,
+                            editar: true,
+                            eliminar: true
+                        };
+                    });
+                });
+
+                await db.ref().update(updates);
+
+                await db.ref("modulo_7_logs").push({
+                    modulo: "M8_CREADOR_MODULOS",
+                    evento: "SEMILLERO_MODULOS_BASE",
+                    detalle: "Se registraron formalmente los módulos maestros en Firebase.",
+                    ejecutadoPor: "Administrador Master",
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                });
+
+                alert("✅ Módulos nativos sembrados exitosamente en Firebase. La tabla ya está lista para auditarlos.");
+
+            } catch (err) {
+                alert("Error al sembrar módulos: " + err.message);
+            }
+        }
+        window.sembrarModulosOficialesERP = sembrarModulosOficialesERP;
+
         // PRECARGAR PLANTILLA DEL SUBMÓDULO M6.2 EXTRACTOR GEO
         function cargarPlantillaM6Extractor() {
             document.getElementById("editModuloKey").value = "";
@@ -647,7 +805,20 @@
             tbody.innerHTML = "";
 
             if (catalogoModulos.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-500 italic">No hay módulos configurados en Firebase.</td></tr>`;
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="p-8 text-center bg-[#06101e]/60 rounded-xl border border-dashed border-slate-800">
+                            <div class="max-w-md mx-auto space-y-3">
+                                <i class="fas fa-cubes text-3xl text-cyber-purple"></i>
+                                <h3 class="text-sm font-bold text-white font-mono">No se detectaron módulos registrados en Firebase</h3>
+                                <p class="text-[11px] text-slate-400 font-sans">Los módulos estándar (M1 al M8) operan como archivos físicos. Pulsa el botón para sembrar sus fichas en Firebase y comenzar a gobernarlos desde M8.</p>
+                                <button type="button" onclick="sembrarModulosOficialesERP()" class="bg-cyber-purple/20 hover:bg-cyber-purple text-purple-300 hover:text-white border border-purple-500/40 text-xs px-4 py-2 rounded-xl transition font-mono font-bold flex items-center gap-2 mx-auto">
+                                    <i class="fas fa-seedling"></i> Sembrar Módulos Oficiales del ERP (M1 - M8)
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
                 return;
             }
 
@@ -663,7 +834,6 @@
 
                 const esVirtual = (mod.url || "").includes("visor.html") || !!mod.codigo_fuente;
 
-                // Sanitización limpia del icono
                 let iconoTag = `<i class="fas fa-cubes"></i>`;
                 if (mod.icono) {
                     if (mod.icono.includes("<i")) {
@@ -681,7 +851,7 @@
                             <div class="font-bold text-white flex items-center gap-2">
                                 <span class="w-6 h-6 rounded bg-cyber-cardAlt flex items-center justify-center text-cyber-cyan text-xs">${iconoTag}</span>
                                 <span>${mod.titulo}</span>
-                                ${esVirtual ? '<span class="text-[9px] bg-cyan-950/80 text-cyan-300 border border-cyan-500/30 px-1.5 py-0.5 rounded font-mono">VIRTUAL</span>' : ''}
+                                ${esVirtual ? '<span class="text-[9px] bg-cyan-950/80 text-cyan-300 border border-cyan-500/30 px-1.5 py-0.5 rounded font-mono">VIRTUAL</span>' : '<span class="text-[9px] bg-slate-800 text-slate-400 border border-slate-700 px-1.5 py-0.5 rounded font-mono">FÍSICO</span>'}
                             </div>
                             <div class="text-[10px] text-slate-400 font-sans mt-0.5 truncate max-w-xs">${mod.descripcion}</div>
                         </td>
@@ -761,12 +931,10 @@
             btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Validando integridad...';
 
             try {
-                // 1. REGLA DE VALIDACIÓN PREVIA EN FIREBASE
                 const snapActual = await db.ref(`modulos_config/${moduloKey}`).once("value");
                 const existePrevio = snapActual.exists();
                 const dataPrevia = existePrevio ? snapActual.val() : null;
 
-                // Alerta de seguridad si ya tenía código distinto registrado
                 if (existePrevio && dataPrevia.codigo_fuente && dataPrevia.codigo_fuente.trim().length > 20) {
                     if (dataPrevia.codigo_fuente.trim() !== codigoCompilado) {
                         const confirmarSobrescritura = confirm(
@@ -780,7 +948,6 @@
                     }
                 }
 
-                // 2. RECUPERAR ROLES
                 const rolesSeleccionados = [];
                 document.querySelectorAll(".check-rol-item:checked").forEach(cb => rolesSeleccionados.push(cb.value));
 
@@ -790,7 +957,6 @@
                     }
                 });
 
-                // 3. FUSIÓN CONSERVADORA DE METADATOS
                 const rolesFinales = (rolesSeleccionados.length > 0) 
                     ? rolesSeleccionados 
                     : (dataPrevia && dataPrevia.roles_permitidos ? dataPrevia.roles_permitidos : []);
@@ -994,12 +1160,10 @@
 
             const visor = document.getElementById("visorCodigoGenerado");
 
-            // 1. Si ya tiene código persistido en Firebase
             if (m.codigo_fuente && m.codigo_fuente.trim().length > 20) {
                 visor.value = m.codigo_fuente;
                 gestionarEdicionManual();
             } 
-            // 2. Si apunta a un archivo físico local o relativo (.html)
             else if (m.url && !m.url.includes("visor.html") && m.url.endsWith(".html")) {
                 visor.value = `<!-- Extrayendo código fuente desde el archivo físico: ${m.url}... -->`;
                 gestionarEdicionManual();
