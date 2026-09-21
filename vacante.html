@@ -610,7 +610,6 @@
             user-select: none;
         }
 
-        /* Banner de Modo Asistido */
         .banner-modo-asistido {
             background: rgba(168, 85, 247, 0.12);
             border: 1px solid rgba(168, 85, 247, 0.35);
@@ -878,6 +877,7 @@
     let estatusOperativoEmpresa = "Disponible";
     let catalogoUsuariosGlobal = {};
     let objetoEmpresaRaw = null;
+    let claveEmpresaM1Oficial = ""; 
     const fallbackTelefonoReclutador = "528112345678";
 
     let arrayBannersRevolver = [];
@@ -894,7 +894,6 @@
         const inputFecha = document.getElementById('postFechaEntrevista');
         if (inputFecha) inputFecha.min = new Date().toISOString().split('T')[0];
 
-        // Detección de parámetro ?modo=asistido
         if (urlParams.get('modo') === 'asistido') {
             const chk = document.getElementById('chkModoAsistido');
             if (chk) { chk.checked = true; alternarModoAsistido(); }
@@ -997,14 +996,23 @@
                 if (snapEmpresas.exists()) {
                     const catalogo = snapEmpresas.val();
                     let infoMaestra = catalogo[empresaLimpia] || catalogo[empresaCompacta];
+                    claveEmpresaM1Oficial = empresaLimpia;
 
                     if (!infoMaestra) {
                         const hitKey = Object.keys(catalogo).find(k => {
-                            return sanitizarCompacto(k) === empresaCompacta ||
-                                   sanitizarCompacto(catalogo[k]?.nombreComercial) === empresaCompacta ||
-                                   sanitizarCompacto(catalogo[k]?.razonSocial) === empresaCompacta;
+                            const kComp = sanitizarCompacto(k);
+                            const nomComp = sanitizarCompacto(catalogo[k]?.nombreComercial || catalogo[k]?.nombre || '');
+                            const razComp = sanitizarCompacto(catalogo[k]?.razonSocial || '');
+                            return kComp === empresaCompacta ||
+                                   kComp.includes(empresaCompacta) ||
+                                   empresaCompacta.includes(kComp) ||
+                                   nomComp.includes(empresaCompacta) ||
+                                   razComp.includes(empresaCompacta);
                         });
-                        if (hitKey) infoMaestra = catalogo[hitKey];
+                        if (hitKey) {
+                            infoMaestra = catalogo[hitKey];
+                            claveEmpresaM1Oficial = hitKey;
+                        }
                     }
 
                     if (infoMaestra) {
@@ -1024,10 +1032,16 @@
             db.ref('vacantes_detalles').on('value', async function(snapshot) {
                 if (snapshot.exists()) {
                     const catalogoVacantes = snapshot.val();
-                    let dataRaw = catalogoVacantes[empresaLimpia] || catalogoVacantes[empresaCompacta];
+                    let dataRaw = catalogoVacantes[empresaLimpia] || catalogoVacantes[empresaCompacta] || catalogoVacantes[claveEmpresaM1Oficial];
 
                     if (!dataRaw) {
-                        const hitKey = Object.keys(catalogoVacantes).find(k => sanitizarCompacto(k) === empresaCompacta);
+                        const hitKey = Object.keys(catalogoVacantes).find(k => {
+                            const kComp = sanitizarCompacto(k);
+                            return kComp === empresaCompacta ||
+                                   kComp.includes(empresaCompacta) ||
+                                   empresaCompacta.includes(kComp) ||
+                                   (claveEmpresaM1Oficial && kComp === sanitizarCompacto(claveEmpresaM1Oficial));
+                        });
                         if (hitKey) dataRaw = catalogoVacantes[hitKey];
                     }
                     
@@ -1488,6 +1502,9 @@
         }
     }
 
+    // =========================================================================
+    // INICIALIZADOR BLINDADO Y TOLERANTE DE RUTAS (SINCRONIZACIÓN M1, M2 Y M6)
+    // =========================================================================
     async function inicializarBuscadorRutas() {
         const txtDetallesTrans = document.getElementById('txtDetallesTransporte');
         const selectRutas = document.getElementById('selRutaEmpresa');
@@ -1510,6 +1527,7 @@
         let rawData = null;
 
         try {
+            // 1. Consulta directa por parámetro de URL
             let snap = await db.ref(`rutas/${empresaLimpia}`).once('value');
             if (snap.exists()) {
                 rawData = snap.val();
@@ -1518,14 +1536,53 @@
                 if (snapComp.exists()) rawData = snapComp.val();
             }
 
+            // 2. Consulta por la clave oficial detectada en M1
+            if (!rawData && claveEmpresaM1Oficial) {
+                const cLimpia = sanitizarClave(claveEmpresaM1Oficial);
+                const cComp = sanitizarCompacto(claveEmpresaM1Oficial);
+                let snapM1 = await db.ref(`rutas/${cLimpia}`).once('value');
+                if (snapM1.exists()) {
+                    rawData = snapM1.val();
+                } else {
+                    let snapM1Comp = await db.ref(`rutas/${cComp}`).once('value');
+                    if (snapM1Comp.exists()) rawData = snapM1Comp.val();
+                }
+            }
+
+            // 3. Consulta por el nombre comercial maestro de M1 (ej: HYUNDAI GLOVIS CC)
+            if (!rawData && nombreEmpresaMaestro) {
+                const maestroLimpio = sanitizarClave(nombreEmpresaMaestro);
+                const maestroComp = sanitizarCompacto(nombreEmpresaMaestro);
+                let snapNom = await db.ref(`rutas/${maestroLimpio}`).once('value');
+                if (snapNom.exists()) {
+                    rawData = snapNom.val();
+                } else {
+                    let snapNomComp = await db.ref(`rutas/${maestroComp}`).once('value');
+                    if (snapNomComp.exists()) rawData = snapNomComp.val();
+                }
+            }
+
+            // 4. Barrido tolerante global: Coincidencia cruzada por subcadena (Hyundai / Glovis / CC)
             if (!rawData) {
                 const snapTotal = await db.ref('rutas').once('value');
                 if (snapTotal.exists()) {
                     const todasLasRutas = snapTotal.val();
                     const claveEncontrada = Object.keys(todasLasRutas).find(k => {
-                        return sanitizarCompacto(k) === empresaCompacta ||
-                               sanitizarCompacto(todasLasRutas[k]?.empresa) === empresaCompacta ||
-                               sanitizarCompacto(todasLasRutas[k]?.empresaId) === empresaCompacta;
+                        const kComp = sanitizarCompacto(k);
+                        const empComp = empresaCompacta;
+                        const maestroComp = sanitizarCompacto(nombreEmpresaMaestro);
+                        const m1Comp = sanitizarCompacto(claveEmpresaM1Oficial);
+
+                        const coincideUrl = empComp && (kComp.includes(empComp) || empComp.includes(kComp));
+                        const coincideMaestro = maestroComp && (kComp.includes(maestroComp) || maestroComp.includes(kComp));
+                        const coincideM1 = m1Comp && (kComp.includes(m1Comp) || m1Comp.includes(kComp));
+                        
+                        const metaEmpresa = sanitizarCompacto(todasLasRutas[k]?.empresa || '');
+                        const metaEmpresaId = sanitizarCompacto(todasLasRutas[k]?.empresaId || '');
+                        const coincideMeta = (metaEmpresa && (metaEmpresa.includes(empComp) || empComp.includes(metaEmpresa))) ||
+                                             (metaEmpresaId && (metaEmpresaId.includes(empComp) || empComp.includes(metaEmpresaId)));
+
+                        return coincideUrl || coincideMaestro || coincideM1 || coincideMeta;
                     });
 
                     if (claveEncontrada) {
@@ -1533,34 +1590,48 @@
                     }
                 }
             }
+
+            // Si las rutas están anidadas bajo un contenedor .rutas
+            if (rawData && rawData.rutas && typeof rawData.rutas === 'object') {
+                rawData = rawData.rutas;
+            }
+
         } catch (errRutas) {
-            console.warn("Advertencia en lectura de rutas:", errRutas);
+            console.warn("Advertencia en lectura tolerante de rutas:", errRutas);
         }
 
         if (rawData) {
             Object.keys(rawData).forEach(key => {
                 const item = rawData[key];
                 if (typeof item === 'object' && item !== null) {
-                    const nombreRuta = item.nombreRuta || item.ruta || key;
+                    const nombreRuta = item.nombreRuta || item.ruta || item.nombre || key;
                     
                     if (!estructuraRutasGlobal[nombreRuta]) {
                         estructuraRutasGlobal[nombreRuta] = [];
                     }
 
+                    // Caso A: La ruta contiene un arreglo de paradas
                     if (Array.isArray(item.paradas) && item.paradas.length > 0) {
                         item.paradas.forEach((p, pIndex) => {
                             let lat = null, lng = null;
-                            if (p.coordenadasAbordaje && typeof p.coordenadasAbordaje === 'string') {
-                                const partes = p.coordenadasAbordaje.split(',');
+                            const coordRaw = p.coordenadasAbordaje || p.coordenadas || p.latlng || "";
+                            if (typeof coordRaw === 'string') {
+                                const partes = coordRaw.split(',');
                                 if (partes.length === 2) {
                                     lat = parseFloat(partes[0].trim());
                                     lng = parseFloat(partes[1].trim());
                                 }
+                            } else if (p.lat && p.lng) {
+                                lat = parseFloat(p.lat);
+                                lng = parseFloat(p.lng);
                             }
 
                             const numParada = p.numeroParada || (pIndex + 1);
-                            const nombreParada = p.referenciaOriginal || p.cruceVialEnriquecido || `Parada #${numParada}`;
-                            const horariosTexto = (p.horarios || []).map(h => h.formatoCivil || h).join(' / ');
+                            const nombreParada = p.referenciaOriginal || p.cruceVialEnriquecido || p.nombre || `Parada #${numParada}`;
+                            const horariosTexto = (p.horarios && Array.isArray(p.horarios)) 
+                                ? p.horarios.map(h => h.formatoCivil || h).join(' / ') 
+                                : (p.horario || item.horarioPaso || "");
+
                             const valOption = `${nombreRuta} ➔ #${numParada} ${nombreParada}${horariosTexto ? ' (' + horariosTexto + ')' : ''}`;
 
                             const objetoParada = {
@@ -1568,7 +1639,7 @@
                                 numeroParada: numParada,
                                 nombreRuta: nombreRuta,
                                 nombre: nombreParada,
-                                horario: horariosTexto || item.horarioPaso || "",
+                                horario: horariosTexto,
                                 valOption: valOption,
                                 lat: lat,
                                 lng: lng
@@ -1577,18 +1648,24 @@
                             estructuraRutasGlobal[nombreRuta].push(objetoParada);
                             if (!isNaN(lat) && !isNaN(lng)) listaTodasLasParadasFlat.push(objetoParada);
                         });
-                    } else {
+                    } 
+                    // Caso B: Objeto plano o punto directo de abordaje
+                    else {
                         let lat = null, lng = null;
-                        if (item.coordenadasAbordaje && typeof item.coordenadasAbordaje === 'string') {
-                            const partes = item.coordenadasAbordaje.split(',');
+                        const coordRaw = item.coordenadasAbordaje || item.coordenadas || item.latlng || "";
+                        if (typeof coordRaw === 'string') {
+                            const partes = coordRaw.split(',');
                             if (partes.length === 2) {
                                 lat = parseFloat(partes[0].trim());
                                 lng = parseFloat(partes[1].trim());
                             }
+                        } else if (item.lat && item.lng) {
+                            lat = parseFloat(item.lat);
+                            lng = parseFloat(item.lng);
                         }
 
-                        const nombreParada = item.puntosAbordaje || "Punto de Abordaje";
-                        const horario = item.horarioPaso || "";
+                        const nombreParada = item.puntosAbordaje || item.nombreParada || item.referenciaOriginal || item.nombre || "Punto de Abordaje";
+                        const horario = item.horarioPaso || item.horario || "";
                         const valOption = `${nombreRuta} ➔ ${nombreParada}${horario ? ' (' + horario + ')' : ''}`;
 
                         const objetoParada = {
@@ -1711,6 +1788,7 @@
                             const empComp = sanitizarCompacto(e);
                             return empNormalizada === empresaLimpia || 
                                    empComp === empresaCompacta || 
+                                   (claveEmpresaM1Oficial && empComp === sanitizarCompacto(claveEmpresaM1Oficial)) ||
                                    sanitizarCompacto(nombreEmpresaMaestro) === empComp;
                         });
 
@@ -1748,7 +1826,6 @@
         return { edad: isNaN(edadCalculada) ? "Indistinto" : String(edadCalculada), sexo: sexo };
     }
 
-    // VERIFICACIÓN ESTRICTA DE LEAD OWNERSHIP POR CURP Y TELÉFONO
     async function verificarTitularidadCandidato(curp, telefono) {
         try {
             const estatusLiberados = ['Declinante', 'No Apto Medico', 'No Apto Entrevista'];
@@ -1780,7 +1857,6 @@
         return { existe: false, titular: null, keyOriginal: null };
     }
 
-    // ENVÍO DE POSTULACIÓN CON BLINDAJE ANTI-DUPLICIDAD Y ROLES INVERTIDOS EN WHATSAPP
     window.enviarPostulacion = async function(e) {
         e.preventDefault();
         
@@ -1822,7 +1898,6 @@
             let reclutadorIdFinal = null;
             let objetoAsesor = null;
 
-            // BLINDAJE ANTI-DUPLICIDAD: Reutilizar clave existente si ya cuenta con proceso activo
             let timestampId = "WF-" + Math.floor(100000 + Math.random() * 900000);
             let esActualizacion = false;
 
@@ -1895,7 +1970,7 @@
                 edad: datosExtraidos.edad,
                 sexo: datosExtraidos.sexo,
                 empresa: empresaNombreFinal,
-                empresaId: empresaLimpia,
+                empresaId: claveEmpresaM1Oficial || empresaLimpia,
                 division: divisionEmpresaMaestro,
                 vacante: vacanteNombreFinal,
                 nombreVacante: vacanteNombreFinal,
@@ -1923,14 +1998,12 @@
                 timestamp: firebase.database.ServerValue.TIMESTAMP
             };
 
-            // PERSISTENCIA SIN DUPLICADOS
             if (esActualizacion) {
                 await db.ref(`postulantes/${timestampId}`).update(payloadPostulante);
             } else {
                 await db.ref(`postulantes/${timestampId}`).set(payloadPostulante);
             }
 
-            // Registro inmutable en Caja Negra (M7)
             await db.ref('modulo_7_logs').push({
                 modulo: "VACANTE_PUBLICO",
                 evento: esActualizacion ? "ACTUALIZACION_TITULARIDAD_POSTULACION" : "NUEVA_POSTULACION_CANDIDATO",
@@ -1939,14 +2012,10 @@
                 timestamp: firebase.database.ServerValue.TIMESTAMP
             });
 
-            // =========================================================================
-            // INVERSIÓN DINÁMICA DE EMISOR Y DESTINATARIO EN WHATSAPP
-            // =========================================================================
             let telefonoWhatsappDestino = "";
             let mensajeWhatsApp = "";
 
             if (esModoAsistido) {
-                // ESCENARIO 2: Reclutador (Emisor) -> Candidato (Destinatario)
                 telefonoWhatsappDestino = telCandidatoLimpio;
                 mensajeWhatsApp = `¡Hola *${nombre}*! Te saludamos del área de Reclutamiento y Selección.\n\n` +
                                   `Hemos completado tu registro oficial para la vacante *${vacanteNombreFinal}* en *${empresaNombreFinal}*.\n\n` +
@@ -1962,7 +2031,6 @@
                                   `${urlAcuseDigital}\n\n` +
                                   `_Favor de presentarte con tu identificación oficial (INE) y CURP en mano._`;
             } else {
-                // ESCENARIO 1: Candidato (Emisor) -> Reclutador (Destinatario)
                 telefonoWhatsappDestino = telReclutadorLimpio;
                 mensajeWhatsApp = `¡Hola! Me acabo de postular a una vacante y agendé mi cita.\n\n` +
                                   `*📌 Detalles de mi Postulación:*\n` +
