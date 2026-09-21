@@ -1,0 +1,2071 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Bolsa de Trabajo - Portal Premium de Vacantes</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Firebase JS SDK v10.8.0 Compat -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
+    <!-- Leaflet.js -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        :root {
+            --wf-accent-blue: #38bdf8;         
+            --wf-accent-hover: #0ea5e9;        
+            --wf-accent-glow: rgba(56, 189, 248, 0.35); 
+            --secondary-blue: #0f1a2c;         
+            --secondary-blue-dark: #070f1e;    
+            
+            --bg-page: #040814;                         
+            --container-bg: #0b1426;                
+            --card-bg: rgba(22, 36, 59, 0.55);           
+            --bg-form: #0d1a30;                         
+            --input-bg: #142443;                        
+            
+            --white: #ffffff;
+            --text-light: #f1f5f9;       
+            --text-muted: #94a3b8;       
+            --green-whatsapp: #22c55e;
+            --green-whatsapp-hover: #16a34a;
+            --orange-title: #f97316;
+            
+            --border-color: rgba(56, 189, 248, 0.15);     
+            --radius-lg: 24px;
+            --radius-md: 16px;
+            --shadow-md: 0 12px 25px -5px rgba(0, 0, 0, 0.6);
+            --shadow-lg: 0 30px 60px -15px rgba(0, 0, 0, 0.8);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
+        
+        body {
+            background: radial-gradient(circle at 50% 0%, #0d1f3d 0%, var(--bg-page) 85%);
+            color: var(--text-light);
+            line-height: 1.6;
+            padding: 15px 8px;
+            min-height: 100vh;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            background: var(--container-bg);
+            padding: 20px 14px;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(12px);
+        }
+
+        @media (min-width: 768px) {
+            body { padding: 25px 12px; }
+            .container { padding: 32px 24px; }
+        }
+
+        #loading {
+            text-align: center;
+            padding: 50px 20px;
+            font-size: 1.15rem;
+            color: var(--wf-accent-blue);
+            font-weight: 600;
+        }
+
+        .alerta-semaforo-box {
+            padding: 16px 20px;
+            border-radius: var(--radius-md);
+            margin-bottom: 22px;
+            display: none;
+            align-items: center;
+            gap: 14px;
+            font-size: 0.92rem;
+            line-height: 1.5;
+            box-shadow: var(--shadow-md);
+        }
+
+        .alerta-pausa {
+            background: rgba(245, 158, 11, 0.15);
+            border: 2px solid rgba(245, 158, 11, 0.5);
+            color: #fbbf24;
+        }
+
+        .alerta-nodisponible {
+            background: rgba(239, 68, 68, 0.15);
+            border: 2px solid rgba(239, 68, 68, 0.5);
+            color: #f87171;
+        }
+
+        .alerta-cerrada {
+            background: rgba(100, 116, 139, 0.2);
+            border: 2px solid rgba(100, 116, 139, 0.5);
+            color: #cbd5e1;
+            text-align: center;
+            padding: 50px 20px;
+        }
+
+        .btn-regresar {
+            background: var(--secondary-blue);
+            border: 1px solid var(--border-color);
+            color: var(--text-light);
+            padding: 10px 20px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-size: 0.88rem;
+            margin-bottom: 20px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            min-height: 44px;
+        }
+
+        .btn-regresar:hover {
+            background: var(--wf-accent-blue);
+            color: var(--secondary-blue-dark);
+            box-shadow: 0 0 15px var(--wf-accent-glow);
+        }
+
+        .empresa-header {
+            text-align: center;
+            margin-bottom: 25px;
+            background: linear-gradient(135deg, #0e1c33 0%, var(--secondary-blue-dark) 100%);
+            padding: 22px 16px;
+            border-radius: var(--radius-md);
+            border-top: 1px solid rgba(56, 189, 248, 0.25);
+            border-bottom: 4px solid var(--wf-accent-blue);
+            box-shadow: var(--shadow-md);
+        }
+
+        .empresa-header h1 {
+            color: var(--white);
+            font-size: clamp(1.35rem, 4vw, 2.1rem);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            word-break: break-word;
+        }
+
+        .empresa-header .location {
+            color: var(--wf-accent-blue);
+            font-size: 0.95rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .btn-mapa-header {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(56, 189, 248, 0.12);
+            border: 1px solid var(--wf-accent-blue);
+            color: var(--wf-accent-blue);
+            padding: 8px 18px;
+            border-radius: 20px;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 0.88rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.15);
+            min-height: 44px;
+        }
+
+        .btn-mapa-header:hover {
+            background: var(--wf-accent-blue);
+            color: var(--secondary-blue-dark);
+            box-shadow: 0 0 20px var(--wf-accent-glow);
+            transform: translateY(-2px);
+        }
+
+        .menu-titulo {
+            text-align: center;
+            font-size: clamp(1.05rem, 3.5vw, 1.25rem);
+            color: var(--white);
+            font-weight: 800;
+            margin-bottom: 22px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .vacantes-lista { display: flex; flex-direction: column; gap: 14px; }
+
+        .vacante-item-card {
+            background: linear-gradient(135deg, rgba(22, 36, 59, 0.4) 0%, rgba(13, 26, 48, 0.7) 100%);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 16px 18px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            gap: 12px;
+            min-height: 60px;
+        }
+
+        .vacante-item-card:hover {
+            border-color: var(--wf-accent-blue);
+            background: rgba(56, 189, 248, 0.08);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 18px rgba(56, 189, 248, 0.15);
+        }
+
+        .vacante-item-info { flex: 1; min-width: 0; }
+
+        .vacante-item-info h2 {
+            color: var(--orange-title);
+            font-size: clamp(1.05rem, 3.5vw, 1.25rem);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            font-weight: 700;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            line-height: 1.3;
+        }
+
+        .vacante-item-info p { 
+            color: var(--text-muted); 
+            font-size: 0.88rem; 
+            display: inline-flex; 
+            align-items: center; 
+            gap: 8px; 
+            flex-wrap: wrap;
+        }
+
+        .badge-status-puesto {
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .chevron-icon { color: var(--wf-accent-blue); font-size: 1.2rem; transition: transform 0.3s ease; flex-shrink: 0; }
+        .vacante-item-card:hover .chevron-icon { transform: translateX(5px); }
+        
+        .revolver-carousel-container {
+            position: relative;
+            width: 100%;
+            height: clamp(190px, 42vw, 310px);
+            margin-bottom: 25px;
+            display: none;
+            overflow: hidden;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-md);
+            background: #000;
+        }
+
+        .revolver-stage { width: 100%; height: 100%; position: relative; }
+
+        .revolver-slide {
+            position: absolute;
+            width: 100%; height: 100%;
+            top: 0; left: 0;
+            opacity: 0;
+            transition: opacity 0.6s ease-in-out;
+            display: flex; align-items: center; justify-content: center;
+            overflow: hidden;
+        }
+
+        .revolver-slide.active { opacity: 1; z-index: 2; }
+
+        .revolver-bg-blur {
+            position: absolute;
+            top: -10%; left: -10%;
+            width: 120%; height: 120%;
+            background-size: cover; background-position: center;
+            filter: blur(22px) brightness(0.45) saturate(1.4);
+            transform: scale(1.05);
+            animation: bgRespiracion 10s infinite alternate ease-in-out;
+            z-index: 1;
+        }
+
+        @keyframes bgRespiracion {
+            0% { transform: scale(1.02); filter: blur(20px) brightness(0.4); }
+            100% { transform: scale(1.12); filter: blur(28px) brightness(0.55); }
+        }
+
+        .revolver-slide img.main-banner-img {
+            position: relative; z-index: 2;
+            width: 100%; height: 100%;
+            object-fit: contain;
+            filter: drop-shadow(0 10px 20px rgba(0,0,0,0.7));
+        }
+
+        .revolver-nav {
+            position: absolute; top: 50%;
+            transform: translateY(-50%);
+            background: rgba(4, 8, 20, 0.75);
+            color: var(--wf-accent-blue);
+            border: 1px solid var(--border-color);
+            width: 44px; height: 44px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; z-index: 10;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(4px);
+        }
+
+        .revolver-nav:hover {
+            background: var(--wf-accent-blue);
+            color: var(--secondary-blue-dark);
+            box-shadow: 0 0 15px var(--wf-accent-glow);
+        }
+
+        .revolver-prev { left: 10px; }
+        .revolver-next { right: 10px; }
+
+        .revolver-indicators {
+            position: absolute; bottom: 12px; left: 50%;
+            transform: translateX(-50%);
+            display: flex; gap: 8px; z-index: 10;
+        }
+
+        .revolver-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: rgba(255, 255, 255, 0.35);
+            cursor: pointer; transition: all 0.3s ease;
+        }
+
+        .revolver-dot.active {
+            background: var(--wf-accent-blue);
+            width: 20px; border-radius: 10px;
+            box-shadow: 0 0 10px var(--wf-accent-glow);
+        }
+
+        .vacante-layout-grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
+
+        @media (min-width: 960px) {
+            .vacante-layout-grid { grid-template-columns: 1.15fr 0.85fr; align-items: start; gap: 25px; }
+            .sticky-side-form { position: sticky; top: 25px; }
+        }
+        
+        .card { 
+            background-color: var(--card-bg); 
+            padding: 18px 16px; 
+            border-radius: var(--radius-md); 
+            margin-bottom: 20px; 
+            border: 1px solid var(--border-color); 
+            backdrop-filter: blur(8px); 
+        }
+
+        @media (min-width: 768px) { .card { padding: 22px; } }
+
+        .card h3 { 
+            font-size: 1.15rem; color: var(--white); 
+            border-bottom: 2px solid var(--border-color); 
+            padding-bottom: 10px; margin-bottom: 16px; 
+            display: flex; align-items: center; gap: 10px; 
+        }
+
+        .vacante-titulo-principal { 
+            color: var(--orange-title) !important; 
+            font-size: clamp(1.2rem, 4vw, 1.5rem) !important; 
+            font-weight: 800; 
+            text-transform: uppercase; 
+            text-align: center;
+            word-break: break-word;
+            line-height: 1.3;
+        }
+        
+        .meta-info { 
+            display: flex; flex-wrap: wrap; gap: 12px; 
+            color: var(--text-muted); font-size: 0.88rem; 
+            margin-bottom: 20px; background: #081122; 
+            padding: 10px 14px; border-radius: 10px; 
+            border: 1px solid var(--border-color); 
+        }
+
+        .meta-info span { display: inline-flex; align-items: center; gap: 6px; }
+        .meta-info i { color: var(--wf-accent-blue); }
+
+        .grid-detalles { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); 
+            gap: 10px; 
+        }
+
+        .detalle-item { 
+            background: rgba(8, 17, 34, 0.7); 
+            padding: 10px 12px; border-radius: 8px; 
+            border: 1px solid var(--border-color); 
+        }
+
+        .detalle-item strong { 
+            display: block; font-size: 0.75rem; 
+            color: var(--wf-accent-blue); text-transform: uppercase; 
+            letter-spacing: 0.8px; margin-bottom: 3px; 
+        }
+
+        .detalle-item span { font-size: 0.88rem; color: var(--text-light); font-weight: 600; word-break: break-word; }
+        .texto-bloque { white-space: pre-wrap; font-size: 0.92rem; line-height: 1.6; color: #cbd5e1; }
+
+        .card-transporte {
+            background: linear-gradient(135deg, rgba(14, 30, 54, 0.9) 0%, rgba(7, 15, 30, 0.95) 100%);
+            border: 2px solid var(--wf-accent-blue);
+            padding: 18px 16px; border-radius: var(--radius-md);
+            margin-bottom: 20px;
+            box-shadow: 0 0 20px var(--wf-accent-glow);
+        }
+
+        @media (min-width: 768px) { .card-transporte { padding: 22px; } }
+
+        .card-transporte h3 {
+            font-size: 1.15rem; color: #fff;
+            border-bottom: 2px solid rgba(56, 189, 248, 0.3);
+            padding-bottom: 10px; margin-bottom: 14px;
+            display: flex; align-items: center; gap: 10px;
+        }
+
+        .transporte-detalles {
+            font-size: 0.88rem; color: #cbd5e1;
+            background: rgba(4, 8, 20, 0.4);
+            padding: 12px; border-radius: 8px;
+            margin-bottom: 15px;
+            border-left: 4px solid var(--wf-accent-blue);
+        }
+
+        .cp-search-group {
+            display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px;
+        }
+
+        @media (min-width: 480px) {
+            .cp-search-group { flex-direction: row; }
+        }
+
+        .input-filtro-colonia {
+            flex: 1; padding: 12px 14px;
+            background: var(--input-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px; color: white;
+            font-size: 0.92rem; outline: none;
+            min-height: 44px;
+        }
+
+        .input-filtro-colonia:focus {
+            border-color: var(--wf-accent-blue);
+        }
+
+        .btn-filtrar-cp {
+            background: var(--orange-title);
+            color: #fff; border: none;
+            padding: 12px 18px; border-radius: 8px;
+            font-weight: 700; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 6px;
+            white-space: nowrap; transition: background 0.2s;
+            min-height: 44px;
+        }
+
+        .btn-filtrar-cp:hover { background: #ea580c; }
+
+        #mapaRutas {
+            height: 280px; width: 100%;
+            border-radius: 12px; margin-top: 10px;
+            margin-bottom: 15px; border: 1px solid var(--wf-accent-blue);
+            z-index: 1;
+        }
+
+        .btn-gps {
+            background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+            color: white; border: none; padding: 12px 16px;
+            border-radius: 8px; font-weight: bold; font-size: 0.9rem;
+            cursor: pointer; width: 100%;
+            display: flex; align-items: center; justify-content: center;
+            gap: 8px; margin-bottom: 14px; transition: all 0.3s ease;
+            box-shadow: 0 0 10px rgba(14, 165, 233, 0.3);
+            min-height: 44px;
+        }
+
+        .btn-gps:hover {
+            background: #38bdf8; color: #070f1e;
+            box-shadow: 0 0 18px var(--wf-accent-glow);
+        }
+
+        .pin-parada-gps {
+            position: relative;
+            width: 28px;
+            height: 28px;
+            background: #0284c7;
+            border: 2px solid #ffffff;
+            border-radius: 50% 50% 50% 0;
+            transform: rotate(-45deg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.65), 0 0 8px rgba(56,189,248,0.7);
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .pin-parada-gps:hover {
+            transform: rotate(-45deg) scale(1.18);
+            background: #38bdf8;
+        }
+
+        .pin-parada-num {
+            transform: rotate(45deg);
+            color: #ffffff;
+            font-size: 11px;
+            font-weight: 800;
+            line-height: 1;
+            text-align: center;
+            user-select: none;
+        }
+
+        .popup-parada-card {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            font-size: 12px;
+            color: #f1f5f9;
+            padding: 2px;
+            line-height: 1.4;
+        }
+
+        .popup-parada-card .btn-popup-gmaps {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            margin-top: 8px;
+            background: #0ea5e9;
+            color: #ffffff !important;
+            text-decoration: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 11px;
+            transition: background 0.2s ease;
+            min-height: 36px;
+        }
+
+        .popup-parada-card .btn-popup-gmaps:hover {
+            background: #38bdf8;
+            color: #070f1e !important;
+        }
+
+        .leaflet-popup-content-wrapper {
+            background: #0f1a2c !important; 
+            color: #fff !important;
+            border: 1px solid var(--wf-accent-blue) !important; 
+            border-radius: 10px !important;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.8) !important;
+        }
+        .leaflet-popup-tip { background: #0f1a2c !important; }
+
+        .links-section { 
+            background: var(--bg-form); padding: 22px 16px; 
+            border-radius: var(--radius-md); 
+            border-top: 4px solid var(--orange-title); 
+            box-shadow: var(--shadow-md); 
+        }
+
+        @media (min-width: 768px) { .links-section { padding: 26px; } }
+
+        .form-group { margin-bottom: 16px; }
+        label { display: block; margin-bottom: 6px; font-weight: 700; font-size: 0.82rem; color: var(--text-muted); text-transform: uppercase; }
+        
+        input, select { 
+            width: 100%; padding: 12px 14px; 
+            background-color: var(--input-bg); 
+            border: 1px solid rgba(56, 189, 248, 0.2); 
+            color: var(--white); border-radius: 8px; font-size: 0.95rem; 
+            min-height: 46px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input:focus, select:focus {
+            border-color: var(--wf-accent-blue);
+            box-shadow: 0 0 10px var(--wf-accent-glow);
+        }
+
+        .btn-submit {
+            background-color: var(--green-whatsapp); 
+            color: var(--white); border: none; padding: 15px 20px; 
+            border-radius: 10px; cursor: pointer; font-weight: bold; 
+            font-size: 1.05rem; display: inline-flex; align-items: center; 
+            gap: 10px; width: 100%; justify-content: center;
+            transition: all 0.2s ease;
+            min-height: 50px;
+        }
+
+        .btn-submit:hover:not(:disabled) {
+            background-color: var(--green-whatsapp-hover);
+        }
+
+        .form-bloqueado {
+            opacity: 0.55;
+            pointer-events: none;
+            user-select: none;
+        }
+
+        .banner-modo-asistido {
+            background: rgba(168, 85, 247, 0.12);
+            border: 1px solid rgba(168, 85, 247, 0.35);
+            border-radius: 10px;
+            padding: 10px 14px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.82rem;
+            color: #d8b4fe;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="loading">
+        <i class="fas fa-spinner fa-spin"></i> Sincronizando vacantes autorizadas...
+    </div>
+
+    <!-- BANNER DINÁMICO REACTIVO DE SEMÁFORO M1 -->
+    <div id="bannerAlertaSemaforo" class="alerta-semaforo-box">
+        <i id="bannerSemaforoIcono" class="fa-solid fa-triangle-exclamation" style="font-size: 1.5rem;"></i>
+        <div>
+            <strong id="bannerSemaforoTitulo" style="display:block; text-transform:uppercase; font-size:0.88rem;"></strong>
+            <span id="bannerSemaforoTexto"></span>
+        </div>
+    </div>
+
+    <div id="empresaHeaderBox" class="empresa-header" style="display: none;">
+        <h1 id="mainEmpresaNombre">—</h1>
+        <div class="location" id="mainEmpresaLugarContainer">
+            <i class="fa-solid fa-location-dot"></i> <span id="mainEmpresaLugar">—</span>
+        </div>
+    </div>
+
+    <div id="menuVacantesBox" style="display: none;">
+        <div class="menu-titulo">Vacantes Disponibles Actualmente</div>
+        <div id="listaVacantesDinamica" class="vacantes-lista"></div>
+    </div>
+
+    <div id="content" style="display: none;">
+        <button class="btn-regresar" onclick="regresarAlMenu()">
+            <i class="fas fa-arrow-left"></i> Volver a la Lista de Vacantes
+        </button>
+
+        <!-- CARRUSEL TIPO MAZORCA REVOLVER -->
+        <div class="revolver-carousel-container" id="revolverCarouselBox">
+            <div class="revolver-stage" id="revolverStage"></div>
+            <button class="revolver-nav revolver-prev" onclick="moverRevolver(-1)"><i class="fa-solid fa-chevron-left"></i></button>
+            <button class="revolver-nav revolver-next" onclick="moverRevolver(1)"><i class="fa-solid fa-chevron-right"></i></button>
+            <div class="revolver-indicators" id="revolverDots"></div>
+        </div>
+
+        <div class="vacante-layout-grid">
+            <div class="column-left">
+                <div class="card">
+                    <h3 class="vacante-titulo-principal">
+                        <i class="fas fa-briefcase"></i> PUESTO - <span id="vacanteTitulo">—</span>
+                    </h3>
+
+                    <div class="meta-info" style="justify-content: center; margin-bottom: 15px;">
+                        <span><i class="fa-solid fa-building"></i> Empresa: <strong id="vacanteEmpresa" style="color:var(--white);">—</strong></span>
+                        <span><i class="fa-solid fa-eye"></i> Visitas: <span id="vacanteVisitas">0</span></span>
+                    </div>
+                    
+                    <div class="grid-detalles">
+                        <div class="detalle-item"><strong>💰 Sueldo Ofrecido</strong><span id="detSalario">—</span></div>
+                        <div class="detalle-item"><strong>📍 Zona de Trabajo</strong><span id="detLugar">—</span></div>
+                        <div class="detalle-item"><strong>🕒 Horarios / Turnos</strong><span id="detTurnos">—</span></div>
+                        <div class="detalle-item"><strong>🔞 Edad Solicitada</strong><span id="detEdad">—</span></div>
+                        <div class="detalle-item"><strong>👫 Género / Sexo</strong><span id="detSexo">—</span></div>
+                        <div class="detalle-item"><strong>💼 Experiencia</strong><span id="detExperiencia">—</span></div>
+                        <div class="detalle-item"><strong>🎓 Escolaridad</strong><span id="detEscolaridad">—</span></div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3><i class="fas fa-list-check"></i> Actividades Principales</h3>
+                    <p class="texto-bloque" id="vacanteActividades">Cargando...</p>
+                </div>
+
+                <div class="card">
+                    <h3><i class="fas fa-gift"></i> Ofrecimientos y Beneficios</h3>
+                    <p class="texto-bloque" id="vacanteBeneficios">No especificados.</p>
+                </div>
+
+                <div class="card">
+                    <h3><i class="fa-solid fa-note-sticky"></i> Notas Adicionales</h3>
+                    <p class="texto-bloque" id="vacanteNotas">Sin notas adicionales.</p>
+                </div>
+            </div>
+
+            <div class="column-right sticky-side-form">
+                <div class="card-transporte" id="bloqueTransporte">
+                    <h3><i class="fa-solid fa-bus-simple"></i> Rutas y Transporte Cercano</h3>
+                    <p id="txtDetallesTransporte" class="transporte-detalles">—</p>
+
+                    <button type="button" class="btn-gps" onclick="obtenerUbicacionGPS()">
+                        <i class="fa-solid fa-crosshairs"></i> Usar mi ubicación GPS actual (Parada más cercana)
+                    </button>
+
+                    <div class="form-group">
+                        <label style="color: var(--text-muted); font-size: 0.78rem;">
+                            <i class="fa-solid fa-magnifying-glass"></i> Ingresa tu C.P., Colonia o Calle (Origen):
+                        </label>
+                        <div class="cp-search-group">
+                            <input type="text" id="txtFiltroColonia" class="input-filtro-colonia" placeholder="Ej: Apodaca Centro, C.P. 66600, Av. Concordia...">
+                            <button type="button" class="btn-filtrar-cp" id="btnBuscarOrigen" onclick="ejecutarFiltroColoniaCP()">
+                                <i class="fas fa-route"></i> Calcular Ruta
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="mapaRutas"></div>
+                    
+                    <div class="form-group">
+                        <label for="selRutaEmpresa" style="color: var(--wf-accent-blue); font-weight: bold;">
+                            <i class="fa-solid fa-route"></i> 1. Selecciona tu Ruta:
+                        </label>
+                        <select id="selRutaEmpresa" onchange="alSeleccionarRuta(this.value)">
+                            <option value="">— Cargando rutas disponibles... —</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" id="contenedorParadasRuta" style="display: none; margin-bottom: 0;">
+                        <label for="selParadaRuta" style="color: var(--wf-accent-blue); font-weight: bold;">
+                            <i class="fa-solid fa-location-dot"></i> 2. Selecciona Punto / Parada de Abordaje:
+                        </label>
+                        <select id="selParadaRuta" onchange="alSeleccionarParada(this.value)">
+                            <option value="">— Selecciona una parada —</option>
+                        </select>
+                    </div>
+
+                    <input type="hidden" id="selPuntoRecoleccion" value="">
+                </div>
+
+                <div class="links-section" id="contenedorFormularioPostulacion">
+                    <h3 style="color: var(--white); margin-bottom: 12px; font-size: 1.15rem; border-bottom: 2px solid rgba(56, 189, 248, 0.15); padding-bottom: 8px;">
+                        <i class="fas fa-user-pen"></i> Agendar Entrevista y Postular
+                    </h3>
+
+                    <!-- MODO ASISTIDO (SWITCH PARA RECLUTADORES) -->
+                    <div class="banner-modo-asistido">
+                        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; margin:0; text-transform:none; font-weight:600;">
+                            <input type="checkbox" id="chkModoAsistido" onchange="alternarModoAsistido()" style="width:18px; height:18px; min-height:auto;">
+                            <span><i class="fa-solid fa-headset text-purple-400 me-1"></i> Soy Asesor / Captura Asistida para Candidato</span>
+                        </label>
+                    </div>
+                    
+                    <form id="formPostulacion" onsubmit="enviarPostulacion(event)">
+                        <div class="form-group">
+                            <label for="postNombre">Nombre Completo del Candidato:</label>
+                            <input type="text" id="postNombre" required placeholder="Ej: Juan Pérez">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="postTelefono">Teléfono Celular (10 dígitos):</label>
+                            <input type="tel" id="postTelefono" required pattern="[0-9]{10}" maxlength="10" placeholder="Ej: 8112345678">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="postCurp">CURP (18 caracteres):</label>
+                            <input type="text" id="postCurp" required maxlength="18" minlength="18" style="text-transform: uppercase;" placeholder="Ingresa tu CURP completa">
+                        </div>
+
+                        <div style="background: rgba(8, 17, 34, 0.6); padding: 14px; border-radius: 10px; border: 1px solid var(--border-color); margin-bottom: 16px;">
+                            <div class="form-group">
+                                <label for="postFechaEntrevista" style="color: var(--wf-accent-blue);">
+                                    <i class="fa-regular fa-calendar-check"></i> Fecha de Entrevista:
+                                </label>
+                                <input type="date" id="postFechaEntrevista" required>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label for="postHoraEntrevista" style="color: var(--wf-accent-blue);">
+                                    <i class="fa-regular fa-clock"></i> Horario Conveniente:
+                                </label>
+                                <select id="postHoraEntrevista" required>
+                                    <option value="">— Selecciona Hora —</option>
+                                    <option value="08:00 AM">08:00 AM</option>
+                                    <option value="09:00 AM">09:00 AM</option>
+                                    <option value="10:00 AM">10:00 AM</option>
+                                    <option value="11:00 AM">11:00 AM</option>
+                                    <option value="12:00 PM">12:00 PM</option>
+                                    <option value="01:00 PM">01:00 PM</option>
+                                    <option value="02:00 PM">02:00 PM</option>
+                                    <option value="03:00 PM">03:00 PM</option>
+                                    <option value="04:00 PM">04:00 PM</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="selReclutador" style="color: var(--wf-accent-blue); font-weight: bold;">
+                                <i class="fas fa-headset"></i> Asesor Asignado:
+                            </label>
+                            <select id="selReclutador" required>
+                                <option value="">Cargando asesores autorizados...</option>
+                            </select>
+                        </div>
+
+                        <div style="margin-top: 20px;">
+                            <button type="submit" class="btn-submit" id="btnSubmitForm">
+                                <i class="fab fa-whatsapp"></i> Confirmar Cita y Enviar WhatsApp
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyDxgP1YnycCEqkQ2vr3SPkwc9QMhtG8Zqw",
+        authDomain: "bolsa-de-trabajo-a52e4.firebaseapp.com",
+        databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com",
+        projectId: "bolsa-de-trabajo-a52e4",
+        storageBucket: "bolsa-de-trabajo-a52e4.firebasestorage.app",
+        messagingSenderId: "592492733212",
+        appId: "1:592492733212:web:88e8ec243bd53608b6d0d9",
+        measurementId: "G-DH2LD3BJEF"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    const sanitizarClave = (str) => {
+        if (!str) return "";
+        return String(str)
+            .toLowerCase()
+            .trim()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/[^a-z0-9]/g, "_")
+            .replace(/_+/g, "_");
+    };
+
+    const sanitizarCompacto = (str) => {
+        if (!str) return "";
+        return String(str)
+            .toLowerCase()
+            .trim()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/[^a-z0-9]/g, "");
+    };
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const rawParamEmpresa = urlParams.get('empresa') || "";
+    const empresaLimpia = sanitizarClave(rawParamEmpresa);
+    const empresaCompacta = sanitizarCompacto(rawParamEmpresa);
+
+    let todasLasVacantesEmpresa = {};
+    let datosVacanteGlobal = null;
+    let vacanteKeyDetectada = "";
+    let estructuraRutasGlobal = {}; 
+    let tieneRutasHabilitadas = false;
+    let nombreEmpresaMaestro = "";
+    let divisionEmpresaMaestro = "centro";
+    let ubicacionEmpresaMaestro = ""; 
+    let bannersCorporativosEmpresa = "";
+    let estatusOperativoEmpresa = "Disponible";
+    let catalogoUsuariosGlobal = {};
+    let objetoEmpresaRaw = null;
+    let claveEmpresaM1Oficial = ""; 
+    const fallbackTelefonoReclutador = "528112345678";
+
+    let arrayBannersRevolver = [];
+    let currentRevolverIndex = 0;
+    let autoPlayInterval = null;
+
+    let mapLeaflet = null;
+    let marcadoresMapa = [];
+    let markerUsuario = null;
+    let lineaRutaMapa = null;
+    let listaTodasLasParadasFlat = []; 
+
+    window.addEventListener('DOMContentLoaded', () => {
+        const inputFecha = document.getElementById('postFechaEntrevista');
+        if (inputFecha) inputFecha.min = new Date().toISOString().split('T')[0];
+
+        if (urlParams.get('modo') === 'asistido') {
+            const chk = document.getElementById('chkModoAsistido');
+            if (chk) { chk.checked = true; alternarModoAsistido(); }
+        }
+
+        document.getElementById('txtFiltroColonia')?.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                ejecutarFiltroColoniaCP();
+            }
+        });
+    });
+
+    function alternarModoAsistido() {
+        const esAsistido = document.getElementById('chkModoAsistido').checked;
+        const btn = document.getElementById('btnSubmitForm');
+        if (esAsistido) {
+            btn.innerHTML = `<i class="fab fa-whatsapp"></i> Guardar y Notificar al Candidato por WhatsApp`;
+            btn.style.backgroundColor = '#a855f7';
+        } else {
+            btn.innerHTML = `<i class="fab fa-whatsapp"></i> Confirmar Cita y Enviar WhatsApp`;
+            btn.style.backgroundColor = 'var(--green-whatsapp)';
+        }
+    }
+
+    function renderizarUbicacionEmpresa(lugar, mapaUrl) {
+        const contenedor = document.getElementById('mainEmpresaLugarContainer');
+        const urlDestino = mapaUrl || (lugar && lugar.startsWith('http') ? lugar : "");
+
+        if (urlDestino) {
+            contenedor.innerHTML = `
+                <a href="${urlDestino}" target="_blank" class="btn-mapa-header">
+                    <i class="fa-solid fa-map-location-dot"></i> Ver Ubicación en Google Maps
+                </a>
+            `;
+        } else if (lugar) {
+            contenedor.innerHTML = `<i class="fa-solid fa-location-dot"></i> <span>${lugar}</span>`;
+        } else {
+            contenedor.innerHTML = `<i class="fa-solid fa-location-dot"></i> <span>Ubicación no disponible</span>`;
+        }
+    }
+
+    function aplicarReglasSemaforoEmpresa(estatus) {
+        const banner = document.getElementById('bannerAlertaSemaforo');
+        const icono = document.getElementById('bannerSemaforoIcono');
+        const titulo = document.getElementById('bannerSemaforoTitulo');
+        const texto = document.getElementById('bannerSemaforoTexto');
+        const contenedorForm = document.getElementById('contenedorFormularioPostulacion');
+        const btnSubmit = document.getElementById('btnSubmitForm');
+
+        banner.style.display = 'none';
+        banner.className = 'alerta-semaforo-box';
+        contenedorForm.classList.remove('form-bloqueado');
+        btnSubmit.disabled = false;
+
+        if (estatus === "Cerrada") {
+            document.querySelector('.container').innerHTML = `
+                <div class="alerta-cerrada">
+                    <i class="fa-solid fa-ban text-danger" style="font-size: 3.5rem; margin-bottom: 20px; color: #ef4444;"></i>
+                    <h2 style="color: #fff; font-weight: 800; text-transform: uppercase; margin-bottom: 10px;">Convocatoria Concluida</h2>
+                    <p style="color: var(--text-muted); max-width: 500px; margin: 0 auto;">Esta empresa ha cerrado sus procesos de reclutamiento para esta temporada. Te invitamos a estar al pendiente de próximas aperturas.</p>
+                </div>
+            `;
+            return false;
+        }
+
+        if (estatus === "No Disponible") {
+            banner.classList.add('alerta-nodisponible');
+            icono.className = 'fa-solid fa-circle-xmark';
+            titulo.innerText = 'Vacantes No Disponibles (Cupo Lleno)';
+            texto.innerText = 'Por el momento todas las plazas para esta empresa se encuentran cubiertas. El registro de citas está temporalmente bloqueado.';
+            banner.style.display = 'flex';
+            
+            contenedorForm.classList.add('form-bloqueado');
+            btnSubmit.disabled = true;
+            btnSubmit.innerHTML = `<i class="fa-solid fa-lock"></i> Convocatoria Llena`;
+        } else if (estatus === "En Pausa") {
+            banner.classList.add('alerta-pausa');
+            icono.className = 'fa-solid fa-hourglass-half';
+            titulo.innerText = 'Proceso en Pausa Temporal';
+            texto.innerText = 'Las contrataciones se encuentran en pausa preventiva. Las entrevistas se reanudarán en breve.';
+            banner.style.display = 'flex';
+            
+            contenedorForm.classList.add('form-bloqueado');
+            btnSubmit.disabled = true;
+            btnSubmit.innerHTML = `<i class="fa-solid fa-pause"></i> Contrataciones en Pausa`;
+        }
+
+        return true;
+    }
+
+    async function cargarDetallesVacante() {
+        if (!empresaLimpia && !empresaCompacta) {
+            document.getElementById('loading').innerHTML = "❌ Enlace no válido.<br><small>Falta parámetro ?empresa=ID</small>";
+            return;
+        }
+
+        try {
+            db.ref('empresas').on('value', (snapEmpresas) => {
+                if (snapEmpresas.exists()) {
+                    const catalogo = snapEmpresas.val();
+                    let infoMaestra = catalogo[empresaLimpia] || catalogo[empresaCompacta];
+                    claveEmpresaM1Oficial = empresaLimpia;
+
+                    if (!infoMaestra) {
+                        const hitKey = Object.keys(catalogo).find(k => {
+                            const kComp = sanitizarCompacto(k);
+                            const nomComp = sanitizarCompacto(catalogo[k]?.nombreComercial || catalogo[k]?.nombre || '');
+                            const razComp = sanitizarCompacto(catalogo[k]?.razonSocial || '');
+                            return kComp === empresaCompacta ||
+                                   kComp.includes(empresaCompacta) ||
+                                   empresaCompacta.includes(kComp) ||
+                                   nomComp.includes(empresaCompacta) ||
+                                   razComp.includes(empresaCompacta);
+                        });
+                        if (hitKey) {
+                            infoMaestra = catalogo[hitKey];
+                            claveEmpresaM1Oficial = hitKey;
+                        }
+                    }
+
+                    if (infoMaestra) {
+                        objetoEmpresaRaw = infoMaestra;
+                        nombreEmpresaMaestro = infoMaestra.nombreComercial || infoMaestra.nombre || infoMaestra.razonSocial || "";
+                        divisionEmpresaMaestro = (infoMaestra.division || 'centro').toLowerCase();
+                        ubicacionEmpresaMaestro = infoMaestra.direccion || infoMaestra.ubicacion || infoMaestra.lugarOrigen || "";
+                        bannersCorporativosEmpresa = infoMaestra.bannersCorporativos || "";
+                        estatusOperativoEmpresa = infoMaestra.estatusOperativo || "Disponible";
+
+                        const continuaCarga = aplicarReglasSemaforoEmpresa(estatusOperativoEmpresa);
+                        if (!continuaCarga) return;
+                    }
+                }
+            });
+
+            db.ref('vacantes_detalles').on('value', async function(snapshot) {
+                if (snapshot.exists()) {
+                    const catalogoVacantes = snapshot.val();
+                    let dataRaw = catalogoVacantes[empresaLimpia] || catalogoVacantes[empresaCompacta] || catalogoVacantes[claveEmpresaM1Oficial];
+
+                    if (!dataRaw) {
+                        const hitKey = Object.keys(catalogoVacantes).find(k => {
+                            const kComp = sanitizarCompacto(k);
+                            return kComp === empresaCompacta ||
+                                   kComp.includes(empresaCompacta) ||
+                                   empresaCompacta.includes(kComp) ||
+                                   (claveEmpresaM1Oficial && kComp === sanitizarCompacto(claveEmpresaM1Oficial));
+                        });
+                        if (hitKey) dataRaw = catalogoVacantes[hitKey];
+                    }
+                    
+                    if (dataRaw) {
+                        if (dataRaw.nombreVacante || dataRaw.vacanteNombre || dataRaw.puesto || dataRaw.salario) {
+                            todasLasVacantesEmpresa = {};
+                            const llaveUnica = (dataRaw.nombreVacante || dataRaw.vacanteNombre || dataRaw.puesto || "puesto_unico").replace(/\s+/g, '_').toLowerCase();
+                            todasLasVacantesEmpresa[llaveUnica] = dataRaw;
+                        } else {
+                            todasLasVacantesEmpresa = dataRaw;
+                        }
+
+                        const keys = Object.keys(todasLasVacantesEmpresa).filter(k => k !== 'undefined' && k !== '');
+                        if (keys.length === 0) {
+                            document.getElementById('loading').innerText = "❌ No hay vacantes disponibles para esta empresa.";
+                            return;
+                        }
+
+                        const primerVacante = todasLasVacantesEmpresa[keys[0]];
+                        const nombreHeader = nombreEmpresaMaestro || primerVacante.nombreComercial || primerVacante.empresaNombre || empresaLimpia.toUpperCase();
+                        const lugarHeader = ubicacionEmpresaMaestro || primerVacante.lugarOrigen || 'México';
+                        const mapaHeader = primerVacante.mapaUrl || "";
+                        
+                        nombreEmpresaMaestro = nombreHeader;
+
+                        document.getElementById('mainEmpresaNombre').innerText = nombreHeader;
+                        renderizarUbicacionEmpresa(lugarHeader, mapaHeader);
+                        document.getElementById('empresaHeaderBox').style.display = 'block';
+
+                        const listaContenedor = document.getElementById('listaVacantesDinamica');
+                        listaContenedor.innerHTML = ''; 
+                        
+                        keys.forEach(key => {
+                            const vac = todasLasVacantesEmpresa[key];
+                            const nombreMostrarPuesto = vac.nombreVacante || vac.vacanteNombre || vac.puesto || vac.nombreComercial || "Puesto Vacante";
+                            const estatusPuesto = vac.estatus || "Disponible";
+
+                            let badgePuestoHtml = '';
+                            if (estatusPuesto === "No Disponible") {
+                                badgePuestoHtml = `<span class="badge-status-puesto" style="background:rgba(239,68,68,0.2); color:#f87171; border:1px solid rgba(239,68,68,0.4);"><i class="fa-solid fa-lock me-1"></i>Cupo Lleno</span>`;
+                            } else if (estatusPuesto === "En Pausa") {
+                                badgePuestoHtml = `<span class="badge-status-puesto" style="background:rgba(245,158,11,0.2); color:#fbbf24; border:1px solid rgba(245,158,11,0.4);"><i class="fa-solid fa-pause me-1"></i>En Pausa</span>`;
+                            }
+                            
+                            const cardItem = document.createElement('div');
+                            cardItem.className = 'vacante-item-card';
+                            cardItem.onclick = () => renderizarPuestoEspecifico(key);
+                            cardItem.innerHTML = `
+                                <div class="vacante-item-info">
+                                    <h2>${nombreMostrarPuesto}</h2>
+                                    <p>
+                                        <i class="fa-solid fa-money-bill-wave" style="color:var(--green-whatsapp)"></i> ${vac.salario || 'No especificado'}
+                                        ${badgePuestoHtml}
+                                    </p>
+                                </div>
+                                <div class="chevron-icon"><i class="fa-solid fa-chevron-right"></i></div>
+                            `;
+                            listaContenedor.appendChild(cardItem);
+                        });
+                        
+                        await cargarCatalogoReclutadores();
+                        document.getElementById('loading').style.display = 'none';
+                        document.getElementById('menuVacantesBox').style.display = 'block';
+                        return;
+                    }
+
+                    document.getElementById('loading').innerHTML = `
+                        <div style="color: #f97316; padding: 15px;">
+                            <i class="fa-solid fa-circle-question" style="font-size: 2rem; margin-bottom: 10px;"></i>
+                            <p><strong>Empresa no encontrada o sin ofertas registradas.</strong></p>
+                        </div>
+                    `;
+                }
+            });
+        } catch (error) {
+            console.error("Error crítico cargando vacante:", error);
+        }
+    }
+
+    async function renderizarPuestoEspecifico(key) {
+        vacanteKeyDetectada = key;
+        const data = todasLasVacantesEmpresa[key];
+        datosVacanteGlobal = data;
+        
+        const nombrePuestoReal = data.nombreVacante || data.vacanteNombre || data.puesto || data.nombreComercial || 'Puesto Vacante';
+        document.getElementById('vacanteTitulo').innerText = nombrePuestoReal;
+        
+        document.getElementById('vacanteEmpresa').innerText = nombreEmpresaMaestro || data.nombreComercial || empresaLimpia.toUpperCase();
+        document.getElementById('vacanteVisitas').innerText = data.visitas ? (data.visitas + 1) : 1;
+        
+        document.getElementById('detSalario').innerText = data.salario || 'No especificado';
+        
+        const zonaTexto = data.lugarOrigen || ubicacionEmpresaMaestro || 'No especificado';
+        document.getElementById('detLugar').innerText = zonaTexto.includes('http') ? 'Ver en mapa arriba' : zonaTexto;
+
+        document.getElementById('detTurnos').innerText = data.turnos || 'No especificado';
+        document.getElementById('detEdad').innerText = data.edad || 'Indistinto';
+        document.getElementById('detSexo').innerText = data.sexo || 'Indistinto';
+        document.getElementById('detExperiencia').innerText = data.experiencia || 'No requerida';
+        document.getElementById('detEscolaridad').innerText = data.escolaridad || 'No especificada';
+
+        document.getElementById('vacanteActividades').innerText = data.actividades || 'No especificadas.';
+        document.getElementById('vacanteBeneficios').innerText = data.beneficios || 'No especificados.';
+        
+        const notasTexto = data.informacionGeneral || data.informacion_general || data.infoGeneral || data.notas || data.observaciones;
+        document.getElementById('vacanteNotas').innerText = (notasTexto && notasTexto.trim().length > 0) ? notasTexto : 'Sin notas adicionales.';
+
+        const estatusPuesto = data.estatus || "Disponible";
+        const contenedorForm = document.getElementById('contenedorFormularioPostulacion');
+        const btnSubmit = document.getElementById('btnSubmitForm');
+
+        if (estatusOperativoEmpresa === "Disponible") {
+            if (estatusPuesto === "No Disponible") {
+                contenedorForm.classList.add('form-bloqueado');
+                btnSubmit.disabled = true;
+                btnSubmit.innerHTML = `<i class="fa-solid fa-lock"></i> Puesto con Cupo Lleno`;
+            } else if (estatusPuesto === "En Pausa") {
+                contenedorForm.classList.add('form-bloqueado');
+                btnSubmit.disabled = true;
+                btnSubmit.innerHTML = `<i class="fa-solid fa-pause"></i> Puesto en Pausa Temporal`;
+            } else {
+                contenedorForm.classList.remove('form-bloqueado');
+                btnSubmit.disabled = false;
+                alternarModoAsistido();
+            }
+        }
+
+        configurarMazorcaBanners(data);
+        await inicializarBuscadorRutas();
+
+        document.getElementById('menuVacantesBox').style.display = 'none';
+        document.getElementById('content').style.display = 'block';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function configurarMazorcaBanners(data) {
+        arrayBannersRevolver = [];
+        const container = document.getElementById('revolverCarouselBox');
+        const stage = document.getElementById('revolverStage');
+        const dots = document.getElementById('revolverDots');
+
+        stage.innerHTML = '';
+        dots.innerHTML = '';
+
+        let bannersVacante = [];
+        let rawBanners = data.bannerUrl || data.banners || data.banner || "";
+        if (typeof rawBanners === 'string' && rawBanners.includes(';')) {
+            bannersVacante = rawBanners.split(';').map(u => u.trim()).filter(u => u.length > 5);
+        } else if (typeof rawBanners === 'string' && rawBanners.trim().length > 5) {
+            bannersVacante.push(rawBanners.trim());
+        } else if (Array.isArray(rawBanners)) {
+            bannersVacante = rawBanners.filter(u => typeof u === 'string' && u.length > 5);
+        }
+
+        let bannersCorp = [];
+        if (bannersCorporativosEmpresa) {
+            bannersCorp = bannersCorporativosEmpresa.split(';').map(u => u.trim()).filter(u => u.length > 5);
+        }
+
+        if (bannersVacante.length > 0) {
+            arrayBannersRevolver.push(bannersVacante[0]);
+            if (bannersVacante.length > 1) {
+                for (let i = 1; i < bannersVacante.length; i++) {
+                    if (!arrayBannersRevolver.includes(bannersVacante[i])) {
+                        arrayBannersRevolver.push(bannersVacante[i]);
+                    }
+                }
+            }
+            bannersCorp.forEach(urlCorp => {
+                if (!arrayBannersRevolver.includes(urlCorp)) {
+                    arrayBannersRevolver.push(urlCorp);
+                }
+            });
+        } else if (bannersCorp.length > 0) {
+            arrayBannersRevolver = [...bannersCorp];
+        }
+
+        arrayBannersRevolver = arrayBannersRevolver.map(url => {
+            return url.replace('github.com/', 'raw.githubusercontent.com/').replace('/blob/', '/');
+        });
+
+        if (arrayBannersRevolver.length === 0) {
+            arrayBannersRevolver.push(`https://valdomtec-arch.github.io/bolsa-trabajo-principal/imagen-${empresaLimpia}.jpg`);
+        }
+
+        container.style.display = 'block';
+        currentRevolverIndex = 0;
+
+        arrayBannersRevolver.forEach((url, idx) => {
+            const slide = document.createElement('div');
+            slide.className = `revolver-slide ${idx === 0 ? 'active' : ''}`;
+            slide.id = `slide_rev_${idx}`;
+
+            const bgBlur = document.createElement('div');
+            bgBlur.className = 'revolver-bg-blur';
+            bgBlur.style.backgroundImage = `url('${url}')`;
+
+            const imgMain = document.createElement('img');
+            imgMain.className = 'main-banner-img';
+            imgMain.src = url;
+
+            slide.appendChild(bgBlur);
+            slide.appendChild(imgMain);
+            stage.appendChild(slide);
+
+            const dot = document.createElement('div');
+            dot.className = `revolver-dot ${idx === 0 ? 'active' : ''}`;
+            dot.onclick = () => irASlideRevolver(idx);
+            dots.appendChild(dot);
+        });
+
+        actualizarEfectoRevolver(true);
+
+        if (autoPlayInterval) clearInterval(autoPlayInterval);
+        if (arrayBannersRevolver.length > 1) {
+            autoPlayInterval = setInterval(() => moverRevolver(1), 5000);
+        }
+    }
+
+    function moverRevolver(direccion) {
+        if (arrayBannersRevolver.length <= 1) return;
+        currentRevolverIndex = (currentRevolverIndex + direccion + arrayBannersRevolver.length) % arrayBannersRevolver.length;
+        actualizarEfectoRevolver(true);
+    }
+
+    function irASlideRevolver(index) {
+        currentRevolverIndex = index;
+        actualizarEfectoRevolver(true);
+    }
+
+    function actualizarEfectoRevolver(ejecutarFlash = false) {
+        const total = arrayBannersRevolver.length;
+        for (let i = 0; i < total; i++) {
+            const slide = document.getElementById(`slide_rev_${i}`);
+            const dot = document.querySelectorAll('.revolver-dot')[i];
+            
+            if (!slide) continue;
+            slide.classList.remove('active');
+            if (dot) dot.classList.remove('active');
+
+            if (i === currentRevolverIndex) {
+                slide.classList.add('active');
+                if (dot) dot.classList.add('active');
+            }
+        }
+    }
+
+    function inicializarMapaInteractivo(latInicial = 25.6866, lngInicial = -100.3161) {
+        if (mapLeaflet) mapLeaflet.remove();
+
+        mapLeaflet = L.map('mapaRutas').setView([latInicial, lngInicial], 11);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap'
+        }).addTo(mapLeaflet);
+    }
+
+    function renderizarParadasEnMapa(paradas) {
+        if (!mapLeaflet) inicializarMapaInteractivo();
+
+        marcadoresMapa.forEach(m => mapLeaflet.removeLayer(m));
+        marcadoresMapa = [];
+
+        let bounds = [];
+
+        paradas.forEach((p, idx) => {
+            const lat = parseFloat(p.lat);
+            const lng = parseFloat(p.lng);
+
+            if (!isNaN(lat) && !isNaN(lng)) {
+                const numeroMostrar = p.numeroParada || (idx + 1);
+                
+                const customIcon = L.divIcon({
+                    className: 'custom-gps-pin-container',
+                    html: `
+                        <div class="pin-parada-gps">
+                            <span class="pin-parada-num">${numeroMostrar}</span>
+                        </div>
+                    `,
+                    iconSize: [28, 28],
+                    iconAnchor: [14, 28],
+                    popupAnchor: [0, -28]
+                });
+
+                const urlGoogleMaps = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+
+                const marker = L.marker([lat, lng], { icon: customIcon }).addTo(mapLeaflet);
+                
+                marker.bindPopup(`
+                    <div class="popup-parada-card">
+                        <div style="font-size:11px; text-transform:uppercase; color:#38bdf8; font-weight:800; margin-bottom:2px;">
+                            ${p.nombreRuta}
+                        </div>
+                        <div style="font-weight:700; font-size:13px; color:#ffffff; margin-bottom:4px;">
+                            #${numeroMostrar} - ${p.nombre}
+                        </div>
+                        <div style="color:#cbd5e1; font-size:11.5px; margin-bottom:6px;">
+                            <i class="fa-regular fa-clock" style="color:#fbbf24;"></i> ${p.horario || 'Horario a confirmar'}
+                        </div>
+                        <a href="${urlGoogleMaps}" target="_blank" class="btn-popup-gmaps">
+                            <i class="fa-solid fa-diamond-turn-right"></i> Abrir en Google Maps
+                        </a>
+                    </div>
+                `);
+
+                marcadoresMapa.push(marker);
+                bounds.push([lat, lng]);
+            }
+        });
+
+        if (bounds.length > 0) {
+            mapLeaflet.fitBounds(bounds, { padding: [30, 30] });
+        }
+    }
+
+    function calcularDistanciaKm(lat1, lon1, lat2, lon2) {
+        const R = 6371;
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                  Math.sin(dLon/2) * Math.sin(dLon/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        return R * c; 
+    }
+
+    function obtenerUbicacionGPS() {
+        if (!navigator.geolocation) {
+            alert("Tu navegador no soporta geolocalización.");
+            return;
+        }
+
+        const btn = document.querySelector('.btn-gps');
+        btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Obteniendo Coordenadas...`;
+
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                const latUser = pos.coords.latitude;
+                const lngUser = pos.coords.longitude;
+
+                btn.innerHTML = `<i class="fa-solid fa-location-dot"></i> GPS Localizado Exitosamente`;
+                vincularOrigenConDestinoHaversine(latUser, lngUser, "Tu Ubicación GPS");
+            },
+            (error) => {
+                btn.innerHTML = `<i class="fa-solid fa-crosshairs"></i> Usar mi ubicación GPS actual (Parada más cercana)`;
+                alert("No se pudo obtener tu ubicación por GPS. Puedes escribir tu C.P. o Colonia en el buscador.");
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
+        );
+    }
+
+    async function ejecutarFiltroColoniaCP() {
+        const busqueda = document.getElementById('txtFiltroColonia').value.trim();
+        const btn = document.getElementById('btnBuscarOrigen');
+
+        if (!busqueda) {
+            alert("Ingresa tu Código Postal, Colonia, Barrio o Calle para calcular la parada más cercana.");
+            return;
+        }
+
+        if (listaTodasLasParadasFlat.length === 0) {
+            alert("Esta empresa no tiene paradas de transporte con coordenadas GPS registradas.");
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Geocodificando...`;
+
+        try {
+            const urlGeo = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(busqueda + ', Mexico')}&limit=1`;
+            
+            const response = await fetch(urlGeo, {
+                headers: {
+                    'Accept-Language': 'es',
+                    'User-Agent': 'BolsaDeTrabajoApp/3.4'
+                }
+            });
+
+            if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
+
+            const data = await response.json();
+
+            if (data && data.length > 0) {
+                const latOrigen = parseFloat(data[0].lat);
+                const lngOrigen = parseFloat(data[0].lon);
+                const nombreLugar = data[0].display_name.split(',')[0];
+
+                vincularOrigenConDestinoHaversine(latOrigen, lngOrigen, nombreLugar);
+            } else {
+                alert("No se encontraron coordenadas GPS para el C.P. o Colonia ingresada. Intenta con un término más específico.");
+            }
+        } catch (error) {
+            console.error("Error geocodificando origen:", error);
+            alert("No se pudo conectar con el servicio de mapas. Intenta usando el botón 'Usar mi ubicación GPS'.");
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = `<i class="fas fa-route"></i> Calcular Ruta`;
+        }
+    }
+
+    function vincularOrigenConDestinoHaversine(latOrigen, lngOrigen, etiquetaOrigen) {
+        if (listaTodasLasParadasFlat.length === 0) return;
+
+        let menorDistancia = Infinity;
+        let paradaMasCercana = null;
+
+        listaTodasLasParadasFlat.forEach(p => {
+            const latDestino = parseFloat(p.lat);
+            const lngDestino = parseFloat(p.lng);
+
+            if (!isNaN(latDestino) && !isNaN(lngDestino)) {
+                const dist = calcularDistanciaKm(latOrigen, lngOrigen, latDestino, lngDestino);
+                if (dist < menorDistancia) {
+                    menorDistancia = dist;
+                    paradaMasCercana = p;
+                }
+            }
+        });
+
+        if (paradaMasCercana) {
+            if (!mapLeaflet) inicializarMapaInteractivo(latOrigen, lngOrigen);
+
+            if (markerUsuario) mapLeaflet.removeLayer(markerUsuario);
+            if (lineaRutaMapa) mapLeaflet.removeLayer(lineaRutaMapa);
+
+            markerUsuario = L.circleMarker([latOrigen, lngOrigen], {
+                color: '#f97316',
+                fillColor: '#ea580c',
+                fillOpacity: 0.9,
+                radius: 9
+            }).addTo(mapLeaflet).bindPopup(`<b>Origen:</b> ${etiquetaOrigen || 'Tu Ubicación'}`).openPopup();
+
+            const latDest = parseFloat(paradaMasCercana.lat);
+            const lngDest = parseFloat(paradaMasCercana.lng);
+
+            lineaRutaMapa = L.polyline([
+                [latOrigen, lngOrigen],
+                [latDest, lngDest]
+            ], { color: '#38bdf8', weight: 4, dashArray: '6, 8' }).addTo(mapLeaflet);
+
+            mapLeaflet.fitBounds([
+                [latOrigen, lngOrigen],
+                [latDest, lngDest]
+            ], { padding: [40, 40] });
+
+            const selectRuta = document.getElementById('selRutaEmpresa');
+            selectRuta.value = paradaMasCercana.nombreRuta;
+            alSeleccionarRuta(paradaMasCercana.nombreRuta);
+
+            setTimeout(() => {
+                const selectParada = document.getElementById('selParadaRuta');
+                selectParada.value = paradaMasCercana.valOption;
+                alSeleccionarParada(paradaMasCercana.valOption);
+            }, 150);
+
+            alert(`📍 Parada más cercana encontrada: "${paradaMasCercana.nombre}"\n📏 Distancia calculada: ${menorDistancia.toFixed(2)} km de tu ubicación.`);
+        }
+    }
+
+    // =========================================================================
+    // INICIALIZADOR BLINDADO Y TOLERANTE DE RUTAS (SINCRONIZACIÓN M1, M2 Y M6)
+    // =========================================================================
+    async function inicializarBuscadorRutas() {
+        const txtDetallesTrans = document.getElementById('txtDetallesTransporte');
+        const selectRutas = document.getElementById('selRutaEmpresa');
+        const contenedorParadas = document.getElementById('contenedorParadasRuta');
+        const inputOcultoPunto = document.getElementById('selPuntoRecoleccion');
+        
+        inputOcultoPunto.value = "";
+        selectRutas.innerHTML = '<option value="">— Cargando rutas disponibles... —</option>';
+        contenedorParadas.style.display = 'none';
+        listaTodasLasParadasFlat = [];
+        estructuraRutasGlobal = {};
+
+        let detalleDesdeVacante = "";
+        if (datosVacanteGlobal) {
+            detalleDesdeVacante = datosVacanteGlobal.rutasTransporte || 
+                                  datosVacanteGlobal.rutaTransporte || 
+                                  datosVacanteGlobal.transporte || "";
+        }
+
+        let rawData = null;
+
+        try {
+            // 1. Consulta directa por parámetro de URL
+            let snap = await db.ref(`rutas/${empresaLimpia}`).once('value');
+            if (snap.exists()) {
+                rawData = snap.val();
+            } else if (empresaCompacta !== empresaLimpia) {
+                let snapComp = await db.ref(`rutas/${empresaCompacta}`).once('value');
+                if (snapComp.exists()) rawData = snapComp.val();
+            }
+
+            // 2. Consulta por la clave oficial detectada en M1
+            if (!rawData && claveEmpresaM1Oficial) {
+                const cLimpia = sanitizarClave(claveEmpresaM1Oficial);
+                const cComp = sanitizarCompacto(claveEmpresaM1Oficial);
+                let snapM1 = await db.ref(`rutas/${cLimpia}`).once('value');
+                if (snapM1.exists()) {
+                    rawData = snapM1.val();
+                } else {
+                    let snapM1Comp = await db.ref(`rutas/${cComp}`).once('value');
+                    if (snapM1Comp.exists()) rawData = snapM1Comp.val();
+                }
+            }
+
+            // 3. Consulta por el nombre comercial maestro de M1 (ej: HYUNDAI GLOVIS CC)
+            if (!rawData && nombreEmpresaMaestro) {
+                const maestroLimpio = sanitizarClave(nombreEmpresaMaestro);
+                const maestroComp = sanitizarCompacto(nombreEmpresaMaestro);
+                let snapNom = await db.ref(`rutas/${maestroLimpio}`).once('value');
+                if (snapNom.exists()) {
+                    rawData = snapNom.val();
+                } else {
+                    let snapNomComp = await db.ref(`rutas/${maestroComp}`).once('value');
+                    if (snapNomComp.exists()) rawData = snapNomComp.val();
+                }
+            }
+
+            // 4. Barrido tolerante global: Coincidencia cruzada por subcadena (Hyundai / Glovis / CC)
+            if (!rawData) {
+                const snapTotal = await db.ref('rutas').once('value');
+                if (snapTotal.exists()) {
+                    const todasLasRutas = snapTotal.val();
+                    const claveEncontrada = Object.keys(todasLasRutas).find(k => {
+                        const kComp = sanitizarCompacto(k);
+                        const empComp = empresaCompacta;
+                        const maestroComp = sanitizarCompacto(nombreEmpresaMaestro);
+                        const m1Comp = sanitizarCompacto(claveEmpresaM1Oficial);
+
+                        const coincideUrl = empComp && (kComp.includes(empComp) || empComp.includes(kComp));
+                        const coincideMaestro = maestroComp && (kComp.includes(maestroComp) || maestroComp.includes(kComp));
+                        const coincideM1 = m1Comp && (kComp.includes(m1Comp) || m1Comp.includes(kComp));
+                        
+                        const metaEmpresa = sanitizarCompacto(todasLasRutas[k]?.empresa || '');
+                        const metaEmpresaId = sanitizarCompacto(todasLasRutas[k]?.empresaId || '');
+                        const coincideMeta = (metaEmpresa && (metaEmpresa.includes(empComp) || empComp.includes(metaEmpresa))) ||
+                                             (metaEmpresaId && (metaEmpresaId.includes(empComp) || empComp.includes(metaEmpresaId)));
+
+                        return coincideUrl || coincideMaestro || coincideM1 || coincideMeta;
+                    });
+
+                    if (claveEncontrada) {
+                        rawData = todasLasRutas[claveEncontrada];
+                    }
+                }
+            }
+
+            // Si las rutas están anidadas bajo un contenedor .rutas
+            if (rawData && rawData.rutas && typeof rawData.rutas === 'object') {
+                rawData = rawData.rutas;
+            }
+
+        } catch (errRutas) {
+            console.warn("Advertencia en lectura tolerante de rutas:", errRutas);
+        }
+
+        if (rawData) {
+            Object.keys(rawData).forEach(key => {
+                const item = rawData[key];
+                if (typeof item === 'object' && item !== null) {
+                    const nombreRuta = item.nombreRuta || item.ruta || item.nombre || key;
+                    
+                    if (!estructuraRutasGlobal[nombreRuta]) {
+                        estructuraRutasGlobal[nombreRuta] = [];
+                    }
+
+                    // Caso A: La ruta contiene un arreglo de paradas
+                    if (Array.isArray(item.paradas) && item.paradas.length > 0) {
+                        item.paradas.forEach((p, pIndex) => {
+                            let lat = null, lng = null;
+                            const coordRaw = p.coordenadasAbordaje || p.coordenadas || p.latlng || "";
+                            if (typeof coordRaw === 'string') {
+                                const partes = coordRaw.split(',');
+                                if (partes.length === 2) {
+                                    lat = parseFloat(partes[0].trim());
+                                    lng = parseFloat(partes[1].trim());
+                                }
+                            } else if (p.lat && p.lng) {
+                                lat = parseFloat(p.lat);
+                                lng = parseFloat(p.lng);
+                            }
+
+                            const numParada = p.numeroParada || (pIndex + 1);
+                            const nombreParada = p.referenciaOriginal || p.cruceVialEnriquecido || p.nombre || `Parada #${numParada}`;
+                            const horariosTexto = (p.horarios && Array.isArray(p.horarios)) 
+                                ? p.horarios.map(h => h.formatoCivil || h).join(' / ') 
+                                : (p.horario || item.horarioPaso || "");
+
+                            const valOption = `${nombreRuta} ➔ #${numParada} ${nombreParada}${horariosTexto ? ' (' + horariosTexto + ')' : ''}`;
+
+                            const objetoParada = {
+                                id: `${key}_${numParada}`,
+                                numeroParada: numParada,
+                                nombreRuta: nombreRuta,
+                                nombre: nombreParada,
+                                horario: horariosTexto,
+                                valOption: valOption,
+                                lat: lat,
+                                lng: lng
+                            };
+
+                            estructuraRutasGlobal[nombreRuta].push(objetoParada);
+                            if (!isNaN(lat) && !isNaN(lng)) listaTodasLasParadasFlat.push(objetoParada);
+                        });
+                    } 
+                    // Caso B: Objeto plano o punto directo de abordaje
+                    else {
+                        let lat = null, lng = null;
+                        const coordRaw = item.coordenadasAbordaje || item.coordenadas || item.latlng || "";
+                        if (typeof coordRaw === 'string') {
+                            const partes = coordRaw.split(',');
+                            if (partes.length === 2) {
+                                lat = parseFloat(partes[0].trim());
+                                lng = parseFloat(partes[1].trim());
+                            }
+                        } else if (item.lat && item.lng) {
+                            lat = parseFloat(item.lat);
+                            lng = parseFloat(item.lng);
+                        }
+
+                        const nombreParada = item.puntosAbordaje || item.nombreParada || item.referenciaOriginal || item.nombre || "Punto de Abordaje";
+                        const horario = item.horarioPaso || item.horario || "";
+                        const valOption = `${nombreRuta} ➔ ${nombreParada}${horario ? ' (' + horario + ')' : ''}`;
+
+                        const objetoParada = {
+                            id: key,
+                            numeroParada: 1,
+                            nombreRuta: nombreRuta,
+                            nombre: nombreParada,
+                            horario: horario,
+                            valOption: valOption,
+                            lat: lat,
+                            lng: lng
+                        };
+
+                        estructuraRutasGlobal[nombreRuta].push(objetoParada);
+                        if (!isNaN(lat) && !isNaN(lng)) listaTodasLasParadasFlat.push(objetoParada);
+                    }
+                }
+            });
+
+            const rutasNombradas = Object.keys(estructuraRutasGlobal);
+
+            if (rutasNombradas.length > 0) {
+                tieneRutasHabilitadas = true;
+                txtDetallesTrans.innerText = detalleDesdeVacante || "Selecciona tu ruta o utiliza el cálculo por C.P. / GPS para ver las paradas.";
+                selectRutas.innerHTML = '<option value="">— Selecciona una ruta de transporte —</option>';
+
+                rutasNombradas.forEach(nombreRuta => {
+                    const opt = document.createElement('option');
+                    opt.value = nombreRuta;
+                    opt.textContent = String(nombreRuta).toUpperCase();
+                    selectRutas.appendChild(opt);
+                });
+            } else {
+                txtDetallesTrans.innerText = detalleDesdeVacante || "No se encontraron rutas activas.";
+                selectRutas.innerHTML = '<option value="">— Sin rutas disponibles —</option>';
+                tieneRutasHabilitadas = false;
+            }
+        } else {
+            txtDetallesTrans.innerText = detalleDesdeVacante || "Esta empresa no cuenta con rutas de transporte registradas actualmente.";
+            selectRutas.innerHTML = '<option value="">— Sin transporte asignado —</option>';
+            tieneRutasHabilitadas = false;
+        }
+
+        setTimeout(() => {
+            inicializarMapaInteractivo();
+            if (listaTodasLasParadasFlat.length > 0) {
+                renderizarParadasEnMapa(listaTodasLasParadasFlat);
+            }
+        }, 300);
+    }
+
+    function alSeleccionarRuta(nombreRutaElegida) {
+        const selectParadas = document.getElementById('selParadaRuta');
+        const contenedorParadas = document.getElementById('contenedorParadasRuta');
+        const inputOcultoPunto = document.getElementById('selPuntoRecoleccion');
+        
+        inputOcultoPunto.value = "";
+        selectParadas.innerHTML = '<option value="">— Selecciona tu parada / horario —</option>';
+
+        if (!nombreRutaElegida || !estructuraRutasGlobal[nombreRutaElegida]) {
+            contenedorParadas.style.display = 'none';
+            if (listaTodasLasParadasFlat.length > 0) renderizarParadasEnMapa(listaTodasLasParadasFlat);
+            return;
+        }
+
+        const paradasDeRuta = estructuraRutasGlobal[nombreRutaElegida];
+        renderizarParadasEnMapa(paradasDeRuta.filter(p => !isNaN(p.lat) && !isNaN(p.lng)));
+
+        paradasDeRuta.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.valOption;
+            opt.textContent = `#${p.numeroParada} - ${p.nombre}${p.horario ? ' 🕒 (' + p.horario + ')' : ''}`;
+            selectParadas.appendChild(opt);
+        });
+
+        contenedorParadas.style.display = 'block';
+    }
+
+    function alSeleccionarParada(valorSeleccionado) {
+        document.getElementById('selPuntoRecoleccion').value = valorSeleccionado;
+    }
+
+    window.regresarAlMenu = function() {
+        document.getElementById('content').style.display = 'none';
+        document.getElementById('menuVacantesBox').style.display = 'block';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    async function cargarCatalogoReclutadores() {
+        const selectElement = document.getElementById("selReclutador");
+        try {
+            const snapReclutadores = await db.ref("usuarios_reclutadores").once('value');
+            selectElement.innerHTML = ""; 
+            
+            if (snapReclutadores.exists()) {
+                catalogoUsuariosGlobal = snapReclutadores.val();
+                
+                const optDef = document.createElement("option");
+                optDef.value = ""; 
+                optDef.textContent = "— Selecciona tu Asesor Asignado —";
+                selectElement.appendChild(optDef);
+
+                let asesoresValidos = 0;
+
+                Object.keys(catalogoUsuariosGlobal).forEach(key => {
+                    const rec = catalogoUsuariosGlobal[key];
+                    const estaActivo = (!rec.estatus || rec.estatus === "Activo");
+                    const tieneTelefono = Boolean(rec.telefono);
+
+                    const nivel = rec.nivel !== undefined ? parseInt(rec.nivel) : 2;
+                    const facultadReclutar = rec.operaComoReclutador === true || 
+                        (rec.operaComoReclutador === undefined && nivel <= 2);
+
+                    const esGlobal = (rec.scope || '').toLowerCase() === 'global' || rec.todasLasEmpresas === true;
+                    const empresasAsignadas = Array.isArray(rec.empresas) ? rec.empresas : [];
+                    const tieneEmpresaAsignada = esGlobal || 
+                        empresasAsignadas.includes("TODAS") || 
+                        empresasAsignadas.some(e => {
+                            const empNormalizada = sanitizarClave(e);
+                            const empComp = sanitizarCompacto(e);
+                            return empNormalizada === empresaLimpia || 
+                                   empComp === empresaCompacta || 
+                                   (claveEmpresaM1Oficial && empComp === sanitizarCompacto(claveEmpresaM1Oficial)) ||
+                                   sanitizarCompacto(nombreEmpresaMaestro) === empComp;
+                        });
+
+                    if (estaActivo && tieneTelefono && facultadReclutar && tieneEmpresaAsignada) {
+                        asesoresValidos++;
+                        const option = document.createElement("option");
+                        option.value = String(rec.telefono).trim();
+                        option.dataset.nombreReal = rec.nombre || "Asesor";
+                        option.dataset.reclutadorId = key;
+                        const rolEtiqueta = rec.nombreRol || rec.rol || "Asesor";
+                        option.textContent = `${rec.nombre || "Asesor"} (${rolEtiqueta})`;
+                        selectElement.appendChild(option);
+                    }
+                });
+
+                if (asesoresValidos === 0) {
+                    selectElement.innerHTML = `<option value="${fallbackTelefonoReclutador}" data-nombreReal="Asesor de Guardia">Asesor General de Guardia</option>`;
+                }
+            } else {
+                selectElement.innerHTML = `<option value="${fallbackTelefonoReclutador}" data-nombreReal="Asesor de Guardia">Asesor General de Guardia</option>`;
+            }
+        } catch (e) {
+            console.error("Error cargando asesores autorizados:", e);
+            selectElement.innerHTML = `<option value="${fallbackTelefonoReclutador}" data-nombreReal="Asesor de Guardia">Asesor General de Guardia</option>`;
+        }
+    }
+
+    function extraerDatosCurp(curp) {
+        if (!curp || curp.length < 11) return { edad: "Indistinto", sexo: "Indistinto" };
+        const letraSexo = curp.charAt(10).toUpperCase();
+        let sexo = letraSexo === 'H' ? "Masculino" : (letraSexo === 'M' ? "Femenino" : "Indistinto");
+        let anio = parseInt(curp.substr(4, 2), 10);
+        anio += (anio > 30) ? 1900 : 2000; 
+        let edadCalculada = new Date().getFullYear() - anio;
+        return { edad: isNaN(edadCalculada) ? "Indistinto" : String(edadCalculada), sexo: sexo };
+    }
+
+    async function verificarTitularidadCandidato(curp, telefono) {
+        try {
+            const estatusLiberados = ['Declinante', 'No Apto Medico', 'No Apto Entrevista'];
+
+            const snapCurp = await db.ref('postulantes').orderByChild('curp').equalTo(curp).once('value');
+            if (snapCurp.exists()) {
+                const list = snapCurp.val();
+                for (const key of Object.keys(list)) {
+                    const post = list[key];
+                    if (!estatusLiberados.includes(post.estatus) && (post.reclutadorId || post.asesor)) {
+                        return { existe: true, titular: post, keyOriginal: key };
+                    }
+                }
+            }
+
+            const snapTel = await db.ref('postulantes').orderByChild('telefono').equalTo(telefono).once('value');
+            if (snapTel.exists()) {
+                const list = snapTel.val();
+                for (const key of Object.keys(list)) {
+                    const post = list[key];
+                    if (!estatusLiberados.includes(post.estatus) && (post.reclutadorId || post.asesor)) {
+                        return { existe: true, titular: post, keyOriginal: key };
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn("No se pudo verificar titularidad en Firebase:", e);
+        }
+        return { existe: false, titular: null, keyOriginal: null };
+    }
+
+    window.enviarPostulacion = async function(e) {
+        e.preventDefault();
+        
+        if (estatusOperativoEmpresa === "No Disponible" || estatusOperativoEmpresa === "En Pausa" || estatusOperativoEmpresa === "Cerrada") {
+            alert("⚠️ El proceso de postulación para esta empresa se encuentra bloqueado actualmente.");
+            return;
+        }
+
+        if (datosVacanteGlobal && (datosVacanteGlobal.estatus === "No Disponible" || datosVacanteGlobal.estatus === "En Pausa")) {
+            alert("⚠️ Este puesto específico no está recibiendo citas en este momento.");
+            return;
+        }
+
+        const nombre = document.getElementById('postNombre').value.trim();
+        const telefono = document.getElementById('postTelefono').value.trim().replace(/\D/g, '');
+        const curp = document.getElementById('postCurp').value.trim().toUpperCase();
+        const fechaEntrevista = document.getElementById('postFechaEntrevista').value;
+        const horaEntrevista = document.getElementById('postHoraEntrevista').value;
+        const inputOcultoPunto = document.getElementById('selPuntoRecoleccion');
+        const selectReclutador = document.getElementById("selReclutador");
+        const btnSubmit = document.getElementById('btnSubmitForm');
+        const esModoAsistido = document.getElementById('chkModoAsistido').checked;
+        
+        const puntoElegido = inputOcultoPunto.value ? inputOcultoPunto.value : "No aplica / No seleccionado";
+
+        if (tieneRutasHabilitadas && !inputOcultoPunto.value) { 
+            alert("⚠️ Por favor selecciona una Ruta y tu Parada correspondiente."); 
+            return; 
+        }
+
+        btnSubmit.disabled = true;
+        btnSubmit.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Validando titularidad de expediente...`;
+
+        try {
+            const { existe, titular, keyOriginal } = await verificarTitularidadCandidato(curp, telefono);
+
+            let telefonoDestino = "";
+            let nombreReclutadorCorto = "";
+            let reclutadorIdFinal = null;
+            let objetoAsesor = null;
+
+            let timestampId = "WF-" + Math.floor(100000 + Math.random() * 900000);
+            let esActualizacion = false;
+
+            if (existe && titular) {
+                timestampId = keyOriginal || titular.id || timestampId;
+                esActualizacion = true;
+
+                reclutadorIdFinal = titular.reclutadorId || null;
+                nombreReclutadorCorto = titular.reclutadorNombre || titular.asesor || "Tu Asesor Titular";
+
+                if (reclutadorIdFinal && catalogoUsuariosGlobal[reclutadorIdFinal]) {
+                    objetoAsesor = catalogoUsuariosGlobal[reclutadorIdFinal];
+                    telefonoDestino = String(objetoAsesor.telefono).trim();
+                } else if (titular.telefonoAsesor) {
+                    telefonoDestino = String(titular.telefonoAsesor).trim();
+                } else {
+                    telefonoDestino = fallbackTelefonoReclutador;
+                }
+
+                alert(
+                    `ℹ️ Hola ${nombre}, identificamos que ya cuentas con un expediente activo en el sistema atendido por: ${nombreReclutadorCorto}.\n\n` +
+                    `Se actualizaron los datos de tu cita para no duplicar registros y respetar el seguimiento con tu asesor.`
+                );
+            } else {
+                const opcionSeleccionada = selectReclutador.options[selectReclutador.selectedIndex];
+                telefonoDestino = selectReclutador.value; 
+                nombreReclutadorCorto = opcionSeleccionada ? (opcionSeleccionada.dataset.nombreReal || "Asesor Asignado") : "Asesor Asignado";
+                reclutadorIdFinal = opcionSeleccionada ? (opcionSeleccionada.dataset.reclutadorId || null) : null;
+                if (reclutadorIdFinal) objetoAsesor = catalogoUsuariosGlobal[reclutadorIdFinal] || null;
+            }
+
+            let telReclutadorLimpio = String(telefonoDestino).replace(/\D/g, '');
+            if (telReclutadorLimpio.length === 10) telReclutadorLimpio = "52" + telReclutadorLimpio;
+            if (!telReclutadorLimpio) telReclutadorLimpio = fallbackTelefonoReclutador;
+
+            let telCandidatoLimpio = String(telefono).replace(/\D/g, '');
+            if (telCandidatoLimpio.length === 10) telCandidatoLimpio = "52" + telCandidatoLimpio;
+
+            const datosExtraidos = extraerDatosCurp(curp);
+            const fechaYHoraActual = new Date().toLocaleString();
+            
+            const vacanteNombreFinal = datosVacanteGlobal ? (datosVacanteGlobal.nombreVacante || datosVacanteGlobal.vacanteNombre || datosVacanteGlobal.puesto || "Desconocida") : "Desconocida";
+            const empresaNombreFinal = nombreEmpresaMaestro || (datosVacanteGlobal ? datosVacanteGlobal.nombreComercial : empresaLimpia.toUpperCase());
+
+            const urlAcuseDigital = `https://valdomtec-arch.github.io/bolsa-trabajo-principal/acuse.html?folio=${timestampId}&vacante=${encodeURIComponent(vacanteNombreFinal)}&empresa=${encodeURIComponent(empresaNombreFinal)}`;
+
+            let supervisoresArray = [];
+            let supervisorPadreIdFinal = (objetoEmpresaRaw && objetoEmpresaRaw.supervisorId) ? objetoEmpresaRaw.supervisorId : null;
+
+            if (objetoAsesor) {
+                if (Array.isArray(objetoAsesor.supervisoresIds)) supervisoresArray = objetoAsesor.supervisoresIds;
+                else if (objetoAsesor.supervisorPadreId) supervisoresArray = [objetoAsesor.supervisorPadreId];
+                if (!supervisorPadreIdFinal) supervisorPadreIdFinal = objetoAsesor.supervisorPadreId || null;
+            }
+
+            let coordinadoresArray = [];
+            let coordinadorPadreIdFinal = (objetoEmpresaRaw && objetoEmpresaRaw.coordinadorId) ? objetoEmpresaRaw.coordinadorId : null;
+
+            if (objetoAsesor) {
+                if (Array.isArray(objetoAsesor.coordinadoresIds)) coordinadoresArray = objetoAsesor.coordinadoresIds;
+                else if (objetoAsesor.coordinadorPadreId) coordinadoresArray = [objetoAsesor.coordinadorPadreId];
+                if (!coordinadorPadreIdFinal) coordinadorPadreIdFinal = objetoAsesor.coordinadorPadreId || null;
+            }
+
+            const payloadPostulante = {
+                id: timestampId,
+                nombre: nombre,
+                telefono: telefono,
+                curp: curp,
+                edad: datosExtraidos.edad,
+                sexo: datosExtraidos.sexo,
+                empresa: empresaNombreFinal,
+                empresaId: claveEmpresaM1Oficial || empresaLimpia,
+                division: divisionEmpresaMaestro,
+                vacante: vacanteNombreFinal,
+                nombreVacante: vacanteNombreFinal,
+                fechaEntrevista: fechaEntrevista,
+                horaEntrevista: horaEntrevista,
+                diaEntrevista: `${fechaEntrevista} ${horaEntrevista}`,
+                estatus: "Postulado",
+                
+                asesor: nombreReclutadorCorto,
+                reclutadorId: reclutadorIdFinal,
+                reclutadorNombre: nombreReclutadorCorto,
+                telefonoAsesor: telReclutadorLimpio,
+                
+                supervisorPadreId: supervisorPadreIdFinal,
+                supervisoresIds: supervisoresArray,
+                coordinadorPadreId: coordinadorPadreIdFinal,
+                coordinadoresIds: coordinadoresArray,
+                
+                rutaTransporteSeleccionada: puntoElegido,
+                rutaNombre: puntoElegido,
+                ruta: puntoElegido,
+                urlAcusePdf: urlAcuseDigital,
+                origenRegistro: esModoAsistido ? "RECLUTADOR_ASISTIDO" : "CANDIDATO_PORTAL",
+                fechaRegistro: fechaYHoraActual,
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            };
+
+            if (esActualizacion) {
+                await db.ref(`postulantes/${timestampId}`).update(payloadPostulante);
+            } else {
+                await db.ref(`postulantes/${timestampId}`).set(payloadPostulante);
+            }
+
+            await db.ref('modulo_7_logs').push({
+                modulo: "VACANTE_PUBLICO",
+                evento: esActualizacion ? "ACTUALIZACION_TITULARIDAD_POSTULACION" : "NUEVA_POSTULACION_CANDIDATO",
+                ejecutadoPor: esModoAsistido ? `Asesor: ${nombreReclutadorCorto}` : "Portal Vacante (Público)",
+                detalle: `Candidato ${nombre} (${curp}) [${esActualizacion ? 'EXPEDIENTE REUTILIZADO' : 'NUEVO'}]. Asesor: ${nombreReclutadorCorto}. Folio: ${timestampId}.`,
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            });
+
+            let telefonoWhatsappDestino = "";
+            let mensajeWhatsApp = "";
+
+            if (esModoAsistido) {
+                telefonoWhatsappDestino = telCandidatoLimpio;
+                mensajeWhatsApp = `¡Hola *${nombre}*! Te saludamos del área de Reclutamiento y Selección.\n\n` +
+                                  `Hemos completado tu registro oficial para la vacante *${vacanteNombreFinal}* en *${empresaNombreFinal}*.\n\n` +
+                                  `*📌 Detalles de tu Cita de Entrevista:*\n` +
+                                  `• *Folio de Expediente:* ${timestampId}\n` +
+                                  `• *Fecha:* ${fechaEntrevista}\n` +
+                                  `• *Horario:* ${horaEntrevista}\n` +
+                                  `• *Ruta / Parada:* ${puntoElegido}\n\n` +
+                                  `*👤 Tu Asesor Asignado:*\n` +
+                                  `• *Nombre:* ${nombreReclutadorCorto}\n` +
+                                  `• *WhatsApp:* +${telReclutadorLimpio}\n\n` +
+                                  `*📄 Consulta tu Acuse Digital Oficial:*\n` +
+                                  `${urlAcuseDigital}\n\n` +
+                                  `_Favor de presentarte con tu identificación oficial (INE) y CURP en mano._`;
+            } else {
+                telefonoWhatsappDestino = telReclutadorLimpio;
+                mensajeWhatsApp = `¡Hola! Me acabo de postular a una vacante y agendé mi cita.\n\n` +
+                                  `*📌 Detalles de mi Postulación:*\n` +
+                                  `• *Folio:* ${timestampId}\n` +
+                                  `• *Puesto:* ${vacanteNombreFinal}\n` +
+                                  `• *Empresa:* ${empresaNombreFinal}\n` +
+                                  `• *Ruta y Parada:* ${puntoElegido}\n\n` +
+                                  `*📅 Cita de Entrevista Agendada:*\n` +
+                                  `• *Fecha:* ${fechaEntrevista}\n` +
+                                  `• *Horario:* ${horaEntrevista}\n\n` +
+                                  `*👤 Mis Datos de Contacto:*\n` +
+                                  `• *Nombre:* ${nombre}\n` +
+                                  `• *Teléfono:* ${telefono}\n` +
+                                  `• *CURP:* ${curp}\n\n` +
+                                  `*📄 Mi Acuse Digital Oficial:*\n` +
+                                  `${urlAcuseDigital}\n\n` +
+                                  `_Atendido por: ${nombreReclutadorCorto}_`;
+            }
+
+            document.getElementById('formPostulacion').reset();
+            btnSubmit.disabled = false;
+            alternarModoAsistido();
+            
+            setTimeout(() => {
+                window.location.href = `https://wa.me/${telefonoWhatsappDestino}?text=${encodeURIComponent(mensajeWhatsApp)}`;
+            }, 500);
+            
+        } catch (err) {
+            alert(`❌ Error al procesar datos: ${err.message}`);
+            btnSubmit.disabled = false;
+            alternarModoAsistido();
+        }
+    };
+
+    window.onload = cargarDetallesVacante;
+</script>
+</body>
+</html>
