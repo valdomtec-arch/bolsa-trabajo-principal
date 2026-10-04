@@ -51,7 +51,7 @@
 
     <div class="max-w-7xl mx-auto space-y-6">
 
-        <!-- CABECERA OPERATIVA -->
+        <!-- CABECERA OPERATIVA CON BOTÓN DE PURGA ATÓMICA -->
         <header class="flex flex-col lg:flex-row justify-between items-start lg:items-center bg-[#0b1329] p-5 rounded-2xl border border-white/10 shadow-2xl gap-4">
             <div>
                 <div class="flex items-center gap-2 mb-1 flex-wrap">
@@ -74,14 +74,20 @@
             </div>
 
             <div class="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
+                <button onclick="archivarPasivos120h()" title="Mover candidatos declinantes (>120h) hacia M3.3 Histórico de forma atómica" class="flex-1 sm:flex-initial bg-purple-900/60 hover:bg-purple-800 border border-purple-500/40 text-purple-200 hover:text-white font-bold py-2 px-3.5 rounded-xl shadow flex items-center justify-center gap-2 text-xs transition">
+                    <i class="fas fa-box-archive text-purple-400"></i> Archivar Pasivos (>120h)
+                </button>
                 <button onclick="balancearCargaInteligente()" class="flex-1 sm:flex-initial btn-orange-glow text-white font-bold py-2 px-3.5 rounded-xl shadow flex items-center justify-center gap-2 text-xs">
                     <i class="fas fa-scale-balanced"></i> Auto-Balancear Equipo
                 </button>
+                <a href="m3_historico.html" class="flex-1 sm:flex-initial bg-[#15264a] hover:bg-[#1e3a70] border border-cyan-800/60 text-cyan-300 font-semibold py-2 px-3.5 rounded-xl flex items-center justify-center gap-2 text-xs transition">
+                    <i class="fas fa-clock-rotate-left"></i> M3.3 Histórico
+                </a>
                 <a href="m3_agenda.html" class="flex-1 sm:flex-initial bg-[#15264a] hover:bg-[#1e3a70] border border-blue-900/60 text-white font-semibold py-2 px-3.5 rounded-xl flex items-center justify-center gap-2 text-xs transition">
                     <i class="fas fa-address-book"></i> Agenda Operativa
                 </a>
                 <a href="admin.html" class="flex-1 sm:flex-initial bg-[#06101e] hover:bg-slate-900 border border-white/10 text-slate-300 font-semibold py-2 px-3.5 rounded-xl flex items-center justify-center gap-2 text-xs transition">
-                    <i class="fas fa-home"></i> Panel Central
+                    <i class="fas fa-home"></i> CoreHub
                 </a>
             </div>
         </header>
@@ -339,6 +345,7 @@
         window.ejecutarRescateConfirmado = ejecutarRescateConfirmado;
         window.alCambiarFiltroSupervision = alCambiarFiltroSupervision;
         window.notificarPorWhatsAppYLog = notificarPorWhatsAppYLog;
+        window.archivarPasivos120h = archivarPasivos120h;
 
         document.addEventListener("DOMContentLoaded", () => {
             validarAccesoJerarquico();
@@ -576,10 +583,9 @@
                     }
                 }
             }
-            return 2500; // Tarifa estándar base estimada por contratación
+            return 2500;
         }
 
-        // 5. MOTOR ANALÍTICO PRINCIPAL CON RADAR FINANCIERO Y ALERTAS CLÍNICAS
         function procesarMetricasSupervision() {
             const tabla = document.getElementById("tablaSupervisionBody");
             tabla.innerHTML = "";
@@ -680,7 +686,6 @@
                 const pctMed = total > 0 ? Math.round((noAptoMed / total) * 100) : 0;
                 const pctEnt = total > 0 ? Math.round((noAptoEnt / total) * 100) : 0;
 
-                // DETECTOR DE FALLAS DE PRE-FILTRO PEDAGÓGICO
                 let alertaClinicaHtml = '';
                 if (pctMed >= 30 && noAptoMed >= 3) {
                     alertaClinicaHtml = `<span class="block text-[10px] text-rose-400 font-bold mt-0.5"><i class="fas fa-triangle-exclamation"></i> Falla pre-filtro médico</span>`;
@@ -735,11 +740,9 @@
                 `;
             });
 
-            // VALORES EN RADAR FINANCIERO
             document.getElementById("txtCapitalEnTransito").textContent = `$${globalCapitalTransito.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN`;
             document.getElementById("txtCapitalEnRiesgo").textContent = `$${globalCapitalRiesgo.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN`;
 
-            // KPIS SUPERIORES
             document.getElementById("kpiCarteraTotal").textContent = globalTotal;
             const tasaGlobal = globalTotal > 0 ? Math.round((globalColocados / globalTotal) * 100) : 0;
             document.getElementById("kpiTasaCierre").textContent = `${tasaGlobal}%`;
@@ -760,7 +763,6 @@
             renderizarGraficos(globalColocados, globalMed, globalEnt, globalDecl, globalV + globalA + globalR, chartLabels, chartDataV, chartDataA, chartDataR);
         }
 
-        // 6. AGENDA TÁCTICA DEL DÍA (HOY Y MAÑANA)
         function procesarAgendaTacticoCitas() {
             const tbody = document.getElementById("tablaCitasHoyBody");
             const badge = document.getElementById("badgeConteoCitasHoy");
@@ -808,7 +810,6 @@
             }
         }
 
-        // 7. RENDERIZACIÓN DE GRÁFICOS
         function renderizarGraficos(colocados, med, ent, decl, activos, labels, dataV, dataA, dataR) {
             if (chartEstatusInstance) chartEstatusInstance.destroy();
             const ctxDona = document.getElementById('chartEstatusDona').getContext('2d');
@@ -849,7 +850,6 @@
             });
         }
 
-        // 8. AUDITORÍA FORENSE DE APERCIBIMIENTOS VÍA WHATSAPP
         async function notificarPorWhatsAppYLog(uTel, uNombre, rezagoCount) {
             const msgWA = encodeURIComponent(
                 `Hola ${uNombre}, en la Torre de Control M3 observo que tienes ${rezagoCount} candidato(s) con más de 48h sin avance de fase. ` +
@@ -873,7 +873,89 @@
             window.open(`https://wa.me/52${uTel}?text=${msgWA}`, '_blank');
         }
 
-        // 9. MODAL DE RESCATE CON PRESERVACIÓN MATRICIAL
+        // =========================================================================
+        // FUNCIÓN ATÓMICA DE ARCHIVADO / PURGA A 120H HACIA M3.3 HISTÓRICO
+        // =========================================================================
+        async function archivarPasivos120h() {
+            if (usuarioSesion.nivel < 3) {
+                return alert("Acción restringida. Se requiere nivel de Coordinación, Supervisión o Dirección.");
+            }
+
+            const estatusPasivos = ["Declinante", "No Apto Medico", "No Apto Entrevista"];
+            const HORAS_LIMITE = 120; // 5 días exactos de inactividad
+
+            const snap = await get(ref(db, 'postulantes'));
+            const data = snap.val() || {};
+
+            const candidatosAArchivar = [];
+
+            Object.entries(data).forEach(([id, p]) => {
+                // Verificar si pertenece a la célula autorizada del supervisor
+                if (!equipoAuditableIds.includes(p.reclutadorId) && usuarioSesion.nivel < 5 && usuarioSesion.scope !== 'global') {
+                    return;
+                }
+
+                const est = normalizarEstatus(p.estatus || p.status);
+                if (estatusPasivos.includes(est)) {
+                    const hrs = getHorasInactividad(p.ultimaActualizacion || p.diaEntrevista || p.fechaPostulacion);
+                    if (hrs >= HORAS_LIMITE) {
+                        candidatosAArchivar.push({ id, p, hrs, est });
+                    }
+                }
+            });
+
+            if (candidatosAArchivar.length === 0) {
+                alert(`✨ No se detectaron candidatos en estatus pasivo con más de ${HORAS_LIMITE} horas de inactividad en tu célula.`);
+                return;
+            }
+
+            const confirmacion = confirm(
+                `🧹 ARCHIVADO ATÓMICO A COLD STORAGE:\n\n` +
+                `Se encontraron ${candidatosAArchivar.length} candidato(s) descartados (Declinantes / No Aptos) con >= 120 horas de rezago.\n\n` +
+                `¿Deseas trasladarlos a M3.3 Cartera Pasiva & Histórico para aligerar la base activa de M3 Agenda?`
+            );
+
+            if (!confirmacion) return;
+
+            const updates = {};
+            const fechaArchivado = new Date().toISOString();
+
+            candidatosAArchivar.forEach(({ id, p, hrs, est }) => {
+                // 1. Escribir copia completa con su jerarquía matricial intacta en /postulantes_historico/
+                updates[`postulantes_historico/${id}`] = {
+                    ...p,
+                    causaDescarte: est,
+                    motivoInactividad: `Inactividad de ${Math.floor(hrs)} horas en estatus ${est}`,
+                    fechaArchivado: fechaArchivado,
+                    archivadoPorUid: usuarioSesion.uid,
+                    archivadoPorNombre: usuarioSesion.nombre,
+                    bloqueado: p.bloqueado || false
+                };
+
+                // 2. Eliminar del nodo caliente /postulantes/
+                updates[`postulantes/${id}`] = null;
+            });
+
+            try {
+                // Ejecución multi-path atómica
+                await update(ref(db), updates);
+
+                await push(ref(db, 'modulo_7_logs'), {
+                    modulo: "M3_SUPERVISION",
+                    evento: "PURGA_PASIVOS_120H",
+                    supervisor: usuarioSesion.nombre,
+                    uidEjecutor: usuarioSesion.uid,
+                    detalle: `Se archivaron atómicamente ${candidatosAArchivar.length} prospectos hacia postulantes_historico con >= 120h.`,
+                    timestamp: serverTimestamp()
+                });
+
+                alert(`✅ Éxito: ${candidatosAArchivar.length} candidatos fueron archivados en M3.3 Histórico. La base activa de M3 Agenda ha sido liberada.`);
+
+            } catch (err) {
+                alert("Error durante la purga atómica: " + err.message);
+            }
+        }
+
         function abrirModalRescate(origenUid, origenNombre) {
             document.getElementById("rescateOrigenUid").value = origenUid;
             document.getElementById("rescateOrigenNombre").value = origenNombre;
@@ -970,7 +1052,6 @@
             alert(`✅ ${count} candidatos rescatados y transferidos exitosamente a ${destinoNombre}.`);
         }
 
-        // 10. AUTO-BALANCEO INTELIGENTE DE CARGA BLINDADO
         async function balancearCargaInteligente() {
             const reclutadoresOperativosIds = equipoAuditableIds.filter(id => esReceptorReclutadorValido(id));
 
