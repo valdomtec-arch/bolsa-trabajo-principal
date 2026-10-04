@@ -195,7 +195,7 @@
             <div class="flex flex-col sm:flex-row items-center gap-2.5">
                 <div class="relative flex-1 w-full">
                     <i class="fas fa-magnifying-glass absolute left-3.5 top-3.5 text-slate-500 text-xs"></i>
-                    <input type="text" id="buscadorVivo" oninput="cargarPostulantes()" placeholder="Buscar por Nombre, CURP, Teléfono, Ruta o Vacante..." class="w-full bg-cyber-bg border border-cyber-border rounded-xl pl-9 pr-3 py-2.5 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyber-accent font-medium touch-target">
+                    <input type="text" id="buscadorVivo" oninput="onBuscadorInput()" placeholder="Buscar por Nombre, CURP, Teléfono, Ruta o Vacante..." class="w-full bg-cyber-bg border border-cyber-border rounded-xl pl-9 pr-3 py-2.5 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyber-accent font-medium touch-target">
                 </div>
                 <button type="button" id="btnToggleDesfasadosInline" onclick="alternarFiltroDesfasados()" class="w-full sm:w-auto bg-cyber-bg hover:bg-slate-800 border border-cyber-border text-slate-300 px-4 py-2.5 rounded-xl text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition whitespace-nowrap touch-target">
                     <i class="fas fa-clock-rotate-left text-amber-400"></i>
@@ -242,8 +242,8 @@
             </div>
         </div>
 
-        <!-- GRÁFICAS DEMOGRÁFICAS -->
-        <details class="bg-cyber-card p-4 rounded-2xl border border-cyber-border group">
+        <!-- GRÁFICAS DEMOGRÁFICAS (RENDERIZADO CONDICIONAL) -->
+        <details id="detailsGraficas" class="bg-cyber-card p-4 rounded-2xl border border-cyber-border group">
             <summary class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center justify-between cursor-pointer select-none">
                 <span class="flex items-center gap-2">
                     <i class="fas fa-chart-pie text-cyber-accent"></i> Analítica Demográfica de Postulados
@@ -266,10 +266,21 @@
             </div>
         </details>
 
-        <!-- BANDEJA DE POSTULANTES HÍBRIDA -->
+        <!-- BANDEJA DE POSTULANTES CON PAGINACIÓN ÁGIL -->
         <div class="bg-cyber-card rounded-3xl border border-cyber-border overflow-hidden shadow-xl">
             <div class="p-4 border-b border-cyber-border flex justify-between items-center flex-wrap gap-2">
                 <span class="text-xs sm:text-sm font-mono text-slate-300 font-bold" id="txtTotalPostuladosLabel">Mostrando 0 candidatos</span>
+                
+                <!-- CONTROLES DE PAGINACIÓN -->
+                <div class="flex items-center gap-2 font-mono text-xs">
+                    <button type="button" id="btnPaginaAnt" onclick="cambiarPagina(-1)" class="px-2.5 py-1 bg-cyber-bg border border-cyber-border hover:bg-slate-800 rounded-lg text-slate-300 disabled:opacity-30 disabled:pointer-events-none transition">
+                        <i class="fas fa-chevron-left"></i> Ant
+                    </button>
+                    <span id="txtInfoPaginacion" class="text-slate-400 font-bold">Pág 1 de 1</span>
+                    <button type="button" id="btnPaginaSig" onclick="cambiarPagina(1)" class="px-2.5 py-1 bg-cyber-bg border border-cyber-border hover:bg-slate-800 rounded-lg text-slate-300 disabled:opacity-30 disabled:pointer-events-none transition">
+                        Sig <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
             </div>
 
             <!-- VISTA TARJETAS TÁCTICAS (<1024px) -->
@@ -359,7 +370,7 @@
                     </div>
                 </div>
 
-                <!-- ASESOR Y CATÁLOGO OFICIAL CON NUEVOS ESTATUS -->
+                <!-- ASESOR Y CATÁLOGO OFICIAL -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                         <label class="block text-xs font-mono text-amber-400 uppercase mb-1 font-bold">
@@ -497,6 +508,12 @@
         let filtroSoloDesfasadosActivo = false;
         let modoRelojActual = '12H';
 
+        // Paginación táctica y control de rendimiento
+        let paginaActual = 1;
+        const ELEMENTOS_POR_PAGINA = 30;
+        let listaCandidatosFiltrados = [];
+        let debounceTimer = null;
+
         let usuarioSesion = {
             uid: null,
             nombre: "Cargando...",
@@ -512,7 +529,6 @@
             rawUser: {}
         };
 
-        // MOTOR CENTRALIZADO RBAC VIVO
         const RBAC = {
             puede(moduloId, accion) {
                 if (!usuarioSesion.uid) return false;
@@ -557,13 +573,37 @@
         window.cambiarModoReloj = cambiarModoReloj;
         window.toggleAmPm = toggleAmPm;
         window.actualizarHoraConsolidada = actualizarHoraConsolidada;
+        window.onBuscadorInput = onBuscadorInput;
+        window.cambiarPagina = cambiarPagina;
 
         document.addEventListener("DOMContentLoaded", () => {
             inicializarSeguridadM3();
             iniciarCentinelaWatchdog();
+
+            document.getElementById("detailsGraficas").addEventListener("toggle", (e) => {
+                if (e.target.open) {
+                    cargarPostulantes();
+                }
+            });
         });
 
-        // RESOLVEDOR DE SEXO VIVO / RETROACTIVO (CURP + BASE DE DATOS)
+        function onBuscadorInput() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                paginaActual = 1;
+                cargarPostulantes();
+            }, 250);
+        }
+
+        function cambiarPagina(delta) {
+            const totalPaginas = Math.ceil(listaCandidatosFiltrados.length / ELEMENTOS_POR_PAGINA) || 1;
+            const nuevaPagina = paginaActual + delta;
+            if (nuevaPagina >= 1 && nuevaPagina <= totalPaginas) {
+                paginaActual = nuevaPagina;
+                renderizarPaginaActual();
+            }
+        }
+
         function resolverSexoCandidato(sexoExistente, curp) {
             if (sexoExistente === "Masculino" || sexoExistente === "Femenino") {
                 return sexoExistente;
@@ -658,7 +698,6 @@
             }
         }
 
-        // NORMALIZADOR CANÓNICO DE ESTATUS
         function normalizarEstatus(str) {
             if (!str) return "Postulado";
             const s = str.toString().trim().toLowerCase()
@@ -733,11 +772,24 @@
                         rawUser: val
                     };
 
-                    const snapStaff = await get(ref(db, "usuarios_reclutadores"));
+                    // Carga puntual de catálogos estáticos
+                    const [snapStaff, snapEmp, snapRoles, snapVac, snapRut] = await Promise.all([
+                        get(ref(db, "usuarios_reclutadores")),
+                        get(ref(db, "empresas")),
+                        get(ref(db, "roles_dinamicos")),
+                        get(ref(db, "vacantes_detalles")),
+                        get(ref(db, "rutas"))
+                    ]);
+
                     catalogoUsuarios = snapStaff.val() || {};
+                    catalogoEmpresas = snapEmp.val() || {};
+                    catalogoRoles = snapRoles.val() || {};
+                    catalogoVacantesDetalles = snapVac.val() || {};
+                    catalogoRutas = snapRut.val() || {};
                     
                     construirArbolDescendenteMatricial();
                     aplicarReglasInterfaz();
+                    actualizarFiltros();
                     iniciarEscuchasRealtime();
 
                 } catch (e) {
@@ -871,25 +923,10 @@
                 .then(() => alert(nuevoEstado ? "⏸️ Modo Mantenimiento Activado" : "▶️ Centinela Reactivado"));
         }
 
+        // DESACOPLAMIENTO DE CONSULTA REACTIVA (SÓLO /postulantes)
         function iniciarEscuchasRealtime() {
-            onValue(ref(db), (snapshot) => {
-                const data = snapshot.val() || {};
-                
-                todosLosPostulantes = data.postulantes || data.modulo_3_agenda || {};
-                catalogoEmpresas = data.empresas || {};
-                catalogoUsuarios = data.usuarios_reclutadores || {};
-                catalogoRoles = data.roles_dinamicos || {};
-                catalogoVacantesDetalles = data.vacantes_detalles || {};
-                catalogoRutas = data.rutas || {};
-
-                if (catalogoUsuarios[usuarioSesion.uid]) {
-                    usuarioSesion.rawUser = catalogoUsuarios[usuarioSesion.uid];
-                    usuarioSesion.rolId = catalogoUsuarios[usuarioSesion.uid].rolId;
-                    usuarioSesion.nivel = parseInt(catalogoUsuarios[usuarioSesion.uid].nivel) || 2;
-                }
-
-                construirArbolDescendenteMatricial();
-                actualizarFiltros();
+            onValue(ref(db, "postulantes"), (snapshot) => {
+                todosLosPostulantes = snapshot.val() || {};
                 cargarPostulantes();
             });
         }
@@ -947,12 +984,14 @@
             document.getElementById("filtroEmpresa").value = "TODAS";
             document.getElementById("filtroVacante").value = "TODAS";
             actualizarFiltros();
+            paginaActual = 1;
             cargarPostulantes();
         }
 
         function alCambiarEmpresa() {
             document.getElementById("filtroVacante").value = "TODAS";
             actualizarFiltroVacantes();
+            paginaActual = 1;
             cargarPostulantes();
         }
 
@@ -989,21 +1028,17 @@
             if (vacantePrev) filtroVacante.value = vacantePrev;
         }
 
-        // REGLA DE ORO DE VISIBILIDAD CANÓNICA
         function puedeVerCandidato(p) {
             const recId = p.reclutadorId || p.agenteId;
 
-            // 1. Director, Master y Scope Global
             if (usuarioSesion.nivel >= 5 || (usuarioSesion.nivel === 4 && usuarioSesion.esDirector) || usuarioSesion.scope === 'global') {
                 return true;
             }
 
-            // 2. Supervisor (N4) y Coordinador (N3)
             if (usuarioSesion.nivel === 4 || usuarioSesion.nivel === 3) {
                 return !!(recId && usuarioSesion.equipoDescendenteIds.includes(recId));
             }
 
-            // 3. Reclutador Operativo (N1/N2)
             if (usuarioSesion.nivel <= 2) {
                 return recId === usuarioSesion.uid;
             }
@@ -1030,17 +1065,12 @@
                 btn.className = "w-full sm:w-auto bg-cyber-bg hover:bg-slate-800 border border-cyber-border text-slate-300 px-4 py-2.5 rounded-xl text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition whitespace-nowrap touch-target";
                 txt.textContent = "Solo Desfasados (>24h)";
             }
+            paginaActual = 1;
             cargarPostulantes();
         }
 
-        // RENDERIZADO CON NUEVOS ESTATUS, BADGES DE DIVISIÓN, RUTAS Y DEDUCCIÓN DE SEXO
+        // MOTOR PRINCIPAL DE FILTRADO Y MÉTRICAS GLOBALES
         function cargarPostulantes() {
-            const contCards = document.getElementById("postulantesCardsMobile");
-            const tbodyDesktop = document.getElementById("tablaPostulantesDesktop");
-            
-            contCards.innerHTML = "";
-            tbodyDesktop.innerHTML = "";
-
             const divFiltro = document.getElementById("filtroDivision").value.toLowerCase();
             const empFiltro = document.getElementById("filtroEmpresa").value;
             const vacFiltro = document.getElementById("filtroVacante").value;
@@ -1054,8 +1084,7 @@
             let total = 0, totalDesfasados = 0, totalCriticos = 0;
 
             const estadosVigilanSLA = ['Postulado', 'En Proceso', 'Entrevista', 'Inducción'];
-            const puedeEditar = RBAC.puede('m3_agenda', 'editar');
-            const puedeEliminar = RBAC.puede('m3_agenda', 'eliminar');
+            listaCandidatosFiltrados = [];
 
             Object.entries(todosLosPostulantes).forEach(([id, p]) => {
                 if (!p || !puedeVerCandidato(p)) return;
@@ -1063,8 +1092,6 @@
                 const empKey = sanitizarKey(p.empresaId || p.empresa || "");
                 const recId = p.reclutadorId || p.agenteId || "";
                 const vacNombre = p.nombreVacante || p.vacante || "Sin Vacante";
-                
-                // LECTURA ROBUSTA DE RUTA COMPATIBLE CON TODOS LOS MÓDULOS
                 const rutaCapturada = p.rutaTransporteSeleccionada || p.rutaNombre || p.ruta || "";
 
                 const empData = catalogoEmpresas[empKey] || {};
@@ -1102,7 +1129,6 @@
                 else if (estatus === "Proceso Terminado") cTerm++;
                 else if (estatus === "Declinante" || estatus === "No Apto Entrevista" || estatus === "No Apto Medico") cDecl++;
 
-                // DEDUCCIÓN Y NORMALIZACIÓN VIVA DE SEXO (CURP O ATRIBUTO GUARDADO)
                 const sexoReal = resolverSexoCandidato(p.sexo, p.curp);
                 if (sexoReal === "Masculino" || sexoReal === "Femenino") {
                     metricaSexo[sexoReal]++;
@@ -1116,6 +1142,85 @@
                 else if (edadNum >= 36 && edadNum <= 45) metricaEdad["36-45"]++;
                 else if (edadNum > 45) metricaEdad["46+"]++;
 
+                listaCandidatosFiltrados.push({
+                    id,
+                    p,
+                    estatus,
+                    horas,
+                    estaEnSLA,
+                    sexoReal,
+                    empKey,
+                    empData,
+                    divisionEmpresa,
+                    vacNombre,
+                    rutaCapturada,
+                    recId
+                });
+            });
+
+            // Actualizar banners y KPIs globales
+            const bannerSla = document.getElementById("bannerAlertaSla");
+            if (totalDesfasados > 0) {
+                bannerSla.classList.remove("hidden");
+                document.getElementById("txtAlertaSlaDetalle").innerHTML = `
+                    Tienes <b>${totalDesfasados}</b> postulante(s) activos con retraso de atención (>24h) en tu célula autorizada (<b>${totalCriticos}</b> críticos >48h).
+                `;
+            } else {
+                bannerSla.classList.add("hidden");
+            }
+
+            document.getElementById("kpiPostulados").innerText = cPost;
+            document.getElementById("kpiProceso").innerText = cProc;
+            document.getElementById("kpiInduccion").innerText = cInd;
+            document.getElementById("kpiContratados").innerText = cCont;
+            document.getElementById("kpiTerminados").innerText = cTerm;
+            document.getElementById("kpiDeclinantes").innerText = cDecl;
+            document.getElementById("txtTotalPostuladosLabel").innerText = `Mostrando ${total} candidatos en tu célula autorizada`;
+
+            const detalles = document.getElementById("detailsGraficas");
+            if (detalles && detalles.open) {
+                actualizarGraficosDemograficos(metricaSexo, metricaEdad);
+            }
+
+            renderizarPaginaActual();
+        }
+
+        // RENDERIZADO ACELERADO POR LOTES MEDIANTE FRAGMENTOS
+        function renderizarPaginaActual() {
+            const contCards = document.getElementById("postulantesCardsMobile");
+            const tbodyDesktop = document.getElementById("tablaPostulantesDesktop");
+            
+            contCards.innerHTML = "";
+            tbodyDesktop.innerHTML = "";
+
+            const total = listaCandidatosFiltrados.length;
+            const totalPaginas = Math.ceil(total / ELEMENTOS_POR_PAGINA) || 1;
+
+            if (paginaActual > totalPaginas) paginaActual = totalPaginas;
+            if (paginaActual < 1) paginaActual = 1;
+
+            document.getElementById("txtInfoPaginacion").textContent = `Pág ${paginaActual} de ${totalPaginas}`;
+            document.getElementById("btnPaginaAnt").disabled = (paginaActual <= 1);
+            document.getElementById("btnPaginaSig").disabled = (paginaActual >= totalPaginas);
+
+            if (total === 0) {
+                contCards.innerHTML = `<div class="p-8 text-center text-slate-500 font-mono text-xs col-span-2">No se encontraron candidatos con los filtros seleccionados.</div>`;
+                tbodyDesktop.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-500 font-mono">No se encontraron candidatos con los filtros seleccionados.</td></tr>`;
+                return;
+            }
+
+            const inicio = (paginaActual - 1) * ELEMENTOS_POR_PAGINA;
+            const fin = inicio + ELEMENTOS_POR_PAGINA;
+            const lote = listaCandidatosFiltrados.slice(inicio, fin);
+
+            const puedeEditar = RBAC.puede('m3_agenda', 'editar');
+            const puedeEliminar = RBAC.puede('m3_agenda', 'eliminar');
+            const disabledSelect = puedeEditar ? "" : "disabled style='pointer-events:none; opacity:0.8;'";
+
+            const fragCards = document.createDocumentFragment();
+            const fragDesktop = document.createDocumentFragment();
+
+            lote.forEach(({ id, p, estatus, horas, estaEnSLA, sexoReal, empKey, empData, divisionEmpresa, vacNombre, rutaCapturada, recId }) => {
                 let claseSemaforo = "status-postulado";
                 if (estatus === "En Proceso") claseSemaforo = "status-proceso";
                 else if (estatus === "Entrevista") claseSemaforo = "status-entrevista";
@@ -1146,7 +1251,6 @@
                     ? `<div class="text-xs bg-amber-500/10 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded font-mono font-bold mt-1 inline-flex items-center gap-1"><i class="fas fa-calendar-check"></i> ${tieneCita}</div>`
                     : `<div class="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded font-mono mt-1 inline-flex items-center gap-1"><i class="fas fa-clock"></i> Pendiente</div>`;
 
-                // RENDERIZADO VISIBLE DE LA RUTA
                 const rutaHtml = (rutaCapturada && rutaCapturada !== "SIN_RUTA" && rutaCapturada !== "Sin Ruta Asignada" && rutaCapturada !== "No aplica / No seleccionado")
                     ? `<div class="text-[11px] text-amber-300 font-mono font-bold flex items-center gap-1.5 mt-1 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-md break-words max-w-xs">
                          <i class="fas fa-bus-simple text-amber-400 shrink-0"></i> <span>${rutaCapturada}</span>
@@ -1156,9 +1260,7 @@
                 const msgWA = `Hola *${p.nombre}*, te saludamos de Reclutamiento para la vacante *${vacNombre}* en *${nombreEmpresa}*. Tu estatus es: *${estatus}*.`;
                 const urlWA = `https://wa.me/52${p.telefono}?text=${encodeURIComponent(msgWA)}`;
 
-                const disabledSelect = puedeEditar ? "" : "disabled style='pointer-events:none; opacity:0.8;'";
-
-                // CARDS MÓVIL (<1024px)
+                // Card Móvil
                 const card = document.createElement('div');
                 card.className = "bg-cyber-card p-4 rounded-2xl border border-cyber-border space-y-3 shadow-md flex flex-col justify-between";
                 card.innerHTML = `
@@ -1207,9 +1309,9 @@
                         </button>` : ''}
                     </div>
                 `;
-                contCards.appendChild(card);
+                fragCards.appendChild(card);
 
-                // TABLA DESKTOP (>=1024px)
+                // Fila Desktop
                 const tr = document.createElement('tr');
                 tr.className = "hover:bg-slate-800/40 border-b border-cyber-border/40 transition-colors";
                 tr.innerHTML = `
@@ -1262,28 +1364,11 @@
                         </div>
                     </td>
                 `;
-                tbodyDesktop.appendChild(tr);
+                fragDesktop.appendChild(tr);
             });
 
-            const bannerSla = document.getElementById("bannerAlertaSla");
-            if (totalDesfasados > 0) {
-                bannerSla.classList.remove("hidden");
-                document.getElementById("txtAlertaSlaDetalle").innerHTML = `
-                    Tienes <b>${totalDesfasados}</b> postulante(s) activos con retraso de atención (>24h) en tu célula autorizada (<b>${totalCriticos}</b> críticos >48h).
-                `;
-            } else {
-                bannerSla.classList.add("hidden");
-            }
-
-            document.getElementById("kpiPostulados").innerText = cPost;
-            document.getElementById("kpiProceso").innerText = cProc;
-            document.getElementById("kpiInduccion").innerText = cInd;
-            document.getElementById("kpiContratados").innerText = cCont;
-            document.getElementById("kpiTerminados").innerText = cTerm;
-            document.getElementById("kpiDeclinantes").innerText = cDecl;
-            document.getElementById("txtTotalPostuladosLabel").innerText = `Mostrando ${total} candidatos en tu célula autorizada`;
-
-            actualizarGraficosDemograficos(metricaSexo, metricaEdad);
+            contCards.appendChild(fragCards);
+            tbodyDesktop.appendChild(fragDesktop);
         }
 
         async function cambioRapidoEstatus(id, nuevoEstatus) {
@@ -1312,7 +1397,11 @@
             if (chartSexoInstance) chartSexoInstance.destroy();
             if (chartEdadInstance) chartEdadInstance.destroy();
 
-            const ctxSexo = document.getElementById('chartSexo').getContext('2d');
+            const canvasSexo = document.getElementById('chartSexo');
+            const canvasEdad = document.getElementById('chartEdad');
+            if (!canvasSexo || !canvasEdad) return;
+
+            const ctxSexo = canvasSexo.getContext('2d');
             chartSexoInstance = new Chart(ctxSexo, {
                 type: 'pie',
                 data: {
@@ -1327,7 +1416,7 @@
                 options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#94a3b8', font: { size: 10 } } } } }
             });
 
-            const ctxEdad = document.getElementById('chartEdad').getContext('2d');
+            const ctxEdad = canvasEdad.getContext('2d');
             chartEdadInstance = new Chart(ctxEdad, {
                 type: 'bar',
                 data: {
@@ -1402,7 +1491,6 @@
             
             poblarVacantesEnModal(p.nombreVacante || p.vacante);
             
-            // LECTURA ROBUSTA DE RUTA AL ABRIR MODAL
             const rutaGuardada = p.rutaTransporteSeleccionada || p.rutaNombre || p.ruta || "";
             poblarRutasEnModal(rutaGuardada);
 
@@ -1441,7 +1529,6 @@
             }
         }
 
-        // CARGA DINÁMICA DE RUTAS EN EL MODAL
         function poblarRutasEnModal(rutaActual) {
             const empSel = sanitizarKey(document.getElementById("editEmpresa").value);
             const editRuta = document.getElementById("editRuta");
@@ -1476,7 +1563,6 @@
             document.getElementById("modalEditar").classList.add("hidden");
         }
 
-        // GUARDADO DE EXPEDIENTE CON DOBLE CANDADO ANTI-DUPLICIDAD (CURP Y TELÉFONO)
         async function guardarCambiosAdmin() {
             RBAC.asegurar('m3_agenda', 'editar', "No tienes permisos para modificar expedientes.");
 
@@ -1496,11 +1582,8 @@
                 return;
             }
 
-            // =========================================================================
-            // CANDADO ESTRICTO ANTI-DUPLICIDAD POR CURP Y TELÉFONO (PROTECCIÓN DE CARTERA)
-            // =========================================================================
             const registroDuplicado = Object.entries(todosLosPostulantes).find(([key, post]) => {
-                if (key === id) return false; // Ignora el propio expediente en edición
+                if (key === id) return false;
                 const curpReg = (post.curp || '').toString().trim().toUpperCase();
                 const telReg = (post.telefono || '').toString().replace(/\D/g, '');
                 return (curpReg && curpReg === curp) || (telReg && telReg === telefono);
@@ -1522,7 +1605,6 @@
                       `Operación abortada para proteger la cartera y comisiones.`);
                 return;
             }
-            // =========================================================================
 
             let recIdFinal = originalRecId;
             let recNombreFinal = originalRecNombre;
@@ -1557,7 +1639,6 @@
                 const divisionEmp = catalogoEmpresas[sanitizarKey(empKey)]?.division || "centro";
                 const rutaSeleccionada = document.getElementById("editRuta").value;
 
-                // DEDUCCIÓN Y ASEGURAMIENTO DEL SEXO AL GUARDAR
                 const sexoActualizado = resolverSexoCandidato(todosLosPostulantes[id]?.sexo, curp);
 
                 const updates = {
@@ -1571,7 +1652,6 @@
                     nombreVacante: document.getElementById("editVacante").value,
                     vacante: document.getElementById("editVacante").value,
                     
-                    // PERSISTENCIA HOMOLOGADA DE RUTAS
                     rutaTransporteSeleccionada: rutaSeleccionada,
                     rutaNombre: rutaSeleccionada,
                     ruta: rutaSeleccionada,
