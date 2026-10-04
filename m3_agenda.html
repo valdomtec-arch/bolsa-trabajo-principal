@@ -121,7 +121,6 @@
                     <i class="fas fa-arrow-left"></i> CoreHub
                 </a>
 
-                <!-- ENLACE AL HISTÓRICO Y SUPERVISIÓN -->
                 <a href="m3_historico.html" class="flex-1 sm:flex-initial bg-purple-950/40 hover:bg-purple-900/60 border border-purple-500/40 text-purple-300 hover:text-white font-mono text-xs px-3.5 py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all touch-target">
                     <i class="fas fa-box-archive text-purple-400"></i> M3.3 Histórico
                 </a>
@@ -208,7 +207,7 @@
                 </button>
             </div>
 
-            <!-- BANNER PUENTE AL HISTÓRICO CUANDO HAY COINCIDENCIA EN COLD STORAGE -->
+            <!-- BANNER PUENTE AL HISTÓRICO -->
             <div id="bannerPuenteHistorico" class="hidden bg-purple-950/40 border border-purple-500/40 p-3 rounded-xl flex items-center justify-between gap-3 text-xs font-mono">
                 <div class="flex items-center gap-2 text-purple-300">
                     <i class="fas fa-box-archive text-purple-400 text-base"></i>
@@ -258,7 +257,7 @@
             </div>
         </div>
 
-        <!-- GRÁFICAS DEMOGRÁFICAS (RENDERIZADO CONDICIONAL) -->
+        <!-- GRÁFICAS DEMOGRÁFICAS -->
         <details id="detailsGraficas" class="bg-cyber-card p-4 rounded-2xl border border-cyber-border group">
             <summary class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center justify-between cursor-pointer select-none">
                 <span class="flex items-center gap-2">
@@ -282,7 +281,7 @@
             </div>
         </details>
 
-        <!-- BANDEJA DE POSTULANTES CON PAGINACIÓN ÁGIL -->
+        <!-- BANDEJA DE POSTULANTES CON PAGINACIÓN Y SKELETON UI -->
         <div class="bg-cyber-card rounded-3xl border border-cyber-border overflow-hidden shadow-xl">
             <div class="p-4 border-b border-cyber-border flex justify-between items-center flex-wrap gap-2">
                 <span class="text-xs sm:text-sm font-mono text-slate-300 font-bold" id="txtTotalPostuladosLabel">Mostrando 0 candidatos</span>
@@ -301,7 +300,17 @@
 
             <!-- VISTA TARJETAS TÁCTICAS (<1024px) -->
             <div class="p-3 sm:p-4 lg:hidden grid grid-cols-1 sm:grid-cols-2 gap-3.5" id="postulantesCardsMobile">
-                <div class="p-8 text-center text-slate-500 font-mono text-xs col-span-2">Cargando candidatos autorizados...</div>
+                <!-- SKELETON PLACEHOLDER INICIAL -->
+                <div class="bg-cyber-cardAlt p-4 rounded-2xl border border-cyber-border space-y-3 animate-pulse">
+                    <div class="h-4 bg-slate-800 rounded w-3/4"></div>
+                    <div class="h-3 bg-slate-800 rounded w-1/2"></div>
+                    <div class="h-10 bg-slate-800 rounded w-full"></div>
+                </div>
+                <div class="bg-cyber-cardAlt p-4 rounded-2xl border border-cyber-border space-y-3 animate-pulse">
+                    <div class="h-4 bg-slate-800 rounded w-3/4"></div>
+                    <div class="h-3 bg-slate-800 rounded w-1/2"></div>
+                    <div class="h-10 bg-slate-800 rounded w-full"></div>
+                </div>
             </div>
 
             <!-- VISTA TABLA CLÁSICA (>=1024px) -->
@@ -327,7 +336,7 @@
 
     </div>
 
-    <!-- MODAL DE EDICIÓN Y GESTIÓN CON RUTA Y RELOJ DUAL -->
+    <!-- MODAL DE EDICIÓN Y GESTIÓN -->
     <div id="modalEditar" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 z-50">
         <div class="bg-cyber-card border border-cyber-accent rounded-3xl shadow-2xl max-w-lg w-full p-5 sm:p-6 relative max-h-[90dvh] overflow-y-auto space-y-4">
             <button type="button" onclick="cerrarModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-xl font-bold p-1 touch-target">&times;</button>
@@ -360,7 +369,7 @@
                     <input type="text" id="editCurp" maxlength="18" class="w-full bg-cyber-bg border border-cyber-border text-amber-300 font-mono rounded-xl p-2.5 focus:outline-none focus:border-cyber-accent uppercase touch-target font-bold">
                 </div>
 
-                <!-- EMPRESA, VACANTE Y RUTA DE TRANSPORTE -->
+                <!-- EMPRESA, VACANTE Y RUTA -->
                 <div class="bg-cyber-bg p-3.5 rounded-2xl border border-cyber-border space-y-2.5">
                     <div>
                         <label class="block text-xs font-mono text-cyber-accent uppercase mb-1 font-bold">Empresa Asignada</label>
@@ -386,7 +395,7 @@
                     </div>
                 </div>
 
-                <!-- ASESOR Y CATÁLOGO OFICIAL -->
+                <!-- ASESOR Y ESTATUS -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                         <label class="block text-xs font-mono text-amber-400 uppercase mb-1 font-bold">
@@ -413,7 +422,7 @@
                     </div>
                 </div>
                 
-                <!-- CONTROL DE CITAS -->
+                <!-- CITAS -->
                 <div class="bg-cyber-bg p-3.5 rounded-2xl border border-amber-500/30 space-y-3">
                     <div class="flex items-center justify-between border-b border-cyber-border pb-2">
                         <span class="text-xs font-mono uppercase text-amber-400 font-bold flex items-center gap-1.5">
@@ -524,11 +533,12 @@
         let filtroSoloDesfasadosActivo = false;
         let modoRelojActual = '12H';
 
-        // Paginación táctica y control de rendimiento
+        // Paginación y control de rendimiento
         let paginaActual = 1;
         const ELEMENTOS_POR_PAGINA = 30;
         let listaCandidatosFiltrados = [];
         let debounceTimer = null;
+        let busquedaHistoricaCache = {};
 
         let usuarioSesion = {
             uid: null,
@@ -612,7 +622,7 @@
             }, 250);
         }
 
-        // PUENTE DE VERIFICACIÓN EN CARTERA PASIVA
+        // PUENTE DE VERIFICACIÓN EN CARTERA PASIVA (COLD STORAGE)
         async function verificarCoincidenciaHistorica() {
             const termino = document.getElementById("buscadorVivo").value.trim().toUpperCase();
             const banner = document.getElementById("bannerPuenteHistorico");
@@ -624,6 +634,14 @@
             }
 
             try {
+                // Verificar primero en caché de búsqueda local para no saturar Firebase
+                if (busquedaHistoricaCache[termino]) {
+                    const pH = busquedaHistoricaCache[termino];
+                    banner.classList.remove("hidden");
+                    txt.innerHTML = `⚠️ <b>${pH.nombre}</b> (${pH.curp || pH.telefono}) figura en <b>M3.3 Histórico</b> [Estatus: ${pH.causaDescarte || 'Pasivo'}].`;
+                    return;
+                }
+
                 const snapHist = await get(ref(db, "postulantes_historico"));
                 const dataHist = snapHist.val() || {};
 
@@ -636,6 +654,7 @@
 
                 if (encontrado) {
                     const [idH, pH] = encontrado;
+                    busquedaHistoricaCache[termino] = pH;
                     banner.classList.remove("hidden");
                     txt.innerHTML = `⚠️ <b>${pH.nombre}</b> (${pH.curp || pH.telefono}) figura en <b>M3.3 Histórico</b> [Estatus: ${pH.causaDescarte || 'Pasivo'}].`;
                 } else {
@@ -776,7 +795,25 @@
             return `<span class="badge-division badge-div-none">Sin Div</span>`;
         }
 
+        // 1. INICIALIZACIÓN NO BLOQUEANTE CON CACHÉ LOCAL
         function inicializarSeguridadM3() {
+            // Intentar recuperar catálogos desde sessionStorage de inmediato (0ms)
+            try {
+                const cEmp = sessionStorage.getItem("M3_CACHE_EMPRESAS");
+                const cVac = sessionStorage.getItem("M3_CACHE_VACANTES");
+                const cRut = sessionStorage.getItem("M3_CACHE_RUTAS");
+                const cRol = sessionStorage.getItem("M3_CACHE_ROLES");
+                const cUsr = sessionStorage.getItem("M3_CACHE_USUARIOS");
+
+                if (cEmp) catalogoEmpresas = JSON.parse(cEmp);
+                if (cVac) catalogoVacantesDetalles = JSON.parse(cVac);
+                if (cRut) catalogoRutas = JSON.parse(cRut);
+                if (cRol) catalogoRoles = JSON.parse(cRol);
+                if (cUsr) catalogoUsuarios = JSON.parse(cUsr);
+            } catch (e) {
+                console.warn("Fallo al leer sessionStorage:", e);
+            }
+
             onAuthStateChanged(auth, async (user) => {
                 if (!user) {
                     window.location.href = "acceso.html";
@@ -784,6 +821,7 @@
                 }
 
                 try {
+                    // Consulta ligera únicamente del perfil de usuario (<2KB)
                     const snapUser = await get(ref(db, `usuarios_reclutadores/${user.uid}`));
                     if (!snapUser.exists()) {
                         alert("No tienes perfil asignado en el sistema.");
@@ -823,30 +861,60 @@
                         rawUser: val
                     };
 
-                    const [snapStaff, snapEmp, snapRoles, snapVac, snapRut] = await Promise.all([
-                        get(ref(db, "usuarios_reclutadores")),
-                        get(ref(db, "empresas")),
-                        get(ref(db, "roles_dinamicos")),
-                        get(ref(db, "vacantes_detalles")),
-                        get(ref(db, "rutas"))
-                    ]);
-
-                    catalogoUsuarios = snapStaff.val() || {};
-                    catalogoEmpresas = snapEmp.val() || {};
-                    catalogoRoles = snapRoles.val() || {};
-                    catalogoVacantesDetalles = snapVac.val() || {};
-                    catalogoRutas = snapRut.val() || {};
-                    
-                    construirArbolDescendenteMatricial();
+                    // Pintar la cabecera inmediatamente
                     aplicarReglasInterfaz();
-                    actualizarFiltros();
+
+                    // Iniciar escucha activa en tiempo real de candidatos DE INMEDIATO
                     iniciarEscuchasRealtime();
+
+                    // Cargar o refrescar catálogos pesados en segundo plano sin bloquear la UI
+                    cargarCatalogosSegundoPlano();
 
                 } catch (e) {
                     console.error("Error inicializando M3:", e);
                     alert("Error validando permisos de acceso.");
                 }
             });
+        }
+
+        async function cargarCatalogosSegundoPlano() {
+            try {
+                const [snapStaff, snapEmp, snapRoles, snapVac, snapRut] = await Promise.all([
+                    get(ref(db, "usuarios_reclutadores")),
+                    get(ref(db, "empresas")),
+                    get(ref(db, "roles_dinamicos")),
+                    get(ref(db, "vacantes_detalles")),
+                    get(ref(db, "rutas"))
+                ]);
+
+                catalogoUsuarios = snapStaff.val() || {};
+                catalogoEmpresas = snapEmp.val() || {};
+                catalogoRoles = snapRoles.val() || {};
+                catalogoVacantesDetalles = snapVac.val() || {};
+                catalogoRutas = snapRut.val() || {};
+
+                // Guardar en sesión para recargas instantáneas
+                try {
+                    sessionStorage.setItem("M3_CACHE_EMPRESAS", JSON.stringify(catalogoEmpresas));
+                    sessionStorage.setItem("M3_CACHE_VACANTES", JSON.stringify(catalogoVacantesDetalles));
+                    sessionStorage.setItem("M3_CACHE_RUTAS", JSON.stringify(catalogoRutas));
+                    sessionStorage.setItem("M3_CACHE_ROLES", JSON.stringify(catalogoRoles));
+                    sessionStorage.setItem("M3_CACHE_USUARIOS", JSON.stringify(catalogoUsuarios));
+                } catch (errCache) {
+                    console.warn("Storage cuota superada para caché:", errCache);
+                }
+
+                construirArbolDescendenteMatricial();
+                actualizarFiltros();
+                
+                // Actualizar nombres en pantalla de forma suave
+                window.requestAnimationFrame(() => {
+                    renderizarPaginaActual();
+                });
+
+            } catch (err) {
+                console.warn("Error secundario al cargar catálogos:", err);
+            }
         }
 
         function sanitizarKey(str) {
@@ -1119,6 +1187,7 @@
             cargarPostulantes();
         }
 
+        // 2. MOTOR DE FILTRADO CON CÁLCULO ASÍNCRONO NO BLOQUEANTE
         function cargarPostulantes() {
             const divFiltro = document.getElementById("filtroDivision").value.toLowerCase();
             const empFiltro = document.getElementById("filtroEmpresa").value;
@@ -1230,9 +1299,13 @@
                 actualizarGraficosDemograficos(metricaSexo, metricaEdad);
             }
 
-            renderizarPaginaActual();
+            // Delegar renderizado al siguiente cuadro de animación para no trabar el hilo táctil
+            window.requestAnimationFrame(() => {
+                renderizarPaginaActual();
+            });
         }
 
+        // 3. RENDERIZADO POR FRAGMENTOS
         function renderizarPaginaActual() {
             const contCards = document.getElementById("postulantesCardsMobile");
             const tbodyDesktop = document.getElementById("tablaPostulantesDesktop");
