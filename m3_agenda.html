@@ -104,7 +104,7 @@
                         Módulo 3 - Operaciones y Agenda
                     </span>
                     <span id="badgeFirebaseStatus" class="bg-emerald-500/10 text-emerald-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-emerald-500/20 flex items-center gap-1.5">
-                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Sincronizando...
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Sincronizado
                     </span>
                     <span id="badgeScopeStatus" class="bg-cyber-cardAlt text-cyber-cyan text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-cyber-border">
                         Scope: Evaluando...
@@ -118,7 +118,12 @@
             
             <div class="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
                 <a href="admin.html" class="flex-1 sm:flex-initial bg-cyber-bg hover:bg-slate-900 border border-cyber-border text-slate-300 font-mono text-xs px-3.5 py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all touch-target">
-                    <i class="fas fa-arrow-left"></i> Panel
+                    <i class="fas fa-arrow-left"></i> CoreHub
+                </a>
+
+                <!-- ENLACE AL HISTÓRICO Y SUPERVISIÓN -->
+                <a href="m3_historico.html" class="flex-1 sm:flex-initial bg-purple-950/40 hover:bg-purple-900/60 border border-purple-500/40 text-purple-300 hover:text-white font-mono text-xs px-3.5 py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all touch-target">
+                    <i class="fas fa-box-archive text-purple-400"></i> M3.3 Histórico
                 </a>
 
                 <a id="btnSupervisionLink" href="m3_supervision.html" class="flex-1 sm:flex-initial bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-bold py-2.5 px-3.5 rounded-xl shadow flex items-center justify-center gap-2 text-xs transition-all touch-target hidden">
@@ -201,6 +206,17 @@
                     <i class="fas fa-clock-rotate-left text-amber-400"></i>
                     <span id="txtBtnDesfasadosInline">Solo Desfasados (>24h)</span>
                 </button>
+            </div>
+
+            <!-- BANNER PUENTE AL HISTÓRICO CUANDO HAY COINCIDENCIA EN COLD STORAGE -->
+            <div id="bannerPuenteHistorico" class="hidden bg-purple-950/40 border border-purple-500/40 p-3 rounded-xl flex items-center justify-between gap-3 text-xs font-mono">
+                <div class="flex items-center gap-2 text-purple-300">
+                    <i class="fas fa-box-archive text-purple-400 text-base"></i>
+                    <span id="txtCoincidenciaHistorica">Se detectó coincidencia en Cartera Pasiva.</span>
+                </div>
+                <a id="linkIrAHistorico" href="m3_historico.html" class="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-bold transition flex items-center gap-1">
+                    <i class="fas fa-arrow-up-right-from-square text-[10px]"></i> Ver en M3.3
+                </a>
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -592,7 +608,42 @@
             debounceTimer = setTimeout(() => {
                 paginaActual = 1;
                 cargarPostulantes();
+                verificarCoincidenciaHistorica();
             }, 250);
+        }
+
+        // PUENTE DE VERIFICACIÓN EN CARTERA PASIVA
+        async function verificarCoincidenciaHistorica() {
+            const termino = document.getElementById("buscadorVivo").value.trim().toUpperCase();
+            const banner = document.getElementById("bannerPuenteHistorico");
+            const txt = document.getElementById("txtCoincidenciaHistorica");
+
+            if (termino.length < 8) {
+                banner.classList.add("hidden");
+                return;
+            }
+
+            try {
+                const snapHist = await get(ref(db, "postulantes_historico"));
+                const dataHist = snapHist.val() || {};
+
+                const encontrado = Object.entries(dataHist).find(([k, p]) => {
+                    const cCurp = (p.curp || '').toUpperCase();
+                    const cTel = (p.telefono || '').replace(/\D/g, '');
+                    const cNom = (p.nombre || '').toUpperCase();
+                    return cCurp.includes(termino) || cTel.includes(termino) || cNom.includes(termino);
+                });
+
+                if (encontrado) {
+                    const [idH, pH] = encontrado;
+                    banner.classList.remove("hidden");
+                    txt.innerHTML = `⚠️ <b>${pH.nombre}</b> (${pH.curp || pH.telefono}) figura en <b>M3.3 Histórico</b> [Estatus: ${pH.causaDescarte || 'Pasivo'}].`;
+                } else {
+                    banner.classList.add("hidden");
+                }
+            } catch (e) {
+                console.warn("No se pudo verificar base histórica:", e);
+            }
         }
 
         function cambiarPagina(delta) {
@@ -772,7 +823,6 @@
                         rawUser: val
                     };
 
-                    // Carga puntual de catálogos estáticos
                     const [snapStaff, snapEmp, snapRoles, snapVac, snapRut] = await Promise.all([
                         get(ref(db, "usuarios_reclutadores")),
                         get(ref(db, "empresas")),
@@ -923,7 +973,7 @@
                 .then(() => alert(nuevoEstado ? "⏸️ Modo Mantenimiento Activado" : "▶️ Centinela Reactivado"));
         }
 
-        // DESACOPLAMIENTO DE CONSULTA REACTIVA (SÓLO /postulantes)
+        // ESCUCHA SELECTIVA Y LIGERA EXCLUSIVA DEL NODO /postulantes
         function iniciarEscuchasRealtime() {
             onValue(ref(db, "postulantes"), (snapshot) => {
                 todosLosPostulantes = snapshot.val() || {};
@@ -1069,7 +1119,6 @@
             cargarPostulantes();
         }
 
-        // MOTOR PRINCIPAL DE FILTRADO Y MÉTRICAS GLOBALES
         function cargarPostulantes() {
             const divFiltro = document.getElementById("filtroDivision").value.toLowerCase();
             const empFiltro = document.getElementById("filtroEmpresa").value;
@@ -1158,7 +1207,6 @@
                 });
             });
 
-            // Actualizar banners y KPIs globales
             const bannerSla = document.getElementById("bannerAlertaSla");
             if (totalDesfasados > 0) {
                 bannerSla.classList.remove("hidden");
@@ -1185,7 +1233,6 @@
             renderizarPaginaActual();
         }
 
-        // RENDERIZADO ACELERADO POR LOTES MEDIANTE FRAGMENTOS
         function renderizarPaginaActual() {
             const contCards = document.getElementById("postulantesCardsMobile");
             const tbodyDesktop = document.getElementById("tablaPostulantesDesktop");
