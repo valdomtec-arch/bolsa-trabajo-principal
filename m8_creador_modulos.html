@@ -154,7 +154,7 @@
                     </span>
                 </div>
                 <h1 class="text-xl sm:text-2xl md:text-3xl font-extrabold text-white tracking-tight">AI Module Factory & Gestor Dinámico</h1>
-                <p class="text-slate-400 text-xs sm:text-sm mt-0.5">Construye vistas con IA Gemini (Multi-Modelo Fallback), edita código en vivo, inyecta roles en RBAC y valida salud de enlaces.</p>
+                <p class="text-slate-400 text-xs sm:text-sm mt-0.5">Generador potenciado con Gemini 2.5 Flash / 2.0 Pro con auto-detección de endpoints.</p>
             </div>
             
             <div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
@@ -321,7 +321,7 @@
                     <h2 class="text-sm font-bold text-amber-400 uppercase font-mono flex items-center gap-2">
                         <i class="fas fa-code-merge text-amber-400"></i> Gemini AI Module Studio & IDE Integrado
                     </h2>
-                    <p class="text-xs text-slate-400 mt-0.5">Motor con cascada inteligente de modelos (2.0 Flash / 1.5 Flash-Latest / 1.5 Pro) y soporte de descarga directa.</p>
+                    <p class="text-xs text-slate-400 mt-0.5">Motor nativo calibrado para <b>gemini-2.5-flash</b> y <b>gemini-2.0-pro</b> con selector dinámico de respaldo.</p>
                 </div>
                 <div class="flex items-center gap-2 w-full sm:w-auto">
                     <input type="password" id="apiKeyGeminiModule" onchange="guardarApiKeyLocal(this.value)" placeholder="Pega tu Gemini API Key..." class="bg-[#06101e] border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-amber-500 flex-1 sm:w-64">
@@ -331,7 +331,7 @@
             <div class="space-y-3">
                 <div>
                     <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1 font-bold">Instrucción del Módulo (Prompt Funcional)</label>
-                    <textarea id="promptModuloIA" rows="3" placeholder="Ej: Crea un módulo para el Repositorio Pasivo de Candidatos conectado a /postulantes_historico/ con reactivación hacia M3 Agenda..." class="w-full bg-[#06101e] border border-slate-700 rounded-lg p-3 text-xs text-white focus:outline-none focus:border-amber-500 resize-none font-sans"></textarea>
+                    <textarea id="promptModuloIA" rows="3" placeholder="Ej: Crea el módulo autónomo M3.3: Cartera Pasiva, Histórico & Reactivación de Candidatos conectado a /postulantes_historico/..." class="w-full bg-[#06101e] border border-slate-700 rounded-lg p-3 text-xs text-white focus:outline-none focus:border-amber-500 resize-none font-sans"></textarea>
                 </div>
 
                 <div class="flex flex-wrap items-center justify-between gap-3">
@@ -709,7 +709,6 @@
             db.ref("configuracion_sistema/modulos_dinamicos").on("value", renderizarDatosCombinados);
         }
 
-        // SEMILLERO CANÓNICO ACTUALIZADO A 13 MÓDULOS ACTIVOS
         async function sembrarModulosOficialesERP() {
             if (!confirm("¿Deseas sincronizar los 13 módulos activos oficiales y purgar las claves obsoletas de Firebase?")) {
                 return;
@@ -1344,7 +1343,7 @@
             }
         }
 
-        // MOTOR DE COMPILACIÓN CON CASCADA DE MODELOS DEPURADA
+        // MOTOR DE COMPILACIÓN PRIORIZADO: 2.5-FLASH Y 2.0-PRO CON AUTODETECTOR DE FALLBACK
         async function ejecutarCompilacionConGemini() {
             const apiKey = document.getElementById("apiKeyGeminiModule").value.trim();
             const promptUser = document.getElementById("promptModuloIA").value.trim();
@@ -1353,15 +1352,15 @@
             const visor = document.getElementById("visorCodigoGenerado");
 
             if (!apiKey) return alert("⚠️ Ingresa tu Gemini API Key en la barra superior.");
-            if (!promptUser) return alert("⚠️️ Describe en lenguaje natural las funciones del módulo.");
+            if (!promptUser) return alert("⚠️ Describe en lenguaje natural las funciones del módulo.");
 
             btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Compilando con Gemini...';
-            visor.value = "// Negociando con la API de Gemini (probando cascada de modelos)...";
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Inicializando IA...';
+            visor.value = "// Negociando conexión con Gemini (priorizando gemini-2.5-flash y gemini-2.0-pro)...";
             gestionarEdicionManual();
 
-            const idSugerido = sanitizarKey(document.getElementById("inputModuloId").value || "m9_nuevo_modulo");
-            const tituloSugerido = document.getElementById("inputTitulo").value || "Nuevo Módulo ERP";
+            const idSugerido = sanitizarKey(document.getElementById("inputModuloId").value || "m3_historico");
+            const tituloSugerido = document.getElementById("inputTitulo").value || "Módulo ERP";
 
             const promptEstructural = `Eres el Arquitecto de Software Principal de un ERP empresarial con tema Cyber-Dark Tailwind CSS y Firebase Modular v10.
 Genera el código HTML MONOLÍTICO COMPLETO, AUTÓNOMO, FUNCIONAL Y LISTO PARA PRODUCCIÓN para el siguiente requerimiento:
@@ -1402,13 +1401,12 @@ REGLAS ARQUITECTÓNICAS CORPORATIVAS ESTRICTAS:
 9. FORMATO DE SALIDA:
    - Devuelve EXCLUSIVAMENTE el código HTML dentro de un bloque markdown \`\`\`html ... \`\`\`.`;
 
-            // Cascada de modelos candidatos en orden de preferencia y disponibilidad v1beta / v1
-            const modelosCandidatos = [
+            // Motores nativos solicitados como prioridad
+            const modelosPrioritarios = [
+                "gemini-2.5-flash",
+                "gemini-2.0-pro",
                 "gemini-2.0-flash",
-                "gemini-1.5-flash-latest",
-                "gemini-1.5-flash-8b",
-                "gemini-1.5-pro",
-                "gemini-pro"
+                "gemini-2.0-pro-exp-02-05"
             ];
 
             let res = null;
@@ -1416,7 +1414,8 @@ REGLAS ARQUITECTÓNICAS CORPORATIVAS ESTRICTAS:
             let ultimoError = null;
 
             try {
-                for (const mod of modelosCandidatos) {
+                // 1. Probar prioritariamente los modelos elegidos
+                for (const mod of modelosPrioritarios) {
                     try {
                         const urlEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/${mod}:generateContent?key=${apiKey}`;
                         res = await fetch(urlEndpoint, {
@@ -1440,8 +1439,41 @@ REGLAS ARQUITECTÓNICAS CORPORATIVAS ESTRICTAS:
                     }
                 }
 
+                // 2. Si falló la lista directa, autodescubrir qué modelos soporta la key en v1beta
                 if (!res || !res.ok) {
-                    throw new Error(ultimoError || "Ninguno de los modelos disponibles en la API respondió favorablemente.");
+                    visor.value = `// Reintentando mediante autodescubrimiento de modelos...`;
+                    const resModelos = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+                    if (resModelos.ok) {
+                        const dataModelos = await resModelos.json();
+                        const modelosValidos = (dataModelos.models || [])
+                            .filter(m => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes("generateContent"))
+                            .map(m => m.name.replace(/^models\//, ''));
+
+                        // Buscar el que mejor coincida con 2.5 / 2.0 / flash
+                        const mejorCandidato = modelosValidos.find(m => m.includes("2.5")) ||
+                                              modelosValidos.find(m => m.includes("2.0")) ||
+                                              modelosValidos.find(m => m.includes("flash")) ||
+                                              modelosValidos[0];
+
+                        if (mejorCandidato) {
+                            const urlEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/${mejorCandidato}:generateContent?key=${apiKey}`;
+                            res = await fetch(urlEndpoint, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    contents: [{ parts: [{ text: promptEstructural }] }],
+                                    generationConfig: { temperature: 0.1 }
+                                })
+                            });
+                            if (res.ok) {
+                                modeloUsado = mejorCandidato;
+                            }
+                        }
+                    }
+                }
+
+                if (!res || !res.ok) {
+                    throw new Error(ultimoError || "No se pudo compilar con los motores seleccionados. Verifica la validez de tu API Key.");
                 }
 
                 const json = await res.json();
@@ -1457,7 +1489,7 @@ REGLAS ARQUITECTÓNICAS CORPORATIVAS ESTRICTAS:
                 }
                 actualizarPreviewEnVivo();
 
-                alert(`✅ Módulo compilado con éxito utilizando el motor [${modeloUsado}].`);
+                alert(`✅ Módulo compilado con éxito utilizando [${modeloUsado}].`);
 
             } catch (err) {
                 visor.value = `// Error de compilación: ${err.message}`;
@@ -1486,7 +1518,7 @@ REGLAS ARQUITECTÓNICAS CORPORATIVAS ESTRICTAS:
             const codigo = visor ? visor.value : "";
             
             if (!codigo || codigo.trim().length === 0) {
-                alert("⚠️️ No hay código en el editor para descargar.");
+                alert("⚠️ No hay código en el editor para descargar.");
                 return;
             }
 
