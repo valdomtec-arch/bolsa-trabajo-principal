@@ -121,7 +121,8 @@
                     <i class="fas fa-arrow-left"></i> CoreHub
                 </a>
 
-                <a href="m3_historico.html" class="flex-1 sm:flex-initial bg-purple-950/40 hover:bg-purple-900/60 border border-purple-500/40 text-purple-300 hover:text-white font-mono text-xs px-3.5 py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all touch-target">
+                <!-- ENLACE CORREGIDO AL VISOR DINÁMICO -->
+                <a href="visor.html?mod=m3_historico" class="flex-1 sm:flex-initial bg-purple-950/40 hover:bg-purple-900/60 border border-purple-500/40 text-purple-300 hover:text-white font-mono text-xs px-3.5 py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all touch-target shadow-lg shadow-purple-950/20">
                     <i class="fas fa-box-archive text-purple-400"></i> M3.3 Histórico
                 </a>
 
@@ -207,13 +208,13 @@
                 </button>
             </div>
 
-            <!-- BANNER PUENTE AL HISTÓRICO -->
+            <!-- BANNER PUENTE AL HISTÓRICO CON PARÁMETRO DE BÚSQUEDA DINÁMICO -->
             <div id="bannerPuenteHistorico" class="hidden bg-purple-950/40 border border-purple-500/40 p-3 rounded-xl flex items-center justify-between gap-3 text-xs font-mono">
                 <div class="flex items-center gap-2 text-purple-300">
                     <i class="fas fa-box-archive text-purple-400 text-base"></i>
                     <span id="txtCoincidenciaHistorica">Se detectó coincidencia en Cartera Pasiva.</span>
                 </div>
-                <a id="linkIrAHistorico" href="m3_historico.html" class="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-bold transition flex items-center gap-1">
+                <a id="linkIrAHistorico" href="visor.html?mod=m3_historico" class="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-bold transition flex items-center gap-1 shadow-md">
                     <i class="fas fa-arrow-up-right-from-square text-[10px]"></i> Ver en M3.3
                 </a>
             </div>
@@ -622,11 +623,12 @@
             }, 250);
         }
 
-        // PUENTE DE VERIFICACIÓN EN CARTERA PASIVA (COLD STORAGE)
+        // PUENTE DE VERIFICACIÓN EN CARTERA PASIVA (COLD STORAGE) CON ENLACE DINÁMICO AL VISOR
         async function verificarCoincidenciaHistorica() {
             const termino = document.getElementById("buscadorVivo").value.trim().toUpperCase();
             const banner = document.getElementById("bannerPuenteHistorico");
             const txt = document.getElementById("txtCoincidenciaHistorica");
+            const linkHistorico = document.getElementById("linkIrAHistorico");
 
             if (termino.length < 8) {
                 banner.classList.add("hidden");
@@ -634,11 +636,13 @@
             }
 
             try {
-                // Verificar primero en caché de búsqueda local para no saturar Firebase
+                // Verificar en caché local de búsqueda para evitar lecturas excesivas
                 if (busquedaHistoricaCache[termino]) {
                     const pH = busquedaHistoricaCache[termino];
                     banner.classList.remove("hidden");
                     txt.innerHTML = `⚠️ <b>${pH.nombre}</b> (${pH.curp || pH.telefono}) figura en <b>M3.3 Histórico</b> [Estatus: ${pH.causaDescarte || 'Pasivo'}].`;
+                    // Transferencia de parámetro de búsqueda al visor dinámico
+                    linkHistorico.href = `visor.html?mod=m3_historico&q=${encodeURIComponent(pH.curp || pH.telefono || termino)}`;
                     return;
                 }
 
@@ -657,6 +661,7 @@
                     busquedaHistoricaCache[termino] = pH;
                     banner.classList.remove("hidden");
                     txt.innerHTML = `⚠️ <b>${pH.nombre}</b> (${pH.curp || pH.telefono}) figura en <b>M3.3 Histórico</b> [Estatus: ${pH.causaDescarte || 'Pasivo'}].`;
+                    linkHistorico.href = `visor.html?mod=m3_historico&q=${encodeURIComponent(pH.curp || pH.telefono || termino)}`;
                 } else {
                     banner.classList.add("hidden");
                 }
@@ -797,7 +802,6 @@
 
         // 1. INICIALIZACIÓN NO BLOQUEANTE CON CACHÉ LOCAL
         function inicializarSeguridadM3() {
-            // Intentar recuperar catálogos desde sessionStorage de inmediato (0ms)
             try {
                 const cEmp = sessionStorage.getItem("M3_CACHE_EMPRESAS");
                 const cVac = sessionStorage.getItem("M3_CACHE_VACANTES");
@@ -821,7 +825,6 @@
                 }
 
                 try {
-                    // Consulta ligera únicamente del perfil de usuario (<2KB)
                     const snapUser = await get(ref(db, `usuarios_reclutadores/${user.uid}`));
                     if (!snapUser.exists()) {
                         alert("No tienes perfil asignado en el sistema.");
@@ -861,13 +864,8 @@
                         rawUser: val
                     };
 
-                    // Pintar la cabecera inmediatamente
                     aplicarReglasInterfaz();
-
-                    // Iniciar escucha activa en tiempo real de candidatos DE INMEDIATO
                     iniciarEscuchasRealtime();
-
-                    // Cargar o refrescar catálogos pesados en segundo plano sin bloquear la UI
                     cargarCatalogosSegundoPlano();
 
                 } catch (e) {
@@ -893,7 +891,6 @@
                 catalogoVacantesDetalles = snapVac.val() || {};
                 catalogoRutas = snapRut.val() || {};
 
-                // Guardar en sesión para recargas instantáneas
                 try {
                     sessionStorage.setItem("M3_CACHE_EMPRESAS", JSON.stringify(catalogoEmpresas));
                     sessionStorage.setItem("M3_CACHE_VACANTES", JSON.stringify(catalogoVacantesDetalles));
@@ -907,7 +904,6 @@
                 construirArbolDescendenteMatricial();
                 actualizarFiltros();
                 
-                // Actualizar nombres en pantalla de forma suave
                 window.requestAnimationFrame(() => {
                     renderizarPaginaActual();
                 });
@@ -1041,7 +1037,6 @@
                 .then(() => alert(nuevoEstado ? "⏸️ Modo Mantenimiento Activado" : "▶️ Centinela Reactivado"));
         }
 
-        // ESCUCHA SELECTIVA Y LIGERA EXCLUSIVA DEL NODO /postulantes
         function iniciarEscuchasRealtime() {
             onValue(ref(db, "postulantes"), (snapshot) => {
                 todosLosPostulantes = snapshot.val() || {};
@@ -1187,7 +1182,6 @@
             cargarPostulantes();
         }
 
-        // 2. MOTOR DE FILTRADO CON CÁLCULO ASÍNCRONO NO BLOQUEANTE
         function cargarPostulantes() {
             const divFiltro = document.getElementById("filtroDivision").value.toLowerCase();
             const empFiltro = document.getElementById("filtroEmpresa").value;
@@ -1299,13 +1293,11 @@
                 actualizarGraficosDemograficos(metricaSexo, metricaEdad);
             }
 
-            // Delegar renderizado al siguiente cuadro de animación para no trabar el hilo táctil
             window.requestAnimationFrame(() => {
                 renderizarPaginaActual();
             });
         }
 
-        // 3. RENDERIZADO POR FRAGMENTOS
         function renderizarPaginaActual() {
             const contCards = document.getElementById("postulantesCardsMobile");
             const tbodyDesktop = document.getElementById("tablaPostulantesDesktop");
