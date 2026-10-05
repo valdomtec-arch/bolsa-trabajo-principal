@@ -80,9 +80,12 @@
                 <button onclick="balancearCargaInteligente()" class="flex-1 sm:flex-initial btn-orange-glow text-white font-bold py-2 px-3.5 rounded-xl shadow flex items-center justify-center gap-2 text-xs">
                     <i class="fas fa-scale-balanced"></i> Auto-Balancear Equipo
                 </button>
-                <a href="m3_historico.html" class="flex-1 sm:flex-initial bg-[#15264a] hover:bg-[#1e3a70] border border-cyan-800/60 text-cyan-300 font-semibold py-2 px-3.5 rounded-xl flex items-center justify-center gap-2 text-xs transition">
-                    <i class="fas fa-clock-rotate-left"></i> M3.3 Histórico
+                
+                <!-- ENLACE CORREGIDO AL VISOR DINÁMICO -->
+                <a href="visor.html?mod=m3_historico" class="flex-1 sm:flex-initial bg-purple-950/50 hover:bg-purple-900/70 border border-purple-500/50 text-purple-200 hover:text-white font-semibold py-2 px-3.5 rounded-xl flex items-center justify-center gap-2 text-xs transition shadow-lg shadow-purple-950/30">
+                    <i class="fas fa-clock-rotate-left text-purple-400"></i> M3.3 Histórico
                 </a>
+
                 <a href="m3_agenda.html" class="flex-1 sm:flex-initial bg-[#15264a] hover:bg-[#1e3a70] border border-blue-900/60 text-white font-semibold py-2 px-3.5 rounded-xl flex items-center justify-center gap-2 text-xs transition">
                     <i class="fas fa-address-book"></i> Agenda Operativa
                 </a>
@@ -873,16 +876,13 @@
             window.open(`https://wa.me/52${uTel}?text=${msgWA}`, '_blank');
         }
 
-        // =========================================================================
-        // FUNCIÓN ATÓMICA DE ARCHIVADO / PURGA A 120H HACIA M3.3 HISTÓRICO
-        // =========================================================================
         async function archivarPasivos120h() {
             if (usuarioSesion.nivel < 3) {
                 return alert("Acción restringida. Se requiere nivel de Coordinación, Supervisión o Dirección.");
             }
 
             const estatusPasivos = ["Declinante", "No Apto Medico", "No Apto Entrevista"];
-            const HORAS_LIMITE = 120; // 5 días exactos de inactividad
+            const HORAS_LIMITE = 120;
 
             const snap = await get(ref(db, 'postulantes'));
             const data = snap.val() || {};
@@ -890,7 +890,6 @@
             const candidatosAArchivar = [];
 
             Object.entries(data).forEach(([id, p]) => {
-                // Verificar si pertenece a la célula autorizada del supervisor
                 if (!equipoAuditableIds.includes(p.reclutadorId) && usuarioSesion.nivel < 5 && usuarioSesion.scope !== 'global') {
                     return;
                 }
@@ -921,7 +920,6 @@
             const fechaArchivado = new Date().toISOString();
 
             candidatosAArchivar.forEach(({ id, p, hrs, est }) => {
-                // 1. Escribir copia completa con su jerarquía matricial intacta en /postulantes_historico/
                 updates[`postulantes_historico/${id}`] = {
                     ...p,
                     causaDescarte: est,
@@ -932,12 +930,10 @@
                     bloqueado: p.bloqueado || false
                 };
 
-                // 2. Eliminar del nodo caliente /postulantes/
                 updates[`postulantes/${id}`] = null;
             });
 
             try {
-                // Ejecución multi-path atómica
                 await update(ref(db), updates);
 
                 await push(ref(db, 'modulo_7_logs'), {
