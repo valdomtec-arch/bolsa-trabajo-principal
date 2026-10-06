@@ -196,7 +196,7 @@
                             <button type="button" id="btnBorrarVacante" onclick="eliminarVacanteSeleccionada()" class="py-2 px-2 bg-rose-600 hover:bg-rose-500 text-white font-semibold rounded-lg text-xs flex items-center justify-center gap-1 transition shadow hidden">
                                 <i class="fas fa-trash"></i> Borrar
                             </button>
-                            <button type="button" onclick="resetFormularioVacante()" class="py-2 px-2 bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold rounded-lg text-xs flex items-center justify-center gap-1 transition">
+                            <button type="button" onclick="cancelarEdicionYLimpiar()" class="py-2 px-2 bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold rounded-lg text-xs flex items-center justify-center gap-1 transition">
                                 <i class="fas fa-eraser"></i> Limpiar
                             </button>
                         </div>
@@ -252,7 +252,7 @@
                         <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
                             <i class="fas fa-code"></i> Estructura JSON
                         </span>
-                        <span class="text-[10px] bg-emerald-950 text-emerald-300 px-2 py-0.5 rounded border border-emerald-800 font-mono">Firebase Ready</span>
+                        <span class="text-[10px] bg-emerald-950 text-emerald-300 px-2 py-0.5 rounded border border-emerald-800 font-mono">vacantes_detalles</span>
                     </div>
                     <pre id="jsonOutput" class="w-full p-3 rounded-lg bg-black/80 border border-emerald-950 text-emerald-400 text-xs font-mono overflow-x-auto max-h-48">{}</pre>
                 </div>
@@ -262,14 +262,20 @@
             <!-- COLUMNA DERECHA: FORMULARIO PRINCIPAL DE CAPTURA (7 COLS) -->
             <div class="lg:col-span-7 space-y-6">
 
-                <form id="vacanteForm" onsubmit="guardarVacanteFormulario(event)" class="glass-panel p-4 sm:p-6 rounded-2xl shadow-xl space-y-5">
+                <form id="vacanteForm" class="glass-panel p-4 sm:p-6 rounded-2xl shadow-xl space-y-5">
 
                     <!-- SECCIÓN 1: IDENTIFICACIÓN Y MAZORCA DE BANNERS -->
                     <div class="space-y-4">
                         <div class="flex items-center justify-between border-b border-slate-700/60 pb-2">
-                            <span class="text-xs font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-2">
-                                <i class="fas fa-id-card"></i> 1. Identificación y Estatus
-                            </span>
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-2">
+                                    <i class="fas fa-id-card"></i> 1. Identificación y Estatus
+                                </span>
+                                <!-- BADGE DE ESTADO DEL MODO -->
+                                <span id="badgeModoEdicion" class="text-[10px] font-mono px-2 py-0.5 rounded font-bold uppercase tracking-wider bg-emerald-950 text-emerald-300 border border-emerald-800">
+                                    Modo: Nueva Vacante
+                                </span>
+                            </div>
                             <span class="text-[10px] text-slate-300 font-mono font-bold" id="txtEmpresaActivaLabel">Empresa: Ninguna</span>
                         </div>
 
@@ -453,11 +459,24 @@
                         </div>
                     </div>
 
-                    <!-- BOTÓN DE GUARDAR -->
+                    <!-- BOTONES DE ACCIÓN: SEPARACIÓN CLARA ENTRE CREAR Y ACTUALIZAR -->
                     <div class="flex flex-col sm:flex-row items-center justify-end gap-3 border-t border-slate-700/60 pt-4">
-                        <button type="submit" id="btnGuardarVacanteSubmit" class="w-full sm:w-auto px-6 py-2.5 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-lg text-xs uppercase tracking-wider transition-all shadow-lg flex items-center justify-center gap-2">
-                            <i class="fas fa-cloud-arrow-up"></i> Publicar / Guardar Vacante
+                        
+                        <!-- BOTÓN GUARDAR NUEVA (MODO CREACIÓN) -->
+                        <button type="button" id="btnCrearNuevaVacante" onclick="ejecutarCrearNuevaVacante()" class="w-full sm:w-auto px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs uppercase tracking-wider transition-all shadow-lg flex items-center justify-center gap-2">
+                            <i class="fas fa-plus-circle"></i> Guardar Nueva Vacante
                         </button>
+
+                        <!-- BOTÓN ACTUALIZAR EXISTENTE (MODO EDICIÓN) -->
+                        <button type="button" id="btnActualizarVacante" onclick="ejecutarActualizarVacante()" class="w-full sm:w-auto px-6 py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-lg text-xs uppercase tracking-wider transition-all shadow-lg hidden flex items-center justify-center gap-2">
+                            <i class="fas fa-floppy-disk"></i> Actualizar Vacante Existente
+                        </button>
+
+                        <!-- BOTÓN CANCELAR EDICIÓN (MODO EDICIÓN) -->
+                        <button type="button" id="btnCancelarEdicion" onclick="cancelarEdicionYLimpiar()" class="w-full sm:w-auto px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-lg text-xs uppercase tracking-wider transition-all hidden flex items-center justify-center gap-1.5">
+                            <i class="fas fa-xmark"></i> Cancelar Edición
+                        </button>
+
                     </div>
                 </form>
 
@@ -534,6 +553,9 @@
         let tempVacantesExtraidas = [];
         let extractedFileText = "", attachedFileBase64 = "", attachedFileType = "";
 
+        // Variable de estado para alternar creación vs edición
+        let vacanteEnModoEdicion = null;
+
         // ÁMBITO GLOBAL WINDOW
         window.guardarApiKeyPersistente = guardarApiKeyPersistente;
         window.toggleVisibilidadKey = toggleVisibilidadKey;
@@ -548,8 +570,9 @@
         window.guardarTodasLasVacantesLote = guardarTodasLasVacantesLote;
         window.cargarVacanteSeleccionadaAlFormulario = cargarVacanteSeleccionadaAlFormulario;
         window.eliminarVacanteSeleccionada = eliminarVacanteSeleccionada;
-        window.resetFormularioVacante = resetFormularioVacante;
-        window.guardarVacanteFormulario = guardarVacanteFormulario;
+        window.cancelarEdicionYLimpiar = cancelarEdicionYLimpiar;
+        window.ejecutarCrearNuevaVacante = ejecutarCrearNuevaVacante;
+        window.ejecutarActualizarVacante = ejecutarActualizarVacante;
         window.ejecutarSaneamientoVacantesM2 = ejecutarSaneamientoVacantesM2;
 
         document.addEventListener("DOMContentLoaded", () => {
@@ -627,7 +650,9 @@
             const detailsApiKey = document.getElementById("detailsApiKey");
             const panelExtractor = document.getElementById("panelExtractorIA");
             const bannerLectura = document.getElementById("bannerSoloLectura");
-            const btnSubmit = document.getElementById("btnGuardarVacanteSubmit");
+            const btnCrear = document.getElementById("btnCrearNuevaVacante");
+            const btnActualizar = document.getElementById("btnActualizarVacante");
+            const btnCancelar = document.getElementById("btnCancelarEdicion");
             const btnBorrar = document.getElementById("btnBorrarVacante");
             const btnSanitizar = document.getElementById("btnSanitizarVacantes");
             const formInputs = document.querySelectorAll("#vacanteForm input, #vacanteForm textarea, #vacanteForm select");
@@ -649,7 +674,9 @@
                 badgeScope.className = "bg-slate-800 text-slate-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-slate-700";
                 badgeScope.textContent = "Scope: Consulta Operativa";
                 bannerLectura.classList.remove("hidden");
-                btnSubmit.classList.add("hidden");
+                btnCrear.classList.add("hidden");
+                btnActualizar.classList.add("hidden");
+                btnCancelar.classList.add("hidden");
                 btnBorrar.classList.add("hidden");
                 if (btnSanitizar) btnSanitizar.classList.add("hidden");
                 document.getElementById("botonesBannersContainer")?.classList.add("hidden");
@@ -733,7 +760,6 @@
             }
         }
 
-        // CARGA ROBUSTA DEL SELECTOR DE EMPRESAS
         async function cargarEmpresasSelect() {
             const select = document.getElementById('selectEmpresa');
             select.innerHTML = '<option value="">-- Selecciona Empresa --</option>';
@@ -769,7 +795,6 @@
             });
         }
 
-        // DEEP LINKING FLEXIBLE PARA EL PARÁMETRO URL ?empresa=...
         function verificarParametroURLEmpresa() {
             const urlParams = new URLSearchParams(window.location.search);
             const empParam = urlParams.get('empresa');
@@ -789,13 +814,14 @@
             }
         }
 
-        // CARGA INTEGRAL DE VACANTES POR EMPRESA (CON FALLBACK DUAL-TREE)
+        // CARGA EXCLUSIVA DESDE VACANTES_DETALLES (CERO NODO VACANTES)
         async function alCambiarEmpresaSeleccionada() {
             const empKey = document.getElementById('selectEmpresa').value.trim();
             const selVac = document.getElementById('selectVacante');
             selVac.innerHTML = '<option value="">-- Selecciona vacante para consultar/editar --</option>';
             cacheVacantesEmpresa = {};
             cacheEmpresaActual = null;
+            cancelarEdicionYLimpiar();
 
             const badgeConteo = document.getElementById('badgeConteoVacantesEmpresa');
             badgeConteo.textContent = "0 encontradas";
@@ -805,7 +831,6 @@
 
             if (!empKey) return;
 
-            // 1. Obtener datos de la empresa
             const snapEmp = await get(ref(db, `empresas/${empKey}`));
             const empData = snapEmp.val() || {};
             cacheEmpresaActual = empData;
@@ -821,7 +846,6 @@
                 limpiarRanurasBanners();
             }
 
-            // 2. Obtener rutas de transporte desde rutas/{empKey}
             const snapRutas = await get(ref(db, `rutas/${empKey}`));
             const rutasData = snapRutas.val();
             if (rutasData) {
@@ -833,36 +857,20 @@
                 document.getElementById('rutasTransporte').value = "";
             }
 
-            // 3. Obtener vacantes consultando ramas directas y variantes
+            // Lectura canónica única desde vacantes_detalles
             const empUltra = limpiarUltra(empKey);
-            const [snapDetalles, snapLegacy, snapRootDetalles, snapRootLegacy] = await Promise.all([
-                get(ref(db, `vacantes_detalles/${empKey}`)),
-                get(ref(db, `vacantes/${empKey}`)),
-                get(ref(db, 'vacantes_detalles')),
-                get(ref(db, 'vacantes'))
-            ]);
+            const snapDetalles = await get(ref(db, `vacantes_detalles/${empKey}`));
+            let vacUnificadas = snapDetalles.val() || {};
 
-            let vacUnificadas = {
-                ...(snapLegacy.val() || {}),
-                ...(snapDetalles.val() || {})
-            };
-
-            // Revisar si existen bajo otra clave equivalente (por ejemplo con guiones)
-            const allDetalles = snapRootDetalles.val() || {};
-            Object.entries(allDetalles).forEach(([k, obj]) => {
-                if (k !== empKey && limpiarUltra(k) === empUltra && typeof obj === 'object') {
-                    Object.assign(vacUnificadas, obj);
-                }
-            });
-
-            const allLegacy = snapRootLegacy.val() || {};
-            Object.entries(allLegacy).forEach(([k, obj]) => {
-                if (k !== empKey && limpiarUltra(k) === empUltra && typeof obj === 'object') {
-                    Object.entries(obj).forEach(([vId, vVal]) => {
-                        if (!vacUnificadas[vId]) vacUnificadas[vId] = vVal;
-                    });
-                }
-            });
+            if (Object.keys(vacUnificadas).length === 0) {
+                const snapRoot = await get(ref(db, 'vacantes_detalles'));
+                const allDetalles = snapRoot.val() || {};
+                Object.entries(allDetalles).forEach(([k, obj]) => {
+                    if (limpiarUltra(k) === empUltra && typeof obj === 'object') {
+                        Object.assign(vacUnificadas, obj);
+                    }
+                });
+            }
 
             cacheVacantesEmpresa = vacUnificadas;
             const entries = Object.entries(vacUnificadas);
@@ -924,13 +932,8 @@
         }
 
         async function calcularMetricasGlobalesVacantes() {
-            const [snapDetalles, snapLegacy] = await Promise.all([
-                get(ref(db, 'vacantes_detalles')),
-                get(ref(db, 'vacantes'))
-            ]);
-
+            const snapDetalles = await get(ref(db, 'vacantes_detalles'));
             const dataDetalles = snapDetalles.val() || {};
-            const dataLegacy = snapLegacy.val() || {};
             todasLasVacantesGlobales = [];
 
             let activas = 0, pausadas = 0, cerradas = 0;
@@ -938,15 +941,12 @@
             let perfilesCompletos = 0;
             let conteoPorEmpresa = {};
 
-            const todasLasEmpresasKeys = new Set([...Object.keys(dataDetalles), ...Object.keys(dataLegacy)]);
-
-            todasLasEmpresasKeys.forEach(empKey => {
+            Object.entries(dataDetalles).forEach(([empKey, vacs]) => {
                 const empUltra = limpiarUltra(empKey);
                 const esVisible = usuarioSesion.todasLasEmpresas || 
                     usuarioSesion.empresas.some(e => limpiarUltra(e) === empUltra);
 
-                if (esVisible) {
-                    const vacs = { ...(dataLegacy[empKey] || {}), ...(dataDetalles[empKey] || {}) };
+                if (esVisible && vacs && typeof vacs === 'object') {
                     Object.entries(vacs).forEach(([idV, v]) => {
                         if (v && typeof v === 'object') {
                             todasLasVacantesGlobales.push({ empKey, idV, ...v });
@@ -1165,15 +1165,17 @@ Extrae todas las vacantes detectadas en un arreglo JSON estructurado:
             const item = tempVacantesExtraidas[index];
             if (!item) return;
 
+            cancelarEdicionYLimpiar();
             const empKey = document.getElementById('selectEmpresa').value.trim();
             const baseSlug = generarPuestoIdEstructurado(empKey, item.nombreVacante || "vacante");
             item.puestoId = calcularIdUnicoConSufijo(baseSlug);
 
             cargarObjetoEnFormulario(item);
             cerrarModalMultivacantes();
-            alert(`Vacante "${item.nombreVacante}" cargada al formulario.`);
+            alert(`Vacante "${item.nombreVacante}" cargada en modo creación.`);
         }
 
+        // GUARDADO LOTE EXCLUSIVO EN VACANTES_DETALLES
         async function guardarTodasLasVacantesLote() {
             if (usuarioSesion.nivel < 3) return alert("Permisos insuficientes.");
             const empKey = document.getElementById('selectEmpresa').value.trim();
@@ -1215,7 +1217,6 @@ Extrae todas las vacantes detectadas en un arreglo JSON estructurado:
                 };
 
                 batch[`vacantes_detalles/${empKey}/${pid}`] = datosFinales;
-                batch[`vacantes/${empKey}/${pid}`] = datosFinales;
                 cacheVacantesEmpresa[pid] = datosFinales;
                 guardadas++;
             }
@@ -1242,8 +1243,11 @@ Extrae todas las vacantes detectadas en un arreglo JSON estructurado:
         }
 
         document.getElementById('nombreVacante').addEventListener('input', e => {
-            const emp = document.getElementById('selectEmpresa').value.trim();
-            document.getElementById('puestoId').value = generarPuestoIdEstructurado(emp, e.target.value);
+            // Solo auto-generar ID si estamos en modo creación
+            if (!vacanteEnModoEdicion) {
+                const emp = document.getElementById('selectEmpresa').value.trim();
+                document.getElementById('puestoId').value = generarPuestoIdEstructurado(emp, e.target.value);
+            }
         });
 
         function calcularIdUnicoConSufijo(baseSlug) {
@@ -1282,75 +1286,125 @@ Extrae todas las vacantes detectadas en un arreglo JSON estructurado:
             });
         }
 
+        // CARGAR VACANTE EXISTENTE EN MODO EDICIÓN
         function cargarVacanteSeleccionadaAlFormulario() {
             const key = document.getElementById('selectVacante').value;
             if (!key || !cacheVacantesEmpresa[key]) return alert("Selecciona una vacante de la lista.");
-            cargarObjetoEnFormulario(cacheVacantesEmpresa[key]);
-            alert("Vacante cargada en el formulario.");
+
+            const vacData = cacheVacantesEmpresa[key];
+            vacanteEnModoEdicion = key;
+
+            cargarObjetoEnFormulario(vacData);
+
+            // Ajustar interfaz a Modo Edición
+            document.getElementById('badgeModoEdicion').className = "text-[10px] font-mono px-2 py-0.5 rounded font-bold uppercase tracking-wider bg-amber-950 text-amber-300 border border-amber-800";
+            document.getElementById('badgeModoEdicion').textContent = `Modo: Editando (${key})`;
+
+            document.getElementById('btnCrearNuevaVacante').classList.add('hidden');
+            document.getElementById('btnActualizarVacante').classList.remove('hidden');
+            document.getElementById('btnCancelarEdicion').classList.remove('hidden');
+
+            alert(`Vacante cargada en MODO EDICIÓN. Presiona "Actualizar Vacante Existente" para guardar los cambios.`);
         }
 
-        async function eliminarVacanteSeleccionada() {
-            if (usuarioSesion.nivel < 4) return alert("Acción restringida a Dirección General.");
-
-            const empKey = document.getElementById('selectEmpresa').value.trim();
-            const key = document.getElementById('selectVacante').value;
-            if (!empKey || !key) return alert("Selecciona empresa y vacante.");
-
-            const nombreVac = cacheVacantesEmpresa[key]?.nombreVacante || key;
-
-            if (confirm(`¿Eliminar definitivamente la vacante '${nombreVac}'?`)) {
-                const updates = {};
-                updates[`vacantes_detalles/${empKey}/${key}`] = null;
-                updates[`vacantes/${empKey}/${key}`] = null;
-
-                await update(ref(db), updates);
-
-                await push(ref(db, 'modulo_7_logs'), {
-                    modulo: "M2_VACANTES",
-                    evento: "ELIMINACION_VACANTE",
-                    ejecutadoPor: usuarioSesion.nombre,
-                    uidEjecutor: usuarioSesion.uid,
-                    detalle: `Se eliminó la vacante ${nombreVac} (${key}) de ${empKey}.`,
-                    timestamp: serverTimestamp()
-                });
-
-                alert("Vacante eliminada.");
-                resetFormularioVacante();
-                alCambiarEmpresaSeleccionada();
-                calcularMetricasGlobalesVacantes();
-            }
-        }
-
-        function resetFormularioVacante() {
+        // CANCELAR EDICIÓN Y RESTAURAR A MODO CREACIÓN
+        function cancelarEdicionYLimpiar() {
+            vacanteEnModoEdicion = null;
             document.getElementById('vacanteForm').reset();
             limpiarRanurasBanners();
             document.getElementById('puestoId').value = "";
             document.getElementById('selectVacante').value = "";
             document.getElementById('jsonOutput').innerText = "{}";
+
+            document.getElementById('badgeModoEdicion').className = "text-[10px] font-mono px-2 py-0.5 rounded font-bold uppercase tracking-wider bg-emerald-950 text-emerald-300 border border-emerald-800";
+            document.getElementById('badgeModoEdicion').textContent = "Modo: Nueva Vacante";
+
+            document.getElementById('btnCrearNuevaVacante').classList.remove('hidden');
+            document.getElementById('btnActualizarVacante').classList.add('hidden');
+            document.getElementById('btnCancelarEdicion').classList.add('hidden');
         }
 
         function actualizarVistaJSON(data) {
             document.getElementById('jsonOutput').innerText = JSON.stringify(data, null, 2);
         }
 
-        async function guardarVacanteFormulario(e) {
-            e.preventDefault();
-
-            if (usuarioSesion.nivel < 3) return alert("Permisos insuficientes.");
+        // 1. ACCIÓN: CREAR NUEVA VACANTE (SOLO REGISTROS NUEVOS)
+        async function ejecutarCrearNuevaVacante() {
+            if (usuarioSesion.nivel < 3) return alert("Permisos insuficientes para publicar vacantes.");
             const empKey = document.getElementById('selectEmpresa').value.trim();
-            if (!empKey) return alert("Selecciona la Empresa Destino.");
+            if (!empKey) return alert("Selecciona primero la Empresa Destino.");
 
             const nombreVac = document.getElementById('nombreVacante').value.trim();
             if (!nombreVac) return alert("Ingresa el Nombre de la Vacante.");
 
-            let pid = document.getElementById('puestoId').value.trim();
-            if (!pid) {
-                const baseSlug = generarPuestoIdEstructurado(empKey, nombreVac);
-                pid = calcularIdUnicoConSufijo(baseSlug);
-                document.getElementById('puestoId').value = pid;
+            const baseSlug = generarPuestoIdEstructurado(empKey, nombreVac);
+            const pid = calcularIdUnicoConSufijo(baseSlug);
+            document.getElementById('puestoId').value = pid;
+
+            const datos = recopilarDatosFormulario(pid, empKey, nombreVac);
+            actualizarVistaJSON(datos);
+
+            try {
+                await set(ref(db, `vacantes_detalles/${empKey}/${pid}`), datos);
+
+                await push(ref(db, 'modulo_7_logs'), {
+                    modulo: "M2_VACANTES",
+                    evento: "CREAR_NUEVA_VACANTE",
+                    ejecutadoPor: usuarioSesion.nombre,
+                    uidEjecutor: usuarioSesion.uid,
+                    detalle: `Se creó la nueva vacante ${nombreVac} [${pid}] para ${diccionarioEmpresas[empKey] || empKey}.`,
+                    timestamp: serverTimestamp()
+                });
+
+                alert(`✅ Vacante NUEVA creada exitosamente bajo ID: ${pid}`);
+                cancelarEdicionYLimpiar();
+                alCambiarEmpresaSeleccionada();
+                calcularMetricasGlobalesVacantes();
+            } catch (err) {
+                alert("Error al crear nueva vacante: " + err.message);
+            }
+        }
+
+        // 2. ACCIÓN: ACTUALIZAR VACANTE EXISTENTE (SOBREESCRIBE ID CARGADO)
+        async function ejecutarActualizarVacante() {
+            if (usuarioSesion.nivel < 3) return alert("Permisos insuficientes para modificar vacantes.");
+            const empKey = document.getElementById('selectEmpresa').value.trim();
+            if (!empKey) return alert("Selecciona la Empresa Destino.");
+
+            if (!vacanteEnModoEdicion) {
+                return alert("No hay ninguna vacante cargada para actualizar. Usa 'Guardar Nueva Vacante'.");
             }
 
-            const datos = {
+            const pid = vacanteEnModoEdicion;
+            const nombreVac = document.getElementById('nombreVacante').value.trim();
+            if (!nombreVac) return alert("El nombre de la vacante no puede estar vacío.");
+
+            const datos = recopilarDatosFormulario(pid, empKey, nombreVac);
+            actualizarVistaJSON(datos);
+
+            try {
+                await set(ref(db, `vacantes_detalles/${empKey}/${pid}`), datos);
+
+                await push(ref(db, 'modulo_7_logs'), {
+                    modulo: "M2_VACANTES",
+                    evento: "ACTUALIZAR_VACANTE_EXISTENTE",
+                    ejecutadoPor: usuarioSesion.nombre,
+                    uidEjecutor: usuarioSesion.uid,
+                    detalle: `Se actualizó la vacante existente ${nombreVac} [${pid}] para ${diccionarioEmpresas[empKey] || empKey}.`,
+                    timestamp: serverTimestamp()
+                });
+
+                alert(`✅ Vacante [${pid}] actualizada exitosamente.`);
+                cancelarEdicionYLimpiar();
+                alCambiarEmpresaSeleccionada();
+                calcularMetricasGlobalesVacantes();
+            } catch (err) {
+                alert("Error al actualizar vacante: " + err.message);
+            }
+        }
+
+        function recopilarDatosFormulario(pid, empKey, nombreVac) {
+            return {
                 puestoId: pid,
                 nombreVacante: nombreVac,
                 estatus: document.getElementById('estatus').value,
@@ -1372,44 +1426,48 @@ Extrae todas las vacantes detectadas en un arreglo JSON estructurado:
                 actualizadoPor: usuarioSesion.nombre,
                 ultimaModificacion: new Date().toISOString()
             };
+        }
 
-            actualizarVistaJSON(datos);
+        // ELIMINACIÓN CANÓNICA EN VACANTES_DETALLES
+        async function eliminarVacanteSeleccionada() {
+            if (usuarioSesion.nivel < 4) return alert("Acción restringida a Dirección General.");
 
-            try {
-                const updates = {};
-                updates[`vacantes_detalles/${empKey}/${pid}`] = datos;
-                updates[`vacantes/${empKey}/${pid}`] = datos;
+            const empKey = document.getElementById('selectEmpresa').value.trim();
+            const key = document.getElementById('selectVacante').value;
+            if (!empKey || !key) return alert("Selecciona empresa y vacante.");
 
-                await update(ref(db), updates);
+            const nombreVac = cacheVacantesEmpresa[key]?.nombreVacante || key;
+
+            if (confirm(`¿Eliminar definitivamente la vacante '${nombreVac}' de 'vacantes_detalles'?`)) {
+                await remove(ref(db, `vacantes_detalles/${empKey}/${key}`));
 
                 await push(ref(db, 'modulo_7_logs'), {
                     modulo: "M2_VACANTES",
-                    evento: "GUARDADO_VACANTE",
+                    evento: "ELIMINACION_VACANTE",
                     ejecutadoPor: usuarioSesion.nombre,
                     uidEjecutor: usuarioSesion.uid,
-                    detalle: `Se publicó/actualizó la vacante ${nombreVac} para ${diccionarioEmpresas[empKey] || empKey}.`,
+                    detalle: `Se eliminó la vacante ${nombreVac} (${key}) de vacantes_detalles/${empKey}.`,
                     timestamp: serverTimestamp()
                 });
 
-                alert(`Vacante guardada correctamente.`);
+                alert("Vacante eliminada del catálogo.");
+                cancelarEdicionYLimpiar();
                 alCambiarEmpresaSeleccionada();
                 calcularMetricasGlobalesVacantes();
-            } catch (err) {
-                alert("Error al guardar: " + err.message);
             }
         }
 
-        // SANEADOR AUTOMÁTICO PARA CONSOLIDAR Y RECONECTAR VACANTES EN FIREBASE
+        // SANEADOR ALINEADO CON M1 (CONSOLIDA EN VACANTES_DETALLES Y BORRA VACANTES/)
         async function ejecutarSaneamientoVacantesM2() {
             if (usuarioSesion.nivel < 4) return alert("Acción restringida a Dirección General.");
 
-            if (!confirm("🛠️ SANEADOR INTELIGENTE M2:\n\nEsta función analizará todas las empresas registradas (incluyendo Cedis Soriana Frescos Guadalajara).\n• Buscará vacantes huérfanas en las ramas 'vacantes' y 'vacantes_detalles'.\n• Las conectará de forma oficial para que aparezcan en el selector y se puedan editar y borrar.\n\n¿Deseas continuar?")) {
+            if (!confirm("🛠️ SANEADOR INTELIGENTE M2:\n\nEsta función analizará todas las empresas registradas:\n• Consolidará cualquier vacante dispersa hacia 'vacantes_detalles/'.\n• Eliminará permanentemente la rama obsoleta 'vacantes/' de Firebase.\n\n¿Deseas continuar?")) {
                 return;
             }
 
             const btn = document.getElementById("btnSanitizarVacantes");
             const txtOriginal = btn.innerHTML;
-            btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Saneando y Reconectando...`;
+            btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Saneando y Eliminando Duplicados...`;
             btn.disabled = true;
 
             try {
@@ -1436,17 +1494,18 @@ Extrae todas las vacantes detectadas en un arreglo JSON estructurado:
                         return u === empUltra || (empNombreUltra && u === empNombreUltra) || u.includes(empUltra) || empUltra.includes(u);
                     }
 
-                    // 1. Revisar si hay vacantes en ramas de vacantes_detalles desfasadas
+                    // 1. Consolidar vacantes de subramas alternas en vacantes_detalles
                     Object.entries(vacDetalles).forEach(([ramaKey, vacs]) => {
                         if (ramaKey !== empKey && perteneceAEmpresa(ramaKey) && typeof vacs === 'object') {
                             Object.entries(vacs).forEach(([vId, v]) => {
                                 batchUpdates[`vacantes_detalles/${empKey}/${vId}`] = v;
+                                batchUpdates[`vacantes_detalles/${ramaKey}/${vId}`] = null;
                                 reconectadas++;
                             });
                         }
                     });
 
-                    // 2. Revisar si hay vacantes en la rama histórica 'vacantes'
+                    // 2. Rescatar vacantes de la rama legacy 'vacantes' hacia 'vacantes_detalles'
                     Object.entries(vacLegacy).forEach(([ramaKey, vacs]) => {
                         if (perteneceAEmpresa(ramaKey) && typeof vacs === 'object') {
                             Object.entries(vacs).forEach(([vId, v]) => {
@@ -1474,11 +1533,14 @@ Extrae todas las vacantes detectadas en un arreglo JSON estructurado:
                     });
                 });
 
+                // Eliminar la rama obsoleta vacantes de raíz
+                batchUpdates['vacantes'] = null;
+
                 if (Object.keys(batchUpdates).length > 0) {
                     await update(ref(db), batchUpdates);
                 }
 
-                alert(`Saneamiento completado: Se reconectaron ${reconectadas} vacantes al catálogo activo.`);
+                alert(`✅ Saneamiento completado:\n• Se consolidaron ${reconectadas} vacantes en 'vacantes_detalles'.\n• La rama duplicada 'vacantes/' fue eliminada de forma permanente.`);
                 await sincronizarTodoBajoDemanda();
                 alCambiarEmpresaSeleccionada();
 
