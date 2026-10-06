@@ -80,12 +80,10 @@
 
                 <!-- CONTROLES SUPERIORES & ACCIONES -->
                 <div class="w-full md:w-auto flex flex-wrap gap-2 items-center justify-end">
-                    <!-- Saneador Inteligente de Vacantes -->
                     <button id="btnSanitizarVacantes" type="button" onclick="ejecutarSaneamientoVacantesM2()" class="hidden bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-extrabold text-xs px-3.5 py-2.5 rounded-xl transition shadow-lg flex items-center gap-2 font-mono">
                         <i class="fas fa-wand-magic-sparkles"></i> Saneador & Reconectar Vacantes
                     </button>
 
-                    <!-- Cofre de Gemini Key -->
                     <details id="detailsApiKey" class="bg-slate-900 border border-slate-700 rounded-xl p-2 sm:p-2.5 w-full sm:w-auto group hidden">
                         <summary class="text-xs font-mono text-slate-300 flex items-center justify-between gap-3 cursor-pointer select-none">
                             <span class="flex items-center gap-2">
@@ -522,7 +520,6 @@
         const auth = getAuth(app);
         const db = getDatabase(app);
 
-        // ESTADO GLOBAL DE SEGURIDAD Y PERFIL RBAC
         let usuarioSesion = {
             uid: null,
             nombre: "Cargando...",
@@ -540,7 +537,7 @@
         let tempVacantesExtraidas = [];
         let extractedFileText = "", attachedFileBase64 = "", attachedFileType = "";
 
-        // EXPONER FUNCIONES AL ÁMBITO GLOBAL WINDOW
+        // EXPOSICIÓN AL SCOPE GLOBAL WINDOW
         window.guardarApiKeyPersistente = guardarApiKeyPersistente;
         window.toggleVisibilidadKey = toggleVisibilidadKey;
         window.sincronizarTodoBajoDemanda = sincronizarTodoBajoDemanda;
@@ -563,7 +560,6 @@
             escucharEstadoConexionFirebase();
         });
 
-        // 1. RESOLUCIÓN DE IDENTIDAD AUTÉNTICA Y APLICACIÓN DE GOBERNANZA RBAC
         function inicializarPerfilSeguridadM2() {
             onAuthStateChanged(auth, async (user) => {
                 if (!user) {
@@ -604,8 +600,6 @@
                     aplicarGobernanzaInterfazM2();
                     inicializarGestionApiKey();
                     await sincronizarTodoBajoDemanda();
-
-                    // DEEP LINKING: Si viene con parámetro ?empresa= desde M1, cargarlo de inmediato
                     verificarParametroURLEmpresa();
 
                 } catch (e) {
@@ -615,7 +609,6 @@
             });
         }
 
-        // 2. ADAPTACIÓN DE LA INTERFAZ SEGÚN NIVEL DE MANDO
         function aplicarGobernanzaInterfazM2() {
             document.getElementById("userInfoM2").innerHTML = `
                 <i class="fas fa-user-shield text-amber-400"></i> Usuario: <b>${usuarioSesion.nombre}</b> | Rol: <b>${usuarioSesion.rol}</b> (Nivel ${usuarioSesion.nivel})
@@ -659,12 +652,27 @@
             }
         }
 
+        // FUNCIONES DE NORMALIZACIÓN ULTRA ROBUSTAS
         function sanitizarKey(str) {
             return (str || "general").toLowerCase().trim()
                 .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
                 .replace(/[^a-z0-9]/g, "_")
                 .replace(/_+/g, "_")
                 .replace(/^_|_$/g, "");
+        }
+
+        function limpiarUltraComprimido(str) {
+            return (str || "").toLowerCase().trim()
+                .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+                .replace(/[^a-z0-9]/g, "");
+        }
+
+        function compararEmpresasUltraFlex(a, b) {
+            if (!a || !b) return false;
+            const ultraA = limpiarUltraComprimido(a);
+            const ultraB = limpiarUltraComprimido(b);
+            if (!ultraA || !ultraB) return false;
+            return ultraA === ultraB || ultraA.includes(ultraB) || ultraB.includes(ultraA);
         }
 
         function esIdTecnico(str) {
@@ -759,7 +767,7 @@
             }
         }
 
-        // 3. POBLAR SELECT DE EMPRESAS RESTRINGIDO POR PERMISOS DE STAFF
+        // POBLAR SELECT CON EMPAREJAMIENTO ULTRA-COMPRIMIDO (DEDUPLICADO)
         async function cargarEmpresasSelect() {
             const select = document.getElementById('selectEmpresa');
             select.innerHTML = '<option value="">-- Selecciona Empresa --</option>';
@@ -769,15 +777,24 @@
             diccionarioEmpresas = {};
 
             const listaNombres = [];
-            Object.entries(data).forEach(([k, emp]) => {
-                const keyLimpia = sanitizarKey(emp.id || k);
-                const tienePermiso = usuarioSesion.todasLasEmpresas || usuarioSesion.empresas.includes(keyLimpia);
+            const ultraProcesadosSet = new Set();
 
-                if (tienePermiso) {
+            Object.entries(data).forEach(([k, emp]) => {
+                const keyCanonica = sanitizarKey(emp.id || k);
+                const keyUltra = limpiarUltraComprimido(keyCanonica);
+
+                const tienePermiso = usuarioSesion.todasLasEmpresas || 
+                    usuarioSesion.empresas.some(e => e === keyCanonica || limpiarUltraComprimido(e) === keyUltra);
+
+                if (tienePermiso && !ultraProcesadosSet.has(keyUltra)) {
+                    ultraProcesadosSet.add(keyUltra);
                     const nombreLimpio = obtenerNombreComercialReal(emp) || k.replace(/_/g, ' ').toUpperCase();
+                    
                     diccionarioEmpresas[k] = nombreLimpio;
-                    diccionarioEmpresas[keyLimpia] = nombreLimpio;
-                    listaNombres.push({ key: keyLimpia, keyOriginal: k, nombre: nombreLimpio });
+                    diccionarioEmpresas[keyCanonica] = nombreLimpio;
+                    diccionarioEmpresas[keyUltra] = nombreLimpio;
+
+                    listaNombres.push({ key: keyCanonica, keyUltra: keyUltra, nombre: nombreLimpio });
                 }
             });
 
@@ -789,22 +806,26 @@
             listaNombres.sort((a, b) => a.nombre.localeCompare(b.nombre)).forEach(item => {
                 const opt = document.createElement('option');
                 opt.value = item.key;
-                opt.setAttribute('data-original', item.keyOriginal);
+                opt.setAttribute('data-ultra', item.keyUltra);
                 opt.textContent = item.nombre;
                 select.appendChild(opt);
             });
         }
 
-        // DEEP LINKING: Preseleccionar empresa desde URL si viene de M1
+        // DEEP LINKING ULTRA-FLEXIBLE: Reconoce cedissorianafrescosguadalajara y cedis_soriana_frescos_guadalajara
         function verificarParametroURLEmpresa() {
             const urlParams = new URLSearchParams(window.location.search);
             const empParam = urlParams.get('empresa');
             if (empParam) {
-                const empLimpia = sanitizarKey(empParam);
+                const empUltra = limpiarUltraComprimido(empParam);
                 const select = document.getElementById('selectEmpresa');
                 if (select) {
                     for (let i = 0; i < select.options.length; i++) {
-                        if (select.options[i].value === empLimpia || sanitizarKey(select.options[i].value) === empLimpia) {
+                        const opt = select.options[i];
+                        const optValUltra = limpiarUltraComprimido(opt.value);
+                        const optDataUltra = opt.getAttribute('data-ultra') || "";
+
+                        if (optValUltra === empUltra || optDataUltra === empUltra || compararEmpresasUltraFlex(opt.value, empParam)) {
                             select.selectedIndex = i;
                             alCambiarEmpresaSeleccionada();
                             break;
@@ -814,7 +835,7 @@
             }
         }
 
-        // LECTURA MULTINODO Y FALLBACK INTELIGENTE AL CAMBIAR EMPRESA
+        // LECTURA MULTINODO Y FALLBACK PROFUNDO DUAL-TREE
         async function alCambiarEmpresaSeleccionada() {
             const empKey = document.getElementById('selectEmpresa').value.trim();
             const selVac = document.getElementById('selectVacante');
@@ -835,13 +856,16 @@
 
             if (!empKey) return;
 
+            const keyCanonica = sanitizarKey(empKey);
+            const keyUltra = limpiarUltraComprimido(empKey);
+
             // Obtener ficha empresa
-            const [snapEmpClean, snapEmpRaw] = await Promise.all([
-                get(ref(db, `empresas/${empKey}`)),
-                get(ref(db, `empresas/${sanitizarKey(empKey)}`))
+            const [snapEmpClean, snapEmpUltra] = await Promise.all([
+                get(ref(db, `empresas/${keyCanonica}`)),
+                get(ref(db, `empresas/${keyUltra}`))
             ]);
 
-            const empData = snapEmpClean.val() || snapEmpRaw.val() || {};
+            const empData = snapEmpClean.val() || snapEmpUltra.val() || {};
             cacheEmpresaActual = empData;
 
             const direccionFisica = empData.direccion || empData.direcciones || empData.lugarOrigen || "";
@@ -856,8 +880,11 @@
             }
 
             // Rutas de transporte M6
-            const snapRutas = await get(ref(db, `rutas/${sanitizarKey(empKey)}`));
-            const rutasData = snapRutas.val();
+            const [snapRutasClean, snapRutasUltra] = await Promise.all([
+                get(ref(db, `rutas/${keyCanonica}`)),
+                get(ref(db, `rutas/${keyUltra}`))
+            ]);
+            const rutasData = snapRutasClean.val() || snapRutasUltra.val();
             if (rutasData) {
                 const nombresRutas = Object.values(rutasData)
                     .map(r => typeof r === 'object' ? (r.nombreRuta || r.nombre) : r)
@@ -867,17 +894,32 @@
                 document.getElementById('rutasTransporte').value = "";
             }
 
-            // CONSULTA DUAL-TREE: Buscar en vacantes_detalles Y en el árbol legacy vacantes
-            const [snapDetalles, snapLegacy] = await Promise.all([
-                get(ref(db, `vacantes_detalles/${sanitizarKey(empKey)}`)),
-                get(ref(db, `vacantes/${sanitizarKey(empKey)}`))
+            // CONSULTA DUAL-TREE PROFUNDA: Buscar en todas las variantes
+            const [snapDetallesClean, snapDetallesUltra, snapLegacyClean, snapLegacyUltra, snapPublicaciones] = await Promise.all([
+                get(ref(db, `vacantes_detalles/${keyCanonica}`)),
+                get(ref(db, `vacantes_detalles/${keyUltra}`)),
+                get(ref(db, `vacantes/${keyCanonica}`)),
+                get(ref(db, `vacantes/${keyUltra}`)),
+                get(ref(db, 'publicaciones'))
             ]);
 
-            const vacDetallesData = snapDetalles.val() || {};
-            const vacLegacyData = snapLegacy.val() || {};
+            const vacUnificadas = {
+                ...(snapLegacyClean.val() || {}),
+                ...(snapLegacyUltra.val() || {}),
+                ...(snapDetallesClean.val() || {}),
+                ...(snapDetallesUltra.val() || {})
+            };
 
-            // Unificar vacantes sin duplicar
-            const vacUnificadas = { ...vacLegacyData, ...vacDetallesData };
+            // Escanear publicaciones sueltas si aplica
+            const pubs = snapPublicaciones.val() || {};
+            Object.entries(pubs).forEach(([k, item]) => {
+                if (item && typeof item === 'object') {
+                    const empRef = item.empresa || item.idEmpresa || "";
+                    if (compararEmpresasUltraFlex(empRef, keyCanonica)) {
+                        if (!vacUnificadas[k]) vacUnificadas[k] = item;
+                    }
+                }
+            });
 
             cacheVacantesEmpresa = vacUnificadas;
             const entries = Object.entries(vacUnificadas);
@@ -928,14 +970,19 @@
                 return alert("No tienes permisos para modificar banners corporativos.");
             }
 
-            const empKey = sanitizarKey(document.getElementById('selectEmpresa').value.trim());
+            const empKey = document.getElementById('selectEmpresa').value.trim();
             if (!empKey) return alert("Selecciona primero una empresa destino.");
 
+            const keyCanonica = sanitizarKey(empKey);
+            const keyUltra = limpiarUltraComprimido(empKey);
             const cadena = obtenerCadenaBannersFormulario();
             if (!cadena) return alert("Ingresa al menos un enlace de banner en la ranura.");
 
             try {
-                await set(ref(db, `empresas/${empKey}/bannersCorporativos`), cadena);
+                const updates = {};
+                updates[`empresas/${keyCanonica}/bannersCorporativos`] = cadena;
+                updates[`empresas/${keyUltra}/bannersCorporativos`] = cadena;
+                await update(ref(db), updates);
                 alert(`¡Banners fijados como plantilla fija para todas las vacantes de ${diccionarioEmpresas[empKey] || empKey}!`);
             } catch (err) {
                 alert("Error al fijar banners: " + err.message);
@@ -957,20 +1004,22 @@
             let perfilesCompletos = 0;
             let conteoPorEmpresa = {};
 
-            // Unificar árboles de vacantes
             const todasLasEmpresasKeys = new Set([...Object.keys(dataDetalles), ...Object.keys(dataLegacy)]);
 
             todasLasEmpresasKeys.forEach(empKey => {
-                const keyLimpia = sanitizarKey(empKey);
-                const esVisible = usuarioSesion.todasLasEmpresas || usuarioSesion.empresas.includes(keyLimpia);
+                const keyCanonica = sanitizarKey(empKey);
+                const keyUltra = limpiarUltraComprimido(empKey);
+
+                const esVisible = usuarioSesion.todasLasEmpresas || 
+                    usuarioSesion.empresas.some(e => e === keyCanonica || limpiarUltraComprimido(e) === keyUltra);
 
                 if (esVisible) {
                     const vacs = { ...(dataLegacy[empKey] || {}), ...(dataDetalles[empKey] || {}) };
                     Object.entries(vacs).forEach(([idV, v]) => {
                         if (v && typeof v === 'object') {
-                            todasLasVacantesGlobales.push({ empKey: keyLimpia, idV, ...v });
-                            empresasConOfertaSet.add(keyLimpia);
-                            conteoPorEmpresa[keyLimpia] = (conteoPorEmpresa[keyLimpia] || 0) + 1;
+                            todasLasVacantesGlobales.push({ empKey: keyCanonica, idV, ...v });
+                            empresasConOfertaSet.add(keyUltra);
+                            conteoPorEmpresa[keyCanonica] = (conteoPorEmpresa[keyCanonica] || 0) + 1;
 
                             const st = normalizarEstatus(v.estatus);
                             if (st === 'disponible') activas++;
@@ -1220,8 +1269,11 @@ ESQUEMA JSON OBLIGATORIO:
                 return alert("No tienes permisos para publicar vacantes.");
             }
 
-            const empKey = sanitizarKey(document.getElementById('selectEmpresa').value.trim());
+            const empKey = document.getElementById('selectEmpresa').value.trim();
             if (!empKey || !tempVacantesExtraidas.length) return;
+
+            const keyCanonica = sanitizarKey(empKey);
+            const keyUltra = limpiarUltraComprimido(empKey);
 
             const btn = document.getElementById('btnSaveAllModal');
             btn.disabled = true;
@@ -1229,9 +1281,10 @@ ESQUEMA JSON OBLIGATORIO:
 
             let guardadas = 0;
             const bannersEmpresa = (cacheEmpresaActual && cacheEmpresaActual.bannersCorporativos) ? cacheEmpresaActual.bannersCorporativos : obtenerCadenaBannersFormulario();
+            const batch = {};
 
             for (let item of tempVacantesExtraidas) {
-                const baseSlug = generarPuestoIdEstructurado(empKey, item.nombreVacante || "vacante");
+                const baseSlug = generarPuestoIdEstructurado(keyCanonica, item.nombreVacante || "vacante");
                 const pid = calcularIdUnicoConSufijo(baseSlug);
 
                 const datosFinales = {
@@ -1240,7 +1293,7 @@ ESQUEMA JSON OBLIGATORIO:
                     estatus: "disponible",
                     bannerUrl: item.bannerUrl || (bannersEmpresa ? bannersEmpresa.split(';')[0] : ""),
                     edad: item.edad || "",
-                    sexo: item.sexo || "",
+                    sexo: item.sexo || "Indistinto",
                     escolaridad: item.escolaridad || "",
                     experiencia: item.experiencia || "",
                     salario: item.salario || "",
@@ -1252,34 +1305,43 @@ ESQUEMA JSON OBLIGATORIO:
                     actividades: item.actividades || "",
                     beneficios: item.beneficios || "",
                     visitas: 1,
+                    empresa: keyCanonica,
                     actualizadoPor: usuarioSesion.nombre,
                     fechaPublicacion: new Date().toISOString()
                 };
 
-                try {
-                    await set(ref(db, `vacantes_detalles/${empKey}/${pid}`), datosFinales);
-                    cacheVacantesEmpresa[pid] = datosFinales;
-                    guardadas++;
-                } catch (err) {
-                    console.error("Error guardando vacante en lote:", err);
-                }
+                batch[`vacantes_detalles/${keyCanonica}/${pid}`] = datosFinales;
+                batch[`vacantes_detalles/${keyUltra}/${pid}`] = datosFinales;
+
+                batch[`vacantes/${keyCanonica}/${pid}`] = datosFinales;
+                batch[`vacantes/${keyUltra}/${pid}`] = datosFinales;
+
+                cacheVacantesEmpresa[pid] = datosFinales;
+                guardadas++;
             }
 
-            await push(ref(db, 'modulo_7_logs'), {
-                modulo: "M2_VACANTES",
-                evento: "PUBLICACION_LOTE_IA",
-                ejecutadoPor: usuarioSesion.nombre,
-                uidEjecutor: usuarioSesion.uid,
-                detalle: `Se publicaron ${guardadas} vacantes en lote mediante IA para ${diccionarioEmpresas[empKey] || empKey}.`,
-                timestamp: serverTimestamp()
-            });
+            try {
+                await update(ref(db), batch);
 
-            btn.disabled = false;
-            btn.innerHTML = `<i class="fas fa-upload"></i> Subir Lote Completo`;
-            cerrarModalMultivacantes();
-            alert(`¡Proceso completado! Se guardaron ${guardadas} vacantes en ${diccionarioEmpresas[empKey] || empKey}.`);
-            alCambiarEmpresaSeleccionada();
-            calcularMetricasGlobalesVacantes();
+                await push(ref(db, 'modulo_7_logs'), {
+                    modulo: "M2_VACANTES",
+                    evento: "PUBLICACION_LOTE_IA",
+                    ejecutadoPor: usuarioSesion.nombre,
+                    uidEjecutor: usuarioSesion.uid,
+                    detalle: `Se publicaron ${guardadas} vacantes en lote mediante IA para ${diccionarioEmpresas[empKey] || empKey} (Espejo Canónico y Comprimido).`,
+                    timestamp: serverTimestamp()
+                });
+
+                alert(`¡Proceso completado! Se guardaron ${guardadas} vacantes sincronizadas en espejo.`);
+            } catch (e) {
+                alert("Error guardando lote: " + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<i class="fas fa-upload"></i> Subir Lote Completo`;
+                cerrarModalMultivacantes();
+                alCambiarEmpresaSeleccionada();
+                calcularMetricasGlobalesVacantes();
+            }
         }
 
         function generarPuestoIdEstructurado(empresaKey, nombreVacante) {
@@ -1302,7 +1364,6 @@ ESQUEMA JSON OBLIGATORIO:
             return `${baseSlug}_${contador}`;
         }
 
-        // CARGAR DATOS AL FORMULARIO SOPORTANDO FORMATO NUEVO Y LEGACY
         function cargarObjetoEnFormulario(d) {
             document.getElementById('puestoId').value = d.puestoId || "";
             document.getElementById('nombreVacante').value = d.nombreVacante || d.puesto || d.titulo || "";
@@ -1339,35 +1400,40 @@ ESQUEMA JSON OBLIGATORIO:
             alert("Vacante cargada al formulario ✅");
         }
 
-        // 4. ELIMINACIÓN RESTRINGIDA A MANDO DIRECTIVO (NIVEL >= 4)
+        // ELIMINACIÓN TOTAL EN ESPEJO (CANÓNICA Y COMPRIMIDA)
         async function eliminarVacanteSeleccionada() {
             if (usuarioSesion.nivel < 4) {
                 return alert("Acción restringida. El borrado definitivo de vacantes está reservado para la Dirección General.");
             }
 
-            const empKey = sanitizarKey(document.getElementById('selectEmpresa').value);
+            const empKey = document.getElementById('selectEmpresa').value;
             const key = document.getElementById('selectVacante').value;
             if (!empKey || !key) return alert("Selecciona empresa y vacante.");
 
+            const keyCanonica = sanitizarKey(empKey);
+            const keyUltra = limpiarUltraComprimido(empKey);
             const nombreVac = cacheVacantesEmpresa[key]?.nombreVacante || cacheVacantesEmpresa[key]?.puesto || key;
 
-            if (confirm(`¿Eliminar definitivamente la vacante '${nombreVac}'? Esta acción no se puede deshacer.`)) {
+            if (confirm(`¿Eliminar definitivamente la vacante '${nombreVac}' de TODOS los catálogos y enlaces en espejo? Esta acción no se puede deshacer.`)) {
                 const updates = {};
-                updates[`vacantes_detalles/${empKey}/${key}`] = null;
-                updates[`vacantes/${empKey}/${key}`] = null;
+                updates[`vacantes_detalles/${keyCanonica}/${key}`] = null;
+                updates[`vacantes_detalles/${keyUltra}/${key}`] = null;
+
+                updates[`vacantes/${keyCanonica}/${key}`] = null;
+                updates[`vacantes/${keyUltra}/${key}`] = null;
 
                 await update(ref(db), updates);
 
                 await push(ref(db, 'modulo_7_logs'), {
                     modulo: "M2_VACANTES",
-                    evento: "ELIMINACION_VACANTE",
+                    evento: "ELIMINACION_VACANTE_ESPEJO",
                     ejecutadoPor: usuarioSesion.nombre,
                     uidEjecutor: usuarioSesion.uid,
-                    detalle: `Se eliminó la vacante ${nombreVac} (${key}) de ${diccionarioEmpresas[empKey] || empKey}.`,
+                    detalle: `Se eliminó en espejo la vacante ${nombreVac} (${key}) de ${diccionarioEmpresas[empKey] || empKey}.`,
                     timestamp: serverTimestamp()
                 });
 
-                alert("Vacante eliminada del catálogo.");
+                alert("Vacante eliminada del catálogo y del portal público exitosamente.");
                 resetFormularioVacante();
                 alCambiarEmpresaSeleccionada();
                 calcularMetricasGlobalesVacantes();
@@ -1386,7 +1452,7 @@ ESQUEMA JSON OBLIGATORIO:
             document.getElementById('jsonOutput').innerText = JSON.stringify(data, null, 2);
         }
 
-        // 5. PUBLICACIÓN Y GUARDADO DE VACANTE (RESTRINGIDO A NIVEL >= 3)
+        // GUARDADO Y PUBLICACIÓN EN ESPEJO BIDIRECCIONAL
         async function guardarVacanteFormulario(e) {
             e.preventDefault();
 
@@ -1394,10 +1460,13 @@ ESQUEMA JSON OBLIGATORIO:
                 return alert("No tienes permisos para modificar o publicar vacantes. Consulta a tu coordinador.");
             }
 
-            const empKey = sanitizarKey(document.getElementById('selectEmpresa').value.trim());
+            const empKey = document.getElementById('selectEmpresa').value.trim();
             if (!empKey) return alert("Selecciona la Empresa Destino.");
 
-            if (!usuarioSesion.todasLasEmpresas && !usuarioSesion.empresas.includes(empKey)) {
+            const keyCanonica = sanitizarKey(empKey);
+            const keyUltra = limpiarUltraComprimido(empKey);
+
+            if (!usuarioSesion.todasLasEmpresas && !usuarioSesion.empresas.some(em => em === keyCanonica || limpiarUltraComprimido(em) === keyUltra)) {
                 return alert("No tienes autorización para administrar vacantes de esta empresa.");
             }
 
@@ -1406,7 +1475,7 @@ ESQUEMA JSON OBLIGATORIO:
 
             let pid = document.getElementById('puestoId').value.trim();
             if (!pid) {
-                const baseSlug = generarPuestoIdEstructurado(empKey, nombreVac);
+                const baseSlug = generarPuestoIdEstructurado(keyCanonica, nombreVac);
                 pid = calcularIdUnicoConSufijo(baseSlug);
                 document.getElementById('puestoId').value = pid;
             }
@@ -1429,6 +1498,7 @@ ESQUEMA JSON OBLIGATORIO:
                 actividades: document.getElementById('actividades').value.trim(),
                 beneficios: document.getElementById('beneficios').value.trim(),
                 visitas: (cacheVacantesEmpresa[pid] && cacheVacantesEmpresa[pid].visitas) ? cacheVacantesEmpresa[pid].visitas : 1,
+                empresa: keyCanonica,
                 actualizadoPor: usuarioSesion.nombre,
                 ultimaModificacion: new Date().toISOString()
             };
@@ -1436,30 +1506,26 @@ ESQUEMA JSON OBLIGATORIO:
             actualizarVistaJSON(datos);
 
             try {
-                // Guardar en vacantes_detalles y reflejar en vacantes para compatibilidad con vacante.html
                 const updates = {};
-                updates[`vacantes_detalles/${empKey}/${pid}`] = datos;
-                updates[`vacantes/${empKey}/${pid}`] = {
-                    puesto: datos.nombreVacante,
-                    sueldo: datos.salario,
-                    ubicacion: datos.lugarOrigen,
-                    estatus: datos.estatus === 'disponible' ? 'Disponible' : (datos.estatus === 'pausada' ? 'En Pausa' : 'Cerrada'),
-                    empresa: empKey,
-                    actualizado: datos.ultimaModificacion
-                };
+                // Guardar en espejo canónico y ultra-comprimido
+                updates[`vacantes_detalles/${keyCanonica}/${pid}`] = datos;
+                updates[`vacantes_detalles/${keyUltra}/${pid}`] = datos;
+
+                updates[`vacantes/${keyCanonica}/${pid}`] = datos;
+                updates[`vacantes/${keyUltra}/${pid}`] = datos;
 
                 await update(ref(db), updates);
 
                 await push(ref(db, 'modulo_7_logs'), {
                     modulo: "M2_VACANTES",
-                    evento: "GUARDADO_VACANTE",
+                    evento: "GUARDADO_VACANTE_ESPEJO",
                     ejecutadoPor: usuarioSesion.nombre,
                     uidEjecutor: usuarioSesion.uid,
-                    detalle: `Se publicó/actualizó la vacante ${nombreVac} para ${diccionarioEmpresas[empKey] || empKey}. Estatus: ${datos.estatus}.`,
+                    detalle: `Se publicó/actualizó la vacante ${nombreVac} en espejo para ${diccionarioEmpresas[empKey] || empKey}. Estatus: ${datos.estatus}.`,
                     timestamp: serverTimestamp()
                 });
 
-                alert(`¡Vacante guardada exitosamente en ${diccionarioEmpresas[empKey] || empKey}!`);
+                alert(`¡Vacante guardada y sincronizada en espejo para ${diccionarioEmpresas[empKey] || empKey}!`);
                 alCambiarEmpresaSeleccionada();
                 calcularMetricasGlobalesVacantes();
             } catch (err) {
@@ -1467,81 +1533,116 @@ ESQUEMA JSON OBLIGATORIO:
             }
         }
 
-        // 6. BOTÓN SANEADOR INTELIGENTE M2: Reconecta vacantes desfasadas al catálogo de empresas
+        // SANEADOR PROFUNDO M2: Reconecta cualquier rama huérfana de Firebase
         async function ejecutarSaneamientoVacantesM2() {
             if (usuarioSesion.nivel < 4) {
                 return alert("Acción restringida. El saneamiento global de vacantes requiere nivel Directivo (>= 4).");
             }
 
-            if (!confirm("🛠️ SANEADOR INTELIGENTE M2:\n\nEsta función analizará todas las vacantes guardadas en 'vacantes' y 'vacantes_detalles'.\n• Corregirá malas conexiones con empresas.\n• Saneará claves con mayúsculas/espacios.\n• Reconectará las vacantes históricas de vacante.html para que aparezcan en el menú desplegable y se puedan editar.\n\n¿Deseas continuar?")) {
+            if (!confirm("🛠️ SANEADOR INTELIGENTE M2:\n\nEsta función analizará exhaustivamente todas las vacantes guardadas en Firebase.\n• Reconectará ofertas huérfanas de 'vacantes', 'vacantes_detalles' y 'publicaciones'.\n• Creará espejos automáticos para enlaces pegados como 'cedissorianafrescosguadalajara'.\n• Permitirá su edición y borrado inmediato en el formulario.\n\n¿Deseas continuar?")) {
                 return;
             }
 
             const btn = document.getElementById("btnSanitizarVacantes");
             const txtOriginal = btn.innerHTML;
-            btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Saneando Vacantes...`;
+            btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Rescatando y Sincronizando...`;
             btn.disabled = true;
 
             try {
-                const [snapEmp, snapDetalles, snapLegacy] = await Promise.all([
+                const [snapEmp, snapDetalles, snapLegacy, snapPubs] = await Promise.all([
                     get(ref(db, 'empresas')),
                     get(ref(db, 'vacantes_detalles')),
-                    get(ref(db, 'vacantes'))
+                    get(ref(db, 'vacantes')),
+                    get(ref(db, 'publicaciones'))
                 ]);
 
                 const empresas = snapEmp.val() || {};
                 const vacDetalles = snapDetalles.val() || {};
                 const vacLegacy = snapLegacy.val() || {};
+                const publicaciones = snapPubs.val() || {};
 
                 const batchUpdates = {};
                 let reconectadas = 0;
 
-                // Crear mapa de resolución canónica de empresas
-                const mapaEmpresas = {};
+                const mapaEmpresasCanonicas = {};
                 Object.entries(empresas).forEach(([k, emp]) => {
                     const clean = sanitizarKey(emp.id || k);
-                    mapaEmpresas[k] = clean;
-                    mapaEmpresas[clean] = clean;
-                    if (emp.nombre) mapaEmpresas[sanitizarKey(emp.nombre)] = clean;
+                    const ultra = limpiarUltraComprimido(clean);
+                    mapaEmpresasCanonicas[k] = clean;
+                    mapaEmpresasCanonicas[clean] = clean;
+                    mapaEmpresasCanonicas[ultra] = clean;
+                    if (emp.nombre) {
+                        mapaEmpresasCanonicas[limpiarUltraComprimido(emp.nombre)] = clean;
+                    }
                 });
 
-                // Reconectar desde el nodo histórico 'vacantes'
-                Object.entries(vacLegacy).forEach(([empKey, grupoVacs]) => {
-                    const targetEmp = mapaEmpresas[empKey] || sanitizarKey(empKey);
+                function registrarVacanteLote(targetEmpresa, vId, v) {
+                    const targetCanonica = sanitizarKey(targetEmpresa);
+                    const targetUltra = limpiarUltraComprimido(targetCanonica);
 
-                    if (typeof grupoVacs === 'object' && grupoVacs !== null) {
-                        Object.entries(grupoVacs).forEach(([vId, v]) => {
-                            if (v && typeof v === 'object') {
-                                const puestoNom = v.nombreVacante || v.puesto || v.titulo || vId;
-                                const pidCanonica = `${targetEmp}_${sanitizarKey(puestoNom)}`;
+                    const puestoNom = v.nombreVacante || v.puesto || v.titulo || vId;
+                    const pidCanonica = `${targetCanonica}_${sanitizarKey(puestoNom)}`;
 
-                                const yaExiste = vacDetalles[targetEmp] && (vacDetalles[targetEmp][pidCanonica] || vacDetalles[targetEmp][vId]);
+                    const objetoNormalizado = {
+                        puestoId: pidCanonica,
+                        nombreVacante: puestoNom,
+                        estatus: (v.estatus || "disponible").toLowerCase(),
+                        salario: v.salario || v.sueldo || "",
+                        lugarOrigen: v.lugarOrigen || v.ubicacion || "",
+                        mapaUrl: v.mapaUrl || v.url_map || "",
+                        turnos: v.turnos || v.horario || "",
+                        escolaridad: v.escolaridad || "Secundaria",
+                        edad: v.edad || "18 a 55 años",
+                        sexo: v.sexo || "Indistinto",
+                        experiencia: v.experiencia || "Sin experiencia",
+                        actividades: v.actividades || "",
+                        beneficios: v.beneficios || v.prestaciones || "",
+                        rutasTransporte: v.rutasTransporte || "",
+                        bannerUrl: v.bannerUrl || v.imagen || "",
+                        visitas: v.visitas || 1,
+                        empresa: targetCanonica,
+                        actualizadoPor: "Saneador Inteligente M2",
+                        ultimaModificacion: new Date().toISOString()
+                    };
 
-                                if (!yaExiste) {
-                                    batchUpdates[`vacantes_detalles/${targetEmp}/${pidCanonica}`] = {
-                                        puestoId: pidCanonica,
-                                        nombreVacante: puestoNom,
-                                        estatus: (v.estatus || "disponible").toLowerCase(),
-                                        salario: v.salario || v.sueldo || "",
-                                        lugarOrigen: v.lugarOrigen || v.ubicacion || "",
-                                        mapaUrl: v.mapaUrl || v.url_map || "",
-                                        turnos: v.turnos || v.horario || "",
-                                        escolaridad: v.escolaridad || "",
-                                        edad: v.edad || "",
-                                        sexo: v.sexo || "Indistinto",
-                                        experiencia: v.experiencia || "",
-                                        actividades: v.actividades || "",
-                                        beneficios: v.beneficios || v.prestaciones || "",
-                                        rutasTransporte: v.rutasTransporte || "",
-                                        bannerUrl: v.bannerUrl || v.imagen || "",
-                                        visitas: v.visitas || 1,
-                                        actualizadoPor: "Saneador Inteligente M2",
-                                        fechaPublicacion: v.fechaPublicacion || new Date().toISOString()
-                                    };
-                                    reconectadas++;
-                                }
-                            }
+                    batchUpdates[`vacantes_detalles/${targetCanonica}/${pidCanonica}`] = objetoNormalizado;
+                    batchUpdates[`vacantes_detalles/${targetUltra}/${pidCanonica}`] = objetoNormalizado;
+
+                    batchUpdates[`vacantes/${targetCanonica}/${pidCanonica}`] = objetoNormalizado;
+                    batchUpdates[`vacantes/${targetUltra}/${pidCanonica}`] = objetoNormalizado;
+                    if (vId !== pidCanonica) {
+                        batchUpdates[`vacantes/${targetUltra}/${vId}`] = objetoNormalizado;
+                    }
+
+                    reconectadas++;
+                }
+
+                // Escanear vacantes_detalles
+                Object.entries(vacDetalles).forEach(([ramaKey, vacGrupo]) => {
+                    const target = mapaEmpresasCanonicas[ramaKey] || mapaEmpresasCanonicas[limpiarUltraComprimido(ramaKey)] || sanitizarKey(ramaKey);
+                    if (typeof vacGrupo === 'object' && vacGrupo !== null) {
+                        Object.entries(vacGrupo).forEach(([vId, v]) => {
+                            if (v && typeof v === 'object') registrarVacanteLote(target, vId, v);
                         });
+                    }
+                });
+
+                // Escanear vacantes legacy
+                Object.entries(vacLegacy).forEach(([ramaKey, vacGrupo]) => {
+                    const target = mapaEmpresasCanonicas[ramaKey] || mapaEmpresasCanonicas[limpiarUltraComprimido(ramaKey)] || sanitizarKey(ramaKey);
+                    if (typeof vacGrupo === 'object' && vacGrupo !== null) {
+                        Object.entries(vacGrupo).forEach(([vId, v]) => {
+                            if (v && typeof v === 'object') registrarVacanteLote(target, vId, v);
+                        });
+                    }
+                });
+
+                // Escanear publicaciones sueltas
+                Object.entries(publicaciones).forEach(([pubId, p]) => {
+                    if (p && typeof p === 'object') {
+                        const empRef = p.empresa || p.idEmpresa || "";
+                        const target = mapaEmpresasCanonicas[empRef] || mapaEmpresasCanonicas[limpiarUltraComprimido(empRef)];
+                        if (target) registrarVacanteLote(target, pubId, p);
                     }
                 });
 
@@ -1551,14 +1652,14 @@ ESQUEMA JSON OBLIGATORIO:
 
                 await push(ref(db, 'modulo_7_logs'), {
                     modulo: "M2_VACANTES",
-                    evento: "SANEAMIENTO_VACANTES_HUERFANAS",
+                    evento: "SANEAMIENTO_TOTAL_ESPEJO",
                     ejecutadoPor: usuarioSesion.nombre,
                     uidEjecutor: usuarioSesion.uid,
-                    detalle: `Saneamiento M2 completado. Se reconectaron e indexaron ${reconectadas} vacantes.`,
+                    detalle: `Saneamiento M2 completado. Se sincronizaron en espejo ${reconectadas} vacantes.`,
                     timestamp: serverTimestamp()
                 });
 
-                alert(`✅ ¡Saneamiento completado!\n\nSe reconectaron ${reconectadas} vacantes al catálogo activo.\nYa están disponibles en el menú desplegable para consulta y edición.`);
+                alert(`✅ ¡Saneamiento completado!\n\nSe sincronizaron y reconectaron ${reconectadas} vacantes en espejo.\nYa puedes consultar, editar o borrar cualquier vacante de forma inmediata.`);
                 await sincronizarTodoBajoDemanda();
                 alCambiarEmpresaSeleccionada();
 
