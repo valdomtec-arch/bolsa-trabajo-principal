@@ -109,7 +109,7 @@
                 <h1 class="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
                     <span class="text-cyber-accent">⚡</span> Motor Logístico de Transporte <span class="text-xs bg-cyber-accent/20 text-cyber-accent px-2 py-0.5 rounded border border-cyber-accent/40 font-mono">v13.0 Resilient-Burst</span>
                 </h1>
-                <p class="text-xs text-slate-400 mt-1">Extracción masiva multi-archivo, ruteo vial continuo OSRM y persistencia en Firebase.</p>
+                <p class="text-xs text-slate-400 mt-1">Extracción masiva multi-archivo, ruteo vial continuo OSRM y persistencia canónica en Firebase.</p>
             </div>
             <div class="flex items-center gap-2 flex-wrap">
                 <a href="m6_extractor_coordenadas.html" class="bg-cyber-cyan/20 hover:bg-cyber-cyan/30 text-cyber-cyan border border-cyber-cyan/40 font-mono text-xs px-3.5 py-2 rounded-xl flex items-center gap-2 transition-all shadow-sm">
@@ -415,12 +415,11 @@
             }
         }
 
+        // Sanitización canónica continua sin guiones bajos
         function sanitizarKey(str) {
             return (str || "general").toLowerCase().trim()
                 .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-                .replace(/[^a-z0-9]/g, "_")
-                .replace(/_+/g, "_")
-                .replace(/^_|_$/g, "");
+                .replace(/[^a-z0-9]/g, "");
         }
 
         function generarClavePunto(texto, municipio) {
@@ -483,7 +482,7 @@
             const empresaKey = sanitizarKey(empresaNombre);
             try {
                 const snap = await get(ref(db, "rutas/" + empresaKey));
-                if (!snap.exists()) return alert("No se encontraron rutas registradas.");
+                if (!snap.exists()) return alert("No se encontraron rutas registradas en el nodo [" + empresaKey + "].");
 
                 const rutasData = snap.val();
                 coleccionRutas = [];
@@ -541,7 +540,7 @@
 
                 actualizarSelectRutas();
                 await renderizarTablaYMapa();
-                alert("✅ Se cargaron " + coleccionRutas.length + " rutas de \"" + empresaNombre + "\".");
+                alert("✅ Se cargaron " + coleccionRutas.length + " rutas de \"" + empresaNombre + "\" (Clave: " + empresaKey + ").");
             } catch (err) {
                 alert("Error al cargar rutas: " + err.message);
             }
@@ -643,12 +642,18 @@
             const primeraGPS = paradas.find(p => p.coordenadasAbordaje && p.coordenadasAbordaje.includes(","));
             const mun = r.municipio || "General";
             const est = r.estado || "Nuevo León";
+            const empresaLimpia = sanitizarKey(r.empresaDestino);
+
+            const rutKeyLimpia = (r.idRuta || r.nombreRuta || "ruta")
+                .toLowerCase().trim()
+                .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+                .replace(/[^a-z0-9]/g, "_").replace(/_+/g, "_").replace(/^_|_$/g, "");
 
             return {
-                idRuta: r.idRuta || sanitizarKey(r.nombreRuta),
+                idRuta: rutKeyLimpia,
                 nombreRuta: r.nombreRuta || "Ruta Sin Nombre",
                 empresaDestino: r.empresaDestino || "General",
-                empresaKey: sanitizarKey(r.empresaDestino),
+                empresaKey: empresaLimpia,
                 municipio: mun,
                 estado: est,
                 estadoMunicipio: mun + ", " + est,
@@ -675,131 +680,127 @@
             };
         }
 
-       // =========================================================================
-// PARSER KML/KMZ MEJORADO: MULTI-RUTA (FOLDERS) Y EXTRACCIÓN DE HORARIOS
-// =========================================================================
-async function procesarArchivoKMZoKML(file) {
-    let kmlTexto = "";
-    const extension = file.name.split('.').pop().toLowerCase();
+        // =========================================================================
+        // PARSER KML/KMZ: MULTI-RUTA (FOLDERS) Y HORARIOS
+        // =========================================================================
+        async function procesarArchivoKMZoKML(file) {
+            let kmlTexto = "";
+            const extension = file.name.split('.').pop().toLowerCase();
 
-    if (extension === 'kmz') {
-        const zip = new JSZip();
-        const contenidoZip = await zip.loadAsync(file);
-        const kmlKey = Object.keys(contenidoZip.files).find(n => n.toLowerCase().endsWith('.kml'));
-        if (!kmlKey) throw new Error("No hay archivo .kml en el paquete KMZ.");
-        kmlTexto = await contenidoZip.files[kmlKey].async("text");
-    } else {
-        kmlTexto = await file.text();
-    }
-
-    const kmlLimpio = kmlTexto.replace(/xmlns(:\w+)?="[^"]*"/g, '').replace(/<(\/)?(\w+):/g, '<$1');
-    const parser = new DOMParser();
-    const xmlDoc = parser.parseFromString(kmlLimpio, "text/xml");
-
-    // Función auxiliar para parsear horarios desde la descripción del Placemark
-    function parsearHorariosDesdeDescripcion(descTexto) {
-        if (!descTexto) return [];
-        const listaHorarios = [];
-        // Detecta patrones tipo "T1: 04:56", "T2: 16:46", etc.
-        const regexTurnos = /(T\d+|Día|Noche|Tarde|Turno\s*\d+)?\s*[:=-]?\s*(\b\d{1,2}:\d{2}(?:\s*[AaPp][Mm])?\b)/gi;
-        let match;
-        while ((match = regexTurnos.exec(descTexto)) !== null) {
-            const etiqueta = match[1] ? match[1].trim() : `Turno ${listaHorarios.length + 1}`;
-            const hora = match[2].trim();
-            listaHorarios.push({
-                etiquetaTurno: etiqueta,
-                formatoCivil: hora,
-                formatoMilitar: hora.replace(/\s*[AaPp][Mm]/i, '').trim()
-            });
-        }
-        return listaHorarios;
-    }
-
-    function extraerParadasYLineasDeContenedor(contenedorElement) {
-        const placemarks = Array.from(contenedorElement.getElementsByTagName("Placemark"));
-        const paradas = [];
-        let trazadoAsfalto = [];
-        let contador = 1;
-
-        placemarks.forEach(pm => {
-            const pointTag = pm.getElementsByTagName("Point")[0];
-            if (pointTag) {
-                const nombre = pm.getElementsByTagName("name")[0]?.textContent?.trim() || ("Parada #" + contador);
-                const desc = pm.getElementsByTagName("description")[0]?.textContent?.trim() || "";
-                const coordTexto = pointTag.getElementsByTagName("coordinates")[0]?.textContent?.trim();
-                
-                if (coordTexto) {
-                    const partes = coordTexto.split(/\s+/)[0].split(",");
-                    const lng = parseFloat(partes[0]?.trim());
-                    const lat = parseFloat(partes[1]?.trim());
-                    if (!isNaN(lat) && !isNaN(lng)) {
-                        paradas.push({
-                            numeroParada: contador++,
-                            referenciaOriginal: nombre,
-                            cruceVialEnriquecido: nombre,
-                            callePrincipal: nombre,
-                            cruceInterseccion: "",
-                            referenciaComercio: "",
-                            coloniaFraccionamiento: "",
-                            municipioParada: "General",
-                            coordenadasAbordaje: lat.toFixed(6) + ", " + lng.toFixed(6),
-                            estadoGeocodificacion: "Exacta (KML Satelital)",
-                            horarios: parsearHorariosDesdeDescripcion(desc)
-                        });
-                    }
-                }
+            if (extension === 'kmz') {
+                const zip = new JSZip();
+                const contenidoZip = await zip.loadAsync(file);
+                const kmlKey = Object.keys(contenidoZip.files).find(n => n.toLowerCase().endsWith('.kml'));
+                if (!kmlKey) throw new Error("No hay archivo .kml en el paquete KMZ.");
+                kmlTexto = await contenidoZip.files[kmlKey].async("text");
+            } else {
+                kmlTexto = await file.text();
             }
 
-            const lineTag = pm.getElementsByTagName("LineString")[0];
-            if (lineTag) {
-                const coordsLine = lineTag.getElementsByTagName("coordinates")[0]?.textContent?.trim();
-                if (coordsLine) {
-                    const pares = coordsLine.split(/\s+/);
-                    pares.forEach(pStr => {
-                        const c = pStr.split(",");
-                        const lng = parseFloat(c[0]);
-                        const lat = parseFloat(c[1]);
-                        if (!isNaN(lat) && !isNaN(lng)) {
-                            trazadoAsfalto.push([parseFloat(lat.toFixed(6)), parseFloat(lng.toFixed(6))]);
-                        }
+            const kmlLimpio = kmlTexto.replace(/xmlns(:\w+)?="[^"]*"/g, '').replace(/<(\/)?(\w+):/g, '<$1');
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(kmlLimpio, "text/xml");
+
+            function parsearHorariosDesdeDescripcion(descTexto) {
+                if (!descTexto) return [];
+                const listaHorarios = [];
+                const regexTurnos = /(T\d+|Día|Noche|Tarde|Turno\s*\d+)?\s*[:=-]?\s*(\b\d{1,2}:\d{2}(?:\s*[AaPp][Mm])?\b)/gi;
+                let match;
+                while ((match = regexTurnos.exec(descTexto)) !== null) {
+                    const etiqueta = match[1] ? match[1].trim() : `Turno ${listaHorarios.length + 1}`;
+                    const hora = match[2].trim();
+                    listaHorarios.push({
+                        etiquetaTurno: etiqueta,
+                        formatoCivil: hora,
+                        formatoMilitar: hora.replace(/\s*[AaPp][Mm]/i, '').trim()
                     });
                 }
+                return listaHorarios;
             }
-        });
 
-        return { paradas, trazadoAsfalto };
-    }
+            function extraerParadasYLineasDeContenedor(contenedorElement) {
+                const placemarks = Array.from(contenedorElement.getElementsByTagName("Placemark"));
+                const paradas = [];
+                let trazadoAsfalto = [];
+                let contador = 1;
 
-    const folders = Array.from(xmlDoc.getElementsByTagName("Folder"));
-    const coleccionExtraida = [];
+                placemarks.forEach(pm => {
+                    const pointTag = pm.getElementsByTagName("Point")[0];
+                    if (pointTag) {
+                        const nombre = pm.getElementsByTagName("name")[0]?.textContent?.trim() || ("Parada #" + contador);
+                        const desc = pm.getElementsByTagName("description")[0]?.textContent?.trim() || "";
+                        const coordTexto = pointTag.getElementsByTagName("coordinates")[0]?.textContent?.trim();
+                        
+                        if (coordTexto) {
+                            const partes = coordTexto.split(/\s+/)[0].split(",");
+                            const lng = parseFloat(partes[0]?.trim());
+                            const lat = parseFloat(partes[1]?.trim());
+                            if (!isNaN(lat) && !isNaN(lng)) {
+                                paradas.push({
+                                    numeroParada: contador++,
+                                    referenciaOriginal: nombre,
+                                    cruceVialEnriquecido: nombre,
+                                    callePrincipal: nombre,
+                                    cruceInterseccion: "",
+                                    referenciaComercio: "",
+                                    coloniaFraccionamiento: "",
+                                    municipioParada: "General",
+                                    coordenadasAbordaje: lat.toFixed(6) + ", " + lng.toFixed(6),
+                                    estadoGeocodificacion: "Exacta (KML Satelital)",
+                                    horarios: parsearHorariosDesdeDescripcion(desc)
+                                });
+                            }
+                        }
+                    }
 
-    // Si el KML usa carpetas (<Folder>), cada una es una ruta distinta
-    if (folders.length > 0) {
-        folders.forEach(folder => {
-            const nombreFolder = folder.getElementsByTagName("name")[0]?.textContent?.trim() || "Ruta KML";
-            const { paradas, trazadoAsfalto } = extraerParadasYLineasDeContenedor(folder);
-            if (paradas.length > 0) {
+                    const lineTag = pm.getElementsByTagName("LineString")[0];
+                    if (lineTag) {
+                        const coordsLine = lineTag.getElementsByTagName("coordinates")[0]?.textContent?.trim();
+                        if (coordsLine) {
+                            const pares = coordsLine.split(/\s+/);
+                            pares.forEach(pStr => {
+                                const c = pStr.split(",");
+                                const lng = parseFloat(c[0]);
+                                const lat = parseFloat(c[1]);
+                                if (!isNaN(lat) && !isNaN(lng)) {
+                                    trazadoAsfalto.push([parseFloat(lat.toFixed(6)), parseFloat(lng.toFixed(6))]);
+                                }
+                            });
+                        }
+                    }
+                });
+
+                return { paradas, trazadoAsfalto };
+            }
+
+            const folders = Array.from(xmlDoc.getElementsByTagName("Folder"));
+            const coleccionExtraida = [];
+
+            if (folders.length > 0) {
+                folders.forEach(folder => {
+                    const nombreFolder = folder.getElementsByTagName("name")[0]?.textContent?.trim() || "Ruta KML";
+                    const { paradas, trazadoAsfalto } = extraerParadasYLineasDeContenedor(folder);
+                    if (paradas.length > 0) {
+                        coleccionExtraida.push({
+                            nombreRuta: nombreFolder.replace(/^Ruta:\s*/i, '').trim(),
+                            paradas: paradas,
+                            trazadoVial: trazadoAsfalto.length > 0 ? trazadoAsfalto : null
+                        });
+                    }
+                });
+            } else {
+                const nombreDoc = xmlDoc.getElementsByTagName("Document")[0]?.getElementsByTagName("name")[0]?.textContent?.trim();
+                const nombreFinal = nombreDoc || file.name.replace(/\.[^/.]+$/, "").replace(/[-_]+/g, " ").toUpperCase().trim();
+                const { paradas, trazadoAsfalto } = extraerParadasYLineasDeContenedor(xmlDoc);
                 coleccionExtraida.push({
-                    nombreRuta: nombreFolder.replace(/^Ruta:\s*/i, '').trim(),
+                    nombreRuta: nombreFinal,
                     paradas: paradas,
                     trazadoVial: trazadoAsfalto.length > 0 ? trazadoAsfalto : null
                 });
             }
-        });
-    } else {
-        // Si no tiene carpetas, procesa el documento completo como una sola ruta
-        const nombreDoc = xmlDoc.getElementsByTagName("Document")[0]?.getElementsByTagName("name")[0]?.textContent?.trim();
-        const nombreFinal = nombreDoc || file.name.replace(/\.[^/.]+$/, "").replace(/[-_]+/g, " ").toUpperCase().trim();
-        const { paradas, trazadoAsfalto } = extraerParadasYLineasDeContenedor(xmlDoc);
-        coleccionExtraida.push({
-            nombreRuta: nombreFinal,
-            paradas: paradas,
-            trazadoVial: trazadoAsfalto.length > 0 ? trazadoAsfalto : null
-        });
-    }
 
-    return coleccionExtraida;
-}
+            return coleccionExtraida;
+        }
 
         // =========================================================================
         // COMPRESIÓN EN CLIENTE (>5MB) Y PROCESAMIENTO MULTIMODAL
@@ -870,7 +871,7 @@ async function procesarArchivoKMZoKML(file) {
         }
 
         // =========================================================================
-        // EXTRACCIÓN RESILIENTE CON GEMINI (FALLBACK ORDENADO & BACKOFF EXPONENCIAL)
+        // EXTRACCIÓN CON GEMINI API
         // =========================================================================
         async function procesarArchivoPaso1(file, apiKey, empresa, estadoDefecto) {
             const contenido = await prepararContenidoArchivo(file);
@@ -942,7 +943,6 @@ Devuelve EXCLUSIVAMENTE un JSON válido con este esquema:
                             }
                         }
 
-                        // Si hay saturación o límite (503 / 429), aplicar pausa exponencial
                         if (res.status === 503 || res.status === 429) {
                             reintentos++;
                             const pausa = reintentos * 2500;
@@ -950,7 +950,6 @@ Devuelve EXCLUSIVAMENTE un JSON válido con este esquema:
                             continue;
                         }
 
-                        // Si el modelo da 404 o error terminal, saltar al siguiente modelo de la lista
                         break;
                     } catch (err) {
                         reintentos++;
@@ -963,72 +962,71 @@ Devuelve EXCLUSIVAMENTE un JSON válido con este esquema:
         }
 
         // =========================================================================
-        // MOTOR OSRM VIAL: CONSULTA MULTIPUNTO CONTINUA (SIN LÍNEAS RECTAS)
+        // MOTOR OSRM VIAL: CONSULTA MULTIPUNTO CONTINUA
         // =========================================================================
         async function calcularRutaVialOSRM(coordenadasLatLng) {
-    if (!coordenadasLatLng || coordenadasLatLng.length < 2) return null;
+            if (!coordenadasLatLng || coordenadasLatLng.length < 2) return null;
 
-    // 1. Intento unificado: todos los puntos en una sola llamada continua
-    const coordsString = coordenadasLatLng.map(pt => parseFloat(pt[1]).toFixed(6) + ',' + parseFloat(pt[0]).toFixed(6)).join(';');
-    const urlOsrm = 'https://router.project-osrm.org/route/v1/driving/' + coordsString + '?overview=full&geometries=geojson&continue_straight=true';
+            const coordsString = coordenadasLatLng.map(pt => parseFloat(pt[1]).toFixed(6) + ',' + parseFloat(pt[0]).toFixed(6)).join(';');
+            const urlOsrm = '[https://router.project-osrm.org/route/v1/driving/](https://router.project-osrm.org/route/v1/driving/)' + coordsString + '?overview=full&geometries=geojson&continue_straight=true';
 
-    try {
-        const res = await fetch(urlOsrm);
-        if (res.ok) {
-            const data = await res.json();
-            if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
-                const ruta = data.routes[0];
-                const geoPuntos = ruta.geometry.coordinates.map(pt => [pt[1], pt[0]]);
-                return {
-                    distanciaKm: (ruta.distance / 1000).toFixed(2),
-                    duracionMin: Math.round(ruta.duration / 60),
-                    puntosPolilinea: geoPuntos
-                };
-            }
-        }
-    } catch (e) {
-        console.warn("Multipunto falló, ejecutando tramo a tramo...");
-    }
-
-    // 2. Respaldo tramo a tramo con respiro entre llamadas
-    let distanciaTotalMetros = 0;
-    let duracionTotalSegundos = 0;
-    const todosPuntosGeoJSON = [];
-
-    for (let i = 0; i < coordenadasLatLng.length - 1; i++) {
-        const pOrigen = coordenadasLatLng[i];
-        const pDestino = coordenadasLatLng[i + 1];
-
-        const lng1 = parseFloat(pOrigen[1]).toFixed(6);
-        const lat1 = parseFloat(pOrigen[0]).toFixed(6);
-        const lng2 = parseFloat(pDestino[1]).toFixed(6);
-        const lat2 = parseFloat(pDestino[0]).toFixed(6);
-
-        const tramoUrl = 'https://router.project-osrm.org/route/v1/driving/' + lng1 + ',' + lat1 + ';' + lng2 + ',' + lat2 + '?overview=full&geometries=geojson';
-
-        try {
-            const res = await fetch(tramoUrl);
-            if (res.ok) {
-                const data = await res.json();
-                if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
-                    distanciaTotalMetros += data.routes[0].distance;
-                    duracionTotalSegundos += data.routes[0].duration;
-                    data.routes[0].geometry.coordinates.forEach(pt => todosPuntosGeoJSON.push([pt[1], pt[0]]));
+            try {
+                const res = await fetch(urlOsrm);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+                        const ruta = data.routes[0];
+                        const geoPuntos = ruta.geometry.coordinates.map(pt => [pt[1], pt[0]]);
+                        return {
+                            distanciaKm: (ruta.distance / 1000).toFixed(2),
+                            duracionMin: Math.round(ruta.duration / 60),
+                            puntosPolilinea: geoPuntos
+                        };
+                    }
                 }
+            } catch (e) {
+                console.warn("Multipunto falló, ejecutando tramo a tramo...");
             }
-        } catch (e) {}
 
-        await new Promise(r => setTimeout(r, 60));
-    }
+            let distanciaTotalMetros = 0;
+            let duracionTotalSegundos = 0;
+            const todosPuntosGeoJSON = [];
 
-    return {
-        distanciaKm: (distanciaTotalMetros / 1000).toFixed(2),
-        duracionMin: Math.round(duracionTotalSegundos / 60),
-        puntosPolilinea: todosPuntosGeoJSON.length > 0 ? todosPuntosGeoJSON : coordenadasLatLng
-    };
-}
+            for (let i = 0; i < coordenadasLatLng.length - 1; i++) {
+                const pOrigen = coordenadasLatLng[i];
+                const pDestino = coordenadasLatLng[i + 1];
+
+                const lng1 = parseFloat(pOrigen[1]).toFixed(6);
+                const lat1 = parseFloat(pOrigen[0]).toFixed(6);
+                const lng2 = parseFloat(pDestino[1]).toFixed(6);
+                const lat2 = parseFloat(pDestino[0]).toFixed(6);
+
+                const tramoUrl = '[https://router.project-osrm.org/route/v1/driving/](https://router.project-osrm.org/route/v1/driving/)' + lng1 + ',' + lat1 + ';' + lng2 + ',' + lat2 + '?overview=full&geometries=geojson';
+
+                try {
+                    const res = await fetch(tramoUrl);
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+                            distanciaTotalMetros += data.routes[0].distance;
+                            duracionTotalSegundos += data.routes[0].duration;
+                            data.routes[0].geometry.coordinates.forEach(pt => todosPuntosGeoJSON.push([pt[1], pt[0]]));
+                        }
+                    }
+                } catch (e) {}
+
+                await new Promise(r => setTimeout(r, 60));
+            }
+
+            return {
+                distanciaKm: (distanciaTotalMetros / 1000).toFixed(2),
+                duracionMin: Math.round(duracionTotalSegundos / 60),
+                puntosPolilinea: todosPuntosGeoJSON.length > 0 ? todosPuntosGeoJSON : coordenadasLatLng
+            };
+        }
+
         // =========================================================================
-        // CONTROLADOR DE TRAZADO CON PERSISTENCIA DIRECTA
+        // CONTROLADOR DE TRAZADO CON PERSISTENCIA
         // =========================================================================
         async function toggleTrazadoAsfalto() {
             const btn = document.getElementById("btnTrazarAsfalto");
@@ -1111,7 +1109,7 @@ Devuelve EXCLUSIVAMENTE un JSON válido con este esquema:
         }
 
         // =========================================================================
-        // PASO 2: GEOCODIFICACIÓN SECUENCIAL SEGURA (ZERO-BURST / NOMINATIM RESILIENTE)
+        // GEOCODIFICACIÓN SECUENCIAL SEGURA
         // =========================================================================
         async function geocodificarParada(parada, municipioGlobal, estado) {
             if (parada.coordenadasAbordaje && parada.coordenadasAbordaje.includes(",")) {
@@ -1124,12 +1122,10 @@ Devuelve EXCLUSIVAMENTE un JSON válido con este esquema:
             const cruce = parada.cruceInterseccion || "";
             const claveDeduplicacion = sanitizarKey(refCruda || cPrincipal) + "_" + sanitizarKey(munActual);
 
-            // 1. Deduplicación en sesión
             if (cacheDeduplicacionSesion.has(claveDeduplicacion)) {
                 return { coords: cacheDeduplicacionSesion.get(claveDeduplicacion), origen: "Deduplicación Lote (0ms)" };
             }
 
-            // 2. Caché local de catálogo
             const estadoLimpio = sanitizarKey(estado || "nuevo_leon");
             const claveCat = generarClavePunto(refCruda || cPrincipal, munActual);
             const claveLocal = estadoLimpio + "_" + claveCat;
@@ -1140,7 +1136,6 @@ Devuelve EXCLUSIVAMENTE un JSON válido con este esquema:
                 return { coords: coords, origen: "Catálogo Maestro (0ms)" };
             }
 
-            // 3. Catálogo en Firebase
             try {
                 const snapCat = await get(ref(db, "geocodigos_maestros/" + estadoLimpio + "/" + claveCat));
                 if (snapCat.exists() && snapCat.val().coordenadas) {
@@ -1151,25 +1146,21 @@ Devuelve EXCLUSIVAMENTE un JSON válido con este esquema:
                 }
             } catch (e) {}
 
-            // 4. Búsqueda libre en Nominatim (Línea por Línea con pausas obligatorias)
             const calleLimpia = limpiarRuidoTexto(cPrincipal);
             const cruceLimpio = limpiarRuidoTexto(cruce);
 
-            // Plan A: Cruce con Calle
             let queryOSM = "";
             if (calleLimpia && cruceLimpio) {
                 queryOSM = `${calleLimpia} y ${cruceLimpio}, ${munActual}, ${estado}, Mexico`;
             } else if (calleLimpia) {
-                // Plan B: Calle + Municipio
                 queryOSM = `${calleLimpia}, ${munActual}, ${estado}, Mexico`;
             } else if (refCruda) {
-                // Plan C: Referencia original
                 queryOSM = `${limpiarRuidoTexto(refCruda)}, ${munActual}, ${estado}, Mexico`;
             }
 
             if (queryOSM) {
                 try {
-                    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(queryOSM)}&countrycodes=mx&limit=1`;
+                    const url = `[https://nominatim.openstreetmap.org/search?format=json&q=$](https://nominatim.openstreetmap.org/search?format=json&q=$){encodeURIComponent(queryOSM)}&countrycodes=mx&limit=1`;
                     const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
                     if (res.ok) {
                         const data = await res.json();
@@ -1258,7 +1249,6 @@ Devuelve EXCLUSIVAMENTE un JSON válido con este esquema:
                         p.coordenadasAbordaje = geo.coords;
                         p.estadoGeocodificacion = geo.origen;
 
-                        // Pausa deliberada de 1.5s entre consultas si se acudió a Nominatim
                         if (geo.origen === "Nominatim Vial") {
                             await new Promise(r => setTimeout(r, 1500));
                         }
@@ -1385,15 +1375,15 @@ Devuelve EXCLUSIVAMENTE un JSON válido con este esquema:
             if (pIdx === -1) return;
 
             const paradaObj = r.paradas[pIdx];
-            const rutaId = r.idRuta || sanitizarKey(r.nombreRuta);
-            const empKey = r.empresaKey || sanitizarKey(r.empresaDestino);
+            const rutaId = r.idRuta || r.nombreRuta.toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
+            const empKey = sanitizarKey(r.empresaDestino);
 
             try {
                 await set(ref(db, `rutas/${empKey}/${rutaId}/paradas/${pIdx}`), paradaObj);
                 if (paradaObj.coordenadasAbordaje) {
                     await aprenderYGuardarEnGeocatalogo(paradaObj.referenciaOriginal, paradaObj.municipioParada || r.municipio, paradaObj.coordenadasAbordaje, r.estado);
                 }
-                alert("✅ Parada individual guardada en Firebase.");
+                alert("✅ Parada individual guardada en Firebase (Nodo: " + empKey + ").");
             } catch (err) {
                 alert("Error: " + err.message);
             }
@@ -1542,7 +1532,7 @@ Devuelve EXCLUSIVAMENTE un JSON válido con este esquema:
                     }
                 }
 
-                alert(`✅ Ruta "${ruta.nombreRuta}" guardada exitosamente en Firebase.`);
+                alert(`✅ Ruta "${ruta.nombreRuta}" guardada exitosamente en Firebase (Nodo: [${rutaNorm.empresaKey}]).`);
             } catch (err) {
                 alert("Error: " + err.message);
             } finally {
@@ -1568,7 +1558,7 @@ Devuelve EXCLUSIVAMENTE un JSON válido con este esquema:
                         }
                     }
                 }
-                alert(`✅ Se inyectaron ${coleccionRutas.length} rutas a Firebase con trazado permanente.`);
+                alert(`✅ Se inyectaron ${coleccionRutas.length} rutas a Firebase bajo formato continuo canónico.`);
             } catch (err) {
                 alert("Error masivo: " + err.message);
             } finally {
@@ -1592,7 +1582,7 @@ Devuelve EXCLUSIVAMENTE un JSON válido con este esquema:
 
             try {
                 const snap = await get(ref(db, `rutas/${empresaKey}`));
-                if (!snap.exists()) return alert("No hay rutas registradas para esta empresa.");
+                if (!snap.exists()) return alert("No hay rutas registradas para esta empresa en el nodo [" + empresaKey + "].");
 
                 const dataRutas = snap.val();
                 const limpiarTextoPuro = (str) => (!str || typeof str !== 'string') ? "" : str.replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1').replace(/[\[\]\(\)\{\}\<\>\$\*]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -1640,7 +1630,7 @@ Devuelve EXCLUSIVAMENTE un JSON válido con este esquema:
                 });
 
                 await set(ref(db, `rutas/${empresaKey}`), rutasSaneadas);
-                alert("✅ Servidor purgado exitosamente.");
+                alert("✅ Servidor purgado exitosamente bajo el nodo [" + empresaKey + "].");
                 await importarRutasDesdeFirebase();
             } catch (err) {
                 alert("Error: " + err.message);

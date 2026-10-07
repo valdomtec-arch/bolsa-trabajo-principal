@@ -164,6 +164,11 @@
                     </span>
                 </a>
 
+                <!-- BOTÓN MAESTRO DE SANEAMIENTO DE DUPLICADOS EN BASE DE DATOS -->
+                <button id="btnCorregirDuplicadosBD" onclick="migrarYSanitizarClavesEmpresa()" title="Unificar claves con guiones hacia formato continuo y eliminar duplicados en Firebase" class="bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-mono text-xs px-3 py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-sm font-bold hidden">
+                    <i class="fas fa-compress-arrows-alt text-amber-400"></i> <span class="hidden sm:inline">Unificar BD</span>
+                </button>
+
                 <button id="btnSanitizar" onclick="ejecutarSanitizacionIntegral()" title="Purgar caché local y liberar memoria RAM del mapa" class="bg-rose-500/15 hover:bg-rose-500/30 text-rose-400 border border-rose-500/40 font-mono text-xs px-3 py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-sm font-bold hidden">
                     <i class="fas fa-broom text-rose-400"></i> <span class="hidden sm:inline">Sanitizar</span>
                 </button>
@@ -586,6 +591,7 @@
             const btnAccesoInegi = document.getElementById("btnAccesoInegi");
             const btnMotorRutasIA = document.getElementById("btnMotorRutasIA");
             const btnSanitizar = document.getElementById("btnSanitizar");
+            const btnCorregirDuplicadosBD = document.getElementById("btnCorregirDuplicadosBD");
             const btnGuardarRutasSync = document.getElementById("btnGuardarRutasSync");
             const btnPurgarEmpresaMap = document.getElementById("btnPurgarEmpresaMap");
             const btnBorrarEmpresaTabla = document.getElementById("btnBorrarEmpresaTabla");
@@ -599,6 +605,7 @@
                 btnAccesoInegi.classList.remove("hidden");
                 btnMotorRutasIA.classList.remove("hidden");
                 btnSanitizar.classList.remove("hidden");
+                btnCorregirDuplicadosBD.classList.remove("hidden");
                 btnGuardarRutasSync.classList.remove("hidden");
                 btnPurgarEmpresaMap.classList.remove("hidden");
                 btnBorrarEmpresaTabla.classList.remove("hidden");
@@ -615,7 +622,6 @@
                 colCatalogo.className = "lg:col-span-8 bg-cyber-card p-4 sm:p-5 rounded-xl border border-cyber-border shadow-xl flex flex-col justify-between space-y-4";
 
             } else {
-                // Nivel 1 y 2: Reclutadores e Implants (Solo Consulta y Acuses)
                 badgeScope.className = "bg-cyber-card text-slate-400 text-[10px] px-2.5 py-0.5 rounded font-mono border border-cyber-border";
                 badgeScope.textContent = "Scope: Modo Consulta y Emisión de Acuses";
                 
@@ -630,14 +636,12 @@
         }
 
         // -------------------------------------------------------------
-        // HELPERS Y UTILIDADES
+        // SANITIZADOR CANÓNICO CONTINUO (SIN GUIONES BAJOS)
         // -------------------------------------------------------------
         function sanitizarKey(str) {
             return (str || "general").toLowerCase().trim()
                 .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-                .replace(/[^a-z0-9]/g, "_")
-                .replace(/_+/g, "_")
-                .replace(/^_|_$/g, "");
+                .replace(/[^a-z0-9]/g, "");
         }
 
         function esIdTecnico(str) {
@@ -665,7 +669,7 @@
         function crearIconoLagrimaGPS(numero, colorHex) {
             const svgHtml = `<div class="gps-pin-marker">
                 <svg class="gps-pin-svg" viewBox="0 0 384 512" fill="${colorHex}" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke="#ffffff" stroke-width="22" d="M172.268 501.67C26.97 291.031 0 269.413 0 192 0 85.961 85.961 0 192 0s192 85.961 192 192c0 77.413-26.97 99.031-172.268 309.67-9.535 13.774-29.93 13.773-39.464 0z"/>
+                    <path stroke="#ffffff" stroke-width="22" d="M172.268 501.67C26.97 291.031 0 269.413 0 192 0s192 85.961 192 192c0 77.413-26.97 99.031-172.268 309.67-9.535 13.774-29.93 13.773-39.464 0z"/>
                     <circle cx="192" cy="192" r="95" fill="#0f172a" opacity="0.6"/>
                 </svg>
                 <span class="gps-pin-number">${numero}</span>
@@ -941,7 +945,7 @@
             const rutasFiltradas = cacheTodasLasRutas.filter(r => {
                 if (!tienePermisoEmpresa(r.empresaKey)) return false;
                 if (!empresaSeleccionada) return true;
-                return r.empresaNombre === empresaSeleccionada;
+                return r.empresaNombre === empresaSeleccionada || r.empresaKey === sanitizarKey(empresaSeleccionada);
             });
 
             if (badgeConteo) badgeConteo.innerText = `${rutasFiltradas.length} rutas`;
@@ -1095,7 +1099,7 @@
                             if (nombreComercial && !esIdTecnico(nombreComercial)) {
                                 nombreComercial = String(nombreComercial).replace(/_/g, " ").trim();
                                 diccionarioEmpresas[sanitizarKey(nombreComercial)] = nombreComercial;
-                                diccionarioEmpresas[key] = nombreComercial;
+                                diccionarioEmpresas[keyLimpia] = nombreComercial;
                                 if (!listaEmpresasNombres.includes(nombreComercial)) listaEmpresasNombres.push(nombreComercial);
                             }
                         }
@@ -1121,6 +1125,100 @@
                 if (badge) {
                     badge.className = "bg-red-500/10 text-red-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-red-500/20 flex items-center gap-1.5";
                     badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-400"></span> Error de sincronización';
+                }
+            }
+        }
+
+        // -------------------------------------------------------------
+        // UNIFICADOR / SANEADOR EN CALIENTE DE LA BASE DE DATOS FIREBASE
+        // (Migra nodos con guiones a formato continuo y borra ramas duplicadas)
+        // -------------------------------------------------------------
+        async function migrarYSanitizarClavesEmpresa() {
+            if (usuarioSesion.nivel < 4) {
+                return alert("Acción restringida. Solo administradores y supervisores de Nivel >= 4 pueden ejecutar la unificación de claves.");
+            }
+
+            const confirmacion = confirm(
+                "⚠️ SANEADOR Y UNIFICADOR DE BASE DE DATOS (M6):\n\n" +
+                "Esta operación escaneará el nodo /rutas en Firebase.\n" +
+                "Si existen claves con guiones bajos (ej: 'katcon_planta_2'), transferirá sus datos y rutas a la clave continua canónica ('katconplanta2') y eliminará la rama anterior.\n\n" +
+                "¿Deseas iniciar la migración y purga de duplicados?"
+            );
+
+            if (!confirmacion) return;
+
+            const btn = document.getElementById("btnCorregirDuplicadosBD");
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Unificando...';
+            }
+
+            try {
+                const snapRutas = await get(ref(db, "rutas"));
+                if (!snapRutas.exists()) {
+                    alert("No hay rutas registradas en Firebase para migrar.");
+                    return;
+                }
+
+                const dataRutas = snapRutas.val();
+                let ramasMigradas = 0;
+                let rutasConsolidadas = 0;
+
+                for (const [keyOriginal, rutasDeEstaKey] of Object.entries(dataRutas)) {
+                    // Si contiene guión bajo, es candidata a migración
+                    if (keyOriginal.includes("_")) {
+                        const keyCanonica = sanitizarKey(keyOriginal);
+                        
+                        if (keyCanonica && keyCanonica !== keyOriginal) {
+                            // 1. Obtener lo que ya existe en la clave canónica (si existe)
+                            const snapDestino = await get(ref(db, `rutas/${keyCanonica}`));
+                            const dataDestinoActual = snapDestino.exists() ? snapDestino.val() : {};
+
+                            // 2. Fusionar rutas evitando sobrescribir las que ya estén más actualizadas
+                            const rutasAFusionar = typeof rutasDeEstaKey === 'object' && rutasDeEstaKey !== null ? rutasDeEstaKey : {};
+
+                            Object.entries(rutasAFusionar).forEach(([idRuta, objRuta]) => {
+                                // Asegurar que el objeto de ruta tenga la empresaKey canónica
+                                if (typeof objRuta === 'object' && objRuta !== null) {
+                                    objRuta.empresaKey = keyCanonica;
+                                }
+                                // Si no existía en el destino, se inyecta
+                                if (!dataDestinoActual[idRuta]) {
+                                    dataDestinoActual[idRuta] = objRuta;
+                                    rutasConsolidadas++;
+                                }
+                            });
+
+                            // 3. Escribir en el nodo canónico continuo
+                            await set(ref(db, `rutas/${keyCanonica}`), dataDestinoActual);
+
+                            // 4. Eliminar el nodo duplicado con guiones
+                            await remove(ref(db, `rutas/${keyOriginal}`));
+                            ramasMigradas++;
+                        }
+                    }
+                }
+
+                // Registrar auditoría en Módulo 7
+                await push(ref(db, "modulo_7_logs"), {
+                    modulo: "M6_TRANSPORTE",
+                    evento: "UNIFICACION_CLAVES_RUTAS",
+                    ejecutadoPor: usuarioSesion.nombre,
+                    uidEjecutor: usuarioSesion.uid,
+                    detalle: `Se unificaron ${ramasMigradas} ramas con guiones y se consolidaron ${rutasConsolidadas} rutas bajo el estándar continuo.`,
+                    timestamp: serverTimestamp()
+                });
+
+                alert(`🎉 ¡Migración completada!\nSe unificaron ${ramasMigradas} empresas duplicadas y se consolidaron ${rutasConsolidadas} rutas en Firebase.`);
+                await sincronizarInicialBajoDemanda(true);
+
+            } catch (err) {
+                console.error("Error durante migración:", err);
+                alert("Error durante la unificación: " + err.message);
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-compress-arrows-alt text-amber-400"></i> <span class="hidden sm:inline">Unificar BD</span>';
                 }
             }
         }
@@ -1152,9 +1250,9 @@
 
                 if (typeof rutasEmpresa === 'object' && rutasEmpresa) {
                     Object.entries(rutasEmpresa).forEach(([idRuta, r]) => {
-                        let nombreEmpresa = diccionarioEmpresas[empresaKey] || diccionarioEmpresas[sanitizarKey(r.empresaDestino)] || r.empresaDestino || "";
+                        let nombreEmpresa = diccionarioEmpresas[keyLimpia] || diccionarioEmpresas[sanitizarKey(r.empresaDestino)] || r.empresaDestino || "";
                         if (esIdTecnico(nombreEmpresa)) {
-                            nombreEmpresa = empresaKey.replace(/_/g, ' ').toUpperCase();
+                            nombreEmpresa = keyLimpia.toUpperCase();
                         }
 
                         let paradasNormalizadas = [];
@@ -1179,7 +1277,7 @@
 
                         cacheTodasLasRutas.push({
                             idRuta: idRuta,
-                            empresaKey: empresaKey,
+                            empresaKey: keyLimpia,
                             empresaNombre: nombreEmpresa,
                             nombreRuta: r.nombreRuta || idRuta,
                             estadoMunicipio: r.estadoMunicipio || "General, Nuevo León",
@@ -1328,7 +1426,7 @@
 
                 let matches = [];
                 cacheTodasLasRutas.forEach((r, rIdx) => {
-                    if (empresaFiltro && r.empresaNombre !== empresaFiltro) return;
+                    if (empresaFiltro && r.empresaNombre !== empresaFiltro && r.empresaKey !== sanitizarKey(empresaFiltro)) return;
                     const colorRuta = PALETA_COLORES[rIdx % PALETA_COLORES.length];
 
                     r.paradas.forEach(p => {
@@ -1736,6 +1834,7 @@
         // -------------------------------------------------------------
         window.sincronizarInicialBajoDemanda = sincronizarInicialBajoDemanda;
         window.ejecutarSanitizacionIntegral = ejecutarSanitizacionIntegral;
+        window.migrarYSanitizarClavesEmpresa = migrarYSanitizarClavesEmpresa;
         window.alSeleccionarEmpresaExplorador = alSeleccionarEmpresaExplorador;
         window.verTodasLasRutasEnMapa = verTodasLasRutasEnMapa;
         window.obtenerUbicacionGPS = obtenerUbicacionGPS;

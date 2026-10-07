@@ -312,7 +312,7 @@
 
     </div>
 
-    <!-- SCRIPT PRINCIPAL CON WEWORKER EN LÍNEA & REST API PIPELINE -->
+    <!-- SCRIPT PRINCIPAL CON WEB WORKER EN LÍNEA & REST API PIPELINE -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
@@ -429,6 +429,13 @@
             });
         }
 
+        // Sanitizador canónico continuo sin guiones bajos
+        function sanitizarKey(str) {
+            return (str || "general").toLowerCase().trim()
+                .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+                .replace(/[^a-z0-9]/g, "");
+        }
+
         async function cargarEmpresasDesdeFirebase() {
             const select = document.getElementById("selectEmpresaRuta");
             try {
@@ -444,12 +451,6 @@
             } catch (e) {
                 select.innerHTML = '<option value="General">General</option>';
             }
-        }
-
-        function sanitizarKey(str) {
-            return (str || "general").toLowerCase().trim()
-                .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-                .replace(/[^a-z0-9]/g, "_").replace(/_+/g, "_").replace(/^_|_$/g, "");
         }
 
         function seleccionarModoOperacion(modo) {
@@ -603,7 +604,6 @@
                         const munRaw = row[idxMun] || "general";
                         const munNorm = normalizarClave(munRaw);
 
-                        // Si hay filtro de municipios y este no fue seleccionado, saltar
                         if (municipiosFiltro && municipiosFiltro.length > 0 && !municipiosFiltro.includes(munNorm)) {
                             continue;
                         }
@@ -611,14 +611,12 @@
                         const lat = parseFloat(row[idxLat]);
                         const lng = parseFloat(row[idxLng]);
 
-                        // Filtro de Integridad de Coordenadas (Descarta 0,0 o vacías)
                         if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
                             const nom = row[idxNom] || "Establecimiento";
                             const col = row[idxCol] || "";
                             const calle = row[idxAct] || "";
                             const idReg = normalizarClave(row[idxId] || \`\${nom}_\${Math.random().toString(36).substr(2, 6)}\`);
 
-                            // Llave jerárquica: {municipio}/{id}
                             const path = \`\${munNorm}/\${idReg}\`;
                             batch[path] = {
                                 nom: nom,
@@ -700,7 +698,6 @@
                 const total = municipios[mKey];
                 const labelTexto = `${mKey.replace(/_/g, ' ').toUpperCase()} (${total.toLocaleString()} regs)`;
 
-                // Inyectar en contenedor de selección
                 const div = document.createElement("div");
                 div.className = "flex items-center justify-between p-1 hover:bg-slate-800 rounded check-item-mun";
                 div.setAttribute("data-mun", mKey);
@@ -712,7 +709,6 @@
                 `;
                 contenedor.appendChild(div);
 
-                // Inyectar en selector de borrado
                 selectBorrar.innerHTML += `<option value="${mKey}">${mKey.replace(/_/g, ' ').toUpperCase()}</option>`;
             });
 
@@ -750,7 +746,6 @@
 
             const estrategia = document.getElementById("selectEstrategiaInyeccion").value;
 
-            // Manejo de confirmación y Reemplazo previo si aplica
             if (estrategia === "REEMPLAZAR") {
                 const conf = confirm(`⚠️ MODO REEMPLAZAR:\nSe eliminarán de Firebase los datos actuales de los ${checks.length} municipios elegidos para reescribirlos limpios.\n\n¿Continuar?`);
                 if (!conf) return;
@@ -761,7 +756,6 @@
                 }
             }
 
-            // Preparar UI
             colaDeLotes = [];
             contadorTotalInyectados = 0;
             pausaSolicitada = false;
@@ -773,7 +767,6 @@
             document.getElementById("panelProgreso").classList.remove("hidden");
             document.getElementById("barraProgresoFill").style.width = "0%";
 
-            // Instanciar Worker para Streaming
             const blob = new Blob([workerScript], { type: "application/javascript" });
             workerInstance = new Worker(URL.createObjectURL(blob));
 
@@ -814,7 +807,6 @@
                 const endpoint = `${RTDB_BASE}/geocodigos_maestros/${estadoActualKey}.json`;
 
                 try {
-                    // HTTP PATCH: Hace merge sin sobreescribir municipios que no estén en el payload
                     const res = await fetch(endpoint, {
                         method: "PATCH",
                         headers: { "Content-Type": "application/json" },
@@ -826,11 +818,10 @@
                     contadorTotalInyectados += item.count;
                     actualizarUIProgreso(contadorTotalInyectados);
 
-                    // Pausa técnica para estabilidad del servidor
                     await new Promise(r => setTimeout(r, 150));
                 } catch (err) {
                     console.error("Fallo al inyectar lote, reintentando...", err);
-                    colaDeLotes.unshift(item); // Reintentar lote
+                    colaDeLotes.unshift(item);
                     await new Promise(r => setTimeout(r, 2000));
                 }
             }
@@ -846,7 +837,7 @@
             document.getElementById("lblProgresoTotal").innerText = `${cant.toLocaleString()} registros inyectados`;
             document.getElementById("badgeFiltroResultados").innerText = `${cant.toLocaleString()} inyectados`;
             const fill = document.getElementById("barraProgresoFill");
-            fill.style.width = "100%"; // Modo activo
+            fill.style.width = "100%";
         }
 
         function alternarPausaInyeccion() {
@@ -1034,8 +1025,12 @@
             if (!empresaNombre) return alert("Debes seleccionar una Empresa Cliente.");
             if (!rutaNombre) return alert("Debes asignar un nombre a la Ruta.");
 
+            // Sanitización canónica continua para la clave de empresa
             const empKey = sanitizarKey(empresaNombre);
-            const rutKey = sanitizarKey(rutaNombre);
+            // La clave de ruta se mantiene limpia y normalizada
+            const rutKey = rutaNombre.toLowerCase().trim()
+                .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+                .replace(/[^a-z0-9]/g, "_").replace(/_+/g, "_").replace(/^_|_$/g, "");
 
             const paradasCanonica = vistaPreviaPuntos.map((r, idx) => ({
                 numeroParada: idx + 1,
@@ -1068,7 +1063,7 @@
 
             try {
                 await set(ref(db, `rutas/${empKey}/${rutKey}`), payloadRuta);
-                alert(`✅ Éxito: La ruta "${rutaNombre}" de ${empresaNombre} fue inyectada a Firebase.`);
+                alert(`✅ Éxito: La ruta "${rutaNombre}" de ${empresaNombre} fue inyectada a Firebase en nodo limpio [${empKey}].`);
             } catch (e) {
                 alert(`Fallo al inyectar ruta: ${e.message}`);
             }
