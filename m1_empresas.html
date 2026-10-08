@@ -19,6 +19,7 @@
             --primary-emerald: #10b981;
             --bg-page: #030712;          
             --card-bg: #0b1329;          
+            --card-subtle: #0f1c3f;
             --border-subtle: rgba(255, 255, 255, 0.12);     
             --text-main: #f8fafc;       
             --text-muted: #94a3b8;       
@@ -339,27 +340,117 @@
             color: #ffffff;
             font-size: 0.78rem;
             font-weight: 800;
-            padding: 4px 12px;
+            padding: 5px 14px;
             border-radius: 20px;
             transition: all 0.2s;
+            cursor: pointer;
         }
         .btn-vacantes-counter:hover {
             border-color: var(--primary-orange);
             color: var(--primary-orange);
-            transform: scale(1.05);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(255, 102, 0, 0.25);
         }
 
+        /* SUBMENÚ MASTER DE VACANTES */
         .modal-content-tech {
-            background-color: #0b1329;
-            border: 1px solid #1e3a8a;
+            background-color: #080e1f;
+            border: 1px solid rgba(56, 189, 248, 0.25);
             color: #f1f5f9;
-            border-radius: 14px;
+            border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8);
+            overflow: hidden;
+        }
+
+        .modal-header-tech {
+            background: #060b18;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 18px 24px;
+        }
+
+        .modal-body-tech {
+            padding: 20px 24px;
+            background: #080e1f;
+        }
+
+        .custom-scrollbar-tech {
+            max-height: 480px;
+            overflow-y: auto;
+            padding-right: 6px;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .custom-scrollbar-tech::-webkit-scrollbar {
+            width: 7px;
+        }
+        .custom-scrollbar-tech::-webkit-scrollbar-track {
+            background: #030712;
+            border-radius: 10px;
+        }
+        .custom-scrollbar-tech::-webkit-scrollbar-thumb {
+            background: #1e3a8a;
+            border-radius: 10px;
+            border: 1px solid rgba(56, 189, 248, 0.2);
+        }
+        .custom-scrollbar-tech::-webkit-scrollbar-thumb:hover {
+            background: var(--primary-orange);
+        }
+
+        .vacante-card-item {
+            background: var(--card-bg);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-left: 3px solid #38bdf8;
+            border-radius: 10px;
+            padding: 14px 16px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            transition: all 0.2s ease;
+        }
+        .vacante-card-item:hover {
+            background: var(--card-subtle);
+            border-color: rgba(56, 189, 248, 0.4);
+            transform: translateX(3px);
+        }
+
+        .salary-badge-chip {
+            background: rgba(16, 185, 129, 0.12);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-family: monospace;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .select-vacante-tech {
+            background: #040914;
+            color: #f8fafc;
+            border: 1px solid #1e3a8a;
+            border-radius: 6px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            padding: 5px 8px;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+        .select-vacante-tech:focus {
+            outline: none;
+            border-color: var(--primary-orange);
         }
 
         @media (max-width: 1200px) { .inputs-horizontal-row { grid-template-columns: repeat(2, 1fr); } }
         @media (max-width: 768px) {
             .inputs-horizontal-row, .action-button-row { grid-template-columns: 1fr; }
             .generated-link-box { flex-direction: column; align-items: stretch; }
+            .vacante-card-item { flex-direction: column; align-items: flex-start; gap: 10px; }
+            .vacante-card-actions { width: 100%; display: flex; justify-content: space-between; align-items: center; }
         }
     </style>
 </head>
@@ -521,7 +612,7 @@
                         </tr>
                     </thead>
                     <tbody id="tablaBodyEmpresas">
-                        <tr><td colspan="6" class="text-center py-4 text-muted">Cargando empresas desde Firebase...</td></tr>
+                        <tr><td colspan="6" class="text-center py-4 text-muted">Cargando empresas de forma optimizada...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -529,39 +620,49 @@
 
     </main>
 
+    <!-- MODAL MAESTRO ERGONÓMICO DE VACANTES (SUBMENÚ SINCRONIZADO CON M2) -->
     <div class="modal fade" id="modalVacantesIndividuales" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content modal-content-tech">
-                <div class="modal-header border-secondary">
-                    <h5 class="modal-title fw-bold text-warning">
-                        <i class="fa-solid fa-layer-group me-2"></i>Vacantes Conectadas a la Empresa
-                    </h5>
+                
+                <div class="modal-header modal-header-tech d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="p-2 rounded-3 bg-dark border border-warning">
+                            <i class="fa-solid fa-layer-group text-warning fs-5"></i>
+                        </div>
+                        <div>
+                            <h5 class="modal-title fw-bold text-white mb-0" id="modalEmpresaNombre">Vacantes Conectadas</h5>
+                            <span class="text-muted small" id="modalEmpresaBadge">Gestión de puestos en tiempo real</span>
+                        </div>
+                    </div>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body">
-                    <p class="small text-muted mb-3">
-                        Empresa: <strong id="modalEmpresaNombre" class="text-white"></strong> 
-                        <span id="modalEmpresaBadge"></span>
-                    </p>
-                    <div class="table-responsive">
-                        <table class="table table-dark table-bordered align-middle text-sm mb-0">
-                            <thead>
-                                <tr class="text-warning text-xs font-monospace">
-                                    <th>Puesto / Nombre Vacante</th>
-                                    <th>Salario</th>
-                                    <th>Estatus Individual</th>
-                                </tr>
-                            </thead>
-                            <tbody id="modalVacantesBody"></tbody>
-                        </table>
+
+                <div class="modal-body modal-body-tech">
+                    <!-- Buscador rápido interno para vacantes -->
+                    <div class="mb-3 position-relative">
+                        <i class="fa-solid fa-search position-absolute text-muted" style="left: 14px; top: 12px;"></i>
+                        <input type="text" id="buscadorModalVacantes" oninput="filtrarVacantesEnModal()" class="form-control-tech w-100 ps-5" placeholder="Filtrar por puesto o clave de vacante...">
+                    </div>
+
+                    <!-- Contenedor con barra de desplazamiento suave propia -->
+                    <div class="custom-scrollbar-tech" id="modalVacantesContainer">
+                        <!-- Tarjetas dinámicas inyectadas -->
                     </div>
                 </div>
-                <div class="modal-footer border-secondary">
-                    <a id="btnIrAM2Empresa" href="#" class="btn btn-outline-warning btn-sm">
-                        <i class="fa-solid fa-arrow-up-right-from-square me-1"></i> Abrir en M2 Vacantes
-                    </a>
-                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+
+                <div class="modal-footer border-secondary justify-content-between" style="background:#060b18;">
+                    <div class="small text-muted font-monospace" id="modalVacantesConteo">
+                        0 vacantes listadas
+                    </div>
+                    <div class="d-flex gap-2">
+                        <a id="btnIrAM2Empresa" href="#" class="btn btn-outline-warning btn-sm fw-bold">
+                            <i class="fa-solid fa-briefcase me-1"></i> Abrir en M2 Vacantes
+                        </a>
+                        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+                    </div>
                 </div>
+
             </div>
         </div>
     </div>
@@ -603,6 +704,7 @@
         let catalogoVacantesDetalles = {};
         let catalogoVacantesLegacy = {};
         let modalVacantesInstance = null;
+        let empresaSeleccionadaActual = null;
 
         window.repararImperfeccionesKeys = repararImperfeccionesKeys;
 
@@ -721,6 +823,7 @@
             }
         }
 
+        /* CARGA OPTIMIZADA POR NODOS ESPECÍFICOS (ELIMINA LAG EN MÓVIL Y PC) */
         function sincronizarEnTiempoReal() {
             db.ref(".info/connected").on("value", snap => {
                 const ind = document.getElementById("statusIndicator");
@@ -733,11 +836,23 @@
                 }
             });
 
-            db.ref().on("value", snapshot => {
-                const data = snapshot.val() || {};
-                catalogoEmpresasCompleto = data.empresas || {};
-                catalogoVacantesDetalles = data.vacantes_detalles || {};
-                catalogoVacantesLegacy = data.vacantes || {};
+            // En lugar de db.ref().on('value') que descargaba toda la base de datos (pesada y lenta),
+            // escuchamos únicamente los 3 nodos indispensables de M1.
+            db.ref("empresas").on("value", snap => {
+                catalogoEmpresasCompleto = snap.val() || {};
+                renderizarTablaEmpresas();
+            });
+
+            db.ref("vacantes_detalles").on("value", snap => {
+                catalogoVacantesDetalles = snap.val() || {};
+                renderizarTablaEmpresas();
+                if (empresaSeleccionadaActual && modalVacantesInstance) {
+                    actualizarContenidoModalVacantes(empresaSeleccionadaActual);
+                }
+            });
+
+            db.ref("vacantes").on("value", snap => {
+                catalogoVacantesLegacy = snap.val() || {};
                 renderizarTablaEmpresas();
             });
         }
@@ -806,10 +921,9 @@
             return vacsEncontradas;
         }
 
+        /* RENDERIZADO FLUIDO CON DOCUMENT FRAGMENT */
         function renderizarTablaEmpresas() {
             const tbody = document.getElementById("tablaBodyEmpresas");
-            tbody.innerHTML = "";
-            
             const keysVisibles = Object.keys(catalogoEmpresasCompleto).filter(k => tieneAccesoAEmpresa(k));
 
             document.getElementById("kpiEmpresasTotales").textContent = `${keysVisibles.length} empresas autorizadas`;
@@ -819,6 +933,8 @@
                 tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-muted">No tienes empresas asignadas bajo tu coordinación.</td></tr>`;
                 return;
             }
+
+            const fragment = document.createDocumentFragment();
 
             keysVisibles.forEach(key => {
                 const emp = catalogoEmpresasCompleto[key] || {};
@@ -836,7 +952,7 @@
                 const tr = document.createElement("tr");
                 tr.setAttribute("data-division", (emp.division || "centro").toLowerCase());
                 tr.innerHTML = `
-                    <td><img src="${emp.imagen || 'img/soriana.jpg'}" onerror="this.src='https://placehold.co/100x100/0b1329/fff?text=Logo'" class="logo-preview-cell"></td>
+                    <td><img src="${emp.imagen || 'img/soriana.jpg'}" loading="lazy" onerror="this.src='https://placehold.co/100x100/0b1329/fff?text=Logo'" class="logo-preview-cell"></td>
                     <td class="font-monospace text-warning fw-bold">${emp.id || key}</td>
                     <td class="fw-bold text-white">
                         ${emp.nombre || emp.nombreComercial || key}
@@ -873,9 +989,11 @@
                         `}
                     </td>
                 `;
-                tbody.appendChild(tr);
+                fragment.appendChild(tr);
             });
 
+            tbody.innerHTML = "";
+            tbody.appendChild(fragment);
             filtrarTabla();
         }
 
@@ -901,44 +1019,21 @@
             }
         }
 
+        /* GESTOR MAESTRO DE SUBMENÚ DE VACANTES */
         window.abrirModalVacantes = (empKey) => {
             if (!tieneAccesoAEmpresa(empKey)) {
                 return alert("No tienes autorización para consultar las vacantes de esta empresa.");
             }
 
+            empresaSeleccionadaActual = empKey;
             const emp = catalogoEmpresasCompleto[empKey] || {};
-            const vacs = resolverVacantesDeEmpresa(empKey, emp);
 
-            document.getElementById("modalEmpresaNombre").textContent = `${emp.nombre || empKey} (${empKey})`;
+            document.getElementById("modalEmpresaNombre").textContent = `${emp.nombre || empKey}`;
+            document.getElementById("modalEmpresaBadge").textContent = `ID de Clave: ${empKey} • División: ${(emp.division || 'centro').toUpperCase()}`;
             document.getElementById("btnIrAM2Empresa").href = `m2_vacantes.html?empresa=${empKey}`;
+            document.getElementById("buscadorModalVacantes").value = "";
 
-            const tbody = document.getElementById("modalVacantesBody");
-            tbody.innerHTML = "";
-
-            const entries = Object.entries(vacs);
-            if (entries.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="3" class="text-center py-4 text-muted">No hay vacantes configuradas. Haz clic en "Saneador & Reconectar Vacantes" arriba para vincularlas.</td></tr>`;
-            } else {
-                entries.forEach(([idV, v]) => {
-                    const estatusVac = v.estatus || "Disponible";
-                    tbody.innerHTML += `
-                        <tr>
-                            <td class="text-white fw-bold">
-                                <div>${v.nombreVacante || v.puesto || idV}</div>
-                                <div class="text-[10px] text-muted font-monospace">${idV}</div>
-                            </td>
-                            <td class="text-warning font-monospace">${v.salario || 'N/A'}</td>
-                            <td>
-                                <select onchange="cambiarEstatusVacanteIndividual('${empKey}', '${idV}', this.value)" class="form-select form-select-sm bg-dark text-white border-secondary">
-                                    <option value="disponible" ${estatusVac.toLowerCase() === 'disponible' ? 'selected' : ''}>🟢 Disponible</option>
-                                    <option value="pausada" ${estatusVac.toLowerCase() === 'pausada' || estatusVac === 'En Pausa' ? 'selected' : ''}>🟡 En Pausa</option>
-                                    <option value="cerrada" ${estatusVac.toLowerCase() === 'cerrada' || estatusVac === 'No Disponible' ? 'selected' : ''}>🔴 Cerrada</option>
-                                </select>
-                            </td>
-                        </tr>
-                    `;
-                });
-            }
+            actualizarContenidoModalVacantes(empKey);
 
             if (modalVacantesInstance) {
                 modalVacantesInstance.show();
@@ -948,6 +1043,86 @@
                 modalVacantesInstance.show();
             }
         };
+
+        function actualizarContenidoModalVacantes(empKey) {
+            const emp = catalogoEmpresasCompleto[empKey] || {};
+            const vacs = resolverVacantesDeEmpresa(empKey, emp);
+            const container = document.getElementById("modalVacantesContainer");
+            const entries = Object.entries(vacs);
+
+            document.getElementById("modalVacantesConteo").textContent = `${entries.length} vacantes conectadas`;
+
+            if (entries.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-5">
+                        <i class="fa-solid fa-box-open fa-2x text-muted mb-3 d-block"></i>
+                        <p class="text-muted mb-2">No hay vacantes configuradas directamente para esta empresa.</p>
+                        <button onclick="repararImperfeccionesKeys()" class="btn btn-sm btn-outline-warning">
+                            <i class="fa-solid fa-wand-magic-sparkles me-1"></i> Saneador & Reconectar Vacantes
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = "";
+            entries.forEach(([idV, v]) => {
+                const estatusVac = (v.estatus || "disponible").toLowerCase();
+                const salarioTxt = v.salario || v.sueldo || "A convenir";
+                const nombreVac = v.nombreVacante || v.puesto || idV;
+
+                html += `
+                    <div class="vacante-card-item" data-nombre="${nombreVac.toLowerCase()}" data-id="${idV.toLowerCase()}">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="text-warning">
+                                <i class="fa-solid fa-briefcase fa-lg"></i>
+                            </div>
+                            <div>
+                                <div class="text-white fw-bold mb-1">${nombreVac}</div>
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <span class="text-muted font-monospace small">#${idV}</span>
+                                    <span class="salary-badge-chip">
+                                        <i class="fa-solid fa-money-bill-wave"></i> ${salarioTxt}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="vacante-card-actions d-flex align-items-center gap-2">
+                            <select onchange="cambiarEstatusVacanteIndividual('${empKey}', '${idV}', this.value)" class="select-vacante-tech">
+                                <option value="disponible" ${estatusVac === 'disponible' ? 'selected' : ''}>🟢 Disponible</option>
+                                <option value="pausada" ${estatusVac === 'pausada' || estatusVac === 'en pausa' ? 'selected' : ''}>🟡 En Pausa</option>
+                                <option value="cerrada" ${estatusVac === 'cerrada' || estatusVac === 'no disponible' ? 'selected' : ''}>🔴 Cerrada</option>
+                            </select>
+                            <a href="m2_vacantes.html?empresa=${empKey}&puesto=${idV}" class="btn btn-sm btn-outline-secondary py-1 px-2" title="Editar detalles en M2">
+                                <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                            </a>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function filtrarVacantesEnModal() {
+            const query = (document.getElementById("buscadorModalVacantes").value || "").toLowerCase().trim();
+            const items = document.querySelectorAll("#modalVacantesContainer .vacante-card-item");
+            let visibles = 0;
+
+            items.forEach(item => {
+                const nom = item.getAttribute("data-nombre") || "";
+                const id = item.getAttribute("data-id") || "";
+                if (!query || nom.includes(query) || id.includes(query)) {
+                    item.style.display = "flex";
+                    visibles++;
+                } else {
+                    item.style.display = "none";
+                }
+            });
+
+            document.getElementById("modalVacantesConteo").textContent = `${visibles} vacantes mostradas`;
+        }
 
         async function cambiarEstatusVacanteIndividual(empKey, vacKey, nuevoEstatus) {
             try {
@@ -1049,7 +1224,7 @@
             }
 
             const empNombre = catalogoEmpresasCompleto[key]?.nombre || key;
-            if (!confirm(`⚠️️ ¿Deseas eliminar definitivamente la empresa "${empNombre}" [${key}] junto con todas sus vacantes?\n\nEsta acción no se puede deshacer.`)) return;
+            if (!confirm(`⚠ ¿Deseas eliminar definitivamente la empresa "${empNombre}" [${key}] junto con todas sus vacantes?\n\nEsta acción no se puede deshacer.`)) return;
 
             try {
                 await db.ref("empresas/" + key).remove();
