@@ -250,6 +250,9 @@
             border-radius: 6px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
         }
 
         .chevron-icon { color: var(--wf-accent-blue); font-size: 1.2rem; transition: transform 0.3s ease; flex-shrink: 0; }
@@ -604,6 +607,13 @@
             background-color: var(--green-whatsapp-hover);
         }
 
+        .btn-submit:disabled {
+            background-color: #475569 !important;
+            color: #94a3b8 !important;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
         .form-bloqueado {
             opacity: 0.55;
             pointer-events: none;
@@ -631,7 +641,7 @@
         <i class="fas fa-spinner fa-spin"></i> Sincronizando vacantes autorizadas...
     </div>
 
-    <!-- BANNER DINÁMICO REACTIVO DE SEMÁFORO M1 -->
+    <!-- BANNER DINÁMICO REACTIVO DE SEMÁFORO M1 / M2 -->
     <div id="bannerAlertaSemaforo" class="alerta-semaforo-box">
         <i id="bannerSemaforoIcono" class="fa-solid fa-triangle-exclamation" style="font-size: 1.5rem;"></i>
         <div>
@@ -860,6 +870,15 @@
             .replace(/[^a-z0-9]/g, "");
     };
 
+    // NORMALIZADOR CANÓNICO UNIVERSAL DE SEMÁFORO (SINCRONIZA M1, M2 Y PÚBLICO)
+    function normalizarEstatus(estatusRaw) {
+        const raw = (estatusRaw || "").toLowerCase().trim();
+        if (raw === "disponible" || raw === "activo" || raw === "abierta") return "disponible";
+        if (raw === "en pausa" || raw === "pausada" || raw === "pausa") return "pausada";
+        if (raw === "cerrada" || raw === "cerrado" || raw === "no disponible" || raw === "inactiva") return "cerrada";
+        return "disponible";
+    }
+
     const urlParams = new URLSearchParams(window.location.search);
     const rawParamEmpresa = urlParams.get('empresa') || "";
     const empresaLimpia = sanitizarClave(rawParamEmpresa);
@@ -910,6 +929,10 @@
     function alternarModoAsistido() {
         const esAsistido = document.getElementById('chkModoAsistido').checked;
         const btn = document.getElementById('btnSubmitForm');
+        
+        // No sobrescribir texto si el botón está deshabilitado por semáforo
+        if (btn.disabled) return;
+
         if (esAsistido) {
             btn.innerHTML = `<i class="fab fa-whatsapp"></i> Guardar y Notificar al Candidato por WhatsApp`;
             btn.style.backgroundColor = '#a855f7';
@@ -936,7 +959,8 @@
         }
     }
 
-    function aplicarReglasSemaforoEmpresa(estatus) {
+    // APLICADOR DE REGLAS JERÁRQUICAS DE SEMÁFORO (EMPRESA + VACANTE INDIVIDUAL)
+    function aplicarReglasSemaforoGlobal() {
         const banner = document.getElementById('bannerAlertaSemaforo');
         const icono = document.getElementById('bannerSemaforoIcono');
         const titulo = document.getElementById('bannerSemaforoTitulo');
@@ -949,7 +973,10 @@
         contenedorForm.classList.remove('form-bloqueado');
         btnSubmit.disabled = false;
 
-        if (estatus === "Cerrada") {
+        const estatusEmp = normalizarEstatus(estatusOperativoEmpresa);
+
+        // 1. NIVEL PADRE: Estatus Maestro de la Empresa
+        if (estatusEmp === "cerrada") {
             document.querySelector('.container').innerHTML = `
                 <div class="alerta-cerrada">
                     <i class="fa-solid fa-ban text-danger" style="font-size: 3.5rem; margin-bottom: 20px; color: #ef4444;"></i>
@@ -960,26 +987,48 @@
             return false;
         }
 
-        if (estatus === "No Disponible") {
-            banner.classList.add('alerta-nodisponible');
-            icono.className = 'fa-solid fa-circle-xmark';
-            titulo.innerText = 'Vacantes No Disponibles (Cupo Lleno)';
-            texto.innerText = 'Por el momento todas las plazas para esta empresa se encuentran cubiertas. El registro de citas está temporalmente bloqueado.';
-            banner.style.display = 'flex';
-            
-            contenedorForm.classList.add('form-bloqueado');
-            btnSubmit.disabled = true;
-            btnSubmit.innerHTML = `<i class="fa-solid fa-lock"></i> Convocatoria Llena`;
-        } else if (estatus === "En Pausa") {
+        if (estatusEmp === "pausada") {
             banner.classList.add('alerta-pausa');
             icono.className = 'fa-solid fa-hourglass-half';
             titulo.innerText = 'Proceso en Pausa Temporal';
-            texto.innerText = 'Las contrataciones se encuentran en pausa preventiva. Las entrevistas se reanudarán en breve.';
+            texto.innerText = 'Las contrataciones para esta empresa se encuentran en pausa preventiva. Las entrevistas se reanudarán en breve.';
             banner.style.display = 'flex';
             
             contenedorForm.classList.add('form-bloqueado');
             btnSubmit.disabled = true;
             btnSubmit.innerHTML = `<i class="fa-solid fa-pause"></i> Contrataciones en Pausa`;
+            return true;
+        }
+
+        // 2. NIVEL HIJO: Si la empresa está Disponible, evaluar la vacante actualmente seleccionada
+        if (datosVacanteGlobal) {
+            const estatusVac = normalizarEstatus(datosVacanteGlobal.estatus);
+
+            if (estatusVac === "cerrada") {
+                banner.classList.add('alerta-nodisponible');
+                icono.className = 'fa-solid fa-circle-xmark';
+                titulo.innerText = 'Vacante Cerrada / Cupo Lleno';
+                texto.innerText = 'Por el momento todas las plazas para este puesto en específico han sido cubiertas. El registro de citas está bloqueado.';
+                banner.style.display = 'flex';
+
+                contenedorForm.classList.add('form-bloqueado');
+                btnSubmit.disabled = true;
+                btnSubmit.innerHTML = `<i class="fa-solid fa-lock"></i> Puesto con Cupo Lleno`;
+            } else if (estatusVac === "pausada") {
+                banner.classList.add('alerta-pausa');
+                icono.className = 'fa-solid fa-hourglass-half';
+                titulo.innerText = 'Vacante en Pausa Temporal';
+                texto.innerText = 'La postulación para este puesto específico se encuentra en pausa por el área de reclutamiento.';
+                banner.style.display = 'flex';
+
+                contenedorForm.classList.add('form-bloqueado');
+                btnSubmit.disabled = true;
+                btnSubmit.innerHTML = `<i class="fa-solid fa-pause"></i> Puesto en Pausa Temporal`;
+            } else {
+                alternarModoAsistido();
+            }
+        } else {
+            alternarModoAsistido();
         }
 
         return true;
@@ -992,6 +1041,7 @@
         }
 
         try {
+            // LISTENER REACTIVO EN TIEMPO REAL: EMPRESAS
             db.ref('empresas').on('value', (snapEmpresas) => {
                 if (snapEmpresas.exists()) {
                     const catalogo = snapEmpresas.val();
@@ -1023,12 +1073,13 @@
                         bannersCorporativosEmpresa = infoMaestra.bannersCorporativos || "";
                         estatusOperativoEmpresa = infoMaestra.estatusOperativo || "Disponible";
 
-                        const continuaCarga = aplicarReglasSemaforoEmpresa(estatusOperativoEmpresa);
+                        const continuaCarga = aplicarReglasSemaforoGlobal();
                         if (!continuaCarga) return;
                     }
                 }
             });
 
+            // LISTENER REACTIVO EN TIEMPO REAL: VACANTES DETALLES (M1 Y M2)
             db.ref('vacantes_detalles').on('value', async function(snapshot) {
                 if (snapshot.exists()) {
                     const catalogoVacantes = snapshot.val();
@@ -1071,19 +1122,22 @@
                         renderizarUbicacionEmpresa(lugarHeader, mapaHeader);
                         document.getElementById('empresaHeaderBox').style.display = 'block';
 
+                        // RENDERIZADO DEL CATÁLOGO DE PUESTOS CON SEMÁFORO EN FORMA DE CHIP
                         const listaContenedor = document.getElementById('listaVacantesDinamica');
                         listaContenedor.innerHTML = ''; 
                         
                         keys.forEach(key => {
                             const vac = todasLasVacantesEmpresa[key];
                             const nombreMostrarPuesto = vac.nombreVacante || vac.vacanteNombre || vac.puesto || vac.nombreComercial || "Puesto Vacante";
-                            const estatusPuesto = vac.estatus || "Disponible";
+                            const estatusNorm = normalizarEstatus(vac.estatus);
 
                             let badgePuestoHtml = '';
-                            if (estatusPuesto === "No Disponible") {
-                                badgePuestoHtml = `<span class="badge-status-puesto" style="background:rgba(239,68,68,0.2); color:#f87171; border:1px solid rgba(239,68,68,0.4);"><i class="fa-solid fa-lock me-1"></i>Cupo Lleno</span>`;
-                            } else if (estatusPuesto === "En Pausa") {
-                                badgePuestoHtml = `<span class="badge-status-puesto" style="background:rgba(245,158,11,0.2); color:#fbbf24; border:1px solid rgba(245,158,11,0.4);"><i class="fa-solid fa-pause me-1"></i>En Pausa</span>`;
+                            if (estatusNorm === "cerrada") {
+                                badgePuestoHtml = `<span class="badge-status-puesto" style="background:rgba(239,68,68,0.2); color:#f87171; border:1px solid rgba(239,68,68,0.4);"><i class="fa-solid fa-lock"></i> Cupo Lleno</span>`;
+                            } else if (estatusNorm === "pausada") {
+                                badgePuestoHtml = `<span class="badge-status-puesto" style="background:rgba(245,158,11,0.2); color:#fbbf24; border:1px solid rgba(245,158,11,0.4);"><i class="fa-solid fa-pause"></i> En Pausa</span>`;
+                            } else {
+                                badgePuestoHtml = `<span class="badge-status-puesto" style="background:rgba(34,197,94,0.15); color:#4ade80; border:1px solid rgba(34,197,94,0.3);"><i class="fa-solid fa-circle-check"></i> Abierta</span>`;
                             }
                             
                             const cardItem = document.createElement('div');
@@ -1102,9 +1156,18 @@
                             listaContenedor.appendChild(cardItem);
                         });
                         
+                        // Si el usuario ya está viendo una vacante específica, actualizarla en caliente
+                        if (vacanteKeyDetectada && todasLasVacantesEmpresa[vacanteKeyDetectada]) {
+                            datosVacanteGlobal = todasLasVacantesEmpresa[vacanteKeyDetectada];
+                            aplicarReglasSemaforoGlobal();
+                        }
+
                         await cargarCatalogoReclutadores();
                         document.getElementById('loading').style.display = 'none';
-                        document.getElementById('menuVacantesBox').style.display = 'block';
+                        
+                        if (!vacanteKeyDetectada) {
+                            document.getElementById('menuVacantesBox').style.display = 'block';
+                        }
                         return;
                     }
 
@@ -1149,25 +1212,8 @@
         const notasTexto = data.informacionGeneral || data.informacion_general || data.infoGeneral || data.notas || data.observaciones;
         document.getElementById('vacanteNotas').innerText = (notasTexto && notasTexto.trim().length > 0) ? notasTexto : 'Sin notas adicionales.';
 
-        const estatusPuesto = data.estatus || "Disponible";
-        const contenedorForm = document.getElementById('contenedorFormularioPostulacion');
-        const btnSubmit = document.getElementById('btnSubmitForm');
-
-        if (estatusOperativoEmpresa === "Disponible") {
-            if (estatusPuesto === "No Disponible") {
-                contenedorForm.classList.add('form-bloqueado');
-                btnSubmit.disabled = true;
-                btnSubmit.innerHTML = `<i class="fa-solid fa-lock"></i> Puesto con Cupo Lleno`;
-            } else if (estatusPuesto === "En Pausa") {
-                contenedorForm.classList.add('form-bloqueado');
-                btnSubmit.disabled = true;
-                btnSubmit.innerHTML = `<i class="fa-solid fa-pause"></i> Puesto en Pausa Temporal`;
-            } else {
-                contenedorForm.classList.remove('form-bloqueado');
-                btnSubmit.disabled = false;
-                alternarModoAsistido();
-            }
-        }
+        // Aplicar semáforo jerárquico a la ficha
+        aplicarReglasSemaforoGlobal();
 
         configurarMazorcaBanners(data);
         await inicializarBuscadorRutas();
@@ -1502,9 +1548,6 @@
         }
     }
 
-    // =========================================================================
-    // INICIALIZADOR BLINDADO Y TOLERANTE DE RUTAS (SINCRONIZACIÓN M1, M2 Y M6)
-    // =========================================================================
     async function inicializarBuscadorRutas() {
         const txtDetallesTrans = document.getElementById('txtDetallesTransporte');
         const selectRutas = document.getElementById('selRutaEmpresa');
@@ -1527,7 +1570,6 @@
         let rawData = null;
 
         try {
-            // 1. Consulta directa por parámetro de URL
             let snap = await db.ref(`rutas/${empresaLimpia}`).once('value');
             if (snap.exists()) {
                 rawData = snap.val();
@@ -1536,7 +1578,6 @@
                 if (snapComp.exists()) rawData = snapComp.val();
             }
 
-            // 2. Consulta por la clave oficial detectada en M1
             if (!rawData && claveEmpresaM1Oficial) {
                 const cLimpia = sanitizarClave(claveEmpresaM1Oficial);
                 const cComp = sanitizarCompacto(claveEmpresaM1Oficial);
@@ -1549,7 +1590,6 @@
                 }
             }
 
-            // 3. Consulta por el nombre comercial maestro de M1 (ej: HYUNDAI GLOVIS CC)
             if (!rawData && nombreEmpresaMaestro) {
                 const maestroLimpio = sanitizarClave(nombreEmpresaMaestro);
                 const maestroComp = sanitizarCompacto(nombreEmpresaMaestro);
@@ -1562,7 +1602,6 @@
                 }
             }
 
-            // 4. Barrido tolerante global: Coincidencia cruzada por subcadena (Hyundai / Glovis / CC)
             if (!rawData) {
                 const snapTotal = await db.ref('rutas').once('value');
                 if (snapTotal.exists()) {
@@ -1591,13 +1630,12 @@
                 }
             }
 
-            // Si las rutas están anidadas bajo un contenedor .rutas
             if (rawData && rawData.rutas && typeof rawData.rutas === 'object') {
                 rawData = rawData.rutas;
             }
 
         } catch (errRutas) {
-            console.warn("Advertencia en lectura tolerante de rutas:", errRutas);
+            console.warn("Advertencia en lectura de rutas:", errRutas);
         }
 
         if (rawData) {
@@ -1610,7 +1648,6 @@
                         estructuraRutasGlobal[nombreRuta] = [];
                     }
 
-                    // Caso A: La ruta contiene un arreglo de paradas
                     if (Array.isArray(item.paradas) && item.paradas.length > 0) {
                         item.paradas.forEach((p, pIndex) => {
                             let lat = null, lng = null;
@@ -1648,9 +1685,7 @@
                             estructuraRutasGlobal[nombreRuta].push(objetoParada);
                             if (!isNaN(lat) && !isNaN(lng)) listaTodasLasParadasFlat.push(objetoParada);
                         });
-                    } 
-                    // Caso B: Objeto plano o punto directo de abordaje
-                    else {
+                    } else {
                         let lat = null, lng = null;
                         const coordRaw = item.coordenadasAbordaje || item.coordenadas || item.latlng || "";
                         if (typeof coordRaw === 'string') {
@@ -1749,8 +1784,11 @@
     }
 
     window.regresarAlMenu = function() {
+        vacanteKeyDetectada = "";
+        datosVacanteGlobal = null;
         document.getElementById('content').style.display = 'none';
         document.getElementById('menuVacantesBox').style.display = 'block';
+        aplicarReglasSemaforoGlobal();
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
@@ -1811,7 +1849,7 @@
                 selectElement.innerHTML = `<option value="${fallbackTelefonoReclutador}" data-nombreReal="Asesor de Guardia">Asesor General de Guardia</option>`;
             }
         } catch (e) {
-            console.error("Error cargando asesores autorizados:", e);
+            console.error("Error cargando asesores:", e);
             selectElement.innerHTML = `<option value="${fallbackTelefonoReclutador}" data-nombreReal="Asesor de Guardia">Asesor General de Guardia</option>`;
         }
     }
@@ -1860,14 +1898,20 @@
     window.enviarPostulacion = async function(e) {
         e.preventDefault();
         
-        if (estatusOperativoEmpresa === "No Disponible" || estatusOperativoEmpresa === "En Pausa" || estatusOperativoEmpresa === "Cerrada") {
+        // Bloqueo de seguridad estricto a nivel empresa
+        const estatusEmp = normalizarEstatus(estatusOperativoEmpresa);
+        if (estatusEmp === "pausada" || estatusEmp === "cerrada") {
             alert("⚠️ El proceso de postulación para esta empresa se encuentra bloqueado actualmente.");
             return;
         }
 
-        if (datosVacanteGlobal && (datosVacanteGlobal.estatus === "No Disponible" || datosVacanteGlobal.estatus === "En Pausa")) {
-            alert("⚠️ Este puesto específico no está recibiendo citas en este momento.");
-            return;
+        // Bloqueo de seguridad estricto a nivel vacante individual
+        if (datosVacanteGlobal) {
+            const estatusVac = normalizarEstatus(datosVacanteGlobal.estatus);
+            if (estatusVac === "pausada" || estatusVac === "cerrada") {
+                alert("⚠️ Este puesto específico no está recibiendo postulaciones en este momento.");
+                return;
+            }
         }
 
         const nombre = document.getElementById('postNombre').value.trim();
