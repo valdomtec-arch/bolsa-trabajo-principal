@@ -230,6 +230,7 @@
             margin-bottom: 16px;
         }
 
+        /* GOBERNANZA DE HORARIOS DE ENTREVISTA */
         .slot-schedule-box {
             background: rgba(56, 189, 248, 0.04);
             border: 1px solid rgba(56, 189, 248, 0.25);
@@ -247,7 +248,87 @@
             margin-bottom: 12px;
             display: flex;
             align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
             gap: 8px;
+        }
+
+        /* CHIP HORARIO DESTACADO EN EL FORMULARIO */
+        .badge-horario-live {
+            background: rgba(16, 185, 129, 0.12);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.35);
+            border-radius: 6px;
+            font-size: 0.73rem;
+            font-weight: 800;
+            padding: 3px 8px;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            margin-left: auto;
+            text-transform: none;
+            letter-spacing: 0;
+        }
+
+        .badge-horario-tabla {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.72rem;
+            color: #38bdf8;
+            background: rgba(56, 189, 248, 0.1);
+            border: 1px solid rgba(56, 189, 248, 0.25);
+            padding: 2px 7px;
+            border-radius: 4px;
+            margin-top: 4px;
+            font-family: monospace;
+        }
+
+        /* SELECTOR ERGONÓMICO CON FORMATO MILITAR / NORMAL */
+        .time-picker-ergonomic {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .time-picker-ergonomic select {
+            background: #06101e;
+            border: 1px solid #1e3a8a;
+            border-radius: 8px;
+            color: #ffffff;
+            font-size: 0.85rem;
+            padding: 10px 8px;
+            outline: none;
+            transition: border-color 0.2s;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        .time-picker-ergonomic select:focus {
+            border-color: var(--primary-orange);
+            box-shadow: 0 0 0 2px rgba(255, 102, 0, 0.2);
+        }
+
+        .btn-toggle-timeformat {
+            background: #08152e;
+            border: 1px solid #1e3a8a;
+            color: #94a3b8;
+            font-size: 0.72rem;
+            font-weight: 800;
+            padding: 4px 10px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            text-transform: uppercase;
+        }
+
+        .btn-toggle-timeformat:hover, .btn-toggle-timeformat.active {
+            background: var(--primary-orange);
+            color: #ffffff;
+            border-color: var(--primary-orange);
         }
 
         .generated-link-box {
@@ -535,7 +616,13 @@
                         <input type="text" id="inputID" class="form-control-tech w-100" placeholder="Ej: cedissorianafrescosguadalajara" required>
                     </div>
                     <div>
-                        <label class="form-label-tech"><i class="fa-solid fa-signature"></i> Nombre Comercial *</label>
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <label class="form-label-tech mb-0"><i class="fa-solid fa-signature"></i> Nombre Comercial *</label>
+                            <!-- VISUALIZACIÓN DINÁMICA DEL HORARIO AL LADO DEL NOMBRE -->
+                            <span id="liveHorarioBadge" class="badge-horario-live" title="Horario de atención sincronizado">
+                                <i class="fa-solid fa-clock"></i> <span>Lun-Vie | 09:00 - 14:00 (10 min)</span>
+                            </span>
+                        </div>
                         <input type="text" id="inputNombre" class="form-control-tech w-100" placeholder="Ej: CEDIS SORIANA FRESCOS GUADALAJARA" required>
                     </div>
                     <div>
@@ -573,15 +660,29 @@
                     <input type="text" id="inputDireccion" class="form-control-tech w-100" placeholder="Ej: Anillo Perif. Sur Manuel Gómez Morín 5890, Artesanos, 45598 San Pedro Tlaquepaque, Jal." required>
                 </div>
 
-                <!-- NUEVO BLOQUE: GOBERNANZA DE HORARIOS DE ENTREVISTA (CONTROL ANTISATURACIÓN) -->
+                <!-- BLOQUE ERGONÓMICO: GOBERNANZA DE HORARIOS CON 10 MIN Y FORMATO MILITAR/NORMAL -->
                 <div class="slot-schedule-box">
                     <div class="slot-schedule-title">
-                        <i class="fa-solid fa-calendar-clock"></i> Gobernanza de Horarios de Entrevista (Sincronizado con vacante.html)
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="fa-solid fa-calendar-check text-info"></i>
+                            <span>Gobernanza de Horarios de Entrevista (Citas Antisaturación)</span>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="text-muted small">Modo:</span>
+                            <button type="button" id="btnToggleFormatoHora" onclick="alternarFormatoHorario()" class="btn-toggle-timeformat">
+                                <i class="fa-solid fa-repeat"></i> <span id="lblFormatoHora">Militar (24h)</span>
+                            </button>
+                        </div>
                     </div>
+
+                    <!-- Campos ocultos técnicos para almacenar siempre el estándar 24H -->
+                    <input type="hidden" id="inputHoraInicio" value="09:00">
+                    <input type="hidden" id="inputHoraFin" value="14:00">
+
                     <div class="inputs-horizontal-row-4">
                         <div>
                             <label class="form-label-tech"><i class="fa-regular fa-calendar-days"></i> Días Laborales</label>
-                            <select id="inputDiasEntrevista" class="form-select-tech w-100">
+                            <select id="inputDiasEntrevista" class="form-select-tech w-100" onchange="actualizarBadgeHorarioLive()">
                                 <option value="lunes_viernes" selected>Lunes a Viernes</option>
                                 <option value="lunes_sabado">Lunes a Sábado</option>
                                 <option value="todos">Todos los días (Incluye Domingo)</option>
@@ -589,18 +690,25 @@
                         </div>
                         <div>
                             <label class="form-label-tech"><i class="fa-regular fa-clock"></i> Hora Inicial</label>
-                            <input type="time" id="inputHoraInicio" class="form-control-tech w-100" value="09:00" required>
+                            <div class="time-picker-ergonomic">
+                                <select id="selectHoraInicio" class="form-select-tech" onchange="sincronizarHorasDesdeSelector()"></select>
+                            </div>
                         </div>
                         <div>
                             <label class="form-label-tech"><i class="fa-solid fa-clock"></i> Hora Límite</label>
-                            <input type="time" id="inputHoraFin" class="form-control-tech w-100" value="14:00" required>
+                            <div class="time-picker-ergonomic">
+                                <select id="selectHoraFin" class="form-select-tech" onchange="sincronizarHorasDesdeSelector()"></select>
+                            </div>
                         </div>
                         <div>
                             <label class="form-label-tech"><i class="fa-solid fa-hourglass-half"></i> Intervalo (Bloques)</label>
-                            <select id="inputIntervaloCitas" class="form-select-tech w-100">
+                            <select id="inputIntervaloCitas" class="form-select-tech w-100" onchange="actualizarBadgeHorarioLive()">
+                                <option value="10" selected>⚡ Cada 10 minutos (Alta Frecuencia)</option>
+                                <option value="15">Cada 15 minutos</option>
+                                <option value="20">Cada 20 minutos</option>
                                 <option value="30">Cada 30 minutos</option>
                                 <option value="45">Cada 45 minutos</option>
-                                <option value="60" selected>Cada 60 minutos (1 hora)</option>
+                                <option value="60">Cada 60 minutos (1 hora)</option>
                             </select>
                         </div>
                     </div>
@@ -654,7 +762,7 @@
                         <tr>
                             <th>Logo</th>
                             <th>ID / Clave Firebase</th>
-                            <th>Nombre Comercial</th>
+                            <th>Nombre Comercial & Horario</th>
                             <th class="text-center">Semáforo Maestro</th>
                             <th class="text-center">Vacantes Conectadas</th>
                             <th class="text-end">Acciones</th>
@@ -669,7 +777,7 @@
 
     </main>
 
-    <!-- MODAL MAESTRO ERGONÓMICO DE VACANTES (SUBMENÚ SINCRONIZADO CON M2) -->
+    <!-- MODAL MAESTRO ERGONÓMICO DE VACANTES -->
     <div class="modal fade" id="modalVacantesIndividuales" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content modal-content-tech">
@@ -693,9 +801,7 @@
                         <input type="text" id="buscadorModalVacantes" oninput="filtrarVacantesEnModal()" class="form-control-tech w-100 ps-5" placeholder="Filtrar por puesto o clave de vacante...">
                     </div>
 
-                    <div class="custom-scrollbar-tech" id="modalVacantesContainer">
-                        <!-- Tarjetas inyectadas dinámicamente -->
-                    </div>
+                    <div class="custom-scrollbar-tech" id="modalVacantesContainer"></div>
                 </div>
 
                 <div class="modal-footer border-secondary justify-content-between" style="background:#060b18;">
@@ -753,6 +859,9 @@
         let modalVacantesInstance = null;
         let empresaSeleccionadaActual = null;
 
+        // ESTADO DEL SELECTOR ERGONÓMICO DE HORARIOS
+        let esFormatoMilitar = true; // true = 24H (Militar), false = 12H (Normal con AM/PM)
+
         window.repararImperfeccionesKeys = repararImperfeccionesKeys;
 
         document.addEventListener("DOMContentLoaded", () => {
@@ -760,6 +869,9 @@
             if (modalEl && typeof bootstrap !== 'undefined') {
                 modalVacantesInstance = new bootstrap.Modal(modalEl);
             }
+
+            // Inicializar opciones de los selectores ergonómicos con paso de 10 minutos
+            inicializarOpcionesHorarias();
 
             const inputID = document.getElementById("inputID");
             inputID.addEventListener("input", () => {
@@ -777,6 +889,117 @@
 
             inicializarSeguridadM1();
         });
+
+        // ==========================================
+        // LÓGICA DEL SELECTOR ERGONÓMICO DE HORARIOS
+        // ==========================================
+
+        function convertirA12H(hora24) {
+            if (!hora24) return "09:00 AM";
+            const [hStr, mStr] = hora24.split(":");
+            let h = parseInt(hStr, 10);
+            const m = mStr || "00";
+            const ampm = h >= 12 ? "PM" : "AM";
+            h = h % 12;
+            if (h === 0) h = 12;
+            const hFormateada = h < 10 ? `0${h}` : `${h}`;
+            return `${hFormateada}:${m} ${ampm}`;
+        }
+
+        function generarOpcionesHorarias(pasoMinutos = 10) {
+            const opciones = [];
+            for (let h = 6; h <= 22; h++) { // Cobertura de 06:00 a 22:00
+                for (let m = 0; m < 60; m += pasoMinutos) {
+                    const hStr = h < 10 ? `0${h}` : `${h}`;
+                    const mStr = m < 10 ? `0${m}` : `${m}`;
+                    const valor24 = `${hStr}:${mStr}`;
+                    const textoVisible = esFormatoMilitar ? valor24 : convertirA12H(valor24);
+                    opciones.push({ valor: valor24, texto: textoVisible });
+                }
+            }
+            return opciones;
+        }
+
+        function inicializarOpcionesHorarias() {
+            const selectIni = document.getElementById("selectHoraInicio");
+            const selectFin = document.getElementById("selectHoraFin");
+            const horaIniActual = document.getElementById("inputHoraInicio").value || "09:00";
+            const horaFinActual = document.getElementById("inputHoraFin").value || "14:00";
+
+            const opciones = generarOpcionesHorarias(10); // Intervalos cada 10 min
+
+            selectIni.innerHTML = "";
+            selectFin.innerHTML = "";
+
+            opciones.forEach(op => {
+                const opt1 = document.createElement("option");
+                opt1.value = op.valor;
+                opt1.textContent = op.texto;
+                if (op.valor === horaIniActual) opt1.selected = true;
+                selectIni.appendChild(opt1);
+
+                const opt2 = document.createElement("option");
+                opt2.value = op.valor;
+                opt2.textContent = op.texto;
+                if (op.valor === horaFinActual) opt2.selected = true;
+                selectFin.appendChild(opt2);
+            });
+
+            actualizarBadgeHorarioLive();
+        }
+
+        function alternarFormatoHorario() {
+            esFormatoMilitar = !esFormatoMilitar;
+            const lbl = document.getElementById("lblFormatoHora");
+            const btn = document.getElementById("btnToggleFormatoHora");
+
+            if (esFormatoMilitar) {
+                lbl.textContent = "Militar (24h)";
+                btn.classList.remove("active");
+            } else {
+                lbl.textContent = "Normal (12h AM/PM)";
+                btn.classList.add("active");
+            }
+
+            inicializarOpcionesHorarias();
+        }
+
+        function sincronizarHorasDesdeSelector() {
+            const valIni = document.getElementById("selectHoraInicio").value;
+            const valFin = document.getElementById("selectHoraFin").value;
+
+            document.getElementById("inputHoraInicio").value = valIni;
+            document.getElementById("inputHoraFin").value = valFin;
+
+            actualizarBadgeHorarioLive();
+        }
+
+        function formatearTextoDias(diasVal) {
+            if (diasVal === "lunes_sabado") return "Lun a Sáb";
+            if (diasVal === "todos") return "Todos los días";
+            return "Lun a Vie";
+        }
+
+        function actualizarBadgeHorarioLive() {
+            const dias = formatearTextoDias(document.getElementById("inputDiasEntrevista").value);
+            const ini24 = document.getElementById("inputHoraInicio").value || "09:00";
+            const fin24 = document.getElementById("inputHoraFin").value || "14:00";
+            const intervalo = document.getElementById("inputIntervaloCitas").value || "10";
+
+            const formatoIni = esFormatoMilitar ? ini24 : convertirA12H(ini24);
+            const formatoFin = esFormatoMilitar ? fin24 : convertirA12H(fin24);
+
+            const textoBadge = `${dias} | ${formatoIni} - ${formatoFin} (${intervalo} min)`;
+            
+            const badgeSpan = document.querySelector("#liveHorarioBadge span");
+            if (badgeSpan) {
+                badgeSpan.textContent = textoBadge;
+            }
+        }
+
+        // ==========================================
+        // SEGURIDAD Y SINCRONIZACIÓN FIREBASE
+        // ==========================================
 
         function inicializarSeguridadM1() {
             auth.onAuthStateChanged(user => {
@@ -847,7 +1070,7 @@
             const btnGuardar = document.getElementById("btnGuardarFicha");
             const btnBorrarCascada = document.getElementById("btnBorrarCascadaForm");
             const btnReparar = document.getElementById("btnRepararKeys");
-            const inputsForm = document.querySelectorAll("#empresaForm input, #empresaForm select");
+            const inputsForm = document.querySelectorAll("#empresaForm input, #empresaForm select, #empresaForm button:not(#btnToggleFormatoHora)");
 
             if (usuarioSesion.nivel >= 4 || usuarioSesion.scope === 'global') {
                 badgeScope.className = "badge bg-success border border-light text-light px-3 py-2 font-monospace";
@@ -992,14 +1215,26 @@
                 const totalVacs = Object.keys(vacsEmp).length;
                 const selectorSemaforoDisabled = usuarioSesion.nivel < 4 ? "disabled style='pointer-events:none; opacity:0.85;'" : "";
 
+                // Resumen de horario en tabla
+                const diasTxt = formatearTextoDias(emp.diasEntrevista || "lunes_viernes");
+                const hIni = emp.horaInicioEntrevista || "09:00";
+                const hFin = emp.horaFinEntrevista || "14:00";
+                const intMin = emp.intervaloEntrevistaMin || "10";
+                const horarioResumen = `${diasTxt} • ${hIni}-${hFin} (${intMin}m)`;
+
                 const tr = document.createElement("tr");
                 tr.setAttribute("data-division", (emp.division || "centro").toLowerCase());
                 tr.innerHTML = `
                     <td><img src="${emp.imagen || 'img/soriana.jpg'}" loading="lazy" onerror="this.src='https://placehold.co/100x100/0b1329/fff?text=Logo'" class="logo-preview-cell"></td>
                     <td class="font-monospace text-warning fw-bold">${emp.id || key}</td>
-                    <td class="fw-bold text-white">
-                        ${emp.nombre || emp.nombreComercial || key}
-                        <span class="badge bg-secondary ms-1 text-uppercase text-[10px]">${emp.division || 'centro'}</span>
+                    <td>
+                        <div class="fw-bold text-white d-flex align-items-center gap-1">
+                            ${emp.nombre || emp.nombreComercial || key}
+                            <span class="badge bg-secondary ms-1 text-uppercase text-[10px]">${emp.division || 'centro'}</span>
+                        </div>
+                        <div class="badge-horario-tabla" title="Horario de entrevistas de esta empresa">
+                            <i class="fa-regular fa-clock"></i> ${horarioResumen}
+                        </div>
                     </td>
                     <td class="text-center">
                         <select onchange="cambiarEstatusMaestroEmpresa('${key}', this.value)" class="select-status-master ${claseSelect}" ${selectorSemaforoDisabled}>
@@ -1202,11 +1437,11 @@
             const link = document.getElementById("linkAutogenerado").value.trim();
             const estatusOperativo = document.getElementById("inputStatusMaster").value;
 
-            // Parámetros de Horarios y Turnos de Entrevista
+            // Parámetros de Horarios y Turnos de Entrevista (precisión 10 min)
             const diasEntrevista = document.getElementById("inputDiasEntrevista").value;
             const horaInicio = document.getElementById("inputHoraInicio").value || "09:00";
             const horaFin = document.getElementById("inputHoraFin").value || "14:00";
-            const intervaloCitas = parseInt(document.getElementById("inputIntervaloCitas").value) || 60;
+            const intervaloCitas = parseInt(document.getElementById("inputIntervaloCitas").value) || 10;
 
             if (!id || !nombre || !direccion || !ubicacion) {
                 alert("Completa todos los campos obligatorios (*)");
@@ -1242,7 +1477,7 @@
                     evento: "GUARDADO_EMPRESA",
                     ejecutadoPor: usuarioSesion.nombre,
                     uidEjecutor: usuarioSesion.uid,
-                    detalle: `Se registró/actualizó la ficha de la empresa ${nombre} [${id}] con horario: ${horaInicio}-${horaFin} (${intervaloCitas} min).`,
+                    detalle: `Se registró/actualizó la ficha de ${nombre} [${id}] con horario: ${horaInicio}-${horaFin} (${intervaloCitas} min).`,
                     timestamp: firebase.database.ServerValue.TIMESTAMP
                 });
 
@@ -1268,10 +1503,17 @@
 
             // Cargar configuración de horarios
             document.getElementById("inputDiasEntrevista").value = emp.diasEntrevista || "lunes_viernes";
-            document.getElementById("inputHoraInicio").value = emp.horaInicioEntrevista || "09:00";
-            document.getElementById("inputHoraFin").value = emp.horaFinEntrevista || "14:00";
-            document.getElementById("inputIntervaloCitas").value = emp.intervaloEntrevistaMin || "60";
             
+            const horaIniCargada = emp.horaInicioEntrevista || "09:00";
+            const horaFinCargada = emp.horaFinEntrevista || "14:00";
+            
+            document.getElementById("inputHoraInicio").value = horaIniCargada;
+            document.getElementById("inputHoraFin").value = horaFinCargada;
+            document.getElementById("inputIntervaloCitas").value = String(emp.intervaloEntrevistaMin || "10");
+            
+            // Refrescar selectores asistidos y el chip dinámico
+            inicializarOpcionesHorarias();
+
             const urlBase = "https://valdomtec-arch.github.io/bolsa-trabajo-principal/vacante.html?empresa=";
             document.getElementById("linkAutogenerado").value = emp.link || (urlBase + (emp.id || key));
             document.getElementById("btnAbrirEnlace").href = emp.link || (urlBase + (emp.id || key));
@@ -1320,7 +1562,10 @@
             document.getElementById("inputDiasEntrevista").value = "lunes_viernes";
             document.getElementById("inputHoraInicio").value = "09:00";
             document.getElementById("inputHoraFin").value = "14:00";
-            document.getElementById("inputIntervaloCitas").value = "60";
+            document.getElementById("inputIntervaloCitas").value = "10";
+            
+            inicializarOpcionesHorarias();
+
             document.getElementById("linkAutogenerado").value = "https://valdomtec-arch.github.io/bolsa-trabajo-principal/vacante.html?empresa=";
             document.getElementById("btnAbrirEnlace").href = "#";
             document.getElementById("txtModoEdicionLabel").textContent = "Nueva Empresa";
