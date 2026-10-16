@@ -768,6 +768,70 @@
             gap: 10px;
             background: rgba(3, 7, 18, 0.6);
         }
+
+        /* MODAL EXCLUSIVO DE ÉXITO Y DOBLE NOTIFICACIÓN DIRECTA */
+        .modal-notificacion-dual-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.92);
+            backdrop-filter: blur(14px);
+            z-index: 2000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+
+        .modal-notificacion-dual-card {
+            background: radial-gradient(circle at 50% 0%, #172a4d 0%, #091224 100%);
+            border: 2px solid #22c55e;
+            border-radius: var(--radius-lg);
+            max-width: 540px;
+            width: 100%;
+            padding: 24px 20px;
+            box-shadow: 0 0 35px rgba(34, 197, 94, 0.3);
+            text-align: center;
+        }
+
+        .btn-wa-directo {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            padding: 14px 18px;
+            border-radius: 12px;
+            font-weight: 800;
+            font-size: 0.95rem;
+            text-decoration: none;
+            margin-bottom: 12px;
+            transition: all 0.25s ease;
+            min-height: 50px;
+            cursor: pointer;
+            border: none;
+        }
+
+        .btn-wa-candidato {
+            background: #22c55e;
+            color: #ffffff;
+            box-shadow: 0 4px 15px rgba(34, 197, 94, 0.4);
+        }
+        .btn-wa-candidato:hover { background: #16a34a; transform: translateY(-2px); }
+
+        .btn-wa-asesor {
+            background: #a855f7;
+            color: #ffffff;
+            box-shadow: 0 4px 15px rgba(168, 85, 247, 0.4);
+        }
+        .btn-wa-asesor:hover { background: #9333ea; transform: translateY(-2px); }
+
+        .btn-acuse-directo {
+            background: rgba(56, 189, 248, 0.15);
+            color: #38bdf8;
+            border: 1px solid #38bdf8;
+            margin-bottom: 0;
+        }
+        .btn-acuse-directo:hover { background: #38bdf8; color: #070f1e; }
     </style>
 </head>
 <body>
@@ -910,7 +974,7 @@
                     <form id="formPostulacion" onsubmit="enviarPostulacion(event)">
                         <div class="form-group">
                             <label for="postNombre">Nombre Completo del Candidato:</label>
-                            <input type="text" id="postNombre" required placeholder="Ej: Juan Pérez">
+                            <input type="text" id="postNombre" required placeholder="Ej: Juan Antonio Pérez Domínguez">
                         </div>
 
                         <div class="form-group">
@@ -918,9 +982,28 @@
                             <input type="tel" id="postTelefono" required pattern="[0-9]{10}" maxlength="10" placeholder="Ej: 8112345678">
                         </div>
 
+                        <!-- CURP FLEXIBLE (OPCIONAL SEGÚN NUEVA POLÍTICA) -->
                         <div class="form-group">
-                            <label for="postCurp">CURP (18 caracteres):</label>
-                            <input type="text" id="postCurp" required maxlength="18" minlength="18" style="text-transform: uppercase;" placeholder="Ingresa tu CURP completa">
+                            <label for="postCurp" style="display: flex; justify-content: space-between; align-items: center;">
+                                <span>CURP (Opcional - 18 caracteres):</span>
+                                <span style="font-size: 0.72rem; color: var(--wf-accent-blue); text-transform: none; font-weight: 500;">Voluntario</span>
+                            </label>
+                            <input type="text" id="postCurp" maxlength="18" style="text-transform: uppercase;" placeholder="Si no cuentas con ella, puedes dejarla en blanco" oninput="alCambiarCurpInput()">
+                        </div>
+
+                        <!-- SELECTOR DINÁMICO DE SEXO (SE ACTIVA SI NO HAY CURP) -->
+                        <div class="form-group" id="contenedorSexoManual" style="display: none; background: rgba(56, 189, 248, 0.08); padding: 12px; border-radius: 10px; border: 1px solid var(--border-color);">
+                            <label for="postSexoManual" style="color: var(--wf-accent-blue);">
+                                <i class="fa-solid fa-venus-mars me-1"></i> Sexo / Género del Candidato (Requerido al omitir CURP):
+                            </label>
+                            <select id="postSexoManual">
+                                <option value="">— Seleccionar Sexo para Registro Oficial —</option>
+                                <option value="Masculino">Hombre (Masculino)</option>
+                                <option value="Femenino">Mujer (Femenino)</option>
+                            </select>
+                            <small style="color: var(--text-muted); font-size: 0.74rem; display: block; margin-top: 4px;">
+                                * Requerido para calibrar las métricas de perfil en el sistema operativo.
+                            </small>
                         </div>
 
                         <div style="background: rgba(8, 17, 34, 0.6); padding: 14px; border-radius: 10px; border: 1px solid var(--border-color); margin-bottom: 16px;">
@@ -1075,6 +1158,44 @@
     </div>
 </div>
 
+<!-- MODAL GARANTIZADO DE DOBLE NOTIFICACIÓN DIRECTA (ZERO-FAILURE) -->
+<div id="modalNotificacionDual" class="modal-notificacion-dual-backdrop">
+    <div class="modal-notificacion-dual-card">
+        <div style="margin-bottom: 14px;">
+            <i class="fa-solid fa-circle-check" style="font-size: 3rem; color: #22c55e;"></i>
+        </div>
+        <h2 style="font-size: 1.35rem; color: #ffffff; font-weight: 800; text-transform: uppercase; margin-bottom: 6px;">
+            ¡Postulación Registrada con Éxito!
+        </h2>
+        <p style="font-size: 0.86rem; color: #cbd5e1; margin-bottom: 20px;" id="txtModalDualResumen">
+            La cita ha sido consolidada en el servidor. Comunica de inmediato la información sin intermediarios.
+        </p>
+
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+            <!-- BOTÓN 1: ENVÍO AL CANDIDATO -->
+            <button type="button" id="btnDispararWaCandidato" class="btn-wa-directo btn-wa-candidato">
+                <i class="fab fa-whatsapp" style="font-size: 1.3rem;"></i> <span>1. Abrir WhatsApp del Candidato</span>
+            </button>
+
+            <!-- BOTÓN 2: ENVÍO AL ASESOR -->
+            <button type="button" id="btnDispararWaAsesor" class="btn-wa-directo btn-wa-asesor">
+                <i class="fas fa-headset" style="font-size: 1.2rem;"></i> <span>2. Abrir WhatsApp del Asesor Titular</span>
+            </button>
+
+            <!-- BOTÓN 3: ACUSE DIGITAL -->
+            <a id="btnVerAcuseDigitalModal" href="#" target="_blank" class="btn-wa-directo btn-acuse-directo">
+                <i class="fas fa-file-shield"></i> <span>Ver Acuse Digital Oficial</span>
+            </a>
+        </div>
+
+        <div style="margin-top: 18px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 12px;">
+            <button type="button" onclick="cerrarModalNotificacionDual()" class="btn-regresar" style="margin-bottom: 0; padding: 6px 16px; font-size: 0.78rem;">
+                Volver a la Vacante
+            </button>
+        </div>
+    </div>
+</div>
+
 <script>
     const firebaseConfig = {
         apiKey: "AIzaSyDxgP1YnycCEqkQ2vr3SPkwc9QMhtG8Zqw",
@@ -1111,7 +1232,52 @@
             .replace(/[^a-z0-9]/g, "");
     };
 
-    // NORMALIZADOR CANÓNICO UNIVERSAL DE SEMÁFORO (SINCRONIZA M1, M2 Y PÚBLICO)
+    // NORMALIZADOR CANÓNICO DE TEXTO PARA ANTIDUPLICIDAD CUÁDRUPLE
+    function normalizarTextoPlano(str) {
+        if (!str) return "";
+        return String(str)
+            .trim()
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/[^a-z0-9\s]/g, "")
+            .replace(/\s+/g, " ");
+    }
+
+    // SANITIZADOR Y FORMATEADOR UNIVERSAL DE TELÉFONOS (PREFIJO MÉXICO 52)
+    function sanitizarTelefonoUniversal(tel) {
+        if (!tel) return "";
+        let d = tel.toString().replace(/\D/g, '');
+        if (d.length === 10) return "52" + d;
+        if (d.length === 11 && d.startsWith("1")) return "52" + d.substring(1);
+        if (d.length >= 12 && d.startsWith("52")) return d;
+        return d;
+    }
+
+    // DISPARADOR DIRECTO DE WHATSAPP (SIN ESCALAS NI PÁGINAS INTERMEDIAS)
+    function dispararWhatsAppDirecto(telefono, mensaje) {
+        const num = sanitizarTelefonoUniversal(telefono);
+        if (!num) return;
+        const msgEnc = encodeURIComponent(mensaje);
+        
+        // Protocolo nativo de app directo
+        const uriApp = `whatsapp://send?phone=${num}&text=${msgEnc}`;
+        const uriWeb = `https://api.whatsapp.com/send?phone=${num}&text=${msgEnc}`;
+
+        // Intentar invocar la app móvil; si es desktop o no abre, navegar directo
+        const esDispositivoMovil = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        if (esDispositivoMovil) {
+            window.location.href = uriApp;
+            setTimeout(() => {
+                // Fallback directo sin web intermedia
+                window.open(uriWeb, '_blank', 'noopener,noreferrer');
+            }, 750);
+        } else {
+            window.open(uriWeb, '_blank', 'noopener,noreferrer');
+        }
+    }
+
+    // NORMALIZADOR DE SEMÁFORO
     function normalizarEstatus(estatusRaw) {
         const raw = (estatusRaw || "").toLowerCase().trim();
         if (raw === "disponible" || raw === "activo" || raw === "abierta") return "disponible";
@@ -1140,7 +1306,6 @@
     let claveEmpresaM1Oficial = ""; 
     const fallbackTelefonoReclutador = "528112345678";
 
-    // CONFIGURACIÓN DINÁMICA DE HORARIOS SINCRONIZADA DESDE M1
     let configHorariosEmpresa = {
         dias: "lunes_viernes",
         horaInicio: "09:00",
@@ -1182,7 +1347,57 @@
                 document.getElementById('contenedorPrivacidadConsentimiento')?.classList.remove('has-error');
             }
         });
+
+        // Inicializar estado del selector de sexo
+        alCambiarCurpInput();
     });
+
+    // ACTIVADOR DEL SELECTOR DINÁMICO DE SEXO SEGÚN LA PRESENCIA DE CURP
+    window.alCambiarCurpInput = function() {
+        const inputCurp = document.getElementById('postCurp');
+        const boxSexo = document.getElementById('contenedorSexoManual');
+        const selSexo = document.getElementById('postSexoManual');
+        const curpVal = (inputCurp.value || '').trim();
+
+        if (curpVal.length === 0) {
+            boxSexo.style.display = 'block';
+            selSexo.required = true;
+        } else if (curpVal.length === 18) {
+            boxSexo.style.display = 'none';
+            selSexo.required = false;
+        } else {
+            // Aún escribiendo o longitud menor a 18
+            boxSexo.style.display = 'block';
+            selSexo.required = true;
+        }
+    };
+
+    // FABRICADOR DE CURP SINTÉTICA DE 18 CARACTERES (CURP-X)
+    function fabricarCurpSintetica(nombreCompleto, telefono, sexoSeleccionado) {
+        const norm = normalizarTextoPlano(nombreCompleto).toUpperCase();
+        const partes = norm.split(' ').filter(p => p.length > 0);
+        
+        let sigla = "XXXX";
+        if (partes.length >= 2) {
+            const ape1 = partes[partes.length - 2] || "XX";
+            const nom = partes[0] || "XX";
+            sigla = (ape1.substring(0, 2) + nom.substring(0, 2)).padEnd(4, 'X');
+        } else if (partes.length === 1) {
+            sigla = partes[0].substring(0, 4).padEnd(4, 'X');
+        }
+
+        const telClean = (telefono || '').replace(/\D/g, '');
+        const telDigitos = telClean.slice(-4).padStart(4, '0');
+
+        // Letra de género canónica para la posición 11 (crucial para m3_agenda)
+        const letraGenero = (sexoSeleccionado === 'Femenino') ? 'M' : 'H';
+
+        const entropy = Date.now().toString().slice(-4);
+
+        // Estructura fija de 18 caracteres: CURPX(5) + SIGLA(4) + TEL(4) + SEXO(1) + ENTROPY(4) = 18
+        const curpGenerada = `CURPX${sigla}${telDigitos}${letraGenero}${entropy}`.toUpperCase();
+        return curpGenerada.substring(0, 18);
+    }
 
     // MÉTODOS DEL MODAL DE PRIVACIDAD INTEGRAL
     window.abrirModalPrivacidad = function() {
@@ -1202,7 +1417,10 @@
         window.cerrarModalPrivacidad();
     };
 
-    // GENERADOR DE BLOQUES HORARIOS BASADO EN CONFIGURACIÓN DE M1
+    window.cerrarModalNotificacionDual = function() {
+        document.getElementById('modalNotificacionDual').style.display = 'none';
+    };
+
     function generarSelectorHorariosDisponibles() {
         const selectHora = document.getElementById('postHoraEntrevista');
         if (!selectHora) return;
@@ -1237,14 +1455,13 @@
         }
     }
 
-    // VALIDACIÓN DE DÍAS HÁBILES EN EL CALENDARIO
     function validarFechaSegunGobernanzaM1() {
         const inputFecha = document.getElementById('postFechaEntrevista');
         const fechaVal = inputFecha.value;
         if (!fechaVal) return;
 
         const [y, m, d] = fechaVal.split('-').map(Number);
-        const diaSemana = new Date(y, m - 1, d).getDay(); // 0 = Domingo, 6 = Sábado
+        const diaSemana = new Date(y, m - 1, d).getDay(); 
 
         if (configHorariosEmpresa.dias === "lunes_viernes" && (diaSemana === 0 || diaSemana === 6)) {
             alert("⚠️ Esta empresa únicamente realiza entrevistas de Lunes a Viernes. Por favor selecciona una fecha hábil.");
@@ -1266,7 +1483,7 @@
         if (btn.disabled) return;
 
         if (esAsistido) {
-            btn.innerHTML = `<i class="fab fa-whatsapp"></i> Guardar y Notificar al Candidato por WhatsApp`;
+            btn.innerHTML = `<i class="fab fa-whatsapp"></i> Registrar y Notificar Candidato por WhatsApp`;
             btn.style.backgroundColor = '#a855f7';
         } else {
             btn.innerHTML = `<i class="fab fa-whatsapp"></i> Confirmar Cita y Enviar WhatsApp`;
@@ -1291,7 +1508,6 @@
         }
     }
 
-    // APLICADOR DE REGLAS JERÁRQUICAS DE SEMÁFORO (EMPRESA + VACANTE INDIVIDUAL)
     function aplicarReglasSemaforoGlobal() {
         const banner = document.getElementById('bannerAlertaSemaforo');
         const icono = document.getElementById('bannerSemaforoIcono');
@@ -1307,7 +1523,6 @@
 
         const estatusEmp = normalizarEstatus(estatusOperativoEmpresa);
 
-        // 1. NIVEL PADRE: Estatus Maestro de la Empresa
         if (estatusEmp === "cerrada") {
             document.querySelector('.container').innerHTML = `
                 <div class="alerta-cerrada">
@@ -1332,7 +1547,6 @@
             return true;
         }
 
-        // 2. NIVEL HIJO: Si la empresa está Disponible, evaluar la vacante actualmente seleccionada
         if (datosVacanteGlobal) {
             const estatusVac = normalizarEstatus(datosVacanteGlobal.estatus);
 
@@ -1373,7 +1587,6 @@
         }
 
         try {
-            // LISTENER REACTIVO EN TIEMPO REAL: EMPRESAS
             db.ref('empresas').on('value', (snapEmpresas) => {
                 if (snapEmpresas.exists()) {
                     const catalogo = snapEmpresas.val();
@@ -1405,7 +1618,6 @@
                         bannersCorporativosEmpresa = infoMaestra.bannersCorporativos || "";
                         estatusOperativoEmpresa = infoMaestra.estatusOperativo || "Disponible";
 
-                        // Carga de configuración de horarios desde M1
                         configHorariosEmpresa = {
                             dias: infoMaestra.diasEntrevista || "lunes_viernes",
                             horaInicio: infoMaestra.horaInicioEntrevista || "09:00",
@@ -1429,7 +1641,6 @@
                 }
             });
 
-            // LISTENER REACTIVO EN TIEMPO REAL: VACANTES DETALLES (M1 Y M2)
             db.ref('vacantes_detalles').on('value', async function(snapshot) {
                 if (snapshot.exists()) {
                     const catalogoVacantes = snapshot.val();
@@ -1472,7 +1683,6 @@
                         renderizarUbicacionEmpresa(lugarHeader, mapaHeader);
                         document.getElementById('empresaHeaderBox').style.display = 'block';
 
-                        // RENDERIZADO DEL CATÁLOGO DE PUESTOS CON SEMÁFORO EN FORMA DE CHIP
                         const listaContenedor = document.getElementById('listaVacantesDinamica');
                         listaContenedor.innerHTML = ''; 
                         
@@ -1506,7 +1716,6 @@
                             listaContenedor.appendChild(cardItem);
                         });
                         
-                        // Si el usuario ya está viendo una vacante específica, actualizarla en caliente
                         if (vacanteKeyDetectada && todasLasVacantesEmpresa[vacanteKeyDetectada]) {
                             datosVacanteGlobal = todasLasVacantesEmpresa[vacanteKeyDetectada];
                             aplicarReglasSemaforoGlobal();
@@ -1562,9 +1771,7 @@
         const notasTexto = data.informacionGeneral || data.informacion_general || data.infoGeneral || data.notas || data.observaciones;
         document.getElementById('vacanteNotas').innerText = (notasTexto && notasTexto.trim().length > 0) ? notasTexto : 'Sin notas adicionales.';
 
-        // Aplicar semáforo jerárquico a la ficha
         aplicarReglasSemaforoGlobal();
-
         configurarMazorcaBanners(data);
         await inicializarBuscadorRutas();
 
@@ -1813,7 +2020,7 @@
             const response = await fetch(urlGeo, {
                 headers: {
                     'Accept-Language': 'es',
-                    'User-Agent': 'BolsaDeTrabajoApp/3.4'
+                    'User-Agent': 'BolsaDeTrabajoApp/3.5'
                 }
             });
 
@@ -2204,7 +2411,7 @@
         }
     }
 
-    function extraerDatosCurp(curp) {
+    function extraerDatosCurpReal(curp) {
         if (!curp || curp.length < 11) return { edad: "Indistinto", sexo: "Indistinto" };
         const letraSexo = curp.charAt(10).toUpperCase();
         let sexo = letraSexo === 'H' ? "Masculino" : (letraSexo === 'M' ? "Femenino" : "Indistinto");
@@ -2214,48 +2421,68 @@
         return { edad: isNaN(edadCalculada) ? "Indistinto" : String(edadCalculada), sexo: sexo };
     }
 
-    async function verificarTitularidadCandidato(curp, telefono) {
+    // VERIFICADOR DE TITULARIDAD CUÁDRUPLE (SINCRONIZADO CON M3_AGENDA)
+    async function verificarTitularidadCandidato(curp, telefono, nombreCompleto) {
         try {
             const estatusLiberados = ['Declinante', 'No Apto Medico', 'No Apto Entrevista'];
+            const nombreNorm = normalizarTextoPlano(nombreCompleto);
 
-            const snapCurp = await db.ref('postulantes').orderByChild('curp').equalTo(curp).once('value');
-            if (snapCurp.exists()) {
-                const list = snapCurp.val();
-                for (const key of Object.keys(list)) {
-                    const post = list[key];
-                    if (!estatusLiberados.includes(post.estatus) && (post.reclutadorId || post.asesor)) {
-                        return { existe: true, titular: post, keyOriginal: key };
-                    }
-                }
-            }
-
+            // 1. Verificación por Teléfono (10 dígitos)
             const snapTel = await db.ref('postulantes').orderByChild('telefono').equalTo(telefono).once('value');
             if (snapTel.exists()) {
                 const list = snapTel.val();
                 for (const key of Object.keys(list)) {
                     const post = list[key];
                     if (!estatusLiberados.includes(post.estatus) && (post.reclutadorId || post.asesor)) {
-                        return { existe: true, titular: post, keyOriginal: key };
+                        return { existe: true, titular: post, keyOriginal: key, motivo: `Teléfono "${telefono}"` };
+                    }
+                }
+            }
+
+            // 2. Verificación por CURP (si fue provista de forma real)
+            if (curp && curp.length === 18 && !curp.startsWith("CURPX")) {
+                const snapCurp = await db.ref('postulantes').orderByChild('curp').equalTo(curp).once('value');
+                if (snapCurp.exists()) {
+                    const list = snapCurp.val();
+                    for (const key of Object.keys(list)) {
+                        const post = list[key];
+                        if (!estatusLiberados.includes(post.estatus) && (post.reclutadorId || post.asesor)) {
+                            return { existe: true, titular: post, keyOriginal: key, motivo: `CURP "${curp}"` };
+                        }
+                    }
+                }
+            }
+
+            // 3. Verificación de Nombre Completo idéntico (cuando no hay CURP o cambió de teléfono)
+            if (nombreNorm.length >= 8) {
+                const snapAll = await db.ref('postulantes').limitToLast(150).once('value');
+                if (snapAll.exists()) {
+                    const list = snapAll.val();
+                    for (const key of Object.keys(list)) {
+                        const post = list[key];
+                        const nomExistente = normalizarTextoPlano(post.nombre || '');
+                        if (nomExistente && nomExistente === nombreNorm && !estatusLiberados.includes(post.estatus)) {
+                            return { existe: true, titular: post, keyOriginal: key, motivo: `Nombre completo "${post.nombre}"` };
+                        }
                     }
                 }
             }
         } catch (e) {
             console.warn("No se pudo verificar titularidad en Firebase:", e);
         }
-        return { existe: false, titular: null, keyOriginal: null };
+        return { existe: false, titular: null, keyOriginal: null, motivo: "" };
     }
 
+    // ENVÍO DE POSTULACIÓN CON DOBLE NOTIFICACIÓN DIRECTA Y CURP SINTÉTICA
     window.enviarPostulacion = async function(e) {
         e.preventDefault();
         
-        // Bloqueo de seguridad estricto a nivel empresa
         const estatusEmp = normalizarEstatus(estatusOperativoEmpresa);
         if (estatusEmp === "pausada" || estatusEmp === "cerrada") {
             alert("⚠️ El proceso de postulación para esta empresa se encuentra bloqueado actualmente.");
             return;
         }
 
-        // Bloqueo de seguridad estricto a nivel vacante individual
         if (datosVacanteGlobal) {
             const estatusVac = normalizarEstatus(datosVacanteGlobal.estatus);
             if (estatusVac === "pausada" || estatusVac === "cerrada") {
@@ -2264,7 +2491,6 @@
             }
         }
 
-        // VALIDACIÓN OBLIGATORIA DEL AVISO DE PRIVACIDAD
         const chkPrivacidad = document.getElementById('chkAceptoPrivacidad');
         const boxConsentimiento = document.getElementById('contenedorPrivacidadConsentimiento');
 
@@ -2279,7 +2505,8 @@
 
         const nombre = document.getElementById('postNombre').value.trim();
         const telefono = document.getElementById('postTelefono').value.trim().replace(/\D/g, '');
-        const curp = document.getElementById('postCurp').value.trim().toUpperCase();
+        let curp = document.getElementById('postCurp').value.trim().toUpperCase();
+        const selSexoManual = document.getElementById('postSexoManual');
         const fechaEntrevista = document.getElementById('postFechaEntrevista').value;
         const horaEntrevista = document.getElementById('postHoraEntrevista').value;
         const inputOcultoPunto = document.getElementById('selPuntoRecoleccion');
@@ -2287,20 +2514,44 @@
         const btnSubmit = document.getElementById('btnSubmitForm');
         const esModoAsistido = document.getElementById('chkModoAsistido').checked;
         
-        const puntoElegido = inputOcultoPunto.value ? inputOcultoPunto.value : "No aplica / No seleccionado";
+        const puntoElegido = inputOcultoPunto.value ? inputOcultoPunto.value : "No aplica / Traslado Propio";
 
         if (tieneRutasHabilitadas && !inputOcultoPunto.value) { 
             alert("⚠️ Por favor selecciona una Ruta y tu Parada correspondiente."); 
             return; 
         }
 
+        // EVALUACIÓN DE CURP OPCIONAL VS FABRICACIÓN DE CURP-X
+        let sexoFinal = "Indistinto";
+        let edadFinal = "Indistinto";
+        let esCurpGenerada = false;
+
+        if (curp && curp.length === 18) {
+            const datosExt = extraerDatosCurpReal(curp);
+            sexoFinal = datosExt.sexo;
+            edadFinal = datosExt.edad;
+            esCurpGenerada = false;
+        } else {
+            // No puso CURP o la dejó incompleta
+            if (!selSexoManual.value) {
+                alert("⚠️ Como omitiste la CURP, por favor selecciona el Sexo / Género para registrar tu perfil correctamente.");
+                selSexoManual.focus();
+                return;
+            }
+            sexoFinal = selSexoManual.value;
+            // Fabricar CURP-X de 18 caracteres compatible con m3_agenda
+            curp = fabricarCurpSintetica(nombre, telefono, sexoFinal);
+            esCurpGenerada = true;
+        }
+
         btnSubmit.disabled = true;
-        btnSubmit.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Validando titularidad de expediente...`;
+        btnSubmit.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Validando y asegurando cita...`;
 
         try {
-            const { existe, titular, keyOriginal } = await verificarTitularidadCandidato(curp, telefono);
+            // Verificación cruzada cuádruple
+            const { existe, titular, keyOriginal, motivo } = await verificarTitularidadCandidato(curp, telefono, nombre);
 
-            let telefonoDestino = "";
+            let telefonoDestinoReclutador = "";
             let nombreReclutadorCorto = "";
             let reclutadorIdFinal = null;
             let objetoAsesor = null;
@@ -2317,35 +2568,30 @@
 
                 if (reclutadorIdFinal && catalogoUsuariosGlobal[reclutadorIdFinal]) {
                     objetoAsesor = catalogoUsuariosGlobal[reclutadorIdFinal];
-                    telefonoDestino = String(objetoAsesor.telefono).trim();
+                    telefonoDestinoReclutador = String(objetoAsesor.telefono).trim();
                 } else if (titular.telefonoAsesor) {
-                    telefonoDestino = String(titular.telefonoAsesor).trim();
+                    telefonoDestinoReclutador = String(titular.telefonoAsesor).trim();
                 } else {
-                    telefonoDestino = fallbackTelefonoReclutador;
+                    telefonoDestinoReclutador = fallbackTelefonoReclutador;
                 }
 
                 alert(
-                    `ℹ️ Hola ${nombre}, identificamos que ya cuentas con un expediente activo en el sistema atendido por: ${nombreReclutadorCorto}.\n\n` +
-                    `Se actualizaron los datos de tu cita para no duplicar registros y respetar el seguimiento con tu asesor.`
+                    `ℹ️ Hola ${nombre}, identificamos coincidencia en tu expediente por (${motivo}).\n` +
+                    `Estás siendo atendido por: ${nombreReclutadorCorto}.\n\n` +
+                    `Se actualizaron los datos de tu cita para no duplicar folios y proteger tu seguimiento con tu asesor.`
                 );
             } else {
                 const opcionSeleccionada = selectReclutador.options[selectReclutador.selectedIndex];
-                telefonoDestino = selectReclutador.value; 
+                telefonoDestinoReclutador = selectReclutador.value; 
                 nombreReclutadorCorto = opcionSeleccionada ? (opcionSeleccionada.dataset.nombreReal || "Asesor Asignado") : "Asesor Asignado";
                 reclutadorIdFinal = opcionSeleccionada ? (opcionSeleccionada.dataset.reclutadorId || null) : null;
                 if (reclutadorIdFinal) objetoAsesor = catalogoUsuariosGlobal[reclutadorIdFinal] || null;
             }
 
-            let telReclutadorLimpio = String(telefonoDestino).replace(/\D/g, '');
-            if (telReclutadorLimpio.length === 10) telReclutadorLimpio = "52" + telReclutadorLimpio;
-            if (!telReclutadorLimpio) telReclutadorLimpio = fallbackTelefonoReclutador;
+            const telReclutadorLimpio = sanitizarTelefonoUniversal(telefonoDestinoReclutador) || fallbackTelefonoReclutador;
+            const telCandidatoLimpio = sanitizarTelefonoUniversal(telefono);
 
-            let telCandidatoLimpio = String(telefono).replace(/\D/g, '');
-            if (telCandidatoLimpio.length === 10) telCandidatoLimpio = "52" + telCandidatoLimpio;
-
-            const datosExtraidos = extraerDatosCurp(curp);
             const fechaYHoraActual = new Date().toLocaleString();
-            
             const vacanteNombreFinal = datosVacanteGlobal ? (datosVacanteGlobal.nombreVacante || datosVacanteGlobal.vacanteNombre || datosVacanteGlobal.puesto || "Desconocida") : "Desconocida";
             const empresaNombreFinal = nombreEmpresaMaestro || (datosVacanteGlobal ? datosVacanteGlobal.nombreComercial : empresaLimpia.toUpperCase());
 
@@ -2369,13 +2615,15 @@
                 if (!coordinadorPadreIdFinal) coordinadorPadreIdFinal = objetoAsesor.coordinadorPadreId || null;
             }
 
+            // CARGA ÚTIL EN BASE DE DATOS (FIREBASE RTDB)
             const payloadPostulante = {
                 id: timestampId,
                 nombre: nombre,
                 telefono: telefono,
                 curp: curp,
-                edad: datosExtraidos.edad,
-                sexo: datosExtraidos.sexo,
+                curpSintetica: esCurpGenerada,
+                edad: edadFinal,
+                sexo: sexoFinal,
                 empresa: empresaNombreFinal,
                 empresaId: claveEmpresaM1Oficial || empresaLimpia,
                 division: divisionEmpresaMaestro,
@@ -2386,7 +2634,6 @@
                 diaEntrevista: `${fechaEntrevista} ${horaEntrevista}`,
                 estatus: "Postulado",
                 
-                // Privacidad y consentimiento expreso
                 avisoPrivacidadAceptado: true,
                 fechaAceptacionPrivacidad: new Date().toISOString(),
 
@@ -2406,6 +2653,7 @@
                 urlAcusePdf: urlAcuseDigital,
                 origenRegistro: esModoAsistido ? "RECLUTADOR_ASISTIDO" : "CANDIDATO_PORTAL",
                 fechaRegistro: fechaYHoraActual,
+                ultimaActualizacion: new Date().toISOString(),
                 timestamp: firebase.database.ServerValue.TIMESTAMP
             };
 
@@ -2415,60 +2663,78 @@
                 await db.ref(`postulantes/${timestampId}`).set(payloadPostulante);
             }
 
+            // REGISTRO DE AUDITORÍA EN M7
             await db.ref('modulo_7_logs').push({
                 modulo: "VACANTE_PUBLICO",
                 evento: esActualizacion ? "ACTUALIZACION_TITULARIDAD_POSTULACION" : "NUEVA_POSTULACION_CANDIDATO",
                 ejecutadoPor: esModoAsistido ? `Asesor: ${nombreReclutadorCorto}` : "Portal Vacante (Público)",
-                detalle: `Candidato ${nombre} (${curp}) [${esActualizacion ? 'EXPEDIENTE REUTILIZADO' : 'NUEVO'}]. Asesor: ${nombreReclutadorCorto}. Folio: ${timestampId}. Aviso Privacidad Aceptado.`,
+                detalle: `Candidato ${nombre} (${curp}) [${esActualizacion ? 'EXPEDIENTE REUTILIZADO' : 'NUEVO'}]. Asesor: ${nombreReclutadorCorto}. Folio: ${timestampId}. CURP_SINTETICA=${esCurpGenerada}.`,
                 timestamp: firebase.database.ServerValue.TIMESTAMP
             });
 
-            let telefonoWhatsappDestino = "";
-            let mensajeWhatsApp = "";
+            // MENSAJES FORMATEADOS LIMPIOS Y DIRECTOS DE WHATSAPP
+            const msgParaCandidato = `¡Hola *${nombre}*! Te saludamos del área de Reclutamiento y Selección.\n\n` +
+                                     `Hemos consolidado tu registro oficial para la vacante *${vacanteNombreFinal}* en *${empresaNombreFinal}*.\n\n` +
+                                     `*📌 Detalles de tu Cita de Entrevista:*\n` +
+                                     `• *Folio Oficial:* ${timestampId}\n` +
+                                     `• *Fecha:* ${fechaEntrevista}\n` +
+                                     `• *Horario:* ${horaEntrevista}\n` +
+                                     `• *Ruta / Parada:* ${puntoElegido}\n\n` +
+                                     `*👤 Tu Asesor Asignado:*\n` +
+                                     `• *Nombre:* ${nombreReclutadorCorto}\n` +
+                                     `• *Contacto:* +${telReclutadorLimpio}\n\n` +
+                                     `*📄 Consulta tu Acuse Digital Oficial:*\n` +
+                                     `${urlAcuseDigital}\n\n` +
+                                     `_Favor de presentarte con tu identificación oficial (INE) y comprobante en mano._`;
 
-            if (esModoAsistido) {
-                telefonoWhatsappDestino = telCandidatoLimpio;
-                mensajeWhatsApp = `¡Hola *${nombre}*! Te saludamos del área de Reclutamiento y Selección.\n\n` +
-                                  `Hemos completado tu registro oficial para la vacante *${vacanteNombreFinal}* en *${empresaNombreFinal}*.\n\n` +
-                                  `*📌 Detalles de tu Cita de Entrevista:*\n` +
-                                  `• *Folio de Expediente:* ${timestampId}\n` +
-                                  `• *Fecha:* ${fechaEntrevista}\n` +
-                                  `• *Horario:* ${horaEntrevista}\n` +
-                                  `• *Ruta / Parada:* ${puntoElegido}\n\n` +
-                                  `*👤 Tu Asesor Asignado:*\n` +
-                                  `• *Nombre:* ${nombreReclutadorCorto}\n` +
-                                  `• *WhatsApp:* +${telReclutadorLimpio}\n\n` +
-                                  `*📄 Consulta tu Acuse Digital Oficial:*\n` +
-                                  `${urlAcuseDigital}\n\n` +
-                                  `_Favor de presentarte con tu identificación oficial (INE) y CURP en mano._`;
-            } else {
-                telefonoWhatsappDestino = telReclutadorLimpio;
-                mensajeWhatsApp = `¡Hola! Me acabo de postular a una vacante y agendé mi cita.\n\n` +
-                                  `*📌 Detalles de mi Postulación:*\n` +
+            const msgParaAsesor = `¡Nuevo Candidato Agendado!\n\n` +
+                                  `*📌 Datos del Expediente:*\n` +
                                   `• *Folio:* ${timestampId}\n` +
                                   `• *Puesto:* ${vacanteNombreFinal}\n` +
                                   `• *Empresa:* ${empresaNombreFinal}\n` +
-                                  `• *Ruta y Parada:* ${puntoElegido}\n\n` +
+                                  `• *Ruta / Parada:* ${puntoElegido}\n\n` +
                                   `*📅 Cita de Entrevista Agendada:*\n` +
                                   `• *Fecha:* ${fechaEntrevista}\n` +
                                   `• *Horario:* ${horaEntrevista}\n\n` +
-                                  `*👤 Mis Datos de Contacto:*\n` +
+                                  `*👤 Datos de Contacto del Candidato:*\n` +
                                   `• *Nombre:* ${nombre}\n` +
                                   `• *Teléfono:* ${telefono}\n` +
-                                  `• *CURP:* ${curp}\n\n` +
-                                  `*📄 Mi Acuse Digital Oficial:*\n` +
+                                  `• *CURP:* ${curp} ${esCurpGenerada ? '(Provisional)' : ''}\n` +
+                                  `• *Sexo:* ${sexoFinal}\n\n` +
+                                  `*📄 Acuse Digital del Candidato:*\n` +
                                   `${urlAcuseDigital}\n\n` +
                                   `_Atendido por: ${nombreReclutadorCorto}_`;
+
+            // CONFIGURAR ACCIONES DIRECTAS EN EL MODAL DUAL DE GARANTÍA
+            document.getElementById('btnVerAcuseDigitalModal').href = urlAcuseDigital;
+            
+            const btnWaCandidato = document.getElementById('btnDispararWaCandidato');
+            btnWaCandidato.onclick = () => dispararWhatsAppDirecto(telCandidatoLimpio, msgParaCandidato);
+
+            const btnWaAsesor = document.getElementById('btnDispararWaAsesor');
+            btnWaAsesor.onclick = () => dispararWhatsAppDirecto(telReclutadorLimpio, msgParaAsesor);
+
+            document.getElementById('txtModalDualResumen').innerHTML = `
+                Folio Oficial: <strong style="color:var(--wf-accent-blue);">${timestampId}</strong><br>
+                Candidato: <b>${nombre}</b> | Asesor: <b>${nombreReclutadorCorto}</b>
+            `;
+
+            document.getElementById('modalNotificacionDual').style.display = 'flex';
+
+            // DISPARO AUTOMÁTICO INMEDIATO (SIN ESPERAS INTERMEDIAS)
+            if (esModoAsistido) {
+                // Si captura el reclutador, enviar directo al candidato
+                dispararWhatsAppDirecto(telCandidatoLimpio, msgParaCandidato);
+            } else {
+                // Si captura el candidato, enviar directo al asesor titular
+                dispararWhatsAppDirecto(telReclutadorLimpio, msgParaAsesor);
             }
 
             document.getElementById('formPostulacion').reset();
             btnSubmit.disabled = false;
             alternarModoAsistido();
-            
-            setTimeout(() => {
-                window.location.href = `https://wa.me/${telefonoWhatsappDestino}?text=${encodeURIComponent(mensajeWhatsApp)}`;
-            }, 500);
-            
+            alCambiarCurpInput();
+
         } catch (err) {
             alert(`❌ Error al procesar datos: ${err.message}`);
             btnSubmit.disabled = false;
