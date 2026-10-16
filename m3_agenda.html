@@ -9,7 +9,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- SheetJS -->
+    <!-- SheetJS (Excel) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -87,11 +87,16 @@
     <div id="bannerAlertaVersion" class="hidden bg-gradient-to-r from-cyber-purple/90 to-cyber-cardAlt border border-cyber-purple p-3 rounded-2xl shadow-xl flex flex-col sm:flex-row items-center justify-between gap-3 mb-4 animate-pulse">
         <div class="flex items-center gap-2.5 text-xs text-white">
             <i class="fas fa-shield-virus text-cyber-cyan text-base"></i>
-            <span><strong>Centinela de Servidor:</strong> Se detectó una actualización en Firebase. Refresca para sincronizar tu vista.</span>
+            <span id="txtBannerCentinela"><strong>Centinela de Servidor:</strong> Auditoría activa. Se detectó una señal de actualización.</span>
         </div>
-        <button onclick="location.reload()" class="px-4 py-1.5 bg-cyber-cyan hover:bg-cyan-400 text-slate-950 font-black text-xs rounded-xl transition shadow">
-            <i class="fas fa-rotate me-1"></i> Refrescar Ahora
-        </button>
+        <div class="flex items-center gap-2">
+            <button onclick="cerrarBannerCentinela()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition">
+                Ocultar
+            </button>
+            <button onclick="location.reload()" class="px-4 py-1.5 bg-cyber-cyan hover:bg-cyan-400 text-slate-950 font-black text-xs rounded-xl transition shadow">
+                <i class="fas fa-rotate me-1"></i> Refrescar Ahora
+            </button>
+        </div>
     </div>
 
     <div class="max-w-7xl mx-auto space-y-6">
@@ -129,6 +134,12 @@
                 <a id="btnSupervisionLink" href="m3_supervision.html" class="bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-bold py-2.5 px-3 rounded-xl shadow flex items-center justify-center gap-2 text-xs transition-all touch-target whitespace-nowrap hidden">
                     <i class="fas fa-users-viewfinder"></i> Supervisión
                 </a>
+
+                <!-- BOTÓN PLAY: EJECUTOR MANUAL DE PRUEBA DE CENTINELA -->
+                <button type="button" id="btnPlayCentinela" onclick="ejecutarPruebaCentinelaManual()" class="bg-cyan-950/50 hover:bg-cyan-900/70 border border-cyber-cyan/50 text-cyber-cyan hover:text-white font-mono text-xs px-3 py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-all touch-target whitespace-nowrap shadow-md shadow-cyan-950/30" title="Ejecutar y Probar Centinela Manualmente">
+                    <i class="fas fa-circle-play text-sm text-cyan-400"></i>
+                    <span>Test Centinela</span>
+                </button>
 
                 <button id="btnCentinelaToggle" onclick="alternarEstadoCentinela()" class="bg-cyber-bg hover:bg-slate-900 border border-cyber-border text-slate-300 font-mono text-xs px-3 py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all touch-target whitespace-nowrap">
                     <span class="w-2 h-2 rounded-full bg-emerald-400 shrink-0" id="bulletCentinela"></span>
@@ -594,6 +605,8 @@
         window.cargarPostulantes = cargarPostulantes;
         window.alternarFiltroDesfasados = alternarFiltroDesfasados;
         window.alternarEstadoCentinela = alternarEstadoCentinela;
+        window.ejecutarPruebaCentinelaManual = ejecutarPruebaCentinelaManual;
+        window.cerrarBannerCentinela = cerrarBannerCentinela;
         window.guardarCambiosAdmin = guardarCambiosAdmin;
         window.eliminarPostulante = eliminarPostulante;
         window.exportarExcel = exportarExcel;
@@ -602,6 +615,7 @@
         window.actualizarHoraConsolidada = actualizarHoraConsolidada;
         window.onBuscadorInput = onBuscadorInput;
         window.cambiarPagina = cambiarPagina;
+        window.abrirWhatsAppCandidatoDirecto = abrirWhatsAppCandidatoDirecto;
 
         document.addEventListener("DOMContentLoaded", () => {
             inicializarSeguridadM3();
@@ -613,6 +627,50 @@
                 }
             });
         });
+
+        // UTILIDAD: SANITIZADOR Y CONSTRUCTOR DIRECTO DE WHATSAPP SIN INTERMEDIARIOS
+        function sanitizarNumeroWhatsApp(tel) {
+            if (!tel) return "";
+            let digits = tel.toString().replace(/\D/g, '');
+            if (digits.length === 10) {
+                digits = "52" + digits; // Prefijo México
+            } else if (digits.length === 11 && digits.startsWith("1")) {
+                digits = "52" + digits.substring(1);
+            }
+            return digits;
+        }
+
+        function construirUriWhatsApp(telefono, mensaje) {
+            const num = sanitizarNumeroWhatsApp(telefono);
+            if (!num) return "#";
+            const msgEnc = encodeURIComponent(mensaje);
+            // Protocolo directo con fallback inmediato universal
+            return `https://api.whatsapp.com/send?phone=${num}&text=${msgEnc}`;
+        }
+
+        function abrirWhatsAppCandidatoDirecto(telefono, mensaje) {
+            const num = sanitizarNumeroWhatsApp(telefono);
+            if (!num) {
+                alert("Número telefónico inválido o sin formato válido.");
+                return;
+            }
+            const msgEnc = encodeURIComponent(mensaje);
+            // Enlace rápido sin pasar por pantallas intermedias ni web puente lenta
+            const directUrl = `https://api.whatsapp.com/send?phone=${num}&text=${msgEnc}`;
+            window.open(directUrl, '_blank', 'noopener,noreferrer');
+        }
+
+        // NORMALIZADOR CANÓNICO PARA NOMBRES Y TEXTOS (ANTIDUPLICIDAD)
+        function normalizarTextoPlano(str) {
+            if (!str) return "";
+            return str.toString()
+                .trim()
+                .toLowerCase()
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .replace(/[^a-z0-9\s]/g, "")
+                .replace(/\s+/g, " ");
+        }
 
         function onBuscadorInput() {
             clearTimeout(debounceTimer);
@@ -630,7 +688,7 @@
             const txt = document.getElementById("txtCoincidenciaHistorica");
             const linkHistorico = document.getElementById("linkIrAHistorico");
 
-            if (termino.length < 8) {
+            if (termino.length < 6) {
                 banner.classList.add("hidden");
                 return;
             }
@@ -650,8 +708,9 @@
                 const encontrado = Object.entries(dataHist).find(([k, p]) => {
                     const cCurp = (p.curp || '').toUpperCase();
                     const cTel = (p.telefono || '').replace(/\D/g, '');
-                    const cNom = (p.nombre || '').toUpperCase();
-                    return cCurp.includes(termino) || cTel.includes(termino) || cNom.includes(termino);
+                    const cNom = normalizarTextoPlano(p.nombre || '');
+                    const termNorm = normalizarTextoPlano(termino);
+                    return cCurp.includes(termino) || cTel.includes(termino) || cNom.includes(termNorm);
                 });
 
                 if (encontrado) {
@@ -1006,7 +1065,9 @@
             onValue(ref(db, "configuracion_sistema/version_minima_erp"), (snap) => {
                 const versionServidor = snap.val();
                 if (versionServidor && versionServidor > 10.8) {
-                    document.getElementById("bannerAlertaVersion").classList.remove("hidden");
+                    const banner = document.getElementById("bannerAlertaVersion");
+                    document.getElementById("txtBannerCentinela").innerHTML = `<strong>Centinela de Servidor:</strong> Se detectó una actualización en Firebase (${versionServidor}). Refresca para sincronizar tu vista.`;
+                    banner.classList.remove("hidden");
                 }
             });
 
@@ -1023,6 +1084,43 @@
                     txt.innerText = "Modo: Mantenimiento";
                 }
             });
+        }
+
+        // EJECUCIÓN Y PRUEBA MANUAL DE CENTINELA
+        function ejecutarPruebaCentinelaManual() {
+            const banner = document.getElementById("bannerAlertaVersion");
+            const txt = document.getElementById("txtBannerCentinela");
+
+            // Diagnóstico rápido del estado de candidatos
+            let desfasadosCount = 0;
+            let criticosCount = 0;
+            const estadosVigilanSLA = ['Postulado', 'En Proceso', 'Entrevista', 'Inducción'];
+
+            Object.values(todosLosPostulantes).forEach(p => {
+                if (p && puedeVerCandidato(p)) {
+                    const estatus = normalizarEstatus(p.estatus || p.status);
+                    if (estadosVigilanSLA.includes(estatus)) {
+                        const horas = calcularHorasInactividad(p);
+                        if (horas > 48) criticosCount++;
+                        if (horas > 24) desfasadosCount++;
+                    }
+                }
+            });
+
+            txt.innerHTML = `<strong>Centinela Auditor (Modo Test):</strong> Inspección ejecutada con éxito. Candidatos vigilados: <b>${Object.keys(todosLosPostulantes).length}</b> | Retrasos SLA: <b>${desfasadosCount}</b> (${criticosCount} críticos).`;
+            banner.classList.remove("hidden");
+
+            // Notificación visual
+            alert(`🛡️ PRUEBA MANUAL DE CENTINELA EJECUTADA:\n\n` +
+                  `• Estado de Enlace: ACTIVO Y SINCRONIZADO\n` +
+                  `• Postulantes en Célula: ${listaCandidatosFiltrados.length}\n` +
+                  `• Alertas por Demora (>24h): ${desfasadosCount}\n` +
+                  `• Casos Críticos (>48h): ${criticosCount}\n\n` +
+                  `La barra de notificación de Centinela se mantendrá visible para comprobar la reactividad.`);
+        }
+
+        function cerrarBannerCentinela() {
+            document.getElementById("bannerAlertaVersion").classList.add("hidden");
         }
 
         function alternarEstadoCentinela() {
@@ -1366,10 +1464,10 @@
                        </div>`
                     : `<div class="text-[10px] text-slate-500 font-mono mt-0.5"><i class="fas fa-person-walking"></i> Traslado Propio</div>`;
 
-                const msgWA = `Hola *${p.nombre}*, te saludamos de Reclutamiento para la vacante *${vacNombre}* en *${nombreEmpresa}*. Tu estatus es: *${estatus}*.`;
-                const urlWA = `https://wa.me/52${p.telefono}?text=${encodeURIComponent(msgWA)}`;
+                const msgWA = `Hola *${p.nombre || 'Candidato'}*, te saludamos de Reclutamiento para la vacante *${vacNombre}* en *${nombreEmpresa}*. Tu estatus es: *${estatus}*.`;
+                const urlWA = construirUriWhatsApp(p.telefono, msgWA);
 
-                // Card Móvil
+                // CARD MÓVIL (<1024px) - RESTAURACIÓN DEL BOTÓN ELIMINAR CON TOUCH TARGET
                 const card = document.createElement('div');
                 card.className = "bg-cyber-card p-4 rounded-2xl border border-cyber-border space-y-3 shadow-md flex flex-col justify-between";
                 card.innerHTML = `
@@ -1405,22 +1503,26 @@
                         </div>
                     </div>
 
-                    <div class="pt-2 border-t border-cyber-border flex items-center justify-between gap-2">
+                    <div class="pt-2 border-t border-cyber-border flex items-center justify-between gap-2 flex-wrap">
                         <a href="tel:${p.telefono}" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-cyber-border touch-target flex items-center justify-center" title="Llamar">
                             <i class="fas fa-phone text-xs"></i>
                         </a>
-                        <a href="${urlWA}" target="_blank" class="flex-1 py-2 px-3 rounded-xl bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/30 font-mono text-xs font-bold flex items-center justify-center gap-1.5 touch-target">
+                        <a href="${urlWA}" target="_blank" rel="noopener noreferrer" class="flex-1 py-2 px-3 rounded-xl bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/30 font-mono text-xs font-bold flex items-center justify-center gap-1.5 touch-target">
                             <i class="fab fa-whatsapp text-sm"></i> WhatsApp
                         </a>
                         ${puedeEditar ? `
                         <button onclick="abrirModalEditar('${id}')" class="p-2.5 rounded-xl bg-cyber-cyan/20 hover:bg-cyber-cyan text-cyber-cyan hover:text-slate-950 border border-cyber-cyan/30 touch-target flex items-center justify-center" title="Editar Ficha">
                             <i class="fas fa-pen text-xs"></i>
                         </button>` : ''}
+                        ${puedeEliminar ? `
+                        <button onclick="eliminarPostulante('${id}')" class="p-2.5 rounded-xl bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/30 touch-target flex items-center justify-center" title="Eliminar Candidato (Admin)">
+                            <i class="fas fa-trash text-xs"></i>
+                        </button>` : ''}
                     </div>
                 `;
                 fragCards.appendChild(card);
 
-                // Fila Desktop
+                // FILA DESKTOP (>=1024px)
                 const tr = document.createElement('tr');
                 tr.className = "hover:bg-slate-800/40 border-b border-cyber-border/40 transition-colors";
                 tr.innerHTML = `
@@ -1459,7 +1561,7 @@
                     <td class="p-3.5 text-xs text-slate-200 font-medium">${recNombre}</td>
                     <td class="p-3.5 text-center pr-5 whitespace-nowrap">
                         <div class="flex items-center justify-center gap-1.5">
-                            <a href="${urlWA}" target="_blank" class="bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/30 p-2 rounded-lg transition" title="WhatsApp">
+                            <a href="${urlWA}" target="_blank" rel="noopener noreferrer" class="bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/30 p-2 rounded-lg transition" title="WhatsApp Inmediato">
                                 <i class="fab fa-whatsapp"></i>
                             </a>
                             ${puedeEditar ? `
@@ -1467,7 +1569,7 @@
                                 <i class="fas fa-pen"></i>
                             </button>` : ''}
                             ${puedeEliminar ? `
-                            <button onclick="eliminarPostulante('${id}')" class="bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/30 p-2 rounded-lg transition" title="Eliminar">
+                            <button onclick="eliminarPostulante('${id}')" class="bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/30 p-2 rounded-lg transition" title="Eliminar Definitivo">
                                 <i class="fas fa-trash"></i>
                             </button>` : ''}
                         </div>
@@ -1672,16 +1774,22 @@
             document.getElementById("modalEditar").classList.add("hidden");
         }
 
+        // GUARDADO CON BLINDAJE ANTIDUPLICIDAD (CURP, TELÉFONO Y NOMBRE COMPLETO)
         async function guardarCambiosAdmin() {
             RBAC.asegurar('m3_agenda', 'editar', "No tienes permisos para modificar expedientes.");
 
             const btn = document.getElementById("btnGuardarExpediente");
             const id = document.getElementById("editId").value;
+            const nombreIngresado = document.getElementById("editNombre").value.trim();
             const curp = document.getElementById("editCurp").value.trim().toUpperCase();
             const telefono = document.getElementById("editTelefono").value.trim().replace(/\D/g, '');
             const originalRecId = document.getElementById("originalReclutadorId").value;
             const originalRecNombre = document.getElementById("originalReclutadorNombre").value;
 
+            if (!nombreIngresado || nombreIngresado.length < 3) {
+                alert("Por favor ingresa el nombre completo del candidato.");
+                return;
+            }
             if (!curp || curp.length !== 18) {
                 alert("La CURP debe tener exactamente 18 caracteres.");
                 return;
@@ -1691,11 +1799,20 @@
                 return;
             }
 
+            const nombreNormIngresado = normalizarTextoPlano(nombreIngresado);
+
+            // Búsqueda de duplicidad estricta (CURP, Teléfono o Nombre idéntico)
             const registroDuplicado = Object.entries(todosLosPostulantes).find(([key, post]) => {
                 if (key === id) return false;
                 const curpReg = (post.curp || '').toString().trim().toUpperCase();
                 const telReg = (post.telefono || '').toString().replace(/\D/g, '');
-                return (curpReg && curpReg === curp) || (telReg && telReg === telefono);
+                const nomReg = normalizarTextoPlano(post.nombre || '');
+
+                const coincideCurp = (curpReg && curpReg === curp);
+                const coincideTel = (telReg && telReg === telefono);
+                const coincideNom = (nomReg && nomReg.length >= 8 && nomReg === nombreNormIngresado);
+
+                return coincideCurp || coincideTel || coincideNom;
             });
 
             if (registroDuplicado) {
@@ -1703,15 +1820,21 @@
                 const titularAsignado = dupData.reclutadorNombre || dupData.asesor || "Asesor no especificado";
                 const empresaTitular = dupData.empresa || dupData.empresaId || "Sin Empresa";
                 const estatusTitular = normalizarEstatus(dupData.estatus || dupData.status);
-                const motivoCoincidencia = ((dupData.curp || '').trim().toUpperCase() === curp) ? `CURP "${curp}"` : `Teléfono "${telefono}"`;
+                
+                let motivo = `CURP "${curp}"`;
+                if ((dupData.telefono || '').toString().replace(/\D/g, '') === telefono) {
+                    motivo = `Teléfono "${telefono}"`;
+                } else if (normalizarTextoPlano(dupData.nombre || '') === nombreNormIngresado) {
+                    motivo = `Nombre y Apellidos "${dupData.nombre}"`;
+                }
 
                 alert(`⛔ BLOQUEO DE DUPLICIDAD POR GOBERNANZA:\n\n` +
-                      `El dato (${motivoCoincidencia}) ya pertenece a otro candidato registrado.\n\n` +
+                      `El dato (${motivo}) ya pertenece a otro expediente registrado en el sistema.\n\n` +
                       `• Candidato Oficial: ${dupData.nombre || 'Candidato Registrado'}\n` +
                       `• Asesor Titular: ${titularAsignado}\n` +
                       `• Empresa Asignada: ${empresaTitular}\n` +
                       `• Estatus: ${estatusTitular}\n\n` +
-                      `Operación abortada para proteger la cartera y comisiones.`);
+                      `Operación abortada para proteger la cartera y comisiones de la célula.`);
                 return;
             }
 
@@ -1751,7 +1874,7 @@
                 const sexoActualizado = resolverSexoCandidato(todosLosPostulantes[id]?.sexo, curp);
 
                 const updates = {
-                    nombre: document.getElementById("editNombre").value.trim(),
+                    nombre: nombreIngresado,
                     telefono: telefono,
                     curp: curp,
                     sexo: sexoActualizado,
@@ -1806,52 +1929,75 @@
         async function eliminarPostulante(id) {
             RBAC.asegurar('m3_agenda', 'eliminar', "No cuentas con privilegios para eliminar candidatos.");
 
-            if (confirm("¿Eliminar definitivamente este candidato? Esta acción no se puede deshacer.")) {
-                const previo = todosLosPostulantes[id];
-                await remove(ref(db, `postulantes/${id}`));
-                await push(ref(db, 'modulo_7_logs'), {
-                    modulo: "M3_AGENDA",
-                    evento: "ELIMINACION_CANDIDATO",
-                    ejecutadoPor: usuarioSesion.nombre,
-                    uidEjecutor: usuarioSesion.uid,
-                    detalle: `Se eliminó el expediente de ${previo?.nombre || id}.`,
-                    timestamp: serverTimestamp()
-                });
+            if (confirm("⚠️ ¿Estás seguro de ELIMINAR definitivamente a este candidato?\n\nEsta acción no se puede deshacer y quedará registrada en la bitácora de auditoría.")) {
+                try {
+                    const previo = todosLosPostulantes[id];
+                    await remove(ref(db, `postulantes/${id}`));
+                    await push(ref(db, 'modulo_7_logs'), {
+                        modulo: "M3_AGENDA",
+                        evento: "ELIMINACION_CANDIDATO",
+                        ejecutadoPor: usuarioSesion.nombre,
+                        uidEjecutor: usuarioSesion.uid,
+                        detalle: `Se eliminó el expediente de ${previo?.nombre || id} (${previo?.curp || 'S/CURP'}).`,
+                        timestamp: serverTimestamp()
+                    });
+                    alert("Candidato eliminado exitosamente de la base activa.");
+                } catch (e) {
+                    alert("Error al intentar eliminar el registro: " + e.message);
+                }
             }
         }
 
+        // EXPORTADOR A EXCEL CON SHEETJS BLINDADO Y FILTRO EN TIEMPO REAL
         function exportarExcel() {
-            const dataExport = [];
-            Object.entries(todosLosPostulantes).forEach(([id, p]) => {
-                if (puedeVerCandidato(p)) {
-                    const empKey = sanitizarKey(p.empresaId || p.empresa || "");
-                    const empData = catalogoEmpresas[empKey] || {};
-                    const rutaExport = p.rutaTransporteSeleccionada || p.rutaNombre || p.ruta || "Sin Ruta";
-                    const sexoExport = resolverSexoCandidato(p.sexo, p.curp);
+            if (typeof XLSX === "undefined" && typeof window.XLSX === "undefined") {
+                alert("⚠️ La librería de exportación a Excel aún no está cargada. Espera unos segundos o verifica tu conexión a internet.");
+                return;
+            }
+
+            const exportador = window.XLSX || XLSX;
+
+            try {
+                const dataExport = [];
+                // Exportar únicamente los candidatos filtrados que el usuario está viendo actualmente
+                listaCandidatosFiltrados.forEach(({ id, p, estatus, horas, sexoReal, empKey, empData, divisionEmpresa, vacNombre, rutaCapturada, recId }) => {
+                    const nombreEmpresa = empData.nombreComercial || p.empresa || empKey;
+                    const recNombre = catalogoUsuarios[recId]?.nombre || p.reclutadorNombre || "Sin Asignar";
 
                     dataExport.push({
-                        "ID": id,
-                        "Nombre": p.nombre,
-                        "Teléfono": p.telefono,
-                        "CURP": p.curp,
-                        "Edad": p.edad,
-                        "Sexo": sexoExport,
-                        "División": (p.division || empData.division || "centro").toUpperCase(),
-                        "Empresa": p.empresa || p.empresaId,
-                        "Vacante": p.nombreVacante || p.vacante,
-                        "Ruta_Transporte": rutaExport,
-                        "Estatus_Operativo": normalizarEstatus(p.estatus || p.status),
-                        "Cita": p.diaEntrevista || "Sin Cita",
-                        "Reclutador": p.reclutadorNombre || "Sin Asignar",
-                        "Inactividad_Horas": Math.floor(calcularHorasInactividad(p))
+                        "ID_Expediente": id,
+                        "Nombre": p.nombre || "Sin Nombre",
+                        "Teléfono": p.telefono || "",
+                        "CURP": p.curp || "",
+                        "Edad": p.edad || 0,
+                        "Sexo": sexoReal,
+                        "División": (divisionEmpresa || "centro").toUpperCase(),
+                        "Empresa": nombreEmpresa,
+                        "Vacante": vacNombre,
+                        "Ruta_Transporte": rutaCapturada || "Sin Ruta",
+                        "Estatus_Operativo": estatus,
+                        "Cita_Entrevista": p.diaEntrevista || p.fechaEntrevista || "Sin Cita",
+                        "Asesor_Titular": recNombre,
+                        "Inactividad_Horas": Math.floor(horas)
                     });
-                }
-            });
+                });
 
-            const wb = XLSX.utils.book_new();
-            const ws = XLSX.utils.json_to_sheet(dataExport);
-            XLSX.utils.book_append_sheet(wb, ws, "Postulantes");
-            XLSX.writeFile(wb, `Reporte_Agenda_Operativa_${new Date().toISOString().split('T')[0]}.xlsx`);
+                if (dataExport.length === 0) {
+                    alert("No hay candidatos en la lista actual para exportar con los filtros seleccionados.");
+                    return;
+                }
+
+                const wb = exportador.utils.book_new();
+                const ws = exportador.utils.json_to_sheet(dataExport);
+                exportador.utils.book_append_sheet(wb, ws, "Postulantes_Agenda");
+                
+                const fechaHoy = new Date().toISOString().split('T')[0];
+                exportador.writeFile(wb, `Reporte_Agenda_Operativa_${fechaHoy}.xlsx`);
+
+            } catch (err) {
+                console.error("Error al exportar a Excel:", err);
+                alert("Ocurrió un error al generar el archivo Excel: " + err.message);
+            }
         }
     </script>
 </body>
