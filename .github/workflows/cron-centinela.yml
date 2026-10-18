@@ -1,0 +1,29 @@
+name: Despachador Nocturno de Recordatorios de Entrevista
+
+on:
+  schedule:
+    # 03:00 UTC equivale a las 21:00 hrs de la Ciudad de México (UTC-6)
+    - cron: '0 3 * * *'
+  workflow_dispatch: # Permite ejecutar el job manualmente con un clic en la pestaña Actions de GitHub
+
+jobs:
+  despacho-recordatorios:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar Código del Repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js Runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Ejecutar Motor de Recordatorios
+        env:
+          FIREBASE_DB_URL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com"
+          FIREBASE_SECRET: ${{ secrets.FIREBASE_DB_SECRET }}
+          GATEWAY_BASE_URL: ${{ secrets.GATEWAY_BASE_URL }}
+          GATEWAY_API_KEY: ${{ secrets.GATEWAY_API_KEY }}
+          ADMIN_WHATSAPP_PHONE: ${{ secrets.ADMIN_WHATSAPP_PHONE }}
+        run: node .github/workflows/recordatorios-job.js
