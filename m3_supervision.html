@@ -923,7 +923,9 @@
             renderizarGraficos(globalColocados, globalMed, globalEnt, globalDecl, globalV + globalA + globalR, chartLabels, chartDataV, chartDataA, chartDataR);
         }
 
-        // AGENDA CON RECONOCIMIENTO DE RECORDATORIOS DEL JOB DE LAS 21:00 HRS
+        // =========================================================================
+        // AGENDA CON RECONOCIMIENTO ESTRICTO DE CURP Y RECORDATORIOS
+        // =========================================================================
         function procesarAgendaTacticoCitas() {
             const tbody = document.getElementById("tablaCitasHoyBody");
             const badge = document.getElementById("badgeConteoCitasHoy");
@@ -948,10 +950,13 @@
                     const est = normalizarEstatus(p.estatus || p.status);
                     const esHoy = fechaCita === hoyStr;
 
-                    const esCurpX = Boolean(p.curpSintetica || (p.curp && p.curp.startsWith("CURPX")));
-                    const badgeDoc = esCurpX
-                        ? `<span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[10px] font-mono font-bold" title="CURP no provista en vacante.html (Requerir INE en entrevista)">⚠️ CURP Pendiente</span>`
-                        : `<span class="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-mono font-bold">✓ CURP Validada</span>`;
+                    // CORRECCIÓN CRÍTICA DE VALIDACIÓN DE CURP
+                    const curpLimpia = (p.curp || "").trim().toUpperCase();
+                    const esCurpValida = curpLimpia.length === 18 && !curpLimpia.startsWith("CURPX");
+
+                    const badgeDoc = esCurpValida
+                        ? `<span class="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-mono font-bold" title="CURP Oficial: ${curpLimpia}">✓ CURP Validada</span>`
+                        : `<span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[10px] font-mono font-bold" title="CURP no capturada o temporal. Requerir INE">⚠️ CURP Pendiente</span>`;
 
                     const notificado = p.recordatorioCitaEnviado === true;
                     const badgeRecordatorio = notificado
