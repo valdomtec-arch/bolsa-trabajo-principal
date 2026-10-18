@@ -92,7 +92,7 @@
 </head>
 <body class="bg-cyber-bg text-slate-200 font-sans min-h-screen antialiased selection:bg-cyber-accent selection:text-white p-3 sm:p-5 md:p-6 text-sm">
 
-    <!-- CANDADO ZERO-TRUST (GOBERNANZA HOMÓLOGA A M5_STAFF) -->
+    <!-- CANDADO ZERO-TRUST -->
     <div id="candadoSeguridadM3" class="hidden flex flex-col items-center justify-center min-h-[70vh] text-center p-6 sm:p-8 glass-panel rounded-3xl max-w-xl mx-auto shadow-glow-card border-rose-500/30 mt-10">
         <div class="w-20 h-20 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-500 text-3xl mb-5 shadow-inner">
             <i class="fas fa-user-lock animate-pulse"></i>
@@ -109,7 +109,7 @@
         </a>
     </div>
 
-    <!-- CONTENEDOR PRINCIPAL OPERATIVO (PROTEGIDO) -->
+    <!-- CONTENEDOR PRINCIPAL OPERATIVO -->
     <div id="panelPrincipalM3" class="max-w-7xl mx-auto space-y-6 hidden">
 
         <!-- HEADER PRINCIPAL -->
@@ -149,7 +149,6 @@
                     <i class="fas fa-users-viewfinder"></i> Supervisión
                 </a>
 
-                <!-- DISPARADOR MANUAL DE CONTINGENCIA PARA RECORDATORIOS (ADMIN / MANDO) -->
                 <button type="button" id="btnDisparadorRecordatorios" onclick="abrirModalConfirmacionLote()" class="bg-gradient-to-r from-purple-700 to-indigo-700 hover:from-purple-600 hover:to-indigo-600 text-white font-bold py-2.5 px-3 rounded-xl shadow flex items-center justify-center gap-2 text-xs transition-all touch-target whitespace-nowrap hidden" title="Disparar recordatorios de entrevistas para mañana en segundo plano">
                     <i class="fas fa-paper-plane text-cyan-300"></i>
                     <span>Recordatorios Mañana</span>
@@ -350,7 +349,7 @@
 
     </div>
 
-    <!-- MODAL DE EDICIÓN Y GESTIÓN CON BLINDAJE ANTIDUPLICIDAD -->
+    <!-- MODAL DE EDICIÓN Y GESTIÓN CON BLINDAJE ANTIDUPLICIDAD Y RUTA -->
     <div id="modalEditar" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 z-50">
         <div class="bg-cyber-card border border-cyber-accent rounded-3xl shadow-2xl max-w-lg w-full p-5 sm:p-6 relative max-h-[90dvh] overflow-y-auto space-y-4">
             <button type="button" onclick="cerrarModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-xl font-bold p-1 touch-target">&times;</button>
@@ -430,16 +429,7 @@
                     <div>
                         <label class="block text-xs font-mono text-slate-300 uppercase mb-1 font-bold">Estatus Operativo</label>
                         <select id="editEstatus" class="w-full bg-cyber-bg border border-cyber-border text-white rounded-xl p-2.5 focus:outline-none focus:border-cyber-accent font-bold touch-target">
-                            <option value="Postulado">🔴 Postulado</option>
-                            <option value="En Proceso">🟠 En Proceso</option>
-                            <option value="Entrevista">🟡 Entrevista</option>
-                            <option value="Inducción">🔵 Inducción</option>
-                            <option value="Contratado">🟢 Contratado</option>
-                            <option value="Trabajando">🟢 Trabajando</option>
-                            <option value="No Apto Entrevista">🟣 No Apto Entrevista</option>
-                            <option value="No Apto Medico">🔴 No Apto Médico</option>
-                            <option value="Declinante">⚪ Declinante (Abandono)</option>
-                            <option value="Proceso Terminado">⭐ Proceso Terminado (Éxito Facturable)</option>
+                            <!-- Inyectado dinámicamente según gobernanza de rol -->
                         </select>
                     </div>
                 </div>
@@ -591,12 +581,39 @@
         const auth = getAuth(app);
         const db = getDatabase(app);
 
-        // CONFIGURACIÓN CENTRALIZADA DEL GATEWAY SILENCIOSO (HTTP EN SEGUNDO PLANO)
         const GATEWAY_CONFIG = {
-            baseUrl: "https://api.gateway-reclutamiento.com/v1", // Endpoint del Gateway
+            baseUrl: "https://api.gateway-reclutamiento.com/v1",
             apiKey: "ERP_BEARER_TOKEN_ACTIVO",
             instanciaCentralFallback: "CENTRAL_RECLUTAMIENTO"
         };
+
+        const LISTA_ESTATUS_CATALOGO = [
+            { id: "Postulado", nombre: "🔴 Postulado", clase: "status-postulado" },
+            { id: "En Proceso", nombre: "🟠 En Proceso", clase: "status-proceso" },
+            { id: "Entrevista", nombre: "🟡 Entrevista", clase: "status-entrevista" },
+            { id: "Inducción", nombre: "🔵 Inducción", clase: "status-induccion" },
+            { id: "Contratado", nombre: "🟢 Contratado", clase: "status-contratado" },
+            { id: "Trabajando", nombre: "🟢 Trabajando", clase: "status-trabajando" },
+            { id: "No Apto Entrevista", nombre: "🟣 No Apto Entrevista", clase: "status-noapto-entrevista" },
+            { id: "No Apto Medico", nombre: "🔴 No Apto Médico", clase: "status-noapto-medico" },
+            { id: "Declinante", nombre: "⚪ Declinante (Abandono)", clase: "status-declinante" },
+            { id: "Proceso Terminado", nombre: "⭐ Terminado (Éxito)", clase: "status-terminado" }
+        ];
+
+        const GOBERNANZA_ESTATUS_DEFAULT = {
+            "Postulado": { n1_n2: true, n3: true, n4_n5: true },
+            "En Proceso": { n1_n2: true, n3: true, n4_n5: true },
+            "Entrevista": { n1_n2: true, n3: true, n4_n5: true },
+            "Declinante": { n1_n2: true, n3: true, n4_n5: true },
+            "No Apto Entrevista": { n1_n2: false, n3: true, n4_n5: true },
+            "Inducción": { n1_n2: false, n3: true, n4_n5: true },
+            "Contratado": { n1_n2: false, n3: true, n4_n5: true },
+            "No Apto Medico": { n1_n2: false, n3: false, n4_n5: true },
+            "Trabajando": { n1_n2: false, n3: false, n4_n5: true },
+            "Proceso Terminado": { n1_n2: false, n3: false, n4_n5: true }
+        };
+
+        let matrizGobernanza = { ...GOBERNANZA_ESTATUS_DEFAULT };
 
         let todosLosPostulantes = {};
         let catalogoEmpresas = {};
@@ -632,9 +649,6 @@
             rawUser: {}
         };
 
-        // =========================================================================
-        // MOTOR DE AUDITORÍA Y GOBERNANZA RBAC CANÓNICA (HOMÓLOGO A M5_STAFF)
-        // =========================================================================
         const RBAC = {
             puede(moduloId, accion) {
                 if (!usuarioSesion.uid) return false;
@@ -664,7 +678,6 @@
             }
         };
 
-        // EXPOSICIÓN GLOBAL
         window.cambioRapidoEstatus = cambioRapidoEstatus;
         window.abrirModalEditar = abrirModalEditar;
         window.cerrarModal = cerrarModal;
@@ -708,9 +721,6 @@
             return digits;
         }
 
-        // =========================================================================
-        // MOTOR DE ENVÍO DIRECTO Y SILENCIOSO VÍA HTTP (SIN ABRIR WHATSAPP WEB)
-        // =========================================================================
         async function enviarWhatsAppDirectoHTTP(numeroDestino, mensajeTexto, reclutadorId) {
             const telSanitizado = sanitizarNumeroWhatsApp(numeroDestino);
             if (!telSanitizado) {
@@ -721,32 +731,8 @@
                 ? catalogoUsuarios[reclutadorId].instanciaWhatsApp
                 : (catalogoUsuarios[reclutadorId]?.telefono ? `instancia_${reclutadorId}` : GATEWAY_CONFIG.instanciaCentralFallback);
 
-            const payload = {
-                instancia: instanciaEmisora,
-                receptor: telSanitizado,
-                mensaje: mensajeTexto,
-                timestamp: Date.now()
-            };
-
-            try {
-                /*
-                const res = await fetch(`${GATEWAY_CONFIG.baseUrl}/messages/sendText`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${GATEWAY_CONFIG.apiKey}`
-                    },
-                    body: JSON.stringify(payload)
-                });
-                if (!res.ok) throw new Error(`HTTP ${res.status}: Fallo en entrega de mensaje`);
-                return await res.json();
-                */
-                console.log(`[DESPACHO SILENCIOSO HTTP] Emisor: ${instanciaEmisora} -> Receptor: ${telSanitizado} | Mensaje: "${mensajeTexto.substring(0, 40)}..."`);
-                return { success: true, messageId: `msg_${Date.now()}` };
-            } catch (err) {
-                console.warn("[GATEWAY ERROR] No se pudo entregar por HTTP silencioso:", err);
-                throw err;
-            }
+            console.log(`[DESPACHO SILENCIOSO HTTP] Emisor: ${instanciaEmisora} -> Receptor: ${telSanitizado} | Mensaje: "${mensajeTexto.substring(0, 40)}..."`);
+            return { success: true, messageId: `msg_${Date.now()}` };
         }
 
         async function dispararNotificacionDirectaIndividual(id) {
@@ -979,6 +965,16 @@
             return "Postulado";
         }
 
+        function puedeModificarEstatus(estatusId) {
+            if (usuarioSesion.nivel >= 5) return true;
+            const regla = matrizGobernanza[estatusId] || GOBERNANZA_ESTATUS_DEFAULT[estatusId];
+            if (!regla) return true;
+
+            if (usuarioSesion.nivel >= 4) return regla.n4_n5 === true;
+            if (usuarioSesion.nivel === 3) return regla.n3 === true;
+            return regla.n1_n2 === true;
+        }
+
         function getDivisionBadgeM3(divRaw) {
             const div = (divRaw || "").toLowerCase();
             if (div === "norte") return `<span class="badge-division badge-div-norte"><i class="fas fa-compass"></i> Norte</span>`;
@@ -993,9 +989,6 @@
             return d.toISOString().split('T')[0];
         }
 
-        // =========================================================================
-        // INICIALIZADOR DE SEGURIDAD REACTIVO Y GOBERNANZA REALTIME
-        // =========================================================================
         function inicializarSeguridadM3() {
             onAuthStateChanged(auth, (user) => {
                 const candado = document.getElementById("candadoSeguridadM3");
@@ -1005,6 +998,15 @@
                     window.location.href = "acceso.html";
                     return;
                 }
+
+                onValue(ref(db, "configuracion_sistema/gobernanza_estatus"), (s) => {
+                    if (s.exists()) {
+                        matrizGobernanza = s.val();
+                    } else {
+                        matrizGobernanza = { ...GOBERNANZA_ESTATUS_DEFAULT };
+                    }
+                    if (usuarioSesion.uid) cargarPostulantes();
+                });
 
                 onValue(ref(db, "roles_dinamicos"), (snapRoles) => {
                     catalogoRoles = snapRoles.val() || {};
@@ -1465,6 +1467,21 @@
             });
         }
 
+        function construirOpcionesSelectEstatus(estatusActual) {
+            let html = "";
+            LISTA_ESTATUS_CATALOGO.forEach(item => {
+                const esElMismo = (estatusActual === item.id);
+                const autorizado = puedeModificarEstatus(item.id);
+
+                if (autorizado || esElMismo) {
+                    html += `<option value="${item.id}" ${esElMismo ? 'selected' : ''}>${item.nombre}</option>`;
+                } else {
+                    html += `<option value="${item.id}" disabled class="text-slate-600 bg-slate-900">${item.nombre} 🔒</option>`;
+                }
+            });
+            return html;
+        }
+
         function renderizarPaginaActual() {
             const contCards = document.getElementById("postulantesCardsMobile");
             const tbodyDesktop = document.getElementById("tablaPostulantesDesktop");
@@ -1501,15 +1518,8 @@
 
             lote.forEach(({ id, p, estatus, horas, estaEnSLA, sexoReal, empKey, empData, divisionEmpresa, vacNombre, rutaCapturada, recId }) => {
                 let claseSemaforo = "status-postulado";
-                if (estatus === "En Proceso") claseSemaforo = "status-proceso";
-                else if (estatus === "Entrevista") claseSemaforo = "status-entrevista";
-                else if (estatus === "Inducción") claseSemaforo = "status-induccion";
-                else if (estatus === "Contratado") claseSemaforo = "status-contratado";
-                else if (estatus === "Trabajando") claseSemaforo = "status-trabajando";
-                else if (estatus === "No Apto Entrevista") claseSemaforo = "status-noapto-entrevista";
-                else if (estatus === "No Apto Medico") claseSemaforo = "status-noapto-medico";
-                else if (estatus === "Declinante") claseSemaforo = "status-declinante";
-                else if (estatus === "Proceso Terminado") claseSemaforo = "status-terminado";
+                const coincidencia = LISTA_ESTATUS_CATALOGO.find(x => x.id === estatus);
+                if (coincidencia) claseSemaforo = coincidencia.clase;
 
                 let badgeSla = estaEnSLA 
                     ? (horas > 48 
@@ -1542,6 +1552,8 @@
                        </div>`
                     : `<div class="text-[10px] text-slate-500 font-mono mt-0.5"><i class="fas fa-person-walking"></i> Traslado Propio</div>`;
 
+                const opcionesEstatusHTML = construirOpcionesSelectEstatus(estatus);
+
                 // CARD MÓVIL
                 const card = document.createElement('div');
                 card.className = "bg-cyber-card p-4 rounded-2xl border border-cyber-border space-y-3 shadow-md flex flex-col justify-between";
@@ -1553,16 +1565,7 @@
                                 <span class="text-xs font-mono text-slate-400 block">${p.telefono || 'Sin Tel'} • <strong class="text-amber-400">${p.curp || 'S/CURP'}</strong></span>
                             </div>
                             <select onchange="cambioRapidoEstatus('${id}', this.value)" class="text-xs font-bold rounded-lg px-2.5 py-1.5 focus:outline-none cursor-pointer ${claseSemaforo} touch-target" ${disabledSelect}>
-                                <option value="Postulado" ${estatus === 'Postulado' ? 'selected' : ''}>🔴 Postulado</option>
-                                <option value="En Proceso" ${estatus === 'En Proceso' ? 'selected' : ''}>🟠 En Proceso</option>
-                                <option value="Entrevista" ${estatus === 'Entrevista' ? 'selected' : ''}>🟡 Entrevista</option>
-                                <option value="Inducción" ${estatus === 'Inducción' ? 'selected' : ''}>🔵 Inducción</option>
-                                <option value="Contratado" ${estatus === 'Contratado' ? 'selected' : ''}>🟢 Contratado</option>
-                                <option value="Trabajando" ${estatus === 'Trabajando' ? 'selected' : ''}>🟢 Trabajando</option>
-                                <option value="No Apto Entrevista" ${estatus === 'No Apto Entrevista' ? 'selected' : ''}>🟣 No Apto Entrevista</option>
-                                <option value="No Apto Medico" ${estatus === 'No Apto Medico' ? 'selected' : ''}>🔴 No Apto Médico</option>
-                                <option value="Declinante" ${estatus === 'Declinante' ? 'selected' : ''}>⚪ Declinante</option>
-                                <option value="Proceso Terminado" ${estatus === 'Proceso Terminado' ? 'selected' : ''}>⭐ Terminado (Éxito)</option>
+                                ${opcionesEstatusHTML}
                             </select>
                         </div>
 
@@ -1600,16 +1603,7 @@
                 tr.innerHTML = `
                     <td class="p-3.5 pl-5">
                         <select onchange="cambioRapidoEstatus('${id}', this.value)" class="text-xs font-bold rounded-lg px-2.5 py-1.5 focus:outline-none cursor-pointer ${claseSemaforo}" ${disabledSelect}>
-                            <option value="Postulado" ${estatus === 'Postulado' ? 'selected' : ''}>🔴 Postulado</option>
-                            <option value="En Proceso" ${estatus === 'En Proceso' ? 'selected' : ''}>🟠 En Proceso</option>
-                            <option value="Entrevista" ${estatus === 'Entrevista' ? 'selected' : ''}>🟡 Entrevista</option>
-                            <option value="Inducción" ${estatus === 'Inducción' ? 'selected' : ''}>🔵 Inducción</option>
-                            <option value="Contratado" ${estatus === 'Contratado' ? 'selected' : ''}>🟢 Contratado</option>
-                            <option value="Trabajando" ${estatus === 'Trabajando' ? 'selected' : ''}>🟢 Trabajando</option>
-                            <option value="No Apto Entrevista" ${estatus === 'No Apto Entrevista' ? 'selected' : ''}>🟣 No Apto Entrevista</option>
-                            <option value="No Apto Medico" ${estatus === 'No Apto Medico' ? 'selected' : ''}>🔴 No Apto Médico</option>
-                            <option value="Declinante" ${estatus === 'Declinante' ? 'selected' : ''}>⚪ Declinante</option>
-                            <option value="Proceso Terminado" ${estatus === 'Proceso Terminado' ? 'selected' : ''}>⭐ Terminado (Éxito)</option>
+                            ${opcionesEstatusHTML}
                         </select>
                     </td>
                     <td class="p-3.5">
@@ -1656,6 +1650,12 @@
 
         async function cambioRapidoEstatus(id, nuevoEstatus) {
             RBAC.asegurar('m3_agenda', 'editar', "No tienes privilegios para modificar el estatus de los candidatos.");
+
+            if (!puedeModificarEstatus(nuevoEstatus)) {
+                alert(`⛔ GOBERNANZA: Tu nivel jerárquico (N${usuarioSesion.nivel}) no está facultado para asentar la fase "${nuevoEstatus}".`);
+                cargarPostulantes();
+                return;
+            }
 
             try {
                 await update(ref(db, `postulantes/${id}`), {
@@ -1752,7 +1752,10 @@
             document.getElementById("editCurp").value = p.curp || "";
             
             const estatusActual = normalizarEstatus(p.estatus || p.status || "Postulado");
-            document.getElementById("editEstatus").value = estatusActual;
+            
+            const selEstatusModal = document.getElementById("editEstatus");
+            selEstatusModal.innerHTML = construirOpcionesSelectEstatus(estatusActual);
+            selEstatusModal.value = estatusActual;
             
             const recId = p.reclutadorId || p.agenteId || "";
             const recNombre = catalogoUsuarios[recId]?.nombre || p.reclutadorNombre || "Sin Asignar";
@@ -1787,7 +1790,7 @@
                 }
             });
 
-            editEmpresa.value = catalogoEmpresas[currentEmpresa] ? currentEmpresa : "SIN_EMPRESA";
+            editEmpresa.value = catalogoEmpresas[currentEmpresa] ? currentEmpresa : (catalogoEmpresas[sanitizarKey(currentEmpresa)] ? sanitizarKey(currentEmpresa) : "SIN_EMPRESA");
             
             poblarVacantesEnModal(p.nombreVacante || p.vacante);
             
@@ -1825,8 +1828,9 @@
             const editVacante = document.getElementById("editVacante");
             editVacante.innerHTML = '<option value="SIN_VACANTE">-- Sin Vacante --</option>';
 
-            if (empSel !== "SIN_EMPRESA" && catalogoVacantesDetalles[sanitizarKey(empSel)]) {
-                Object.values(catalogoVacantesDetalles[sanitizarKey(empSel)]).forEach(v => {
+            const empKey = sanitizarKey(empSel);
+            if (empSel !== "SIN_EMPRESA" && catalogoVacantesDetalles[empKey]) {
+                Object.values(catalogoVacantesDetalles[empKey]).forEach(v => {
                     const tit = v.nombreVacante || v.puesto;
                     if (tit) editVacante.innerHTML += `<option value="${tit}">${tit}</option>`;
                 });
@@ -1837,28 +1841,36 @@
             }
         }
 
+        // =========================================================================
+        // RECONSTRUCCIÓN ROBUSTA DE RUTAS DE TRANSPORTE EN MODAL
+        // =========================================================================
         function poblarRutasEnModal(rutaActual) {
-            const empSel = sanitizarKey(document.getElementById("editEmpresa").value);
+            const empSelVal = document.getElementById("editEmpresa").value;
             const editRuta = document.getElementById("editRuta");
             editRuta.innerHTML = '<option value="SIN_RUTA">-- Traslado Propio / Sin Ruta --</option>';
 
-            const rutasEmp = catalogoRutas[empSel] || {};
+            if (empSelVal === "SIN_EMPRESA") return;
+
+            const empKeySanitizada = sanitizarKey(empSelVal);
+            const rutasEmp = catalogoRutas[empKeySanitizada] || catalogoRutas[empSelVal] || {};
             const rutasEntries = Object.entries(rutasEmp);
 
             let rutaEncontrada = false;
+            const rutaNormalizadaActual = (rutaActual || "").trim().toLowerCase();
 
             if (rutasEntries.length > 0) {
                 rutasEntries.forEach(([rId, rVal]) => {
                     const nomRuta = typeof rVal === 'object' ? (rVal.nombreRuta || rVal.nombre || rVal.ruta || rId) : rVal;
-                    
-                    const isSelected = Boolean(rutaActual && (
-                        rutaActual === nomRuta || 
-                        rutaActual.startsWith(nomRuta) || 
-                        nomRuta.startsWith(rutaActual)
-                    ));
+                    const nomRutaStr = nomRuta.toString().trim();
+                    const nomRutaNorm = nomRutaStr.toLowerCase();
+
+                    const isSelected = Boolean(
+                        rutaNormalizadaActual && 
+                        (rutaNormalizadaActual === nomRutaNorm || nomRutaNorm.includes(rutaNormalizadaActual) || rutaNormalizadaActual.includes(nomRutaNorm))
+                    );
 
                     if (isSelected) rutaEncontrada = true;
-                    editRuta.innerHTML += `<option value="${nomRuta}" ${isSelected ? 'selected' : ''}>${nomRuta}</option>`;
+                    editRuta.innerHTML += `<option value="${nomRutaStr}" ${isSelected ? 'selected' : ''}>🚌 ${nomRutaStr}</option>`;
                 });
             }
 
@@ -1872,7 +1884,7 @@
         }
 
         // =========================================================================
-        // GUARDADO CON CONTROL DE REPROGRAMACIÓN E IDEMPOTENCIA
+        // GUARDADO CON CONTROL DE REPROGRAMACIÓN, RUTAS Y LIMPIEZA DE CURP SINTÉTICA
         // =========================================================================
         async function guardarCambiosAdmin() {
             RBAC.asegurar('m3_agenda', 'editar', "No tienes permisos para modificar expedientes en Agenda.");
@@ -1888,6 +1900,13 @@
 
             const origFecha = document.getElementById("originalAgendaFecha").value;
             const origHora = document.getElementById("originalAgendaHora").value;
+
+            const nuevoEstatus = document.getElementById("editEstatus").value;
+
+            if (!puedeModificarEstatus(nuevoEstatus)) {
+                alert(`⛔ GOBERNANZA: Tu nivel de usuario no tiene permitido asentar el estatus "${nuevoEstatus}".`);
+                return;
+            }
 
             if (!nombres || nombres.length < 2) {
                 alert("Por favor ingresa los nombres del candidato.");
@@ -1968,7 +1987,9 @@
 
                 const sexoActualizado = resolverSexoCandidato(todosLosPostulantes[id]?.sexo, curp);
 
-                // REINICIO DE BANDERAS DE RECORDATORIO SI SE REPROGRAMÓ LA CITA
+                // CORRECCIÓN CLAVE DE CURP SINTÉTICA
+                const esCurpRealOficial = curp.length === 18 && !curp.startsWith("CURPX");
+
                 const seReprogramoCita = (fechaCita !== origFecha) || (horaCita !== origHora);
 
                 const updates = {
@@ -1977,13 +1998,15 @@
                     apellidos: apellidos,
                     telefono: telefono,
                     curp: curp,
+                    curpSintetica: !esCurpRealOficial, // Limpia de forma permanente la bandera sintética
                     sexo: sexoActualizado,
-                    estatus: document.getElementById("editEstatus").value,
+                    estatus: nuevoEstatus,
                     empresaId: empKey,
                     division: divisionEmp,
                     nombreVacante: document.getElementById("editVacante").value,
                     vacante: document.getElementById("editVacante").value,
                     
+                    // Edición y homologación atómica de ruta de transporte
                     rutaTransporteSeleccionada: rutaSeleccionada,
                     rutaNombre: rutaSeleccionada,
                     ruta: rutaSeleccionada,
@@ -2148,11 +2171,9 @@
                 txtPct.textContent = `${pct}%`;
                 txtMsg.textContent = `Procesando ${procesados} de ${total} (${nom})...`;
 
-                // Throttle preventivo de 1 segundo entre envíos
                 await new Promise(r => setTimeout(r, 1000));
             }
 
-            // AVISO DIRECTO AL ADMINISTRADOR POR WHATSAPP TRAS CONCLUIR EL LOTE MANUAL
             const telAdminSesion = usuarioSesion.rawUser?.telefono || "";
             if (telAdminSesion) {
                 const reporteAdmin = `🤖 *[REPORTE ERP - DISPARO MANUAL]*\n` +
@@ -2187,7 +2208,6 @@
             }, 1200);
         }
 
-        // MOTOR DE EXPORTACIÓN EXCEL / CSV
         async function exportarExcel() {
             const btn = document.getElementById("btnExportarExcel");
             const textoOriginal = btn.innerHTML;
