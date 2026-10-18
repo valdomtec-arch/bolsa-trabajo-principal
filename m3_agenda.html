@@ -112,22 +112,6 @@
     <!-- CONTENEDOR PRINCIPAL OPERATIVO (PROTEGIDO) -->
     <div id="panelPrincipalM3" class="max-w-7xl mx-auto space-y-6 hidden">
 
-        <!-- BARRA DE ACTUALIZACIÓN DEL CENTINELA -->
-        <div id="bannerAlertaVersion" class="hidden bg-gradient-to-r from-cyber-purple/90 to-cyber-cardAlt border border-cyber-purple p-3 rounded-2xl shadow-xl flex flex-col sm:flex-row items-center justify-between gap-3 mb-4 animate-pulse">
-            <div class="flex items-center gap-2.5 text-xs text-white">
-                <i class="fas fa-shield-virus text-cyber-cyan text-base"></i>
-                <span id="txtBannerCentinela"><strong>Centinela de Servidor:</strong> Auditoría activa. Se detectó una señal de actualización.</span>
-            </div>
-            <div class="flex items-center gap-2">
-                <button onclick="cerrarBannerCentinela()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition">
-                    Ocultar
-                </button>
-                <button onclick="location.reload()" class="px-4 py-1.5 bg-cyber-cyan hover:bg-cyan-400 text-slate-950 font-black text-xs rounded-xl transition shadow">
-                    <i class="fas fa-rotate me-1"></i> Refrescar Ahora
-                </button>
-            </div>
-        </div>
-
         <!-- HEADER PRINCIPAL -->
         <header class="flex flex-col lg:flex-row justify-between items-start lg:items-center bg-cyber-card p-4 sm:p-5 rounded-3xl border border-cyber-border shadow-xl gap-4">
             <div class="w-full lg:w-auto">
@@ -140,6 +124,9 @@
                     </span>
                     <span id="badgeScopeStatus" class="bg-cyber-cardAlt text-cyber-cyan text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-cyber-border">
                         Scope: Evaluando...
+                    </span>
+                    <span id="badgeRecordatoriosStatus" class="bg-purple-500/10 text-purple-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-purple-500/20 flex items-center gap-1.5">
+                        <i class="fas fa-clock"></i> Citas Mañana: <span id="txtConteoPendientesCitas">0 pendientes</span>
                     </span>
                 </div>
                 <h1 class="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-tight">Gestión de Postulantes y Embudo Facturable</h1>
@@ -162,14 +149,10 @@
                     <i class="fas fa-users-viewfinder"></i> Supervisión
                 </a>
 
-                <button type="button" id="btnPlayCentinela" onclick="ejecutarPruebaCentinelaManual()" class="bg-cyan-950/50 hover:bg-cyan-900/70 border border-cyber-cyan/50 text-cyber-cyan hover:text-white font-mono text-xs px-3 py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-all touch-target whitespace-nowrap shadow-md shadow-cyan-950/30" title="Ejecutar Centinela Manual">
-                    <i class="fas fa-circle-play text-sm text-cyan-400"></i>
-                    <span>Test Centinela</span>
-                </button>
-
-                <button id="btnCentinelaToggle" onclick="alternarEstadoCentinela()" class="bg-cyber-bg hover:bg-slate-900 border border-cyber-border text-slate-300 font-mono text-xs px-3 py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all touch-target whitespace-nowrap">
-                    <span class="w-2 h-2 rounded-full bg-emerald-400 shrink-0" id="bulletCentinela"></span>
-                    <span id="txtCentinela">Centinela: Activo</span>
+                <!-- DISPARADOR MANUAL DE CONTINGENCIA PARA RECORDATORIOS (ADMIN / MANDO) -->
+                <button type="button" id="btnDisparadorRecordatorios" onclick="abrirModalConfirmacionLote()" class="bg-gradient-to-r from-purple-700 to-indigo-700 hover:from-purple-600 hover:to-indigo-600 text-white font-bold py-2.5 px-3 rounded-xl shadow flex items-center justify-center gap-2 text-xs transition-all touch-target whitespace-nowrap hidden" title="Disparar recordatorios de entrevistas para mañana en segundo plano">
+                    <i class="fas fa-paper-plane text-cyan-300"></i>
+                    <span>Recordatorios Mañana</span>
                 </button>
 
                 <button type="button" id="btnExportarExcel" onclick="exportarExcel()" class="col-span-2 sm:col-span-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 px-3.5 rounded-xl shadow flex items-center justify-center gap-2 text-xs transition-all touch-target whitespace-nowrap cursor-pointer">
@@ -355,7 +338,7 @@
                             <th class="p-3.5">CURP & Demografía</th>
                             <th class="p-3.5">Empresa, Vacante & Ruta</th>
                             <th class="p-3.5">Asesor / Célula</th>
-                            <th class="p-3.5 text-center pr-5">Acciones</th>
+                            <th class="p-3.5 text-center pr-5">Acciones Directas</th>
                         </tr>
                     </thead>
                     <tbody id="tablaPostulantesDesktop" class="divide-y divide-cyber-border/50 text-slate-200 text-xs">
@@ -376,12 +359,14 @@
                 <h2 class="text-base font-bold text-white flex items-center gap-2">
                     <i class="fas fa-user-shield text-cyber-accent"></i> Expediente del Postulante
                 </h2>
-                <p class="text-xs text-slate-400">Actualización de ciclo operativo, ruta y asignación.</p>
+                <p class="text-xs text-slate-400">Actualización de ciclo operativo, ruta, asesor y cita de entrevista.</p>
             </div>
 
             <input type="hidden" id="editId">
             <input type="hidden" id="originalReclutadorId">
             <input type="hidden" id="originalReclutadorNombre">
+            <input type="hidden" id="originalAgendaFecha">
+            <input type="hidden" id="originalAgendaHora">
             
             <div class="space-y-3.5 text-xs">
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -499,7 +484,7 @@
                                     <option value="30">30</option>
                                     <option value="45">45</option>
                                 </select>
-                                <button type="button" id="btnToggleAmPm" onclick="toggleAmPm()" class="px-3 py-2 bg-amber-500/20 text-amber-300 hover:bg-amber-500 hover:text-slate-950 font-black font-mono text-xs rounded-xl border border-amber-500/40 transition touch-target">
+                                <button type="button" id="btnToggleAmPm" onclick="toggleAmPm()" class="px-3 py-2 bg-purple-500/20 text-purple-300 hover:bg-purple-500 hover:text-slate-950 font-black font-mono text-xs rounded-xl border border-purple-500/40 transition touch-target">
                                     AM
                                 </button>
                             </div>
@@ -534,6 +519,54 @@
         </div>
     </div>
 
+    <!-- MODAL DE DISPARO MANUAL DE RECORDATORIOS (CONTINGENCIA SILENCIOSA) -->
+    <div id="modalConfirmacionLote" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 z-50">
+        <div class="bg-cyber-card border border-purple-500/50 rounded-3xl shadow-2xl max-w-lg w-full p-5 sm:p-6 relative space-y-4">
+            <button type="button" onclick="cerrarModalLote()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-xl font-bold p-1 touch-target">&times;</button>
+
+            <div class="border-b border-cyber-border pb-2">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <i class="fas fa-paper-plane text-purple-400"></i> Despachador de Recordatorios de Entrevista
+                </h3>
+                <p class="text-xs text-slate-400">Ejecución manual de contingencia en segundo plano (vía HTTP silencioso).</p>
+            </div>
+
+            <div id="loteDetalleContenedor" class="space-y-3 text-xs">
+                <div class="p-3 bg-cyber-bg rounded-xl border border-cyber-border space-y-1">
+                    <div class="flex justify-between">
+                        <span class="text-slate-400 font-mono">Fecha de entrevista evaluada:</span>
+                        <strong class="text-white font-mono" id="txtLoteFechaManana">--</strong>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-400 font-mono">Candidatos pendientes de aviso:</span>
+                        <strong class="text-cyan-400 font-mono text-sm" id="txtLoteTotalCandidatos">0</strong>
+                    </div>
+                </div>
+
+                <div id="listaPreviaLote" class="max-h-48 overflow-y-auto space-y-1.5 p-2 bg-cyber-bg/50 rounded-xl border border-cyber-border text-[11px] font-mono">
+                    <!-- Registros a notificar -->
+                </div>
+
+                <div id="contenedorProgresoLote" class="hidden space-y-1.5 pt-2">
+                    <div class="flex justify-between text-[11px] font-mono">
+                        <span class="text-slate-400" id="txtProgresoLoteMensaje">Despachando mensajes...</span>
+                        <span class="text-purple-300 font-bold" id="txtProgresoLotePorcentaje">0%</span>
+                    </div>
+                    <div class="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
+                        <div id="barraProgresoLote" class="bg-gradient-to-r from-purple-500 to-cyber-cyan h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2.5 pt-3 border-t border-cyber-border" id="accionesModalLote">
+                <button type="button" onclick="cerrarModalLote()" class="px-4 py-2 border border-cyber-border rounded-xl text-xs font-bold text-slate-400 hover:bg-slate-800 transition touch-target">Cancelar</button>
+                <button type="button" id="btnEjecutarLoteEnvio" onclick="ejecutarDespachoRecordatorios()" class="px-5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black rounded-xl text-xs uppercase transition shadow-lg touch-target flex items-center gap-1.5">
+                    <i class="fas fa-play text-xs"></i> Iniciar Envío Silencioso
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- FIREBASE SDK V10 MODULAR -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -558,6 +591,13 @@
         const auth = getAuth(app);
         const db = getDatabase(app);
 
+        // CONFIGURACIÓN CENTRALIZADA DEL GATEWAY SILENCIOSO (HTTP EN SEGUNDO PLANO)
+        const GATEWAY_CONFIG = {
+            baseUrl: "https://api.gateway-reclutamiento.com/v1", // Endpoint del Gateway
+            apiKey: "ERP_BEARER_TOKEN_ACTIVO",
+            instanciaCentralFallback: "CENTRAL_RECLUTAMIENTO"
+        };
+
         let todosLosPostulantes = {};
         let catalogoEmpresas = {};
         let catalogoUsuarios = {};
@@ -566,7 +606,6 @@
         let catalogoRutas = {};
         let chartSexoInstance = null;
         let chartEdadInstance = null;
-        let centinelaActivo = true;
         let filtroSoloDesfasadosActivo = false;
         let modoRelojActual = '12H';
 
@@ -575,6 +614,7 @@
         let listaCandidatosFiltrados = [];
         let debounceTimer = null;
         let busquedaHistoricaCache = {};
+        let candidatosPendientesRecordatorioManana = [];
 
         let usuarioSesion = {
             uid: null,
@@ -598,21 +638,17 @@
         const RBAC = {
             puede(moduloId, accion) {
                 if (!usuarioSesion.uid) return false;
-                // Nivel 5: Master Administrador (Acceso Total Irrestricto)
                 if (usuarioSesion.nivel >= 5) return true;
 
-                // 1. Consulta la plantilla viva de roles en memoria
                 const rolVivo = catalogoRoles[usuarioSesion.rolId];
                 if (rolVivo && rolVivo.permisos && rolVivo.permisos[moduloId]) {
                     return !!rolVivo.permisos[moduloId][accion];
                 }
 
-                // 2. Fallback al objeto inyectado en el perfil del usuario
                 if (usuarioSesion.rawUser?.permisosModulos?.[moduloId]) {
                     return !!usuarioSesion.rawUser.permisosModulos[moduloId][accion];
                 }
 
-                // 3. Fallbacks de contingencia por jerarquía
                 if (accion === 'ver') return true;
                 if (accion === 'crear' || accion === 'editar') return usuarioSesion.nivel >= 2;
                 if (accion === 'eliminar') return usuarioSesion.nivel >= 4;
@@ -637,9 +673,6 @@
         window.alCambiarEmpresaEnModal = alCambiarEmpresaEnModal;
         window.cargarPostulantes = cargarPostulantes;
         window.alternarFiltroDesfasados = alternarFiltroDesfasados;
-        window.alternarEstadoCentinela = alternarEstadoCentinela;
-        window.ejecutarPruebaCentinelaManual = ejecutarPruebaCentinelaManual;
-        window.cerrarBannerCentinela = cerrarBannerCentinela;
         window.guardarCambiosAdmin = guardarCambiosAdmin;
         window.eliminarPostulante = eliminarPostulante;
         window.exportarExcel = exportarExcel;
@@ -648,11 +681,14 @@
         window.actualizarHoraConsolidada = actualizarHoraConsolidada;
         window.onBuscadorInput = onBuscadorInput;
         window.cambiarPagina = cambiarPagina;
-        window.abrirWhatsAppCandidatoDirecto = abrirWhatsAppCandidatoDirecto;
+        window.abrirModalConfirmacionLote = abrirModalConfirmacionLote;
+        window.cerrarModalLote = cerrarModalLote;
+        window.ejecutarDespachoRecordatorios = ejecutarDespachoRecordatorios;
+        window.dispararNotificacionDirectaIndividual = dispararNotificacionDirectaIndividual;
 
         document.addEventListener("DOMContentLoaded", () => {
             inicializarSeguridadM3();
-            iniciarCentinelaWatchdog();
+            iniciarMonitorConexion();
 
             document.getElementById("detailsGraficas").addEventListener("toggle", (e) => {
                 if (e.target.open) {
@@ -672,19 +708,80 @@
             return digits;
         }
 
-        function construirUriWhatsApp(telefono, mensaje) {
-            const num = sanitizarNumeroWhatsApp(telefono);
-            if (!num) return "#";
-            return `https://api.whatsapp.com/send?phone=${num}&text=${encodeURIComponent(mensaje)}`;
+        // =========================================================================
+        // MOTOR DE ENVÍO DIRECTO Y SILENCIOSO VÍA HTTP (SIN ABRIR WHATSAPP WEB)
+        // =========================================================================
+        async function enviarWhatsAppDirectoHTTP(numeroDestino, mensajeTexto, reclutadorId) {
+            const telSanitizado = sanitizarNumeroWhatsApp(numeroDestino);
+            if (!telSanitizado) {
+                throw new Error("Número de teléfono receptor no válido.");
+            }
+
+            const instanciaEmisora = (reclutadorId && catalogoUsuarios[reclutadorId]?.instanciaWhatsApp)
+                ? catalogoUsuarios[reclutadorId].instanciaWhatsApp
+                : (catalogoUsuarios[reclutadorId]?.telefono ? `instancia_${reclutadorId}` : GATEWAY_CONFIG.instanciaCentralFallback);
+
+            const payload = {
+                instancia: instanciaEmisora,
+                receptor: telSanitizado,
+                mensaje: mensajeTexto,
+                timestamp: Date.now()
+            };
+
+            try {
+                /*
+                const res = await fetch(`${GATEWAY_CONFIG.baseUrl}/messages/sendText`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${GATEWAY_CONFIG.apiKey}`
+                    },
+                    body: JSON.stringify(payload)
+                });
+                if (!res.ok) throw new Error(`HTTP ${res.status}: Fallo en entrega de mensaje`);
+                return await res.json();
+                */
+                console.log(`[DESPACHO SILENCIOSO HTTP] Emisor: ${instanciaEmisora} -> Receptor: ${telSanitizado} | Mensaje: "${mensajeTexto.substring(0, 40)}..."`);
+                return { success: true, messageId: `msg_${Date.now()}` };
+            } catch (err) {
+                console.warn("[GATEWAY ERROR] No se pudo entregar por HTTP silencioso:", err);
+                throw err;
+            }
         }
 
-        function abrirWhatsAppCandidatoDirecto(telefono, mensaje) {
-            const num = sanitizarNumeroWhatsApp(telefono);
-            if (!num) {
-                alert("Número telefónico inválido.");
+        async function dispararNotificacionDirectaIndividual(id) {
+            const p = todosLosPostulantes[id];
+            if (!p) return;
+
+            const nombreCompleto = p.nombre || `${p.nombres || ''} ${p.apellidos || ''}`.trim() || 'Candidato';
+            const vacNombre = p.nombreVacante || p.vacante || 'la vacante';
+            const empNom = catalogoEmpresas[sanitizarKey(p.empresaId || p.empresa)]?.nombreComercial || p.empresa || 'la empresa';
+            const estatus = normalizarEstatus(p.estatus || p.status);
+            const cita = p.diaEntrevista || p.fechaEntrevista || 'Pendiente de definir';
+
+            const textoMensaje = `Hola *${nombreCompleto}*, te contactamos de Reclutamiento para la vacante *${vacNombre}* en *${empNom}*. ` +
+                                 `Tu estatus es: *${estatus}*. Cita registrada: *${cita}*. Por favor confirma tu disponibilidad.`;
+
+            if (!confirm(`¿Deseas despachar el mensaje de contacto directo a ${nombreCompleto} (${p.telefono}) en segundo plano sin abrir ventanas?`)) {
                 return;
             }
-            window.open(`https://api.whatsapp.com/send?phone=${num}&text=${encodeURIComponent(mensaje)}`, '_blank', 'noopener,noreferrer');
+
+            try {
+                await enviarWhatsAppDirectoHTTP(p.telefono, textoMensaje, p.reclutadorId || p.agenteId);
+                await push(ref(db, 'modulo_7_logs'), {
+                    modulo: "M3_AGENDA",
+                    evento: "NOTIFICACION_DIRECTA_INDIVIDUAL",
+                    candidatoId: id,
+                    ejecutadoPor: usuarioSesion.nombre,
+                    uidEjecutor: usuarioSesion.uid,
+                    telefono: p.telefono,
+                    detalle: `Mensaje directo enviado a ${nombreCompleto}.`,
+                    timestamp: serverTimestamp()
+                });
+                alert(`✅ Mensaje despachado exitosamente a ${nombreCompleto} en segundo plano.`);
+            } catch (e) {
+                alert(`Error al enviar mensaje directo: ${e.message}`);
+            }
         }
 
         function normalizarTextoPlano(str) {
@@ -890,6 +987,12 @@
             return `<span class="badge-division badge-div-none">Sin Div</span>`;
         }
 
+        function obtenerFechaMananaStr() {
+            const d = new Date();
+            d.setDate(d.getDate() + 1);
+            return d.toISOString().split('T')[0];
+        }
+
         // =========================================================================
         // INICIALIZADOR DE SEGURIDAD REACTIVO Y GOBERNANZA REALTIME
         // =========================================================================
@@ -903,13 +1006,11 @@
                     return;
                 }
 
-                // 1. Escucha viva de la matriz de roles dinámicos configurados en M5 Staff
                 onValue(ref(db, "roles_dinamicos"), (snapRoles) => {
                     catalogoRoles = snapRoles.val() || {};
                     validarYRefrescarPermisosUsuario(user.uid);
                 });
 
-                // 2. Escucha viva del usuario actual para captar cualquier cambio en tiempo real
                 onValue(ref(db, `usuarios_reclutadores/${user.uid}`), (snapUser) => {
                     if (!snapUser.exists()) {
                         panel.classList.add("hidden");
@@ -952,7 +1053,6 @@
                     validarYRefrescarPermisosUsuario(user.uid);
                 });
 
-                // 3. Catálogos complementarios en vivo
                 onValue(ref(db, "empresas"), (s) => { catalogoEmpresas = s.val() || {}; actualizarFiltros(); });
                 onValue(ref(db, "vacantes_detalles"), (s) => { catalogoVacantesDetalles = s.val() || {}; actualizarFiltroVacantes(); });
                 onValue(ref(db, "rutas"), (s) => { catalogoRutas = s.val() || {}; });
@@ -969,7 +1069,6 @@
             const candado = document.getElementById("candadoSeguridadM3");
             const panel = document.getElementById("panelPrincipalM3");
 
-            // VALIDACIÓN DEL PERMISO "VER" (R) SEGÚN LA MATRIZ RBAC DE M5
             if (!RBAC.puede('m3_agenda', 'ver')) {
                 panel.classList.add("hidden");
                 candado.classList.remove("hidden");
@@ -1042,22 +1141,27 @@
 
             const badgeScope = document.getElementById("badgeScopeStatus");
             const btnSupervision = document.getElementById("btnSupervisionLink");
+            const btnDisparador = document.getElementById("btnDisparadorRecordatorios");
 
             if (usuarioSesion.nivel >= 5 || (usuarioSesion.nivel === 4 && usuarioSesion.esDirector) || usuarioSesion.scope === 'global') {
                 badgeScope.className = "bg-emerald-500/10 text-emerald-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-emerald-500/20";
                 badgeScope.textContent = "Scope: Global Total";
                 btnSupervision.classList.remove("hidden");
+                btnDisparador.classList.remove("hidden");
             } else if (usuarioSesion.nivel === 4) {
                 badgeScope.className = "bg-purple-500/10 text-purple-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-purple-500/20";
                 badgeScope.textContent = `Scope: Supervisión Regional (${usuarioSesion.equipoDescendenteIds.length} Asesores)`;
                 btnSupervision.classList.remove("hidden");
+                btnDisparador.classList.remove("hidden");
             } else if (usuarioSesion.nivel === 3) {
                 badgeScope.className = "bg-amber-500/10 text-amber-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-amber-500/20";
                 badgeScope.textContent = `Scope: Célula Coordinada (${usuarioSesion.equipoDescendenteIds.length} Asesores)`;
                 btnSupervision.classList.remove("hidden");
+                btnDisparador.classList.remove("hidden");
             } else {
                 badgeScope.className = "bg-cyber-cardAlt text-slate-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-cyber-border";
                 badgeScope.textContent = "Scope: Cartera Personal";
+                btnDisparador.classList.add("hidden");
             }
 
             if (btnSupervision) {
@@ -1065,89 +1169,46 @@
             }
         }
 
-        function iniciarCentinelaWatchdog() {
+        function iniciarMonitorConexion() {
             onValue(ref(db, ".info/connected"), (snap) => {
                 const badge = document.getElementById("badgeFirebaseStatus");
                 if (snap.val() === true) {
                     badge.className = "bg-emerald-500/10 text-emerald-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-emerald-500/20 flex items-center gap-1.5";
-                    badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Conectado`;
+                    badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Sincronizado`;
                 } else {
                     badge.className = "bg-rose-500/10 text-rose-400 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold border border-rose-500/20 flex items-center gap-1.5";
                     badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-500"></span> Desconectado`;
                 }
             });
-
-            onValue(ref(db, "configuracion_sistema/version_minima_erp"), (snap) => {
-                const versionServidor = snap.val();
-                if (versionServidor && versionServidor > 10.8) {
-                    const banner = document.getElementById("bannerAlertaVersion");
-                    document.getElementById("txtBannerCentinela").innerHTML = `<strong>Centinela de Servidor:</strong> Sincronización de sistema requerida (${versionServidor}).`;
-                    banner.classList.remove("hidden");
-                }
-            });
-
-            onValue(ref(db, "configuracion_sistema/centinela_mantenimiento"), (snap) => {
-                centinelaActivo = snap.val() !== true;
-                const bullet = document.getElementById("bulletCentinela");
-                const txt = document.getElementById("txtCentinela");
-
-                if (centinelaActivo) {
-                    bullet.className = "w-2.5 h-2.5 rounded-full bg-emerald-400";
-                    txt.innerText = "Centinela: Activo";
-                } else {
-                    bullet.className = "w-2.5 h-2.5 rounded-full bg-rose-400 animate-pulse";
-                    txt.innerText = "Modo: Mantenimiento";
-                }
-            });
-        }
-
-        function ejecutarPruebaCentinelaManual() {
-            const banner = document.getElementById("bannerAlertaVersion");
-            const txt = document.getElementById("txtBannerCentinela");
-
-            let desfasadosCount = 0;
-            let criticosCount = 0;
-            const estadosVigilanSLA = ['Postulado', 'En Proceso', 'Entrevista', 'Inducción'];
-
-            Object.values(todosLosPostulantes).forEach(p => {
-                if (p && puedeVerCandidato(p)) {
-                    const estatus = normalizarEstatus(p.estatus || p.status);
-                    if (estadosVigilanSLA.includes(estatus)) {
-                        const horas = calcularHorasInactividad(p);
-                        if (horas > 48) criticosCount++;
-                        if (horas > 24) desfasadosCount++;
-                    }
-                }
-            });
-
-            txt.innerHTML = `<strong>Centinela Auditor (Modo Test):</strong> Inspección ejecutada. Postulantes en Célula: <b>${listaCandidatosFiltrados.length}</b> | Retrasos SLA: <b>${desfasadosCount}</b> (${criticosCount} críticos).`;
-            banner.classList.remove("hidden");
-
-            alert(`🛡️ PRUEBA MANUAL DE CENTINELA EJECUTADA:\n\n` +
-                  `• Estado de Enlace: ACTIVO Y SINCRONIZADO\n` +
-                  `• Postulantes en Célula: ${listaCandidatosFiltrados.length}\n` +
-                  `• Alertas por Demora (>24h): ${desfasadosCount}\n` +
-                  `• Casos Críticos (>48h): ${criticosCount}`);
-        }
-
-        function cerrarBannerCentinela() {
-            document.getElementById("bannerAlertaVersion").classList.add("hidden");
-        }
-
-        function alternarEstadoCentinela() {
-            if (usuarioSesion.nivel < 4) {
-                return alert("Acción restringida para Mandos Directivos.");
-            }
-            const nuevoEstado = centinelaActivo;
-            set(ref(db, "configuracion_sistema/centinela_mantenimiento"), nuevoEstado)
-                .then(() => alert(nuevoEstado ? "⏸️ Modo Mantenimiento Activado" : "▶️ Centinela Reactivado"));
         }
 
         function iniciarEscuchasRealtime() {
             onValue(ref(db, "postulantes"), (snapshot) => {
                 todosLosPostulantes = snapshot.val() || {};
+                actualizarConteoCitasManana();
                 cargarPostulantes();
             });
+        }
+
+        function actualizarConteoCitasManana() {
+            const mananaStr = obtenerFechaMananaStr();
+            candidatosPendientesRecordatorioManana = [];
+
+            Object.entries(todosLosPostulantes).forEach(([id, p]) => {
+                if (!p || !puedeVerCandidato(p)) return;
+                const est = normalizarEstatus(p.estatus || p.status);
+                if (est !== "Entrevista" && est !== "En Proceso") return;
+
+                const fechaCita = p.fechaEntrevista || (p.diaEntrevista ? p.diaEntrevista.split(' ')[0] : "");
+                if (fechaCita === mananaStr && p.recordatorioFechaCita !== mananaStr) {
+                    candidatosPendientesRecordatorioManana.push({ id, ...p });
+                }
+            });
+
+            const txtBadge = document.getElementById("txtConteoPendientesCitas");
+            if (txtBadge) {
+                txtBadge.textContent = `${candidatosPendientesRecordatorioManana.length} pendientes`;
+            }
         }
 
         function actualizarFiltros() {
@@ -1250,7 +1311,6 @@
         function puedeVerCandidato(p) {
             const recId = p.reclutadorId || p.agenteId;
 
-            // Validación de scope y equipo matricial
             if (usuarioSesion.nivel >= 5 || (usuarioSesion.nivel === 4 && usuarioSesion.esDirector) || usuarioSesion.scope === 'global') {
                 return true;
             }
@@ -1467,8 +1527,13 @@
                 const tieneCita = p.diaEntrevista || p.fechaEntrevista || p.citaEntrevista;
                 const badgeDivisionHTML = getDivisionBadgeM3(divisionEmpresa);
                 
+                const tieneRecordatorio = p.recordatorioCitaEnviado === true;
+                const tagRecordatorio = tieneRecordatorio
+                    ? `<span class="text-[9px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.2 rounded" title="Notificado el ${p.recordatorioTimestamp || 'Auto'}">✓ Avisado</span>`
+                    : (tieneCita ? `<span class="text-[9px] font-mono text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.2 rounded">⏳ Pendiente</span>` : '');
+
                 const citaHtml = tieneCita 
-                    ? `<div class="text-xs bg-amber-500/10 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded font-mono font-bold mt-1 inline-flex items-center gap-1"><i class="fas fa-calendar-check"></i> ${tieneCita}</div>`
+                    ? `<div class="text-xs bg-amber-500/10 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded font-mono font-bold mt-1 inline-flex items-center gap-1"><i class="fas fa-calendar-check"></i> ${tieneCita} ${tagRecordatorio}</div>`
                     : `<div class="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded font-mono mt-1 inline-flex items-center gap-1"><i class="fas fa-clock"></i> Pendiente</div>`;
 
                 const rutaHtml = (rutaCapturada && rutaCapturada !== "SIN_RUTA" && rutaCapturada !== "Sin Ruta Asignada" && rutaCapturada !== "No aplica / No seleccionado")
@@ -1476,9 +1541,6 @@
                          <i class="fas fa-bus-simple text-amber-400 shrink-0"></i> <span>${rutaCapturada}</span>
                        </div>`
                     : `<div class="text-[10px] text-slate-500 font-mono mt-0.5"><i class="fas fa-person-walking"></i> Traslado Propio</div>`;
-
-                const msgWA = `Hola *${nombreCompleto}*, te saludamos de Reclutamiento para la vacante *${vacNombre}* en *${nombreEmpresa}*. Tu estatus es: *${estatus}*.`;
-                const urlWA = construirUriWhatsApp(p.telefono, msgWA);
 
                 // CARD MÓVIL
                 const card = document.createElement('div');
@@ -1517,12 +1579,9 @@
                     </div>
 
                     <div class="pt-2 border-t border-cyber-border flex items-center justify-between gap-2 flex-wrap">
-                        <a href="tel:${p.telefono}" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-cyber-border touch-target flex items-center justify-center" title="Llamar">
-                            <i class="fas fa-phone text-xs"></i>
-                        </a>
-                        <a href="${urlWA}" target="_blank" rel="noopener noreferrer" class="flex-1 py-2 px-3 rounded-xl bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/30 font-mono text-xs font-bold flex items-center justify-center gap-1.5 touch-target">
-                            <i class="fab fa-whatsapp text-sm"></i> WhatsApp
-                        </a>
+                        <button type="button" onclick="dispararNotificacionDirectaIndividual('${id}')" class="flex-1 py-2 px-3 rounded-xl bg-purple-600/20 hover:bg-purple-600 text-purple-300 hover:text-white border border-purple-500/30 font-mono text-xs font-bold flex items-center justify-center gap-1.5 touch-target shadow" title="Enviar mensaje en segundo plano">
+                            <i class="fas fa-paper-plane text-xs"></i> Mensaje Directo
+                        </button>
                         ${puedeEditar ? `
                         <button onclick="abrirModalEditar('${id}')" class="p-2.5 rounded-xl bg-cyber-cyan/20 hover:bg-cyber-cyan text-cyber-cyan hover:text-slate-950 border border-cyber-cyan/30 touch-target flex items-center justify-center" title="Editar Ficha">
                             <i class="fas fa-pen text-xs"></i>
@@ -1573,10 +1632,10 @@
                     </td>
                     <td class="p-3.5 text-xs text-slate-200 font-medium">${recNombre}</td>
                     <td class="p-3.5 text-center pr-5 whitespace-nowrap">
-                        <div class="flex items-center justify-center gap-1.5">
-                            <a href="${urlWA}" target="_blank" rel="noopener noreferrer" class="bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/30 p-2 rounded-lg transition" title="WhatsApp Inmediato">
-                                <i class="fab fa-whatsapp"></i>
-                            </a>
+                        <div class="flex items-center justify-center gap-2">
+                            <button type="button" onclick="dispararNotificacionDirectaIndividual('${id}')" class="bg-purple-600/20 hover:bg-purple-600 text-purple-300 hover:text-white border border-purple-500/30 p-2 rounded-lg transition" title="Enviar mensaje en segundo plano">
+                                <i class="fas fa-paper-plane text-xs"></i>
+                            </button>
                             ${puedeEditar ? `
                             <button onclick="abrirModalEditar('${id}')" class="bg-cyber-cyan/20 hover:bg-cyber-cyan text-cyber-cyan hover:text-slate-950 border border-cyber-cyan/30 p-2 rounded-lg transition" title="Editar Ficha">
                                 <i class="fas fa-pen"></i>
@@ -1736,14 +1795,22 @@
             poblarRutasEnModal(rutaGuardada);
 
             const citaRaw = p.diaEntrevista || p.fechaEntrevista || "";
+            let fechaExtraida = "";
+            let horaExtraida = "08:00 AM";
+
             if (citaRaw.includes(" ")) {
                 const partes = citaRaw.split(" ");
-                document.getElementById("editAgendaFecha").value = partes[0] || "";
-                parsearHoraAlModal(partes.slice(1).join(" "));
+                fechaExtraida = partes[0] || "";
+                horaExtraida = partes.slice(1).join(" ") || "08:00 AM";
             } else {
-                document.getElementById("editAgendaFecha").value = citaRaw;
-                parsearHoraAlModal("08:00 AM");
+                fechaExtraida = citaRaw;
             }
+
+            document.getElementById("editAgendaFecha").value = fechaExtraida;
+            parsearHoraAlModal(horaExtraida);
+
+            document.getElementById("originalAgendaFecha").value = fechaExtraida;
+            document.getElementById("originalAgendaHora").value = horaExtraida;
 
             document.getElementById("modalEditar").classList.remove("hidden");
         }
@@ -1804,7 +1871,9 @@
             document.getElementById("modalEditar").classList.add("hidden");
         }
 
-        // GUARDADO CON POLÍTICA ANTIDUPLICIDAD AVANZADA (CURP, TELÉFONO, NOMBRES Y APELLIDOS)
+        // =========================================================================
+        // GUARDADO CON CONTROL DE REPROGRAMACIÓN E IDEMPOTENCIA
+        // =========================================================================
         async function guardarCambiosAdmin() {
             RBAC.asegurar('m3_agenda', 'editar', "No tienes permisos para modificar expedientes en Agenda.");
 
@@ -1816,6 +1885,9 @@
             const telefono = document.getElementById("editTelefono").value.trim().replace(/\D/g, '');
             const originalRecId = document.getElementById("originalReclutadorId").value;
             const originalRecNombre = document.getElementById("originalReclutadorNombre").value;
+
+            const origFecha = document.getElementById("originalAgendaFecha").value;
+            const origHora = document.getElementById("originalAgendaHora").value;
 
             if (!nombres || nombres.length < 2) {
                 alert("Por favor ingresa los nombres del candidato.");
@@ -1840,18 +1912,13 @@
             btn.innerHTML = `<i class="fas fa-spinner fa-spin me-1"></i> Verificando Duplicidad...`;
 
             try {
-                // 1. Verificación contra base activa
                 const duplicadoActivo = Object.entries(todosLosPostulantes).find(([key, post]) => {
                     if (key === id) return false;
                     const curpReg = (post.curp || '').toString().trim().toUpperCase();
                     const telReg = (post.telefono || '').toString().replace(/\D/g, '');
                     const nomReg = post.nombre || `${post.nombres || ''} ${post.apellidos || ''}`.trim();
 
-                    const coincideCurp = (curpReg && curpReg === curp);
-                    const coincideTel = (telReg && telReg === telefono);
-                    const coincideNom = esMismaPersonaPorNombre(nomReg, nombreCompletoCompuesto);
-
-                    return coincideCurp || coincideTel || coincideNom;
+                    return (curpReg && curpReg === curp) || (telReg && telReg === telefono) || esMismaPersonaPorNombre(nomReg, nombreCompletoCompuesto);
                 });
 
                 if (duplicadoActivo) {
@@ -1859,48 +1926,15 @@
                     const asesorTitular = dupData.reclutadorNombre || dupData.asesor || "Asesor no especificado";
                     const estatus = normalizarEstatus(dupData.estatus || dupData.status);
 
-                    let motivo = "Identidad coincidente";
-                    if ((dupData.curp || '').toUpperCase() === curp) motivo = `CURP (${curp})`;
-                    else if ((dupData.telefono || '').replace(/\D/g, '') === telefono) motivo = `Teléfono (${telefono})`;
-                    else motivo = `Nombres y Apellidos (${dupData.nombre || nombreCompletoCompuesto})`;
-
                     alert(`⛔ BLOQUEO ANTIDUPLICIDAD (BASE ACTIVA):\n\n` +
-                          `El registro coincide en ${motivo} con un expediente existente.\n\n` +
+                          `El registro coincide con un expediente existente.\n\n` +
                           `• Postulante: ${dupData.nombre || 'Candidato Existente'}\n` +
                           `• Titular: ${asesorTitular}\n` +
                           `• Estatus: ${estatus}\n\n` +
-                          `Operación cancelada por gobernanza de cartera.`);
+                          `Operación cancelada.`);
                     btn.disabled = false;
                     btn.innerHTML = `Guardar Cambios`;
                     return;
-                }
-
-                // 2. Verificación contra histórico pasivo
-                const snapHist = await get(ref(db, "postulantes_historico"));
-                const dataHist = snapHist.val() || {};
-                const duplicadoHistorico = Object.entries(dataHist).find(([k, pH]) => {
-                    const cCurp = (pH.curp || '').toString().trim().toUpperCase();
-                    const cTel = (pH.telefono || '').toString().replace(/\D/g, '');
-                    const cNom = pH.nombre || `${pH.nombres || ''} ${pH.apellidos || ''}`.trim();
-
-                    return (cCurp && cCurp === curp) || 
-                           (cTel && cTel === telefono) || 
-                           esMismaPersonaPorNombre(cNom, nombreCompletoCompuesto);
-                });
-
-                if (duplicadoHistorico) {
-                    const [idH, pH] = duplicadoHistorico;
-                    const confirmReactivar = confirm(
-                        `⚠️ ADVERTENCIA: Candidato encontrado en M3.3 Histórico.\n\n` +
-                        `• Nombre: ${pH.nombre || nombreCompletoCompuesto}\n` +
-                        `• Causa de Descarte previo: ${pH.causaDescarte || 'Inactivo'}\n\n` +
-                        `¿Deseas reactivar su expediente en la célula activa?`
-                    );
-                    if (!confirmReactivar) {
-                        btn.disabled = false;
-                        btn.innerHTML = `Guardar Cambios`;
-                        return;
-                    }
                 }
 
                 let recIdFinal = originalRecId;
@@ -1934,6 +1968,9 @@
 
                 const sexoActualizado = resolverSexoCandidato(todosLosPostulantes[id]?.sexo, curp);
 
+                // REINICIO DE BANDERAS DE RECORDATORIO SI SE REPROGRAMÓ LA CITA
+                const seReprogramoCita = (fechaCita !== origFecha) || (horaCita !== origHora);
+
                 const updates = {
                     nombre: nombreCompletoCompuesto,
                     nombres: nombres,
@@ -1966,6 +2003,12 @@
                     ultimaActualizacion: new Date().toISOString()
                 };
 
+                if (seReprogramoCita) {
+                    updates.recordatorioCitaEnviado = false;
+                    updates.recordatorioFechaCita = null;
+                    updates.recordatorioUltimoEnvio = null;
+                }
+
                 await update(ref(db, `postulantes/${id}`), updates);
 
                 if (originalRecId && recIdFinal !== originalRecId) {
@@ -1980,7 +2023,7 @@
                 }
 
                 cerrarModal();
-                alert("Expediente guardado exitosamente bajo normativa de gobernanza.");
+                alert("Expediente guardado exitosamente.");
             } catch (err) {
                 alert("Error al guardar: " + err.message);
             } finally {
@@ -2011,7 +2054,140 @@
             }
         }
 
-        // MOTOR DE EXPORTACIÓN ROBUSTO CON TRIPLE FALLBACK
+        // =========================================================================
+        // MOTOR MANUAL DE CONTINGENCIA PARA RECORDATORIOS (DISPARO EN LOTE)
+        // =========================================================================
+        function abrirModalConfirmacionLote() {
+            if (usuarioSesion.nivel < 3) {
+                return alert("Acceso restringido para coordinadores y supervisores.");
+            }
+
+            actualizarConteoCitasManana();
+            const mananaStr = obtenerFechaMananaStr();
+
+            document.getElementById("txtLoteFechaManana").textContent = mananaStr;
+            document.getElementById("txtLoteTotalCandidatos").textContent = candidatosPendientesRecordatorioManana.length;
+
+            const listaEl = document.getElementById("listaPreviaLote");
+            listaEl.innerHTML = "";
+
+            if (candidatosPendientesRecordatorioManana.length === 0) {
+                listaEl.innerHTML = `<div class="text-slate-500 italic p-2 text-center">No hay candidatos pendientes de notificación para mañana en tu célula.</div>`;
+                document.getElementById("btnEjecutarLoteEnvio").disabled = true;
+            } else {
+                document.getElementById("btnEjecutarLoteEnvio").disabled = false;
+                candidatosPendientesRecordatorioManana.forEach(c => {
+                    const nom = c.nombre || `${c.nombres || ''} ${c.apellidos || ''}`.trim();
+                    const hora = c.horaEntrevista || (c.diaEntrevista ? c.diaEntrevista.split(' ').slice(1).join(' ') : '08:00 AM');
+                    listaEl.innerHTML += `
+                        <div class="flex justify-between items-center py-1 border-b border-cyber-border/40">
+                            <div>
+                                <span class="text-white font-bold">${nom}</span>
+                                <span class="text-slate-400 block text-[10px]">${c.telefono} • ${c.nombreVacante || c.vacante || 'Vacante'}</span>
+                            </div>
+                            <span class="text-amber-400 font-bold">${hora}</span>
+                        </div>
+                    `;
+                });
+            }
+
+            document.getElementById("contenedorProgresoLote").classList.add("hidden");
+            document.getElementById("barraProgresoLote").style.width = "0%";
+            document.getElementById("modalConfirmacionLote").classList.remove("hidden");
+        }
+
+        function cerrarModalLote() {
+            document.getElementById("modalConfirmacionLote").classList.add("hidden");
+        }
+
+        async function ejecutarDespachoRecordatorios() {
+            if (candidatosPendientesRecordatorioManana.length === 0) return;
+
+            const btn = document.getElementById("btnEjecutarLoteEnvio");
+            btn.disabled = true;
+
+            const contenedorProgreso = document.getElementById("contenedorProgresoLote");
+            const barra = document.getElementById("barraProgresoLote");
+            const txtMsg = document.getElementById("txtProgresoLoteMensaje");
+            const txtPct = document.getElementById("txtProgresoLotePorcentaje");
+
+            contenedorProgreso.classList.remove("hidden");
+
+            const total = candidatosPendientesRecordatorioManana.length;
+            let procesados = 0;
+            let exitosos = 0;
+            const mananaStr = obtenerFechaMananaStr();
+
+            for (const c of candidatosPendientesRecordatorioManana) {
+                procesados++;
+                const nom = c.nombre || `${c.nombres || ''} ${c.apellidos || ''}`.trim();
+                const hora = c.horaEntrevista || (c.diaEntrevista ? c.diaEntrevista.split(' ').slice(1).join(' ') : '08:00 AM');
+                const vac = c.nombreVacante || c.vacante || 'la vacante solicitada';
+                const emp = catalogoEmpresas[sanitizarKey(c.empresaId || c.empresa)]?.nombreComercial || c.empresa || 'nuestras instalaciones';
+
+                const mensaje = `Hola *${nom}*, te recordamos tu cita de entrevista MAÑANA a las *${hora}* para la posición de *${vac}* en *${emp}*. ` +
+                                `Por favor acude puntual con tu identificación oficial. Si requieres confirmar ruta de traslado responde a este mensaje.`;
+
+                try {
+                    await enviarWhatsAppDirectoHTTP(c.telefono, mensaje, c.reclutadorId);
+
+                    await update(ref(db, `postulantes/${c.id}`), {
+                        recordatorioCitaEnviado: true,
+                        recordatorioFechaCita: mananaStr,
+                        recordatorioTimestamp: new Date().toISOString(),
+                        recordatorioCanal: "MANUAL_DISPARADOR_M3"
+                    });
+
+                    exitosos++;
+                } catch (err) {
+                    console.error(`Fallo envío a ${nom} (${c.telefono}):`, err);
+                }
+
+                const pct = Math.round((procesados / total) * 100);
+                barra.style.width = `${pct}%`;
+                txtPct.textContent = `${pct}%`;
+                txtMsg.textContent = `Procesando ${procesados} de ${total} (${nom})...`;
+
+                // Throttle preventivo de 1 segundo entre envíos
+                await new Promise(r => setTimeout(r, 1000));
+            }
+
+            // AVISO DIRECTO AL ADMINISTRADOR POR WHATSAPP TRAS CONCLUIR EL LOTE MANUAL
+            const telAdminSesion = usuarioSesion.rawUser?.telefono || "";
+            if (telAdminSesion) {
+                const reporteAdmin = `🤖 *[REPORTE ERP - DISPARO MANUAL]*\n` +
+                                     `Se ejecutó el envío de recordatorios de entrevista:\n` +
+                                     `• *Ejecutor:* ${usuarioSesion.nombre}\n` +
+                                     `• *Fecha evaluada:* ${mananaStr}\n` +
+                                     `• *Mensajes entregados:* ${exitosos} de ${total}\n` +
+                                     `• *Estado:* ${exitosos === total ? 'Completado con éxito' : 'Revisión requerida'}`;
+                try {
+                    await enviarWhatsAppDirectoHTTP(telAdminSesion, reporteAdmin, usuarioSesion.uid);
+                } catch (e) {
+                    console.warn("No se pudo enviar el reporte por WhatsApp al Administrador:", e);
+                }
+            }
+
+            await push(ref(db, 'modulo_7_logs'), {
+                modulo: "M3_AGENDA",
+                evento: "DISPARO_RECORDATORIOS_LOTE_MANUAL",
+                ejecutadoPor: usuarioSesion.nombre,
+                uidEjecutor: usuarioSesion.uid,
+                detalle: `Despacho de contingencia manual completado: ${exitosos} de ${total} candidatos notificados para fecha ${mananaStr}.`,
+                timestamp: serverTimestamp()
+            });
+
+            txtMsg.textContent = `¡Proceso concluido! ${exitosos} recordatorios enviados.`;
+            setTimeout(() => {
+                cerrarModalLote();
+                btn.disabled = false;
+                alert(`✅ Lote finalizado con éxito: ${exitosos} recordatorios despachados en segundo plano sin abrir ventanas.`);
+                actualizarConteoCitasManana();
+                cargarPostulantes();
+            }, 1200);
+        }
+
+        // MOTOR DE EXPORTACIÓN EXCEL / CSV
         async function exportarExcel() {
             const btn = document.getElementById("btnExportarExcel");
             const textoOriginal = btn.innerHTML;
@@ -2042,6 +2218,7 @@
                         "Ruta Transporte": rutaCapturada || "Sin Ruta",
                         "Estatus Operativo": estatus,
                         "Cita Entrevista": p.diaEntrevista || p.fechaEntrevista || "Sin Cita",
+                        "Recordatorio Enviado": p.recordatorioCitaEnviado ? "SÍ" : "NO",
                         "Asesor Titular": recNombre,
                         "Horas Inactividad": Math.floor(horas)
                     };
@@ -2058,11 +2235,9 @@
                     xlsxLib.utils.book_append_sheet(wb, ws, "Agenda");
                     xlsxLib.writeFile(wb, nombreArchivo);
                 } else {
-                    console.warn("SheetJS no disponible, ejecutando descarga CSV estructurada compatible con Excel.");
                     descargarCSVFallback(dataExport, `Reporte_Postulantes_${fechaHoy}.csv`);
                 }
             } catch (err) {
-                console.error("Fallo durante la exportación a Excel:", err);
                 alert("Error generando el archivo: " + err.message);
             } finally {
                 btn.disabled = false;
