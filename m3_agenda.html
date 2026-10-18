@@ -358,7 +358,7 @@
                 <h2 class="text-base font-bold text-white flex items-center gap-2">
                     <i class="fas fa-user-shield text-cyber-accent"></i> Expediente del Postulante
                 </h2>
-                <p class="text-xs text-slate-400">Actualización de ciclo operativo, ruta, asesor y cita de entrevista.</p>
+                <p class="text-xs text-slate-400">Actualización de ciclo operativo, ruta de traslado, asesor y cita.</p>
             </div>
 
             <input type="hidden" id="editId">
@@ -390,7 +390,7 @@
                     </div>
                 </div>
 
-                <!-- EMPRESA, VACANTE Y RUTA -->
+                <!-- EMPRESA, VACANTE Y RUTA UNIVERSAL -->
                 <div class="bg-cyber-bg p-3.5 rounded-2xl border border-cyber-border space-y-2.5">
                     <div>
                         <label class="block text-xs font-mono text-cyber-accent uppercase mb-1 font-bold">Empresa Asignada</label>
@@ -1057,7 +1057,14 @@
 
                 onValue(ref(db, "empresas"), (s) => { catalogoEmpresas = s.val() || {}; actualizarFiltros(); });
                 onValue(ref(db, "vacantes_detalles"), (s) => { catalogoVacantesDetalles = s.val() || {}; actualizarFiltroVacantes(); });
-                onValue(ref(db, "rutas"), (s) => { catalogoRutas = s.val() || {}; });
+                onValue(ref(db, "rutas"), (s) => { 
+                    catalogoRutas = s.val() || {}; 
+                    const modalEditVisible = !document.getElementById("modalEditar").classList.contains("hidden");
+                    if (modalEditVisible) {
+                        const rActual = document.getElementById("editRuta").value;
+                        poblarRutasEnModal(rActual);
+                    }
+                });
                 onValue(ref(db, "usuarios_reclutadores"), (s) => {
                     catalogoUsuarios = s.val() || {};
                     construirArbolDescendenteMatricial();
@@ -1818,6 +1825,9 @@
             document.getElementById("modalEditar").classList.remove("hidden");
         }
 
+        // =========================================================================
+        // REACCIÓN EN TIEMPO REAL AL CAMBIAR DE EMPRESA EN EL MODAL
+        // =========================================================================
         function alCambiarEmpresaEnModal() {
             poblarVacantesEnModal("");
             poblarRutasEnModal("");
@@ -1842,39 +1852,72 @@
         }
 
         // =========================================================================
-        // RECONSTRUCCIÓN ROBUSTA DE RUTAS DE TRANSPORTE EN MODAL
+        // POBLADOR UNIVERSAL DE RUTAS DE TRANSPORTE
         // =========================================================================
         function poblarRutasEnModal(rutaActual) {
             const empSelVal = document.getElementById("editEmpresa").value;
             const editRuta = document.getElementById("editRuta");
             editRuta.innerHTML = '<option value="SIN_RUTA">-- Traslado Propio / Sin Ruta --</option>';
 
-            if (empSelVal === "SIN_EMPRESA") return;
+            if (!empSelVal || empSelVal === "SIN_EMPRESA") {
+                return;
+            }
 
             const empKeySanitizada = sanitizarKey(empSelVal);
-            const rutasEmp = catalogoRutas[empKeySanitizada] || catalogoRutas[empSelVal] || {};
-            const rutasEntries = Object.entries(rutasEmp);
+            const rutasDisponibles = new Map();
 
-            let rutaEncontrada = false;
-            const rutaNormalizadaActual = (rutaActual || "").trim().toLowerCase();
-
-            if (rutasEntries.length > 0) {
-                rutasEntries.forEach(([rId, rVal]) => {
-                    const nomRuta = typeof rVal === 'object' ? (rVal.nombreRuta || rVal.nombre || rVal.ruta || rId) : rVal;
-                    const nomRutaStr = nomRuta.toString().trim();
-                    const nomRutaNorm = nomRutaStr.toLowerCase();
-
-                    const isSelected = Boolean(
-                        rutaNormalizadaActual && 
-                        (rutaNormalizadaActual === nomRutaNorm || nomRutaNorm.includes(rutaNormalizadaActual) || rutaNormalizadaActual.includes(nomRutaNorm))
-                    );
-
-                    if (isSelected) rutaEncontrada = true;
-                    editRuta.innerHTML += `<option value="${nomRutaStr}" ${isSelected ? 'selected' : ''}>🚌 ${nomRutaStr}</option>`;
+            // 1. Búsqueda agrupada por empresa: catalogoRutas[empresa]
+            const fuenteDirecta = catalogoRutas[empKeySanitizada] || catalogoRutas[empSelVal] || {};
+            if (typeof fuenteDirecta === 'object' && fuenteDirecta !== null) {
+                Object.entries(fuenteDirecta).forEach(([rId, rVal]) => {
+                    if (typeof rVal === 'object' && rVal !== null) {
+                        const nom = rVal.nombreRuta || rVal.nombre || rVal.ruta || rId;
+                        if (nom) rutasDisponibles.set(nom.toString().trim(), nom.toString().trim());
+                    } else if (typeof rVal === 'string') {
+                        rutasDisponibles.set(rVal.trim(), rVal.trim());
+                    }
                 });
             }
 
-            if (rutaActual && rutaActual !== "SIN_RUTA" && rutaActual !== "No aplica / No seleccionado" && !rutaEncontrada) {
+            // 2. Búsqueda en estructura plana o por divisiones: recorre todos los nodos de catalogoRutas
+            Object.entries(catalogoRutas).forEach(([k, item]) => {
+                if (typeof item === 'object' && item !== null) {
+                    const empDeRuta = sanitizarKey(item.empresaId || item.empresa || "");
+                    if (empDeRuta && empDeRuta === empKeySanitizada) {
+                        const nom = item.nombreRuta || item.nombre || item.ruta || k;
+                        if (nom) rutasDisponibles.set(nom.toString().trim(), nom.toString().trim());
+                    }
+
+                    // Por si están anidadas en segundo nivel (ej. rutas/{division}/{empresaId}/{rutaId})
+                    Object.entries(item).forEach(([subK, subVal]) => {
+                        if (typeof subVal === 'object' && subVal !== null) {
+                            const subEmp = sanitizarKey(subVal.empresaId || subVal.empresa || "");
+                            if (subEmp && subEmp === empKeySanitizada) {
+                                const nom = subVal.nombreRuta || subVal.nombre || subVal.ruta || subK;
+                                if (nom) rutasDisponibles.set(nom.toString().trim(), nom.toString().trim());
+                            }
+                        }
+                    });
+                }
+            });
+
+            const rutaActualNormalizada = (rutaActual || "").trim().toLowerCase();
+            let coincidenciaEncontrada = false;
+
+            // Renderizar las rutas encontradas en el select
+            Array.from(rutasDisponibles.values()).sort().forEach(nombreRuta => {
+                const nombreNorm = nombreRuta.toLowerCase();
+                const esSeleccionada = Boolean(
+                    rutaActualNormalizada && 
+                    (rutaActualNormalizada === nombreNorm || nombreNorm.includes(rutaActualNormalizada) || rutaActualNormalizada.includes(nombreNorm))
+                );
+
+                if (esSeleccionada) coincidenciaEncontrada = true;
+                editRuta.innerHTML += `<option value="${nombreRuta}" ${esSeleccionada ? 'selected' : ''}>🚌 ${nombreRuta}</option>`;
+            });
+
+            // Si el postulante ya traía una ruta registrada que no está en el catálogo, preservarla visualmente
+            if (rutaActual && rutaActual !== "SIN_RUTA" && rutaActual !== "No aplica / No seleccionado" && !coincidenciaEncontrada) {
                 editRuta.innerHTML += `<option value="${rutaActual}" selected>📍 ${rutaActual}</option>`;
             }
         }
@@ -1998,7 +2041,7 @@
                     apellidos: apellidos,
                     telefono: telefono,
                     curp: curp,
-                    curpSintetica: !esCurpRealOficial, // Limpia de forma permanente la bandera sintética
+                    curpSintetica: !esCurpRealOficial, // Limpieza de la bandera en Firebase
                     sexo: sexoActualizado,
                     estatus: nuevoEstatus,
                     empresaId: empKey,
@@ -2006,7 +2049,7 @@
                     nombreVacante: document.getElementById("editVacante").value,
                     vacante: document.getElementById("editVacante").value,
                     
-                    // Edición y homologación atómica de ruta de transporte
+                    // Actualización atómica de la ruta de transporte
                     rutaTransporteSeleccionada: rutaSeleccionada,
                     rutaNombre: rutaSeleccionada,
                     ruta: rutaSeleccionada,
@@ -2046,7 +2089,7 @@
                 }
 
                 cerrarModal();
-                alert("Expediente guardado exitosamente.");
+                alert("Expediente guardado exitosamente con la nueva ruta y datos validados.");
             } catch (err) {
                 alert("Error al guardar: " + err.message);
             } finally {
