@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Torre de Control & Supervisión de Reclutamiento | M3.2 Pro</title>
 
-    <!-- Tailwind CSS, Chart.js y FontAwesome -->
+    <!-- Tailwind CSS, Chart.js y FontAwesome Oficial con Marcas -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
     <style>
         :root {
@@ -45,6 +45,10 @@
         .status-pill-red { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
         .status-pill-purple { background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3); }
         .status-pill-rose { background: rgba(244, 63, 94, 0.15); color: #fb7185; border: 1px solid rgba(244, 63, 94, 0.35); }
+
+        .shadow-glow-whatsapp {
+            box-shadow: 0 0 15px -3px rgba(37, 211, 102, 0.4);
+        }
 
         .touch-target {
             min-height: 44px;
@@ -192,11 +196,11 @@
             </div>
         </div>
 
-        <!-- CRONÓMETRO TÁCTICO DE CITAS Y AUDITORÍA DE RECORDATORIOS -->
+        <!-- CRONÓMETRO TÁCTICO DE CITAS Y AUDITORÍA DE RECORDATORIOS (SINCRONIZADO) -->
         <details class="bg-[#0b1329] p-4 rounded-xl border border-white/10 shadow group" open>
             <summary class="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center justify-between cursor-pointer select-none">
                 <span class="flex items-center gap-2">
-                    <i class="fas fa-calendar-day text-amber-400"></i> Cronómetro de Citas & Auditoría de Recordatorios (Hoy y Mañana)
+                    <i class="fas fa-calendar-day text-amber-400"></i> Cronómetro de Citas & Auditoría de Recordatorios WhatsApp (Hoy y Mañana)
                 </span>
                 <span id="badgeConteoCitasHoy" class="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full font-mono font-bold">0 programadas</span>
             </summary>
@@ -207,10 +211,10 @@
                             <th class="p-2.5">Hora / Fecha</th>
                             <th class="p-2.5">Candidato & Documentación</th>
                             <th class="p-2.5">Teléfono</th>
-                            <th class="p-2.5">Empresa / Vacante</th>
+                            <th class="p-2.5">Empresa / Vacante / Ruta</th>
                             <th class="p-2.5">Asesor Asignado</th>
                             <th class="p-2.5">Estatus Operativo</th>
-                            <th class="p-2.5 text-center">Recordatorio (Job 21:00h)</th>
+                            <th class="p-2.5 text-center">Estado Recordatorio WhatsApp</th>
                         </tr>
                     </thead>
                     <tbody id="tablaCitasHoyBody" class="divide-y divide-white/5 text-slate-200">
@@ -263,7 +267,7 @@
                             <th class="p-3.5 text-center">Pre-Filtro Entrevista</th>
                             <th class="p-3.5 text-center">SLA (&lt;24h / 24-48h / &gt;48h)</th>
                             <th class="p-3.5 text-center">Efectividad</th>
-                            <th class="p-3.5 text-center">Acciones Silenciosas</th>
+                            <th class="p-3.5 text-center">Apercibimiento WhatsApp</th>
                         </tr>
                     </thead>
                     <tbody id="tablaSupervisionBody" class="text-xs divide-y divide-white/5 text-slate-200 font-medium">
@@ -298,7 +302,6 @@
                         </tr>
                     </thead>
                     <tbody id="tablaGobernanzaBody" class="divide-y divide-white/5 text-slate-300">
-                        <!-- Generado dinámicamente -->
                     </tbody>
                 </table>
             </div>
@@ -379,11 +382,11 @@
         const auth = getAuth(app);
         const db = getDatabase(app);
 
-        // CONFIGURACIÓN CENTRALIZADA DEL GATEWAY SILENCIOSO (HTTP EN SEGUNDO PLANO)
-        const GATEWAY_CONFIG = {
-            baseUrl: "https://api.gateway-reclutamiento.com/v1",
-            apiKey: "ERP_BEARER_TOKEN_ACTIVO",
-            instanciaCentralFallback: "CENTRAL_RECLUTAMIENTO"
+        let gatewayActivoConfig = {
+            habilitado: false,
+            endpoint: "",
+            apiKey: "",
+            instanciaFallback: "central"
         };
 
         let usuarioSesion = null;
@@ -398,7 +401,6 @@
         let chartCargaInstance = null;
         let renderProgramado = false;
 
-        // MATRIZ DE GOBERNANZA DE ESTATUS POR DEFECTO
         const GOBERNANZA_ESTATUS_DEFAULT = {
             "Postulado": { n1_n2: true, n3: true, n4_n5: true },
             "En Proceso": { n1_n2: true, n3: true, n4_n5: true },
@@ -439,31 +441,40 @@
             return d;
         }
 
-        // MOTOR DE DESPACHO SILENCIOSO HTTP (HOMOLOGADO CON M3_AGENDA - SIN ABRIR WHATSAPP)
+        // MOTOR REAL DE WHATSAPP 100% OPERATIVO (SIN TELEGRAM / SIN INTERMEDIARIOS)
         async function enviarWhatsAppDirectoHTTP(numeroDestino, mensajeTexto, reclutadorId) {
             const telSanitizado = sanitizarTelefonoUniversal(numeroDestino);
-            if (!telSanitizado) {
+            if (!telSanitizado || telSanitizado.length < 10) {
                 throw new Error("Número receptor no válido.");
             }
 
-            const instanciaEmisora = (reclutadorId && catalogoUsuarios[reclutadorId]?.instanciaWhatsApp)
-                ? catalogoUsuarios[reclutadorId].instanciaWhatsApp
-                : (catalogoUsuarios[reclutadorId]?.telefono ? `instancia_${reclutadorId}` : GATEWAY_CONFIG.instanciaCentralFallback);
-
-            const payload = {
-                instancia: instanciaEmisora,
-                receptor: telSanitizado,
-                mensaje: mensajeTexto,
-                timestamp: Date.now()
-            };
-
-            try {
-                console.log(`[SUPERVISIÓN SILENCIOSA HTTP] Emisor: ${instanciaEmisora} -> Receptor: ${telSanitizado} | Mensaje: "${mensajeTexto.substring(0, 45)}..."`);
-                return { success: true, messageId: `sup_msg_${Date.now()}` };
-            } catch (err) {
-                console.warn("[GATEWAY ERROR - SUPERVISION]:", err);
-                throw err;
+            if (gatewayActivoConfig.habilitado && gatewayActivoConfig.endpoint) {
+                try {
+                    const resp = await fetch(gatewayActivoConfig.endpoint, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "Authorization": `Bearer ${gatewayActivoConfig.apiKey || ''}`
+                        },
+                        body: JSON.stringify({
+                            number: telSanitizado,
+                            message: mensajeTexto,
+                            reclutadorId: reclutadorId || usuarioSesion.uid
+                        })
+                    });
+                    if (resp.ok) return { success: true };
+                } catch (e) {
+                    console.warn("Gateway no respondió, ejecutando enlace directo WhatsApp:", e);
+                }
             }
+
+            const encoded = encodeURIComponent(mensajeTexto);
+            const url = `https://api.whatsapp.com/send?phone=${telSanitizado}&text=${encoded}`;
+            const v = window.open(url, '_blank');
+            if (!v) {
+                window.location.href = `whatsapp://send?phone=${telSanitizado}&text=${encoded}`;
+            }
+            return { success: true };
         }
 
         function normalizarEstatus(str) {
@@ -483,6 +494,32 @@
             if (s.includes("proceso")) return "En Proceso";
             
             return "Postulado";
+        }
+
+        // MOTOR DE SINCRONIZACIÓN DE FECHAS (IDENTICO A M3_AGENDA)
+        function extraerFechaEstandar(valorFecha) {
+            if (!valorFecha) return "";
+            const str = valorFecha.toString().trim();
+            
+            const matchIso = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+            if (matchIso) {
+                return `${matchIso[1]}-${matchIso[2].padStart(2, '0')}-${matchIso[3].padStart(2, '0')}`;
+            }
+
+            const matchLatam = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+            if (matchLatam) {
+                return `${matchLatam[3]}-${matchLatam[2].padStart(2, '0')}-${matchLatam[1].padStart(2, '0')}`;
+            }
+
+            const d = new Date(str);
+            if (!isNaN(d.getTime())) {
+                const año = d.getFullYear();
+                const mes = String(d.getMonth() + 1).padStart(2, '0');
+                const dia = String(d.getDate()).padStart(2, '0');
+                return `${año}-${mes}-${dia}`;
+            }
+
+            return "";
         }
 
         function extraerMunicipioDeRuta(rutaTexto) {
@@ -507,7 +544,7 @@
                 return rutaTexto.split("➔")[0].trim();
             }
 
-            return "Otras Rutas";
+            return rutaTexto.length > 25 ? rutaTexto.substring(0, 22) + '...' : rutaTexto;
         }
 
         function sanitizarKey(str) {
@@ -565,9 +602,6 @@
             });
         }
 
-        // =========================================================================
-        // ESCUCHAS GRANULARES EN TIEMPO REAL (ALTO RENDIMIENTO - SIN DESCARGAR LA RAÍZ)
-        // =========================================================================
         function inicializarEscuchasTiempoReal() {
             const badge = document.getElementById("badgeFirebaseStatus");
             onValue(ref(db, ".info/connected"), snap => {
@@ -580,7 +614,10 @@
                 }
             });
 
-            // Escuchas específicas desacopladas
+            onValue(ref(db, "configuracion_sistema/whatsapp_gateway"), s => {
+                if (s.exists()) gatewayActivoConfig = s.val();
+            });
+
             onValue(ref(db, "usuarios_reclutadores"), snap => {
                 catalogoUsuarios = snap.val() || {};
                 solicitarRenderizado();
@@ -737,9 +774,6 @@
             return 2500;
         }
 
-        // =========================================================================
-        // PROCESAMIENTO ÓPTIMO CON DOCUMENT FRAGMENT (ALTO RENDIMIENTO EN MÓVIL)
-        // =========================================================================
         function procesarMetricasSupervision() {
             const tabla = document.getElementById("tablaSupervisionBody");
             const fragmento = document.createDocumentFragment();
@@ -885,8 +919,8 @@
                     <td class="p-3.5 text-center whitespace-nowrap">
                         <div class="flex items-center justify-center gap-2">
                             ${uTel ? `
-                            <button onclick="notificarPorWhatsAppYLog('${uTel}', '${uNombre}', ${r}, '${uId}')" title="Notificar apercibimiento directo vía HTTP silencioso" class="bg-purple-600/20 hover:bg-purple-600 text-purple-300 hover:text-white border border-purple-500/30 p-2 rounded-xl text-xs transition touch-target">
-                                <i class="fas fa-paper-plane"></i>
+                            <button onclick="notificarPorWhatsAppYLog('${uTel}', '${uNombre}', ${r}, '${uId}')" title="Enviar apercibimiento oficial por WhatsApp" class="bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/30 p-2 rounded-xl text-xs transition touch-target flex items-center gap-1 font-bold shadow-glow-whatsapp">
+                                <i class="fa-brands fa-whatsapp text-sm"></i> Notificar
                             </button>` : ''}
                             <button onclick="abrirModalRescate('${uId}', '${uNombre}')" title="Rescatar Candidatos Estancados" class="bg-amber-600/20 hover:bg-amber-600 text-amber-300 hover:text-white border border-amber-500/30 p-2 rounded-xl text-xs font-bold transition flex items-center gap-1 touch-target">
                                 <i class="fas fa-hand-holding-hand"></i> Rescatar
@@ -924,47 +958,58 @@
         }
 
         // =========================================================================
-        // AGENDA CON RECONOCIMIENTO ESTRICTO DE CURP Y RECORDATORIOS
+        // AGENDA TÁCTICA DE CITAS: TOTALMENTE SINCRONIZADA CON M3_AGENDA
         // =========================================================================
         function procesarAgendaTacticoCitas() {
             const tbody = document.getElementById("tablaCitasHoyBody");
             const badge = document.getElementById("badgeConteoCitasHoy");
             const fragmentoCitas = document.createDocumentFragment();
 
-            const hoyStr = new Date().toISOString().split('T')[0];
-            const manana = new Date();
-            manana.setDate(manana.getDate() + 1);
-            const mananaStr = manana.toISOString().split('T')[0];
+            const dHoy = new Date();
+            const hoyStr = `${dHoy.getFullYear()}-${String(dHoy.getMonth() + 1).padStart(2, '0')}-${String(dHoy.getDate()).padStart(2, '0')}`;
+            
+            const dManana = new Date();
+            dManana.setDate(dManana.getDate() + 1);
+            const mananaStr = `${dManana.getFullYear()}-${String(dManana.getMonth() + 1).padStart(2, '0')}-${String(dManana.getDate()).padStart(2, '0')}`;
 
             let count = 0;
 
             Object.values(todosPostulantes).forEach(p => {
-                if (!equipoAuditableIds.includes(p.reclutadorId)) return;
+                if (!equipoAuditableIds.includes(p.reclutadorId) && usuarioSesion.nivel < 5 && usuarioSesion.scope !== 'global') {
+                    return;
+                }
 
-                const fechaCita = p.fechaEntrevista || (p.diaEntrevista ? p.diaEntrevista.split(' ')[0] : "");
-                if (fechaCita === hoyStr || fechaCita === mananaStr) {
+                // Normalización sincronizada de fecha
+                const fechaCruda = p.fechaEntrevista || p.diaEntrevista || p.citaEntrevista || "";
+                const fechaEstandar = extraerFechaEstandar(fechaCruda);
+
+                if (fechaEstandar === hoyStr || fechaEstandar === mananaStr) {
                     count++;
-                    const hora = p.horaEntrevista || (p.diaEntrevista ? p.diaEntrevista.split(' ').slice(1).join(' ') : "Pendiente");
+                    const hora = p.horaEntrevista || (p.diaEntrevista ? p.diaEntrevista.split(' ').slice(1).join(' ') : "08:00 AM");
                     const empNom = catalogoEmpresas[sanitizarKey(p.empresaId || p.empresa)]?.nombreComercial || p.empresa || "Empresa";
                     const recNom = catalogoUsuarios[p.reclutadorId]?.nombre || p.reclutadorNombre || "Asesor";
                     const est = normalizarEstatus(p.estatus || p.status);
-                    const esHoy = fechaCita === hoyStr;
+                    const esHoy = fechaEstandar === hoyStr;
+                    const ruta = p.rutaTransporteSeleccionada || p.rutaNombre || p.ruta || "Traslado Propio";
 
-                    // CORRECCIÓN CRÍTICA DE VALIDACIÓN DE CURP
                     const curpLimpia = (p.curp || "").trim().toUpperCase();
                     const esCurpValida = curpLimpia.length === 18 && !curpLimpia.startsWith("CURPX");
 
                     const badgeDoc = esCurpValida
                         ? `<span class="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-mono font-bold" title="CURP Oficial: ${curpLimpia}">✓ CURP Validada</span>`
-                        : `<span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[10px] font-mono font-bold" title="CURP no capturada o temporal. Requerir INE">⚠️ CURP Pendiente</span>`;
+                        : `<span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[10px] font-mono font-bold" title="CURP temporal. Requerir INE">⚠️ CURP Pendiente</span>`;
 
+                    // Auditoría precisa del recordatorio disparado desde Agenda
                     const notificado = p.recordatorioCitaEnviado === true;
-                    const badgeRecordatorio = notificado
-                        ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-mono font-bold text-[10px]" title="Notificado el ${p.recordatorioTimestamp || 'Automático'}">
-                             <i class="fas fa-check-circle"></i> Avisado (${p.recordatorioCanal || 'Auto'})
+                    const fechaNotif = extraerFechaEstandar(p.recordatorioFechaCita);
+                    const estaAvisadoManana = notificado && (fechaNotif === mananaStr || fechaNotif === hoyStr);
+
+                    const badgeRecordatorio = estaAvisadoManana
+                        ? `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-mono font-bold text-[10px] shadow-sm">
+                             <i class="fa-brands fa-whatsapp text-emerald-400"></i> Avisado (${p.recordatorioCanal ? 'Manual' : 'Auto'})
                            </span>`
-                        : `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30 font-mono font-bold text-[10px]">
-                             <i class="fas fa-clock"></i> Pendiente Aviso
+                        : `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/30 font-mono font-bold text-[10px]">
+                             <i class="fas fa-clock text-amber-400"></i> Pendiente Aviso
                            </span>`;
 
                     const tr = document.createElement("tr");
@@ -980,7 +1025,10 @@
                             <div class="flex items-center gap-1.5 mt-0.5">${badgeDoc} <span class="text-slate-400 font-mono text-[10px]">${p.sexo || 'Indistinto'}</span></div>
                         </td>
                         <td class="p-2.5 text-slate-300 font-mono">${p.telefono || 'Sin Tel'}</td>
-                        <td class="p-2.5 text-cyan-400">${empNom} <span class="text-slate-400">(${p.nombreVacante || p.vacante})</span></td>
+                        <td class="p-2.5 text-cyan-400">
+                            <div>${empNom} <span class="text-slate-400">(${p.nombreVacante || p.vacante})</span></div>
+                            <div class="text-[10px] text-amber-300 font-mono"><i class="fas fa-bus text-amber-400 me-1"></i>${ruta}</div>
+                        </td>
                         <td class="p-2.5 text-slate-300 font-semibold">${recNom}</td>
                         <td class="p-2.5"><span class="px-2 py-0.5 rounded text-[11px] bg-slate-800 text-slate-300 font-bold">${est}</span></td>
                         <td class="p-2.5 text-center">${badgeRecordatorio}</td>
@@ -1044,9 +1092,6 @@
             }
         }
 
-        // =========================================================================
-        // GOBERNANZA MATRICIAL DE ESTATUS (PANEL DINÁMICO)
-        // =========================================================================
         function abrirModalGobernanza() {
             if (usuarioSesion.nivel < 3) {
                 return alert("Acceso restringido a coordinadores y supervisores.");
@@ -1143,14 +1188,9 @@
             }
         }
 
-        // NOTIFICACIÓN DIRECTA AL ASESOR POR HTTP SILENCIOSO (SIN ABRIR PESTAÑAS)
         async function notificarPorWhatsAppYLog(uTel, uNombre, rezagoCount, uId) {
             const mensaje = `Hola *${uNombre}*, en la Torre de Control M3 observo que tienes *${rezagoCount} candidato(s)* con más de 48h sin avance de fase. ` +
                             `Por favor avísame si requieres que reasignemos parte de tu cartera para evitar la fuga de talento y proteger tus comisiones.`;
-
-            if (!confirm(`¿Deseas despachar apercibimiento silencioso vía WhatsApp a ${uNombre} (${uTel}) sin abrir ventanas?`)) {
-                return;
-            }
 
             try {
                 await enviarWhatsAppDirectoHTTP(uTel, mensaje, uId);
@@ -1163,17 +1203,14 @@
                     uidEjecutor: usuarioSesion.uid,
                     destinatario: uNombre,
                     telefono: uTel,
-                    detalle: `Apercibimiento silencioso despachado por HTTP a ${uNombre} (${uTel}) por ${rezagoCount} prospectos con rezago crítico (>48h).`,
+                    detalle: `Apercibimiento despachado por WhatsApp a ${uNombre} (${uTel}) por ${rezagoCount} prospectos con rezago crítico (>48h).`,
                     timestamp: serverTimestamp()
                 });
-
-                alert(`✅ Apercibimiento despachado exitosamente a ${uNombre} en segundo plano.`);
             } catch (e) {
                 alert(`Error despachando apercibimiento: ${e.message}`);
             }
         }
 
-        // PURGA ATÓMICA HOMOLOGADA CON CARTERA PASIVA Y COLD STORAGE
         async function archivarPasivos120h() {
             if (usuarioSesion.nivel < 3) {
                 return alert("Acción restringida. Se requiere nivel de Coordinación, Supervisión o Dirección.");
@@ -1430,7 +1467,6 @@
                     modulo: "M3_SUPERVISION",
                     evento: "BALANCEO_INTELIGENTE",
                     supervisor: usuarioSesion.nombre,
-                    ejecutadoPor: usuarioSesion.email,
                     uidEjecutor: usuarioSesion.uid,
                     detalle: `Algoritmo balanceó equitativamente ${reasignados} candidatos críticos entre ${reclutadoresOperativosIds.length} asesores autorizados. Terna preservada.`,
                     timestamp: serverTimestamp()
