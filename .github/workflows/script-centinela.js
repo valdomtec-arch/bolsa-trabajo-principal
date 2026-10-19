@@ -1,4 +1,4 @@
-// script-centinela.js - Usa el fetch nativo de Node.js (sin dependencias npm externas)
+// script-centinela.js - Ubicado en .github/workflows/
 const DB_URL = (process.env.FIREBASE_URL || "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com").replace(/\/$/, "");
 const DB_AUTH = process.env.FIREBASE_SECRET ? `?auth=${process.env.FIREBASE_SECRET}` : "";
 const ADMIN_PHONE = process.env.ADMIN_PHONE;
@@ -24,16 +24,16 @@ function extraerFechaEstandar(valorFecha) {
 
 async function ejecutar() {
     console.log("Iniciando Centinela de Recordatorios...");
-    console.log(`Conectando a: ${DB_URL}`);
+    console.log(`Conectando a base de datos: ${DB_URL}`);
     const inicio = Date.now();
 
     try {
-        // 1. Leer postulantes desde Firebase Realtime Database
+        // 1. Consulta la base de datos de postulantes
         const res = await fetch(`${DB_URL}/postulantes.json${DB_AUTH}`);
         if (!res.ok) {
-            throw new Error(`Fallo lectura Firebase (HTTP ${res.status}): ${res.statusText}`);
+            throw new Error(`Error en Firebase (HTTP ${res.status}): ${res.statusText}`);
         }
-        
+
         const postulantes = await res.json() || {};
         const mananaStr = obtenerFechaMananaStr();
         const pendientes = [];
@@ -48,9 +48,10 @@ async function ejecutar() {
             }
         });
 
-        console.log(`Evaluación para fecha ${mananaStr}: ${pendientes.length} candidato(s) agendados pendientes.`);
+        console.log(`Fecha analizada: ${mananaStr}`);
+        console.log(`Candidatos agendados pendientes de recordatorio: ${pendientes.length}`);
 
-        // 2. Registrar encolamiento en Firebase
+        // 2. Registra los recordatorios en la cola de Firebase
         for (const c of pendientes) {
             await fetch(`${DB_URL}/cola_recordatorios_whatsapp/${mananaStr}_${c.id}.json${DB_AUTH}`, {
                 method: 'PUT',
@@ -67,13 +68,13 @@ async function ejecutar() {
             });
         }
 
-        // 3. Registrar Heartbeat de salud operativo
+        // 3. Registra el Heartbeat de monitoreo del sistema
         const latencia = Date.now() - inicio;
         await fetch(`${DB_URL}/configuracion_sistema/centinela_heartbeat.json${DB_AUTH}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                ejecutor: "GitHub Actions (script-centinela.js)",
+                ejecutor: "GitHub Actions (.github/workflows/script-centinela.js)",
                 estadoServidor: "OPTIMO",
                 latenciaMs: latencia,
                 ultimoHealthCheck: new Date().toISOString(),
@@ -81,9 +82,9 @@ async function ejecutar() {
             })
         });
 
-        console.log(`Centinela finalizado con éxito en ${latencia}ms.`);
+        console.log(`Centinela finalizado exitosamente en ${latencia} ms.`);
     } catch (err) {
-        console.error("Error crítico en Centinela:", err.message);
+        console.error("Fallo durante la ejecución del Centinela:", err.message);
         process.exit(1);
     }
 }
