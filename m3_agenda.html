@@ -5,12 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Módulo 3: Control de Postulantes, Agenda & Embudo Facturable</title>
 
+    <!-- Preconexión a CDNs para optimizar latencia de red -->
+    <link rel="preconnect" href="https://cdn.tailwindcss.com">
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    <link rel="preconnect" href="https://www.gstatic.com">
+
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- SheetJS (Excel) -->
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    
+    <!-- Librerías con carga diferida (defer) para evitar bloqueo de render en móviles y tablets -->
+    <script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script defer src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    
     <!-- Font Awesome 6 Oficial Pro -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     
@@ -594,7 +600,6 @@
             </div>
         </div>
     </div>
-
     <!-- FIREBASE SDK V10 & MOTOR COMPLETO -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -662,6 +667,7 @@
         
         let catalogoRutas = {};
         let catalogoGeocodigosMaestros = {};
+        let rutasCargadas = false;
         let modoCapturaRutaManual = false;
 
         let chartSexoInstance = null;
@@ -851,12 +857,12 @@
                     </tr>
                 `;
 
-                // Tarjeta Móvil
+                // Tarjeta Móvil (Con Reclutador Asignado y Botón Eliminar Integrado)
                 htmlMobile += `
-                    <div class="bg-cyber-cardAlt p-4 rounded-2xl border border-cyber-border space-y-2">
+                    <div class="bg-cyber-cardAlt p-4 rounded-2xl border border-cyber-border space-y-2.5">
                         <div class="flex justify-between items-start gap-2">
                             <div>
-                                <div class="font-bold text-white text-sm">${p.nombre || 'Sin Nombre'}</div>
+                                <div class="font-bold text-white text-sm">${p.nombre || `${p.nombres || ''} ${p.apellidos || ''}`.trim() || 'Sin Nombre'}</div>
                                 <div class="text-xs text-amber-300 font-mono">${p.telefono || 'Sin Teléfono'}</div>
                                 <div class="mt-0.5">${badgeCurp}</div>
                             </div>
@@ -872,15 +878,22 @@
                             <span>📅 ${cita}</span>
                             ${slaBadge}
                         </div>
-                        <div class="pt-2 flex justify-between items-center gap-2 border-t border-cyber-border/40">
-                            <select onchange="cambioRapidoEstatus('${id}', this.value)" class="bg-cyber-bg border border-cyber-border rounded-lg text-xs p-1 text-slate-200 flex-1">
+                        <div class="text-xs font-mono text-slate-300 bg-cyber-bg/70 px-2.5 py-1.5 rounded-xl border border-cyber-border flex items-center justify-between">
+                            <span class="text-slate-400 text-[10px] uppercase font-bold"><i class="fas fa-headset me-1 text-cyber-accent"></i> Asesor:</span>
+                            <span class="text-white font-medium truncate max-w-[170px]">${recNombre}</span>
+                        </div>
+                        <div class="pt-2 flex items-center gap-1.5 border-t border-cyber-border/40">
+                            <select onchange="cambioRapidoEstatus('${id}', this.value)" class="bg-cyber-bg border border-cyber-border rounded-xl text-xs p-2 text-slate-200 flex-1 touch-target">
                                 ${opcionesSelect}
                             </select>
-                            <button onclick="dispararNotificacionDirectaIndividual('${id}')" class="p-2 bg-emerald-600 rounded-lg text-white">
-                                <i class="fa-brands fa-whatsapp"></i>
+                            <button onclick="dispararNotificacionDirectaIndividual('${id}')" title="Enviar WhatsApp" class="p-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-white touch-target flex items-center justify-center">
+                                <i class="fa-brands fa-whatsapp text-sm"></i>
                             </button>
-                            <button onclick="abrirModalEditar('${id}')" class="p-2 bg-slate-800 rounded-lg text-slate-200">
-                                <i class="fas fa-pen-to-square"></i>
+                            <button onclick="abrirModalEditar('${id}')" title="Editar Expediente" class="p-2.5 bg-slate-800 hover:bg-slate-700 border border-cyber-border rounded-xl text-slate-200 touch-target flex items-center justify-center">
+                                <i class="fas fa-pen-to-square text-sm"></i>
+                            </button>
+                            <button onclick="eliminarPostulante('${id}')" title="Eliminar Candidato" class="p-2.5 bg-rose-500/20 hover:bg-rose-500 border border-rose-500/30 rounded-xl text-rose-400 hover:text-white transition touch-target flex items-center justify-center">
+                                <i class="fas fa-trash text-sm"></i>
                             </button>
                         </div>
                     </div>
@@ -1260,7 +1273,7 @@
             return `<span class="badge-division badge-div-none">Sin Div</span>`;
         }
 
-        // MOTOR DE FECHAS ESTÁNDAR (SINCRONIZADO AL 100% CON SCRIPT-CENTINELA Y M3_SUPERVISION)
+        // MOTOR DE FECHAS ESTÁNDAR
         function obtenerFechaMananaStr() {
             const d = new Date();
             d.setDate(d.getDate() + 1);
@@ -1368,16 +1381,6 @@
                 onValue(ref(db, "empresas"), (s) => { catalogoEmpresas = s.val() || {}; actualizarFiltros(); });
                 onValue(ref(db, "vacantes_detalles"), (s) => { catalogoVacantesDetalles = s.val() || {}; actualizarFiltroVacantes(); });
                 
-                onValue(ref(db, "rutas"), (s) => { 
-                    catalogoRutas = s.val() || {}; 
-                    refrescarRutasSiModalAbierto();
-                });
-
-                onValue(ref(db, "geocodigos_maestros"), (s) => { 
-                    catalogoGeocodigosMaestros = s.val() || {}; 
-                    refrescarRutasSiModalAbierto();
-                });
-
                 onValue(ref(db, "usuarios_reclutadores"), (s) => {
                     catalogoUsuarios = s.val() || {};
                     construirArbolDescendenteMatricial();
@@ -1385,6 +1388,22 @@
                     cargarPostulantes();
                 });
             });
+        }
+
+        // Carga diferida bajo demanda de catálogos pesados de rutas para celulares y tablets
+        async function asegurarCargaRutasGeocodigos() {
+            if (rutasCargadas) return;
+            try {
+                const [snapRutas, snapGeo] = await Promise.all([
+                    get(ref(db, "rutas")),
+                    get(ref(db, "geocodigos_maestros"))
+                ]);
+                catalogoRutas = snapRutas.val() || {};
+                catalogoGeocodigosMaestros = snapGeo.val() || {};
+                rutasCargadas = true;
+            } catch (err) {
+                console.warn("No se pudieron pre-cargar rutas secundarias:", err);
+            }
         }
 
         function refrescarRutasSiModalAbierto() {
@@ -1855,11 +1874,14 @@
             }
         }
 
-        function abrirModalEditar(id) {
+        async function abrirModalEditar(id) {
             RBAC.asegurar('m3_agenda', 'editar', "No tienes privilegios para editar postulantes.");
 
             const p = todosLosPostulantes[id];
             if (!p) return;
+
+            // Asegurar que las rutas se lean si aún no se han cargado (Lazy-load)
+            await asegurarCargaRutasGeocodigos();
 
             fijarModoCapturaRuta(false);
 
@@ -2525,7 +2547,6 @@
                 const mensaje = armarMensajeRecordatorioManana(c);
 
                 try {
-                    // Encolamiento en tiempo real sincronizado con script-centinela.js
                     await set(ref(db, `cola_recordatorios_whatsapp/${mananaStr}_${c.id}`), {
                         candidatoId: c.id,
                         nombre: nom,
