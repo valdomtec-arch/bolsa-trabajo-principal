@@ -259,7 +259,7 @@
                 <table class="w-full text-left border-collapse">
                     <thead>
                         <tr class="bg-[#06101e]/80 text-slate-400 text-xs font-mono uppercase tracking-wider border-b border-white/10">
-                            <th class="p-3.5">Reclutador / Contacto</th>
+                            <th class="p-3.5">Colaborador / Puesto</th>
                             <th class="p-3.5 text-center">Nivel Carga</th>
                             <th class="p-3.5 text-center">Postulados</th>
                             <th class="p-3.5 text-center">Colocados</th>
@@ -267,7 +267,7 @@
                             <th class="p-3.5 text-center">Pre-Filtro Entrevista</th>
                             <th class="p-3.5 text-center">SLA (&lt;24h / 24-48h / &gt;48h)</th>
                             <th class="p-3.5 text-center">Efectividad</th>
-                            <th class="p-3.5 text-center">Apercibimiento WhatsApp</th>
+                            <th class="p-3.5 text-center">Gestión & Acciones</th>
                         </tr>
                     </thead>
                     <tbody id="tablaSupervisionBody" class="text-xs divide-y divide-white/5 text-slate-200 font-medium">
@@ -441,7 +441,7 @@
             return d;
         }
 
-        // MOTOR REAL DE WHATSAPP 100% OPERATIVO (SIN TELEGRAM / SIN INTERMEDIARIOS)
+        // MOTOR REAL DE WHATSAPP 100% OPERATIVO
         async function enviarWhatsAppDirectoHTTP(numeroDestino, mensajeTexto, reclutadorId) {
             const telSanitizado = sanitizarTelefonoUniversal(numeroDestino);
             if (!telSanitizado || telSanitizado.length < 10) {
@@ -496,7 +496,6 @@
             return "Postulado";
         }
 
-        // MOTOR DE SINCRONIZACIÓN DE FECHAS (IDENTICO A M3_AGENDA)
         function extraerFechaEstandar(valorFecha) {
             if (!valorFecha) return "";
             const str = valorFecha.toString().trim();
@@ -665,6 +664,17 @@
             });
         }
 
+        // =========================================================================
+        // BLINDAJE CANÓNICO DE AUDITORÍA VS RECEPCIÓN OPERATIVA
+        // =========================================================================
+        
+        // 1. Determina quién es visible para auditoría en la tabla de supervisión
+        function esAuditableEnSupervision(uId) {
+            const u = catalogoUsuarios[uId];
+            return !!(u && u.estatus === 'Activo');
+        }
+
+        // 2. Determina exclusivamente quién puede recibir cartera en Rescate o Auto-Balanceo
         function esReceptorReclutadorValido(uId) {
             const u = catalogoUsuarios[uId];
             if (!u || u.estatus !== 'Activo') return false;
@@ -678,43 +688,49 @@
             return u.operaComoReclutador !== false;
         }
 
+        // Construcción simétrica de la célula auditable idéntica a M3 Agenda y M5 Staff
         function construirEquipoAuditable() {
             equipoAuditableIds = [];
 
             if (usuarioSesion.nivel >= 5 || (usuarioSesion.nivel === 4 && usuarioSesion.esDirector) || usuarioSesion.scope === 'global') {
-                equipoAuditableIds = Object.keys(catalogoUsuarios).filter(id => esReceptorReclutadorValido(id));
-                document.getElementById("badgeJerarquia").textContent = `Célula: Toda la Fuerza Operativa (${equipoAuditableIds.length} Asesores)`;
+                equipoAuditableIds = Object.keys(catalogoUsuarios).filter(id => esAuditableEnSupervision(id));
+                document.getElementById("badgeJerarquia").textContent = `Célula: Toda la Fuerza Operativa (${equipoAuditableIds.length} Colaboradores)`;
             } else if (usuarioSesion.nivel === 4) {
                 const coordsACargo = [];
                 Object.entries(catalogoUsuarios).forEach(([uid, u]) => {
                     const sups = Array.isArray(u.supervisoresIds) ? u.supervisoresIds : (u.supervisorPadreId ? [u.supervisorPadreId] : []);
-                    if (sups.includes(usuarioSesion.uid)) coordsACargo.push(uid);
+                    if (sups.includes(usuarioSesion.uid)) {
+                        coordsACargo.push(uid);
+                        if (esAuditableEnSupervision(uid) && !equipoAuditableIds.includes(uid)) {
+                            equipoAuditableIds.push(uid);
+                        }
+                    }
                 });
 
                 Object.entries(catalogoUsuarios).forEach(([uid, u]) => {
                     const coords = Array.isArray(u.coordinadoresIds) ? u.coordinadoresIds : (u.coordinadorPadreId ? [u.coordinadorPadreId] : []);
                     if (coords.some(cId => coordsACargo.includes(cId)) || coordsACargo.includes(uid) || uid === usuarioSesion.uid) {
-                        if (esReceptorReclutadorValido(uid) && !equipoAuditableIds.includes(uid)) {
+                        if (esAuditableEnSupervision(uid) && !equipoAuditableIds.includes(uid)) {
                             equipoAuditableIds.push(uid);
                         }
                     }
                 });
-                document.getElementById("badgeJerarquia").textContent = `Célula: Región a Cargo (${equipoAuditableIds.length} Asesores)`;
+                document.getElementById("badgeJerarquia").textContent = `Célula: Región a Cargo (${equipoAuditableIds.length} Colaboradores)`;
             } else {
                 Object.entries(catalogoUsuarios).forEach(([uId, uVal]) => {
                     const coords = Array.isArray(uVal.coordinadoresIds) ? uVal.coordinadoresIds : (uVal.coordinadorPadreId ? [uVal.coordinadorPadreId] : []);
                     if (coords.includes(usuarioSesion.uid)) {
-                        if (esReceptorReclutadorValido(uId) && !equipoAuditableIds.includes(uId)) {
+                        if (esAuditableEnSupervision(uId) && !equipoAuditableIds.includes(uId)) {
                             equipoAuditableIds.push(uId);
                         }
                     }
                 });
 
-                if (esReceptorReclutadorValido(usuarioSesion.uid)) {
+                if (esAuditableEnSupervision(usuarioSesion.uid) && !equipoAuditableIds.includes(usuarioSesion.uid)) {
                     equipoAuditableIds.unshift(usuarioSesion.uid);
                 }
 
-                document.getElementById("badgeJerarquia").textContent = `Célula: Asesores a Cargo (${equipoAuditableIds.length} Asesores)`;
+                document.getElementById("badgeJerarquia").textContent = `Célula: Equipo Coordinado (${equipoAuditableIds.length} Colaboradores)`;
             }
         }
 
@@ -795,9 +811,13 @@
 
                 const uNombre = uVal.nombre || uVal.email || uId;
                 const uTel = uVal.telefono || "";
+                const uRolInfo = catalogoRoles[uVal.rolId] || {};
+                const uNivel = uVal.nivel !== undefined ? parseInt(uVal.nivel) : (uRolInfo.nivelJerarquico || 2);
+                const uEsReclutadorActivo = uVal.operaComoReclutador === true || (uVal.operaComoReclutador === undefined && uNivel <= 2);
 
                 const cands = arrayPostulantes.filter(p => {
-                    if (p.reclutadorId !== uId && p.agenteId !== uId) return false;
+                    const recMatch = (p.reclutadorId === uId || p.agenteId === uId || p.asesorId === uId);
+                    if (!recMatch) return false;
 
                     const empKey = (p.empresaId || p.empresa || "").toLowerCase();
                     const empData = catalogoEmpresas[empKey] || {};
@@ -864,7 +884,9 @@
                 chartDataR.push(r);
 
                 let badgeCarga = `<span class="status-pill-green text-xs font-mono font-bold px-2 py-0.5 rounded-full">Óptima (${activosEnProceso})</span>`;
-                if (activosEnProceso > 35) {
+                if (!uEsReclutadorActivo && total === 0) {
+                    badgeCarga = `<span class="bg-blue-950/40 text-cyan-300 border border-blue-500/30 text-xs font-mono font-bold px-2 py-0.5 rounded-full">Supervisión Mando</span>`;
+                } else if (activosEnProceso > 35) {
                     badgeCarga = `<span class="status-pill-red text-xs font-mono font-bold px-2 py-0.5 rounded-full animate-pulse">Saturado (${activosEnProceso})</span>`;
                 } else if (activosEnProceso >= 20) {
                     badgeCarga = `<span class="status-pill-amber text-xs font-mono font-bold px-2 py-0.5 rounded-full">Carga Alta (${activosEnProceso})</span>`;
@@ -884,12 +906,20 @@
                     alertaEntrevistaHtml = `<span class="block text-[10px] text-purple-400 font-bold mt-0.5"><i class="fas fa-triangle-exclamation"></i> Desfase de perfil</span>`;
                 }
 
+                let badgePuestoHtml = `<span class="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 border border-slate-700">N${uNivel} • ${uVal.nombreRol || 'Asesor'}</span>`;
+                if (uNivel === 3) {
+                    badgePuestoHtml = `<span class="text-[10px] font-mono px-1.5 py-0.2 rounded bg-cyan-950 text-cyan-300 border border-cyan-700/50 font-bold">Coord N3</span>`;
+                } else if (uNivel >= 4) {
+                    badgePuestoHtml = `<span class="text-[10px] font-mono px-1.5 py-0.2 rounded bg-purple-950 text-purple-300 border border-purple-700/50 font-bold">Sup N${uNivel}</span>`;
+                }
+
                 const tr = document.createElement("tr");
                 tr.className = "hover:bg-[#15264a]/30 transition";
                 tr.innerHTML = `
                     <td class="p-3.5">
                         <div class="font-bold text-white flex items-center gap-1.5">
-                            <i class="fas fa-circle-user text-orange-500"></i> ${uNombre}
+                            <i class="fas fa-circle-user ${uNivel >= 3 ? 'text-cyan-400' : 'text-orange-500'}"></i> ${uNombre}
+                            ${badgePuestoHtml}
                         </div>
                         <div class="text-xs text-slate-400 font-mono">${uVal.email || 'Sin correo'}</div>
                     </td>
@@ -919,12 +949,14 @@
                     <td class="p-3.5 text-center whitespace-nowrap">
                         <div class="flex items-center justify-center gap-2">
                             ${uTel ? `
-                            <button onclick="notificarPorWhatsAppYLog('${uTel}', '${uNombre}', ${r}, '${uId}')" title="Enviar apercibimiento oficial por WhatsApp" class="bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/30 p-2 rounded-xl text-xs transition touch-target flex items-center gap-1 font-bold shadow-glow-whatsapp">
+                            <button onclick="notificarPorWhatsAppYLog('${uTel}', '${uNombre}', ${r}, '${uId}')" title="Enviar mensaje oficial por WhatsApp" class="bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/30 p-2 rounded-xl text-xs transition touch-target flex items-center gap-1 font-bold shadow-glow-whatsapp">
                                 <i class="fa-brands fa-whatsapp text-sm"></i> Notificar
                             </button>` : ''}
+                            ${total > 0 ? `
                             <button onclick="abrirModalRescate('${uId}', '${uNombre}')" title="Rescatar Candidatos Estancados" class="bg-amber-600/20 hover:bg-amber-600 text-amber-300 hover:text-white border border-amber-500/30 p-2 rounded-xl text-xs font-bold transition flex items-center gap-1 touch-target">
                                 <i class="fas fa-hand-holding-hand"></i> Rescatar
-                            </button>
+                            </button>` : `
+                            <span class="text-slate-600 text-[10px] font-mono italic">Sin Cartera</span>`}
                         </div>
                     </td>
                 `;
@@ -952,7 +984,7 @@
 
             document.getElementById("kpiAlDia").textContent = globalV;
             document.getElementById("kpiCriticos").textContent = globalR;
-            document.getElementById("txtTotalReclutadoresAuditoria").textContent = `Supervisando ${equipoAuditableIds.length} asesores activos`;
+            document.getElementById("txtTotalReclutadoresAuditoria").textContent = `Supervisando ${equipoAuditableIds.length} colaboradores activos`;
 
             renderizarGraficos(globalColocados, globalMed, globalEnt, globalDecl, globalV + globalA + globalR, chartLabels, chartDataV, chartDataA, chartDataR);
         }
@@ -979,7 +1011,6 @@
                     return;
                 }
 
-                // Normalización sincronizada de fecha
                 const fechaCruda = p.fechaEntrevista || p.diaEntrevista || p.citaEntrevista || "";
                 const fechaEstandar = extraerFechaEstandar(fechaCruda);
 
@@ -999,7 +1030,6 @@
                         ? `<span class="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-mono font-bold" title="CURP Oficial: ${curpLimpia}">✓ CURP Validada</span>`
                         : `<span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[10px] font-mono font-bold" title="CURP temporal. Requerir INE">⚠️ CURP Pendiente</span>`;
 
-                    // Auditoría precisa del recordatorio disparado desde Agenda
                     const notificado = p.recordatorioCitaEnviado === true;
                     const fechaNotif = extraerFechaEstandar(p.recordatorioFechaCita);
                     const estaAvisadoManana = notificado && (fechaNotif === mananaStr || fechaNotif === hoyStr);
@@ -1189,25 +1219,26 @@
         }
 
         async function notificarPorWhatsAppYLog(uTel, uNombre, rezagoCount, uId) {
-            const mensaje = `Hola *${uNombre}*, en la Torre de Control M3 observo que tienes *${rezagoCount} candidato(s)* con más de 48h sin avance de fase. ` +
-                            `Por favor avísame si requieres que reasignemos parte de tu cartera para evitar la fuga de talento y proteger tus comisiones.`;
+            const mensaje = rezagoCount > 0
+                ? `Hola *${uNombre}*, en la Torre de Control M3 observo que tienes *${rezagoCount} candidato(s)* con más de 48h sin avance de fase. Por favor avísame si requieres apoyo con reasignación.`
+                : `Hola *${uNombre}*, te contacto desde la Torre de Control M3 para coordinar el avance y asignación de prospectos en tu célula.`;
 
             try {
                 await enviarWhatsAppDirectoHTTP(uTel, mensaje, uId);
 
                 await push(ref(db, 'modulo_7_logs'), {
                     modulo: "M3_SUPERVISION",
-                    evento: "NOTIFICACION_REZAGO_SLA",
+                    evento: "NOTIFICACION_SLA_WHATSAPP",
                     supervisor: usuarioSesion.nombre,
                     ejecutadoPor: usuarioSesion.email,
                     uidEjecutor: usuarioSesion.uid,
                     destinatario: uNombre,
                     telefono: uTel,
-                    detalle: `Apercibimiento despachado por WhatsApp a ${uNombre} (${uTel}) por ${rezagoCount} prospectos con rezago crítico (>48h).`,
+                    detalle: `Mensaje despachado a ${uNombre} (${uTel}). Rezago: ${rezagoCount}.`,
                     timestamp: serverTimestamp()
                 });
             } catch (e) {
-                alert(`Error despachando apercibimiento: ${e.message}`);
+                alert(`Error despachando mensaje: ${e.message}`);
             }
         }
 
@@ -1245,7 +1276,7 @@
 
             const confirmacion = confirm(
                 `🧹 ARCHIVADO ATÓMICO A COLD STORAGE:\n\n` +
-                `Se encontraron ${candidatosAArchivar.length} candidato(s) descartados (Declinantes / No Aptos) con >= 120 horas de rezago.\n\n` +
+                `Se encontraron ${candidatosAArchivar.length} candidato(s) descartados con >= 120 horas de rezago.\n\n` +
                 `¿Deseas trasladarlos a M3.3 Cartera Pasiva & Histórico para aligerar la base activa de M3 Agenda?`
             );
 
@@ -1284,7 +1315,7 @@
                     timestamp: serverTimestamp()
                 });
 
-                alert(`✅ Éxito: ${candidatosAArchivar.length} candidatos fueron archivados en M3.3 Histórico. La base activa de M3 Agenda ha sido liberada.`);
+                alert(`✅ Éxito: ${candidatosAArchivar.length} candidatos fueron archivados en M3.3 Histórico.`);
 
             } catch (err) {
                 alert("Error durante la purga atómica: " + err.message);
@@ -1298,6 +1329,7 @@
             const selectDest = document.getElementById("rescateDestinoUid");
             selectDest.innerHTML = '<option value="">-- Seleccionar Receptor Autorizado --</option>';
 
+            // Solo receptores facultados expresamente para operar
             equipoAuditableIds.forEach(id => {
                 if (id !== origenUid && esReceptorReclutadorValido(id)) {
                     const u = catalogoUsuarios[id];
@@ -1338,7 +1370,7 @@
             const estadosExcluidos = ["Contratado", "Trabajando", "Proceso Terminado", "No Apto Medico", "No Apto Entrevista", "Declinante"];
 
             Object.entries(data).forEach(([id, p]) => {
-                if (p.reclutadorId === origenUid || p.agenteId === origenUid) {
+                if (p.reclutadorId === origenUid || p.agenteId === origenUid || p.asesorId === origenUid) {
                     const est = normalizarEstatus(p.estatus || p.status);
                     let esCandidato = false;
 
@@ -1379,7 +1411,7 @@
                 supervisor: usuarioSesion.nombre,
                 ejecutadoPor: usuarioSesion.email,
                 uidEjecutor: usuarioSesion.uid,
-                detalle: `Se transfirieron ${count} candidatos de ${origenNombre} hacia ${destinoNombre}. Criterio: ${tipo}. Terna matricial preservada.`,
+                detalle: `Se transfirieron ${count} candidatos de ${origenNombre} hacia ${destinoNombre}. Criterio: ${tipo}. Terna preservada.`,
                 timestamp: serverTimestamp()
             });
 
@@ -1409,15 +1441,17 @@
 
             Object.values(data).forEach(p => {
                 const est = normalizarEstatus(p.estatus || p.status);
-                if (cargas[p.reclutadorId] !== undefined && !estadosExcluidos.includes(est)) {
-                    cargas[p.reclutadorId]++;
+                const rId = p.reclutadorId || p.agenteId;
+                if (cargas[rId] !== undefined && !estadosExcluidos.includes(est)) {
+                    cargas[rId]++;
                 }
             });
 
             const candidatosCriticos = [];
             Object.entries(data).forEach(([id, p]) => {
                 const est = normalizarEstatus(p.estatus || p.status);
-                if (equipoAuditableIds.includes(p.reclutadorId) && !estadosExcluidos.includes(est)) {
+                const rId = p.reclutadorId || p.agenteId;
+                if (equipoAuditableIds.includes(rId) && !estadosExcluidos.includes(est)) {
                     const hrs = calcularHorasInactividadSincronizada(p);
                     if (hrs > 48) {
                         candidatosCriticos.push({ id, ...p });
@@ -1435,8 +1469,9 @@
 
             candidatosCriticos.forEach(cand => {
                 const mejorOpId = reclutadoresOperativosIds.reduce((a, b) => cargas[a] < cargas[b] ? a : b);
+                const candRecId = cand.reclutadorId || cand.agenteId;
 
-                if (mejorOpId !== cand.reclutadorId) {
+                if (mejorOpId !== candRecId) {
                     const receptor = catalogoUsuarios[mejorOpId] || {};
                     const receptorNombre = receptor.nombre || "Operador Disponible";
 
@@ -1453,8 +1488,8 @@
                     updates[`postulantes/${cand.id}/ultimaActualizacion`] = new Date().toISOString();
 
                     cargas[mejorOpId]++;
-                    if (cargas[cand.reclutadorId] !== undefined) {
-                        cargas[cand.reclutadorId]--;
+                    if (cargas[candRecId] !== undefined) {
+                        cargas[candRecId]--;
                     }
                     reasignados++;
                 }
