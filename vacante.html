@@ -259,6 +259,21 @@
             font-weight: 700;
             word-wrap: break-word;
             line-height: 1.3;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* CÍRCULO INDICADOR ANTES DEL NOMBRE DE LA VACANTE */
+        .vacante-circle-dot {
+            width: 9px;
+            height: 9px;
+            min-width: 9px;
+            min-height: 9px;
+            border-radius: 50%;
+            background-color: var(--orange-title);
+            box-shadow: 0 0 8px rgba(249, 115, 22, 0.6);
+            display: inline-block;
         }
 
         .vacante-item-info p { 
@@ -328,42 +343,53 @@
             filter: drop-shadow(0 6px 14px rgba(0,0,0,0.7));
         }
 
+        /* FLECHITAS PEQUEÑAS ESTILIZADAS DEL CARRUSEL */
         .revolver-nav {
-            position: absolute; top: 50%;
+            position: absolute; 
+            top: 50%;
             transform: translateY(-50%);
-            background: rgba(4, 8, 20, 0.75);
+            background: rgba(4, 8, 20, 0.65);
+            backdrop-filter: blur(4px);
             color: var(--wf-accent-blue);
-            border: 1px solid var(--border-color);
-            width: 44px; height: 44px;
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            width: 30px; 
+            height: 30px;
             border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            cursor: pointer; z-index: 10;
-            transition: all 0.25s ease;
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            cursor: pointer; 
+            z-index: 10;
+            font-size: 0.78rem;
+            transition: all 0.2s ease;
         }
 
         .revolver-nav:hover {
             background: var(--wf-accent-blue);
             color: var(--secondary-blue-dark);
+            border-color: var(--wf-accent-blue);
+            transform: translateY(-50%) scale(1.08);
+            box-shadow: 0 0 10px var(--wf-accent-glow);
         }
 
         .revolver-prev { left: 8px; }
         .revolver-next { right: 8px; }
 
         .revolver-indicators {
-            position: absolute; bottom: 10px; left: 50%;
+            position: absolute; bottom: 8px; left: 50%;
             transform: translateX(-50%);
             display: flex; gap: 6px; z-index: 10;
         }
 
         .revolver-dot {
-            width: 8px; height: 8px; border-radius: 50%;
+            width: 7px; height: 7px; border-radius: 50%;
             background: rgba(255, 255, 255, 0.35);
             cursor: pointer; transition: all 0.25s ease;
         }
 
         .revolver-dot.active {
             background: var(--wf-accent-blue);
-            width: 18px; border-radius: 8px;
+            width: 16px; border-radius: 6px;
         }
 
         /* GRID DINÁMICO AUTONIVELADO (TABLET, CELULAR Y PC) */
@@ -379,7 +405,6 @@
             width: 100%;
         }
 
-        /* Si el contenido es largo en pantallas de escritorio, usar 2 columnas */
         @media (min-width: 992px) {
             .vacante-layout-grid.dos-columnas {
                 grid-template-columns: 1.15fr 0.85fr;
@@ -392,7 +417,6 @@
             }
         }
 
-        /* Si el contenido es corto, el layout equilibra pesos visuales automáticamente */
         .vacante-layout-grid.equilibrado-central {
             max-width: 900px;
             margin: 0 auto;
@@ -1394,7 +1418,6 @@
 
         const textoAcumulado = (actTxt + benTxt + notTxt).replace(/No especificadas\.|Sin notas adicionales\./g, '').trim();
 
-        // Si la vacante contiene menos de 120 caracteres en total, centrar fluidamente para evitar desbalance
         if (textoAcumulado.length < 120 && window.innerWidth >= 992) {
             rejilla.classList.remove('dos-columnas');
             rejilla.classList.add('equilibrado-central');
@@ -1492,7 +1515,7 @@
                         const hitKey = Object.keys(catalogo).find(k => {
                             const kComp = sanitizarCompacto(k);
                             const nomComp = sanitizarCompacto(catalogo[k]?.nombreComercial || catalogo[k]?.nombre || '');
-                            return kComp === empresaCompacta || kComp.includes(empresaCompacta) || nomComp.includes(empresaCompacta);
+                            return kComp === empresaCompacta || nomComp === empresaCompacta;
                         });
                         if (hitKey) {
                             infoMaestra = catalogo[hitKey];
@@ -1533,12 +1556,12 @@
             db.ref('vacantes_detalles').on('value', async function(snapshot) {
                 if (snapshot.exists()) {
                     const catalogoVacantes = snapshot.val();
-                    let dataRaw = catalogoVacantes[empresaLimpia] || catalogoVacantes[empresaCompacta] || catalogoVacantes[claveEmpresaM1Oficial];
+                    let dataRaw = catalogoVacantes[empresaLimpia] || catalogoVacantes[empresaCompacta] || (claveEmpresaM1Oficial ? catalogoVacantes[claveEmpresaM1Oficial] : null);
 
                     if (!dataRaw) {
                         const hitKey = Object.keys(catalogoVacantes).find(k => {
                             const kComp = sanitizarCompacto(k);
-                            return kComp === empresaCompacta || kComp.includes(empresaCompacta) || empresaCompacta.includes(kComp);
+                            return kComp === empresaCompacta;
                         });
                         if (hitKey) dataRaw = catalogoVacantes[hitKey];
                     }
@@ -1582,12 +1605,13 @@
                                     ? `<span class="badge-status-puesto" style="background:rgba(245,158,11,0.2); color:#fbbf24; border:1px solid rgba(245,158,11,0.4);"><i class="fa-solid fa-pause"></i> En Pausa</span>`
                                     : `<span class="badge-status-puesto" style="background:rgba(34,197,94,0.15); color:#4ade80; border:1px solid rgba(34,197,94,0.3);"><i class="fa-solid fa-circle-check"></i> Abierta</span>`;
                             
+                            // RECUPERACIÓN DEL CÍRCULO INDICADOR ANTES DEL NOMBRE
                             const cardItem = document.createElement('div');
                             cardItem.className = 'vacante-item-card';
                             cardItem.onclick = () => renderizarPuestoEspecifico(key);
                             cardItem.innerHTML = `
                                 <div class="vacante-item-info">
-                                    <h2>${nombreMostrarPuesto}</h2>
+                                    <h2><span class="vacante-circle-dot"></span> <span>${nombreMostrarPuesto}</span></h2>
                                     <p>
                                         <i class="fa-solid fa-money-bill-wave" style="color:var(--green-whatsapp)"></i> ${vac.salario || 'No especificado'}
                                         ${badgePuestoHtml}
@@ -1607,7 +1631,6 @@
                         document.getElementById('loading').style.display = 'none';
                         
                         if (!vacanteKeyDetectada) {
-                            // Si solo hay una vacante, abrirla directamente
                             if (keys.length === 1) {
                                 renderizarPuestoEspecifico(keys[0]);
                             } else {
@@ -1831,9 +1854,9 @@
         }
     }
 
-    // MOTOR HAVERSINE PRECISO CON FILTRADO GEOGRÁFICO
+    // MOTOR HAVERSINE
     function calcularDistanciaKm(lat1, lon1, lat2, lon2) {
-        const R = 6371; // Radio de la Tierra en km
+        const R = 6371; 
         const dLat = (lat2 - lat1) * Math.PI / 180;
         const dLon = (lon2 - lon1) * Math.PI / 180;
         const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
@@ -1965,7 +1988,7 @@
         }
     }
 
-    // MOTOR DE INTEGRACIÓN MULTIFUENTE DE RUTAS
+    // MOTOR ESTRICTO DE RUTAS: EXCLUSIVAMENTE POR EMPRESA ID (SIN COINCIDENCIAS DIFUSAS NI RUTAS FICTICIAS)
     async function inicializarBuscadorRutas() {
         const txtDetallesTrans = document.getElementById('txtDetallesTransporte');
         const selectRutas = document.getElementById('selRutaEmpresa');
@@ -1985,64 +2008,51 @@
                                   datosVacanteGlobal.transporte || "";
         }
 
-        // FUENTE 1: Leer de /rutas en todas sus variantes
         let poolRutas = {};
 
-        try {
-            const snapTotalRutas = await db.ref('rutas').once('value');
-            if (snapTotalRutas.exists()) {
-                const todas = snapTotalRutas.val();
-                
-                // Extraer de empresas coincidentes
-                Object.keys(todas).forEach(k => {
-                    const kComp = sanitizarCompacto(k);
-                    const empComp = empresaCompacta;
-                    const m1Comp = sanitizarCompacto(claveEmpresaM1Oficial);
-                    const nomComp = sanitizarCompacto(nombreEmpresaMaestro);
+        // Identificador oficial estricto de la empresa
+        const targetEmpresaId = claveEmpresaM1Oficial || empresaLimpia || empresaCompacta;
 
-                    if (kComp === empComp || kComp.includes(empComp) || empComp.includes(kComp) ||
-                        (m1Comp && (kComp === m1Comp || kComp.includes(m1Comp))) ||
-                        (nomComp && (kComp === nomComp || nomComp.includes(kComp)))) {
-                        
-                        const contenido = todas[k];
-                        if (contenido && typeof contenido === 'object') {
-                            if (contenido.rutas && typeof contenido.rutas === 'object') {
-                                Object.assign(poolRutas, contenido.rutas);
-                            } else {
-                                Object.assign(poolRutas, contenido);
-                            }
+        try {
+            // Lectura directa en /rutas/{empresaId}
+            if (targetEmpresaId) {
+                const snapRutasEmpresa = await db.ref(`rutas/${targetEmpresaId}`).once('value');
+                if (snapRutasEmpresa.exists()) {
+                    const dataRutaEmp = snapRutasEmpresa.val();
+                    if (dataRutaEmp && typeof dataRutaEmp === 'object') {
+                        if (dataRutaEmp.rutas && typeof dataRutaEmp.rutas === 'object') {
+                            Object.assign(poolRutas, dataRutaEmp.rutas);
+                        } else {
+                            Object.assign(poolRutas, dataRutaEmp);
                         }
                     }
-                });
+                }
             }
 
-            // FUENTE 2: Rutas embebidas en la vacante seleccionada
+            // Si la empresa fue guardada bajo empresaCompacta o empresaLimpia como llave alterna directa
+            if (Object.keys(poolRutas).length === 0 && empresaCompacta && empresaCompacta !== targetEmpresaId) {
+                const snapAlt = await db.ref(`rutas/${empresaCompacta}`).once('value');
+                if (snapAlt.exists()) {
+                    const dataAlt = snapAlt.val();
+                    if (dataAlt && typeof dataAlt === 'object') {
+                        if (dataAlt.rutas && typeof dataAlt.rutas === 'object') {
+                            Object.assign(poolRutas, dataAlt.rutas);
+                        } else {
+                            Object.assign(poolRutas, dataAlt);
+                        }
+                    }
+                }
+            }
+
+            // Rutas anidadas explícitamente en la vacante específica seleccionada (si aplica)
             if (datosVacanteGlobal && datosVacanteGlobal.rutas && typeof datosVacanteGlobal.rutas === 'object') {
                 Object.assign(poolRutas, datosVacanteGlobal.rutas);
             }
-
-            // FUENTE 3: Geocódigos maestros de apoyo (si no hay rutas mapeadas)
-            if (Object.keys(poolRutas).length === 0) {
-                const snapGeo = await db.ref('geocodigos_maestros/nuevo_leon').once('value');
-                if (snapGeo.exists()) {
-                    const geos = snapGeo.val();
-                    const rutasGenerales = {};
-                    Object.entries(geos).slice(0, 15).forEach(([gKey, gVal]) => {
-                        const mNom = gVal.municipio || "General";
-                        if (!rutasGenerales[mNom]) rutasGenerales[mNom] = { nombreRuta: `Ruta ${mNom}`, paradas: [] };
-                        rutasGenerales[mNom].paradas.push({
-                            nombre: gVal.referenciaOriginal || gKey,
-                            coordenadas: gVal.coordenadas
-                        });
-                    });
-                    Object.assign(poolRutas, rutasGenerales);
-                }
-            }
         } catch (e) {
-            console.warn("Advertencia al extraer rutas:", e);
+            console.warn("Advertencia al extraer rutas por ID de empresa:", e);
         }
 
-        // PROCESAR POOL CONSOLIDADO DE RUTAS
+        // PROCESAR POOL EXCLUSIVO DE LA EMPRESA
         Object.keys(poolRutas).forEach(key => {
             const item = poolRutas[key];
             if (typeof item === 'object' && item !== null) {
@@ -2135,6 +2145,7 @@
                 selectRutas.appendChild(opt);
             });
         } else {
+            // EMPRESA SIN RUTAS: NINGUNA OTRA RUTA SE MUESTRA
             txtDetallesTrans.innerText = detalleDesdeVacante || "Esta empresa no cuenta con transporte propio actualmente (Traslado por cuenta del candidato).";
             selectRutas.innerHTML = '<option value="SIN_RUTA">-- Traslado Propio / Sin Ruta --</option>';
             tieneRutasHabilitadas = false;
@@ -2257,7 +2268,7 @@
         return { edad: isNaN(edadCalculada) ? "Indistinto" : String(edadCalculada), sexo: sexo };
     }
 
-    // VERIFICADOR DE DUPLICIDAD SINCRONIZADO CON M3 AGENDA
+    // VERIFICADOR DE DUPLICIDAD
     async function verificarTitularidadCandidato(curp, telefono, nombreCompleto) {
         try {
             const estatusLiberados = ['Declinante', 'No Apto Medico', 'No Apto Entrevista'];
@@ -2425,7 +2436,6 @@
                 if (!coordinadorPadreIdFinal) coordinadorPadreIdFinal = objetoAsesor.coordinadorPadreId || null;
             }
 
-            // CARGA ÚTIL EN FIREBASE COMPATIBLE AL 100% CON M3 AGENDA Y M3 SUPERVISIÓN
             const payloadPostulante = {
                 id: timestampId,
                 nombre: nombre,
@@ -2474,7 +2484,6 @@
                 await db.ref(`postulantes/${timestampId}`).set(payloadPostulante);
             }
 
-            // LOG DE AUDITORÍA EN M7
             await db.ref('modulo_7_logs').push({
                 modulo: "VACANTE_PUBLICO",
                 evento: esActualizacion ? "ACTUALIZACION_TITULARIDAD_POSTULACION" : "NUEVA_POSTULACION_CANDIDATO",
@@ -2483,7 +2492,6 @@
                 timestamp: firebase.database.ServerValue.TIMESTAMP
             });
 
-            // MENSAJES DE WHATSAPP DIRECTOS
             const msgParaCandidato = `¡Hola *${nombre}*! Tu registro para *${vacanteNombreFinal}* en *${empresaNombreFinal}* fue exitoso.\n\n` +
                                      `*📌 Cita de Entrevista:*\n` +
                                      `• *Folio:* ${timestampId}\n` +
