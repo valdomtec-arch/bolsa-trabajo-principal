@@ -49,6 +49,42 @@
     <!-- EL MARCO DONDE SE RENDERIZARÁ EL MÓDULO -->
     <iframe id="iframeRuntime" class="hidden w-full flex-1 border-0" sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-modals"></iframe>
 
+    <!-- MODAL ALERTA DISUASORIA: POLÍTICA OBLIGATORIA DE BLOQUEO DE DUPLICIDAD (VISOR CONTAINER) -->
+    <div id="modalBloqueoDuplicidadVisor" class="fixed inset-0 bg-black/85 backdrop-blur-md z-[100] hidden flex items-center justify-center p-4">
+        <div class="bg-[#0b1329] border-2 border-rose-500 rounded-2xl shadow-2xl shadow-rose-950/50 max-w-lg w-full p-6 text-center space-y-4">
+            <div class="w-16 h-16 mx-auto rounded-full bg-rose-500/10 border border-rose-500/40 flex items-center justify-center text-rose-500 text-3xl">
+                <i class="fas fa-triangle-exclamation animate-pulse"></i>
+            </div>
+            
+            <h2 class="text-base sm:text-lg font-black text-rose-400 uppercase tracking-tight">
+                ⛔ Intento de Duplicidad Detectado y Bloqueado
+            </h2>
+
+            <div class="bg-rose-950/20 border border-rose-500/30 p-3.5 rounded-xl text-left text-xs text-slate-300 space-y-2">
+                <div id="detalleDuplicadoVisor" class="font-mono text-slate-200">
+                    Cargando expediente coincidente...
+                </div>
+                <hr class="border-rose-500/20">
+                <p class="text-rose-300 font-bold uppercase text-[11px]">
+                    ⚠️ Política de Gobernanza Estricta:
+                </p>
+                <p class="text-slate-300 leading-relaxed text-[11.5px]">
+                    Está <strong>estrictamente prohibido</strong> reescribir, reactivar o duplicar a un candidato que ya está activo bajo otro proceso o asesor. Debe dejar de intentarlo de forma inmediata.
+                </p>
+                <p class="text-slate-300 leading-relaxed text-[11.5px]">
+                    Esta acción ha sido registrada en la auditoría inmutable del sistema y <strong>será notificado el Director de Operaciones</strong>.
+                </p>
+                <div class="p-2 bg-rose-500/20 border border-rose-500/40 rounded-lg text-rose-300 font-black text-center uppercase tracking-wide text-xs">
+                    ⛔ Este postulante no se le dará ni asignará para cobrarlo.
+                </div>
+            </div>
+
+            <button type="button" onclick="cerrarModalBloqueoVisor()" class="w-full bg-rose-600 hover:bg-rose-500 text-white font-black py-2.5 rounded-xl text-xs uppercase tracking-wider transition shadow-lg">
+                Entendido y Aceptar Bloqueo
+            </button>
+        </div>
+    </div>
+
     <script>
         const firebaseConfig = {
             apiKey: "AIzaSyDxgP1YnycCEqkQ2vr3SPkwc9QMhtG8Zqw",
@@ -65,6 +101,46 @@
 
         const params = new URLSearchParams(window.location.search);
         const modKey = (params.get("mod") || "").trim();
+
+        // Control del Modal de Bloqueo en Visor
+        window.cerrarModalBloqueoVisor = function() {
+            document.getElementById("modalBloqueoDuplicidadVisor").classList.add("hidden");
+        };
+
+        // Escucha de seguridad enviada desde el módulo iFrame (ej. m3_historico)
+        window.addEventListener("message", async (event) => {
+            if (event.data && event.data.tipo === "BLOQUEO_DUPLICIDAD_M3_HISTORICO") {
+                const info = event.data.payload || {};
+                
+                // Mostrar Modal de Bloqueo
+                document.getElementById("detalleDuplicadoVisor").innerHTML = `
+                    • <b>Candidato Intentado:</b> ${info.candidato || "No especificado"}<br>
+                    • <b>Causa de Bloqueo:</b> ${info.motivo || "Coincidencia activa detectada"}<br>
+                    • <b>Titular Activo:</b> ${info.titular || "Asesor Asignado"} (${info.empresa || "Empresa en proceso"})<br>
+                    • <b>Estatus Actual:</b> ${info.estatus || "Activo"}
+                `;
+                document.getElementById("modalBloqueoDuplicidadVisor").classList.remove("hidden");
+
+                // Auditoría preventiva para el Director
+                try {
+                    await db.ref("modulo_7_logs").push({
+                        modulo: "M3_3_HISTORICO",
+                        evento: "INTENTO_DUPLICIDAD_HISTORICO_BLOQUEADO",
+                        candidatoIntentado: info.candidato || "",
+                        curpIntentada: info.curp || "",
+                        telefonoIntentado: info.telefono || "",
+                        motivo: info.motivo || "",
+                        titularActivo: info.titular || "",
+                        asesorQueIntentoReactivar: info.ejecutor || "Asesor en Visor",
+                        alertaDirector: true,
+                        sancion: "CANDIDATO_NO_SUJETO_A_COBRO_O_ASIGNACION",
+                        timestamp: firebase.database.ServerValue.TIMESTAMP
+                    });
+                } catch (e) {
+                    console.error("Error registrando auditoría en Visor:", e);
+                }
+            }
+        });
 
         async function cargarModuloDesdeFirebase() {
             const loader = document.getElementById("loader");
@@ -103,7 +179,6 @@
                     return;
                 }
 
-                // Resuelve el código HTML sin importar cómo fue nombrado el campo
                 const codigoFuente = mod.codigo_fuente || mod.html || mod.codigo;
 
                 if (!codigoFuente || codigoFuente.trim().length < 20) {
@@ -115,7 +190,6 @@
                 const tituloFinal = mod.titulo || mod.nombre || "Módulo ERP";
                 document.title = tituloFinal;
 
-                // Formateo del icono (soporta clases fa-* o etiquetas <i> completas)
                 let iconoHtml = `<i class="fas fa-cube text-[#ff6600]"></i>`;
                 if (mod.icono) {
                     if (mod.icono.includes("<i")) {
@@ -128,11 +202,9 @@
 
                 document.getElementById("moduloTituloHeader").innerHTML = `${iconoHtml} <span>${tituloFinal}</span>`;
 
-                // Ocultar cargador y desplegar iframe
                 loader.classList.add("hidden");
                 iframe.classList.remove("hidden");
 
-                // Inyección segura del HTML sin document.write (evita SyntaxError en strict mode)
                 if ("srcdoc" in iframe) {
                     iframe.srcdoc = codigoFuente;
                 } else {
