@@ -80,6 +80,10 @@
                     <span id="badgeJerarquia" class="bg-blue-500/10 text-cyan-400 text-[11px] px-2.5 py-0.5 rounded-full font-mono font-bold border border-blue-500/20">
                         Cargando célula...
                     </span>
+                    <!-- MONITOR DE ALERTAS DE DUPLICIDAD PARA EL DIRECTOR -->
+                    <button type="button" id="btnAlertaDuplicidades" onclick="abrirModalAuditoriaDuplicidades()" class="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-[11px] px-2.5 py-0.5 rounded-full font-mono font-bold border border-rose-500/30 flex items-center gap-1.5 transition touch-target">
+                        <i class="fas fa-shield-halved text-rose-400"></i> Bloqueos Duplicidad: <span id="txtConteoDuplicidadesHeader">0</span>
+                    </button>
                 </div>
                 <h1 class="text-lg sm:text-2xl font-black text-white tracking-tight flex items-center gap-2">
                     <i class="fas fa-tower-broadcast text-[#ff6600]"></i> Auditoría de Efectividad & Radar Financiero
@@ -113,6 +117,26 @@
                 </a>
             </div>
         </header>
+
+        <!-- BANNER DISUASORIO DINÁMICO DE DUPLICIDADES PARA DIRECCIÓN -->
+        <div id="bannerAlertaDuplicidadesDirector" class="hidden bg-gradient-to-r from-rose-950/90 via-rose-900/40 to-[#0b1329] border border-rose-500/50 p-3.5 rounded-2xl shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div class="p-2.5 bg-rose-500/20 border border-rose-500/40 rounded-xl text-rose-400 text-lg flex-shrink-0">
+                    <i class="fas fa-shield-halved animate-pulse"></i>
+                </div>
+                <div>
+                    <h4 class="text-xs font-bold text-rose-300 uppercase tracking-wider font-mono flex items-center gap-1.5">
+                        Alerta de Gobernanza Operativa: Intentos de Duplicidad Bloqueados
+                    </h4>
+                    <p class="text-xs text-slate-300 mt-0.5" id="txtResumenBannerDuplicidad">
+                        Se han registrado intentos de reescritura o doble postulación de candidatos ya existentes.
+                    </p>
+                </div>
+            </div>
+            <button onclick="abrirModalAuditoriaDuplicidades()" class="w-full sm:w-auto bg-rose-600 hover:bg-rose-500 text-white font-mono font-bold text-xs px-3.5 py-2 rounded-xl transition flex items-center justify-center gap-1.5 shadow touch-target whitespace-nowrap">
+                <i class="fas fa-list-check"></i> Auditar Bloqueos
+            </button>
+        </div>
 
         <!-- RADAR FINANCIERO TRIPARTITO -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3.5">
@@ -325,6 +349,59 @@
 
     </div>
 
+    <!-- MODAL DE AUDITORÍA Y CONTROL DE DUPLICIDADES PARA DIRECCIÓN -->
+    <div id="modalAuditoriaDuplicidades" class="hidden fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 z-50">
+        <div class="bg-[#0b1329] border-2 border-rose-500/70 rounded-2xl shadow-2xl max-w-4xl w-full p-4 sm:p-6 relative space-y-4 max-h-[90vh] flex flex-col">
+            <button type="button" onclick="cerrarModalAuditoriaDuplicidades()" class="absolute top-3 right-4 text-slate-400 hover:text-white text-xl font-bold p-1 touch-target">&times;</button>
+            
+            <div class="border-b border-white/10 pb-3 flex items-center gap-3">
+                <div class="p-2.5 bg-rose-500/20 border border-rose-500/40 rounded-xl text-rose-400 text-xl">
+                    <i class="fas fa-shield-halved"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm sm:text-base font-black text-white flex items-center gap-2">
+                        Bitácora Ejecutiva de Intentos de Duplicidad Bloqueados
+                    </h3>
+                    <p class="text-[11px] text-slate-400 mt-0.5">
+                        Alertas generadas en tiempo real desde Portal de Vacantes, M3 Agenda, M3.3 Histórico y M9 Freelance.
+                    </p>
+                </div>
+            </div>
+
+            <div class="bg-rose-950/20 border border-rose-500/30 p-2.5 rounded-xl text-xs font-mono text-rose-300 flex items-center justify-between">
+                <span><i class="fas fa-gavel me-1.5"></i> Política Activa: Tolerancia Cero a la Reescritura / Sin Derecho a Cobro.</span>
+                <span class="font-bold text-white" id="txtTotalBloqueosModal">0 Registros</span>
+            </div>
+
+            <div class="overflow-y-auto flex-1 border border-white/10 rounded-xl">
+                <table class="w-full text-left text-xs font-mono border-collapse">
+                    <thead>
+                        <tr class="text-slate-400 border-b border-white/10 uppercase bg-[#06101e] sticky top-0">
+                            <th class="p-2.5">Fecha / Hora</th>
+                            <th class="p-2.5">Módulo Origen</th>
+                            <th class="p-2.5">Candidato / CURP</th>
+                            <th class="p-2.5">Asesor que Intentó</th>
+                            <th class="p-2.5">Titular Original Afectado</th>
+                            <th class="p-2.5">Causa de Bloqueo</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaAuditoriaDuplicidadesBody" class="divide-y divide-white/5 text-slate-300">
+                        <tr><td colspan="6" class="p-4 text-center text-slate-500 italic">Consultando bitácora de auditoría...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="flex justify-between items-center pt-2 border-t border-white/10 flex-wrap gap-2">
+                <span class="text-[11px] text-slate-400 font-mono">
+                    * Todos los intentos han sido rechazados automáticamente sin alterar las carteras activas.
+                </span>
+                <button type="button" onclick="cerrarModalAuditoriaDuplicidades()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition">
+                    Cerrar Bitácora
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL DE GOBERNANZA DE ESTATUS Y PERMISOS DEL SEMÁFORO -->
     <div id="modalGobernanza" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 z-50">
         <div class="bg-[#0b1329] border border-cyan-500/50 rounded-2xl shadow-2xl max-w-2xl w-full p-4 sm:p-5 relative space-y-3.5 max-h-[90vh] overflow-y-auto">
@@ -450,6 +527,9 @@
         const CITAS_POR_PAGINA = 10;
         let listaCitasFiltradas = [];
 
+        // REGISTROS DE AUDITORÍA DE DUPLICIDAD
+        let listaDuplicidadesAuditadas = [];
+
         const LISTA_ESTATUS_CATALOGO = [
             { id: "Postulado", nombre: "🔴 Postulado" },
             { id: "En Proceso", nombre: "🟠 En Proceso" },
@@ -523,6 +603,8 @@
         window.restablecerGobernanzaDefault = restablecerGobernanzaDefault;
         window.cambiarPaginaColaboradores = cambiarPaginaColaboradores;
         window.cambiarPaginaCitas = cambiarPaginaCitas;
+        window.abrirModalAuditoriaDuplicidades = abrirModalAuditoriaDuplicidades;
+        window.cerrarModalAuditoriaDuplicidades = cerrarModalAuditoriaDuplicidades;
 
         document.addEventListener("DOMContentLoaded", () => {
             validarAccesoJerarquico();
@@ -537,7 +619,6 @@
             return d;
         }
 
-        // MOTOR DE WHATSAPP DIRECTO Y NATIVO (SIN PÁGINA INTERMEDIA DE api.whatsapp.com)
         async function enviarWhatsAppDirectoHTTP(numeroDestino, mensajeTexto, reclutadorId) {
             const telSanitizado = sanitizarTelefonoUniversal(numeroDestino);
             if (!telSanitizado || telSanitizado.length < 10) throw new Error("Número no válido.");
@@ -561,7 +642,6 @@
             return { success: true };
         }
 
-        // DISPARADOR DE ACUSE DIGITAL OFICIAL POR WHATSAPP
         async function enviarAcusePorWhatsApp(cId, telefono, nombre, empresa, vacante, fechaCita, horaCita, ruta) {
             const urlAcuse = `https://valdomtec-arch.github.io/bolsa-trabajo-principal/acuse.html?folio=${cId}&vacante=${encodeURIComponent(vacante)}&empresa=${encodeURIComponent(empresa)}`;
             
@@ -731,6 +811,88 @@
                 poblarFiltrosEstrategicos();
                 solicitarRenderizado();
             });
+
+            // ESCUCHA REACTIVA DE LOGS PARA EL MONITOR DE DUPLICIDADES DEL DIRECTOR
+            onValue(ref(db, "modulo_7_logs"), snap => {
+                const logs = snap.val() || {};
+                procesarAuditoriaDuplicidades(logs);
+            });
+        }
+
+        function procesarAuditoriaDuplicidades(logsObj) {
+            listaDuplicidadesAuditadas = [];
+
+            Object.entries(logsObj).forEach(([logId, l]) => {
+                if (!l) return;
+                const ev = (l.evento || "").toUpperCase();
+                const esAlertaDuplicidad = ev.includes("DUPLICIDAD") || l.alertaDirector === true;
+
+                if (esAlertaDuplicidad) {
+                    listaDuplicidadesAuditadas.push({ logId, ...l });
+                }
+            });
+
+            listaDuplicidadesAuditadas.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+            const total = listaDuplicidadesAuditadas.length;
+            const badgeCount = document.getElementById("txtConteoDuplicidadesHeader");
+            const btnAlerta = document.getElementById("btnAlertaDuplicidades");
+            const banner = document.getElementById("bannerAlertaDuplicidadesDirector");
+
+            badgeCount.textContent = total;
+
+            if (total > 0) {
+                btnAlerta.classList.remove("bg-rose-500/10", "border-rose-500/30");
+                btnAlerta.classList.add("bg-rose-600/30", "border-rose-500", "animate-pulse");
+
+                banner.classList.remove("hidden");
+                const ultimo = listaDuplicidadesAuditadas[0];
+                const ejecutorUltimo = ultimo.asesorQueIntentoRegistrar || ultimo.ejecutadoPor || "Asesor";
+                const candUltimo = ultimo.candidatoIntentado || ultimo.nombreCandidato || "Candidato";
+                document.getElementById("txtResumenBannerDuplicidad").textContent = 
+                    `Se detectaron ${total} intentos de duplicidad. Último incidente: ${candUltimo} (intentado por: ${ejecutorUltimo}). Sanción activa: Retención de cobro.`;
+            } else {
+                btnAlerta.classList.add("bg-rose-500/10", "border-rose-500/30");
+                btnAlerta.classList.remove("bg-rose-600/30", "border-rose-500", "animate-pulse");
+                banner.classList.add("hidden");
+            }
+        }
+
+        function abrirModalAuditoriaDuplicidades() {
+            const tbody = document.getElementById("tablaAuditoriaDuplicidadesBody");
+            document.getElementById("txtTotalBloqueosModal").textContent = `${listaDuplicidadesAuditadas.length} Registros Bloqueados`;
+            tbody.innerHTML = "";
+
+            if (listaDuplicidadesAuditadas.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-500 italic">No se han registrado incidentes de duplicidad en la bitácora.</td></tr>`;
+            } else {
+                listaDuplicidadesAuditadas.forEach(l => {
+                    const f = l.timestamp ? new Date(l.timestamp).toLocaleString('es-MX') : "Fecha no registrada";
+                    const mod = l.modulo || "SISTEMA";
+                    const cand = l.candidatoIntentado || l.nombreCandidato || "No especificado";
+                    const curp = l.curpIntentada || "S/CURP";
+                    const asesorIntento = l.asesorQueIntentoRegistrar || l.ejecutadoPor || "Asesor";
+                    const titularOrig = l.titularRegistrado || l.titularActivo || "Titular en Cartera";
+                    const motivo = l.motivo || l.detalle || "Coincidencia estricta";
+
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-white/5 transition">
+                            <td class="p-2.5 text-slate-400 whitespace-nowrap">${f}</td>
+                            <td class="p-2.5"><span class="px-2 py-0.5 rounded bg-blue-950 text-cyan-300 border border-blue-500/30 font-bold">${mod}</span></td>
+                            <td class="p-2.5 font-bold text-white">${cand}<br><span class="text-amber-400 text-[10px]">${curp}</span></td>
+                            <td class="p-2.5 text-rose-300 font-semibold">${asesorIntento}</td>
+                            <td class="p-2.5 text-emerald-400 font-semibold">${titularOrig}</td>
+                            <td class="p-2.5 text-slate-300 text-[11px]">${motivo}</td>
+                        </tr>
+                    `;
+                });
+            }
+
+            document.getElementById("modalAuditoriaDuplicidades").classList.remove("hidden");
+        }
+
+        function cerrarModalAuditoriaDuplicidades() {
+            document.getElementById("modalAuditoriaDuplicidades").classList.add("hidden");
         }
 
         function solicitarRenderizado() {
@@ -1134,7 +1296,7 @@
                 const hora = p.horaEntrevista || (p.diaEntrevista && p.diaEntrevista.includes(' ') ? p.diaEntrevista.split(' ').slice(1).join(' ') : "08:00 AM");
                 const empNom = catalogoEmpresas[sanitizarKey(p.empresaId || p.empresa)]?.nombreComercial || p.empresa || "Empresa";
                 const vacNom = p.nombreVacante || p.vacante || "Vacante";
-                const recNom = catalogoUsuarios[p.reclutadorId]?.nombre || p.reclutadorNombre || "Asesor";
+                const recNom = catalogoUsuarios[p.reclutadorId]?.nombre || p.reclutadorNombre || p.asesor || "Asesor";
                 const est = normalizarEstatus(p.estatus || p.status);
                 const ruta = p.rutaTransporteSeleccionada || p.rutaNombre || p.ruta || "Traslado Propio";
                 const telCand = p.telefono || "";
@@ -1390,6 +1552,7 @@
             document.getElementById("modalRescate").classList.add("hidden");
         }
 
+        // RESCATE QUIRÚRGICO CON PROTECCIÓN DE DUPLICIDAD
         async function ejecutarRescateConfirmado() {
             const origenUid = document.getElementById("rescateOrigenUid").value;
             const origenNombre = document.getElementById("rescateOrigenNombre").value;
@@ -1411,6 +1574,17 @@
 
             const estadosExcluidos = ["Contratado", "Trabajando", "Proceso Terminado", "No Apto Medico", "No Apto Entrevista", "Declinante"];
 
+            // Identificar candidatos que el receptor ya tenga asignados
+            const curpsDelReceptor = new Set();
+            const telsDelReceptor = new Set();
+
+            Object.values(data).forEach(post => {
+                if (post.reclutadorId === destinoUid || post.agenteId === destinoUid) {
+                    if (post.curp) curpsDelReceptor.add(post.curp.toString().trim().toUpperCase());
+                    if (post.telefono) telsDelReceptor.add(post.telefono.toString().replace(/\D/g, ''));
+                }
+            });
+
             Object.entries(data).forEach(([id, p]) => {
                 if (p.reclutadorId === origenUid || p.agenteId === origenUid || p.asesorId === origenUid) {
                     const est = normalizarEstatus(p.estatus || p.status);
@@ -1421,6 +1595,14 @@
                     }
 
                     if (esCandidato) {
+                        const curpP = (p.curp || '').toString().trim().toUpperCase();
+                        const telP = (p.telefono || '').toString().replace(/\D/g, '');
+
+                        // Si el receptor ya lo tiene por curp o tel, no se reasigna para evitar duplicidad interna
+                        if ((curpP && curpsDelReceptor.has(curpP)) || (telP && telsDelReceptor.has(telP))) {
+                            return;
+                        }
+
                         updates[`postulantes/${id}/reclutadorId`] = destinoUid;
                         updates[`postulantes/${id}/reclutadorNombre`] = destinoNombre;
                         updates[`postulantes/${id}/asesor`] = destinoNombre;
@@ -1437,7 +1619,7 @@
             });
 
             if (count === 0) {
-                alert("No se encontraron candidatos bajo el criterio seleccionado.");
+                alert("No se encontraron candidatos aptos para transferir o todos colisionan con expedientes ya existentes del receptor.");
                 cerrarModalRescate();
                 return;
             }
@@ -1455,6 +1637,7 @@
             alert(`✅ ${count} candidatos rescatados y asignados exitosamente a ${destinoNombre}.`);
         }
 
+        // BALANCEO INTELIGENTE CON PROTECCIÓN DE DUPLICIDAD
         async function balancearCargaInteligente() {
             const reclutadoresOperativosIds = equipoAuditableIds.filter(id => esReceptorReclutadorValido(id));
 
@@ -1468,14 +1651,25 @@
             const data = snap.val() || {};
 
             const cargas = {};
-            reclutadoresOperativosIds.forEach(id => cargas[id] = 0);
+            const curpsPorAsesor = {};
+            const telsPorAsesor = {};
+
+            reclutadoresOperativosIds.forEach(id => {
+                cargas[id] = 0;
+                curpsPorAsesor[id] = new Set();
+                telsPorAsesor[id] = new Set();
+            });
 
             const estadosExcluidos = ["Contratado", "Trabajando", "Proceso Terminado", "No Apto Medico", "No Apto Entrevista", "Declinante"];
 
             Object.values(data).forEach(p => {
                 const est = normalizarEstatus(p.estatus || p.status);
                 const rId = p.reclutadorId || p.agenteId;
-                if (cargas[rId] !== undefined && !estadosExcluidos.includes(est)) cargas[rId]++;
+                if (cargas[rId] !== undefined && !estadosExcluidos.includes(est)) {
+                    cargas[rId]++;
+                    if (p.curp) curpsPorAsesor[rId].add(p.curp.toString().trim().toUpperCase());
+                    if (p.telefono) telsPorAsesor[rId].add(p.telefono.toString().replace(/\D/g, ''));
+                }
             });
 
             const candidatosCriticos = [];
@@ -1493,7 +1687,19 @@
             let reasignados = 0;
 
             candidatosCriticos.forEach(cand => {
-                const mejorOpId = reclutadoresOperativosIds.reduce((a, b) => cargas[a] < cargas[b] ? a : b);
+                const candCurp = (cand.curp || '').toString().trim().toUpperCase();
+                const candTel = (cand.telefono || '').toString().replace(/\D/g, '');
+
+                // Elegir el operador con menor carga que NO tenga duplicado a este candidato
+                const candidatosReceptores = reclutadoresOperativosIds.filter(opId => {
+                    if (candCurp && curpsPorAsesor[opId].has(candCurp)) return false;
+                    if (candTel && telsPorAsesor[opId].has(candTel)) return false;
+                    return true;
+                });
+
+                if (candidatosReceptores.length === 0) return;
+
+                const mejorOpId = candidatosReceptores.reduce((a, b) => cargas[a] < cargas[b] ? a : b);
                 const candRecId = cand.reclutadorId || cand.agenteId;
 
                 if (mejorOpId !== candRecId) {
@@ -1515,6 +1721,9 @@
                     updates[`postulantes/${cand.id}/ultimaActualizacion`] = new Date().toISOString();
 
                     cargas[mejorOpId]++;
+                    if (candCurp) curpsPorAsesor[mejorOpId].add(candCurp);
+                    if (candTel) telsPorAsesor[mejorOpId].add(candTel);
+
                     if (cargas[candRecId] !== undefined) cargas[candRecId]--;
                     reasignados++;
                 }
@@ -1529,9 +1738,9 @@
                     reasignados,
                     timestamp: serverTimestamp()
                 });
-                alert(`⚖️ Balanceo completado: Se redistribuyeron ${reasignados} prospectos en riesgo entre los asesores autorizados.`);
+                alert(`⚖️ Balanceo completado: Se redistribuyeron ${reasignados} prospectos en riesgo entre los asesores autorizados evitando duplicidades.`);
             } else {
-                alert("La carga de prospectos críticos ya se encuentra distribuida de forma equilibrada.");
+                alert("La carga de prospectos críticos ya se encuentra distribuida de forma equilibrada o no hay receptores libres de duplicidad.");
             }
         }
     </script>
