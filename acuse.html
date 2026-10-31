@@ -63,7 +63,7 @@
             border: 1px solid var(--border-light);
         }
 
-        /* ENCABEZADO INSTITUCIONAL EMCO - HR EMPLOYMENT */
+        /* ENCABEZADO INSTITUCIONAL */
         .ticket-header {
             background: linear-gradient(135deg, #0b1426 0%, #1e3a8a 100%);
             color: #ffffff;
@@ -144,7 +144,7 @@
             white-space: nowrap;
         }
 
-        /* GRID COMPACTO DE 2 COLUMNAS PARA CABER EN 1 HOJA */
+        /* GRID COMPACTO DE 2 COLUMNAS */
         .info-grid {
             display: grid;
             grid-template-columns: 1fr;
@@ -164,7 +164,7 @@
         .info-card-item {
             background: #f8fafc;
             border: 1px solid #edf2f7;
-            padding: 7px 10px;
+            padding: 8px 11px;
             border-radius: 8px;
         }
 
@@ -174,16 +174,16 @@
             color: var(--text-muted);
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            margin-bottom: 1px;
+            margin-bottom: 2px;
             display: block;
         }
 
         .info-value {
-            font-size: 0.85rem;
+            font-size: 0.88rem;
             font-weight: 600;
             color: var(--text-main);
             word-break: break-word;
-            line-height: 1.25;
+            line-height: 1.3;
         }
 
         /* SECCIÓN DEL CÓDIGO QR Y VALIDACIÓN */
@@ -231,7 +231,7 @@
             font-size: 0.78rem;
         }
 
-        /* ACCIONES DIGITALES (PANTALLA) */
+        /* ACCIONES DIGITALES */
         .action-group {
             display: flex;
             gap: 10px;
@@ -279,7 +279,7 @@
             background-color: var(--green-wa-hover);
         }
 
-        /* AJUSTES ESTRICTOS PARA 1 SOLA HOJA DE IMPRESIÓN Y PDF */
+        /* IMPRESIÓN Y PDF EN 1 HOJA */
         @media print {
             @page {
                 size: letter portrait;
@@ -375,7 +375,6 @@
                 min-width: 75px !important;
             }
 
-            /* OCULTAR ELEMENTOS INNECESARIOS EN PAPEL */
             .action-group, #loadingBox {
                 display: none !important;
             }
@@ -388,7 +387,7 @@
         <!-- ESTADO DE CARGA -->
         <div id="loadingBox" class="ticket-card" style="padding: 40px; text-align: center;">
             <i class="fa-solid fa-circle-notch fa-spin" style="font-size: 2.2rem; color: var(--primary-accent); margin-bottom: 12px;"></i>
-            <p style="color: var(--text-muted); font-size: 0.9rem; font-weight: 500;">Validando expediente y cargando acuse oficial...</p>
+            <p style="color: var(--text-muted); font-size: 0.9rem; font-weight: 500;">Validando expediente y conectando en tiempo real...</p>
         </div>
 
         <!-- TICKET DE ACUSE BLINDADO -->
@@ -414,7 +413,7 @@
                     <div class="folio-tag" id="lblFolioBadge">FOLIO: —</div>
                 </div>
 
-                <!-- REJILLA DE INFORMACIÓN (2 COLUMNAS COMPACTAS) -->
+                <!-- REJILLA DE INFORMACIÓN -->
                 <div class="info-grid">
                     <div class="info-card-item">
                         <span class="info-label"><i class="fa-solid fa-user me-1"></i> Candidato</span>
@@ -483,7 +482,6 @@
     </div>
 
     <script>
-        // CONFIGURACIÓN DE FIREBASE
         const firebaseConfig = {
             apiKey: "AIzaSyDxgP1YnycCEqkQ2vr3SPkwc9QMhtG8Zqw",
             authDomain: "bolsa-de-trabajo-a52e4.firebaseapp.com",
@@ -499,12 +497,10 @@
 
         const ADMIN_WHATSAPP = "526461974763";
 
-        // CAPTURA Y SANITIZACIÓN ROBUSTA DE PARÁMETROS URL
         const urlParams = new URLSearchParams(window.location.search);
         const folioRaw = urlParams.get('folio') || urlParams.get('id') || '';
         const folioParam = folioRaw.trim();
 
-        // Parámetros de respaldo por si la red retrasa la lectura de Firebase
         const paramVacante = urlParams.get('vacante') || '';
         const paramEmpresa = urlParams.get('empresa') || '';
 
@@ -512,7 +508,6 @@
             const loadingBox = document.getElementById('loadingBox');
             const ticketCard = document.getElementById('ticketCard');
 
-            // Asignación con compatibilidad amplia de nombres de variables
             document.getElementById('lblFolioBadge').innerText = `FOLIO: ${data.id || folioId || 'REGISTRADO'}`;
             document.getElementById('lblNombre').innerText = data.nombreCompleto || data.nombre || data.candidato || 'Candidato Registrado';
             document.getElementById('lblCurp').innerText = data.curp || 'No especificada';
@@ -520,16 +515,22 @@
             document.getElementById('lblPuesto').innerText = data.puesto || data.vacante || data.nombreVacante || paramVacante || 'Puesto en Selección';
             document.getElementById('lblEmpresa').innerText = data.empresa || data.empresaDestino || data.nombreComercial || paramEmpresa || 'HR Employment';
             
-            const ruta = data.rutaTransporteSeleccionada || data.ruta || data.rutaNombre || 'No requerida / Traslado propio';
-            document.getElementById('lblRuta').innerText = ruta;
-            document.getElementById('lblFechaRegistro').innerText = data.fechaRegistro || data.ultimaActualizacion || new Date().toLocaleString();
+            // Resolución reactiva de transporte y parada
+            const ruta = data.rutaTransporteSeleccionada || data.rutaNombre || data.ruta || 'No requerida / Traslado propio';
+            const parada = data.paradaTransporte || data.parada;
+            let textoTransporte = ruta;
+            if (parada && parada !== 'SIN_PARADA' && !ruta.includes(parada)) {
+                textoTransporte = `${ruta} (Parada: ${parada})`;
+            }
+            document.getElementById('lblRuta').innerText = textoTransporte;
+            document.getElementById('lblFechaRegistro').innerText = data.ultimaActualizacion || data.fechaRegistro || new Date().toLocaleString();
 
-            // Cita y horario
-            const fecha = data.fechaEntrevista || data.diaEntrevista || 'Por confirmar';
-            const hora = data.horaEntrevista || '';
-            document.getElementById('lblFechaHoraCita').innerText = `${fecha} ${hora ? 'a las ' + hora : ''}`;
+            // Horario consolidado dinámico
+            const fecha = data.fechaEntrevista || (data.diaEntrevista ? data.diaEntrevista.split(" ")[0] : 'Por confirmar');
+            const hora = data.horaEntrevista || (data.diaEntrevista && data.diaEntrevista.includes(" ") ? data.diaEntrevista.split(" ").slice(1).join(" ") : '');
+            document.getElementById('lblFechaHoraCita').innerText = `${fecha}${hora ? ' a las ' + hora : ''}`;
 
-            // Asesor y WhatsApp
+            // Asesor titular y WhatsApp directo del asesor
             let nombreAsesor = data.atendidoPor || data.asesor || data.reclutadorNombre;
             let numWhatsApp = ADMIN_WHATSAPP;
 
@@ -549,11 +550,11 @@
                 `Presento mi acuse oficial de postulación para *${data.puesto || data.vacante || paramVacante || 'la vacante'}* en *${data.empresa || paramEmpresa || 'la empresa'}*.\n` +
                 `• *Folio:* ${data.id || folioId}\n` +
                 `• *Candidato:* ${data.nombreCompleto || data.nombre || 'Candidato'}\n\n` +
-                `Enlace a mi comprobante:\n${window.location.href}`;
+                `Enlace a mi comprobante en vivo:\n${window.location.href}`;
 
             document.getElementById('btnWhatsapp').href = `https://api.whatsapp.com/send?phone=${numWhatsApp}&text=${encodeURIComponent(mensajeWA)}`;
 
-            // GENERACIÓN DE CÓDIGO QR BLINDADA (Aislada de errores de CDN)
+            // GENERACIÓN DE CÓDIGO QR BLINDADA
             try {
                 const qrContainer = document.getElementById("qrcode");
                 qrContainer.innerHTML = "";
@@ -573,12 +574,12 @@
                 console.warn("Código QR temporalmente no disponible:", qrErr);
             }
 
-            // Mostrar el ticket
             loadingBox.style.display = 'none';
             ticketCard.style.display = 'block';
         }
 
-        async function cargarAcuse() {
+        // ESCUCHA REACTIVA EN TIEMPO REAL: REACCIONA INMEDIATAMENTE ANTE CUALQUIER EDICIÓN EN M3
+        function cargarAcuse() {
             const loadingBox = document.getElementById('loadingBox');
 
             if (!folioParam) {
@@ -589,49 +590,26 @@
                 return;
             }
 
-            let respondioFirebase = false;
-
-            // Timeout de seguridad: Si la red del usuario tarda más de 5 segundos, intentar cargar con fallback
-            const timeoutFallback = setTimeout(() => {
-                if (!respondioFirebase && (paramVacante || paramEmpresa)) {
-                    console.warn("Activando vista de contingencia por latencia de red.");
-                    renderizarDatos({
-                        id: folioParam,
-                        nombre: "Postulante Registrado",
-                        vacante: decodeURIComponent(paramVacante),
-                        empresa: decodeURIComponent(paramEmpresa),
-                        fechaEntrevista: "Confirmada",
-                        horaEntrevista: "Según agenda"
-                    }, folioParam);
-                }
-            }, 5000);
-
-            try {
-                // Usamos once('value') para lectura rápida y estable
-                const snapshot = await db.ref(`postulantes/${folioParam}`).once('value');
-                respondioFirebase = true;
-                clearTimeout(timeoutFallback);
-
+            // Escucha activa con .on('value')
+            db.ref(`postulantes/${folioParam}`).on('value', (snapshot) => {
                 if (snapshot.exists()) {
-                    const data = snapshot.val();
-                    renderizarDatos(data, folioParam);
+                    renderizarDatos(snapshot.val(), folioParam);
                 } else {
-                    // Si no se encuentra en postulantes directo, buscar por child "id"
-                    const snapQuery = await db.ref('postulantes').orderByChild('id').equalTo(folioParam).once('value');
-                    if (snapQuery.exists()) {
-                        const lista = snapQuery.val();
-                        const key = Object.keys(lista)[0];
-                        renderizarDatos(lista[key], folioParam);
-                    } else {
-                        loadingBox.innerHTML = `
-                            <i class="fa-solid fa-magnifying-glass-minus" style="font-size: 2.5rem; color: #f59e0b; margin-bottom: 12px;"></i>
-                            <h3 style="margin-bottom: 6px; font-size:1.1rem;">Folio No Localizado</h3>
-                            <p style="color: var(--text-muted); font-size: 0.85rem;">El folio "<strong>${folioParam}</strong>" no se encuentra en el servidor. Comunícate con tu asesor de selección.</p>`;
-                    }
+                    db.ref('postulantes').orderByChild('id').equalTo(folioParam).once('value', (snapQuery) => {
+                        if (snapQuery.exists()) {
+                            const lista = snapQuery.val();
+                            const key = Object.keys(lista)[0];
+                            renderizarDatos(lista[key], folioParam);
+                        } else {
+                            loadingBox.innerHTML = `
+                                <i class="fa-solid fa-magnifying-glass-minus" style="font-size: 2.5rem; color: #f59e0b; margin-bottom: 12px;"></i>
+                                <h3 style="margin-bottom: 6px; font-size:1.1rem;">Folio No Localizado</h3>
+                                <p style="color: var(--text-muted); font-size: 0.85rem;">El folio "<strong>${folioParam}</strong>" no se encuentra en el servidor. Comunícate con tu asesor de selección.</p>`;
+                        }
+                    });
                 }
-            } catch (error) {
-                console.error("Error al consultar Firebase:", error);
-                clearTimeout(timeoutFallback);
+            }, (error) => {
+                console.error("Error al sincronizar con Firebase:", error);
                 if (paramVacante || paramEmpresa) {
                     renderizarDatos({
                         id: folioParam,
@@ -645,7 +623,7 @@
                         <h3 style="margin-bottom: 6px; font-size:1.1rem;">Error de Conexión</h3>
                         <p style="color: var(--text-muted); font-size: 0.85rem;">No fue posible sincronizar con el servidor. Revisa tu conexión a internet o intenta nuevamente.</p>`;
                 }
-            }
+            });
         }
 
         window.onload = cargarAcuse;
