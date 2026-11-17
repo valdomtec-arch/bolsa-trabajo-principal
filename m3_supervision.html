@@ -80,6 +80,10 @@
                     <span id="badgeJerarquia" class="bg-blue-500/10 text-cyan-400 text-[11px] px-2.5 py-0.5 rounded-full font-mono font-bold border border-blue-500/20">
                         Cargando célula...
                     </span>
+                    <!-- INDICADOR EN VIVO DE ESTADO M9 -->
+                    <span id="badgeEstadoM9Header" onclick="abrirModalGobernanza()" title="Clic para configurar gobernanza M9" class="cursor-pointer bg-slate-800/80 text-slate-300 text-[11px] px-2.5 py-0.5 rounded-full font-mono font-bold border border-white/10 flex items-center gap-1.5 transition">
+                        <i class="fas fa-network-wired text-orange-400"></i> M9: Estándar
+                    </span>
                     <!-- MONITOR DE ALERTAS DE DUPLICIDAD PARA EL DIRECTOR -->
                     <button type="button" id="btnAlertaDuplicidades" onclick="abrirModalAuditoriaDuplicidades()" class="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-[11px] px-2.5 py-0.5 rounded-full font-mono font-bold border border-rose-500/30 flex items-center gap-1.5 transition touch-target">
                         <i class="fas fa-shield-halved text-rose-400"></i> Bloqueos Duplicidad: <span id="txtConteoDuplicidadesHeader">0</span>
@@ -95,7 +99,7 @@
 
             <!-- ACCIONES DEL HEADER -->
             <div class="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 w-full lg:w-auto">
-                <button type="button" onclick="abrirModalGobernanza()" title="Gobernar semáforos de estatus por nivel jerárquico" class="bg-cyan-950/60 hover:bg-cyan-900 border border-cyan-500/40 text-cyan-200 hover:text-white font-bold py-2 px-3 rounded-xl shadow flex items-center justify-center gap-1.5 text-xs transition touch-target">
+                <button type="button" onclick="abrirModalGobernanza()" title="Gobernar semáforos de estatus y acceso al módulo M9 Freelance" class="bg-cyan-950/60 hover:bg-cyan-900 border border-cyan-500/40 text-cyan-200 hover:text-white font-bold py-2 px-3 rounded-xl shadow flex items-center justify-center gap-1.5 text-xs transition touch-target">
                     <i class="fas fa-traffic-light text-cyan-400"></i> Gobernanza
                 </button>
                 <button type="button" onclick="archivarPasivos120h()" title="Mover candidatos declinantes (>120h) hacia M3.3 Histórico" class="bg-purple-900/60 hover:bg-purple-800 border border-purple-500/40 text-purple-200 hover:text-white font-bold py-2 px-3 rounded-xl shadow flex items-center justify-center gap-1.5 text-xs transition touch-target">
@@ -402,16 +406,44 @@
         </div>
     </div>
 
-    <!-- MODAL DE GOBERNANZA DE ESTATUS Y PERMISOS DEL SEMÁFORO -->
+    <!-- MODAL DE GOBERNANZA DE ESTATUS, PERMISOS DEL SEMÁFORO E INTERRUPTOR M9 -->
     <div id="modalGobernanza" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 z-50">
         <div class="bg-[#0b1329] border border-cyan-500/50 rounded-2xl shadow-2xl max-w-2xl w-full p-4 sm:p-5 relative space-y-3.5 max-h-[90vh] overflow-y-auto">
             <button type="button" onclick="cerrarModalGobernanza()" class="absolute top-3 right-4 text-slate-400 hover:text-white text-lg font-bold p-1 touch-target">&times;</button>
             
             <div class="border-b border-white/10 pb-2">
                 <h3 class="text-sm font-bold text-white flex items-center gap-2">
-                    <i class="fas fa-traffic-light text-cyan-400"></i> Matriz de Gobernanza de Estatus para M3 Agenda
+                    <i class="fas fa-traffic-light text-cyan-400"></i> Matriz de Gobernanza de Estatus & Control M9
                 </h3>
-                <p class="text-[11.5px] text-slate-400 mt-0.5">Controla qué nivel jerárquico está facultado para mover cada fase del candidato.</p>
+                <p class="text-[11.5px] text-slate-400 mt-0.5">Controla qué nivel jerárquico mueve cada fase y gobierna el ingreso al portal M9 Freelance.</p>
+            </div>
+
+            <!-- INTERRUPTOR MAESTRO DE GOBERNANZA M9 (PORTAL FREELANCE) -->
+            <div class="bg-[#06101e] border border-orange-500/40 rounded-xl p-3.5 space-y-3">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                        <h4 class="text-xs font-bold text-orange-400 uppercase font-mono flex items-center gap-1.5">
+                            <i class="fas fa-network-wired"></i> Gobernanza M9: Portal Células Freelance
+                        </h4>
+                        <p class="text-[11px] text-slate-400">
+                            Habilita o suspende el acceso a M9 y restringe la operación exclusivamente a perfiles Freelance dados de alta en M5.
+                        </p>
+                    </div>
+                    <label class="inline-flex items-center gap-2 cursor-pointer bg-slate-900 border border-white/10 px-3 py-1.5 rounded-lg select-none">
+                        <input type="checkbox" id="chkM9ModuloActivo" checked class="w-4 h-4 accent-emerald-500 rounded cursor-pointer">
+                        <span class="text-xs font-mono font-bold text-emerald-400">M9 Habilitado</span>
+                    </label>
+                </div>
+
+                <div class="pt-2 border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div class="text-[11px] text-slate-300">
+                        <strong class="text-amber-300">Modo Exclusivo Freelance:</strong> Quita el ingreso de M9 a los demás roles operativos (N3/N4), dejando vigentes únicamente a los Freelance dados de alta en Identificación de Reclutador.
+                    </div>
+                    <label class="inline-flex items-center gap-2 cursor-pointer bg-amber-950/40 border border-amber-500/40 px-3 py-1.5 rounded-lg select-none whitespace-nowrap">
+                        <input type="checkbox" id="chkM9SoloFreelance" class="w-4 h-4 accent-amber-500 rounded cursor-pointer">
+                        <span class="text-xs font-mono font-bold text-amber-300">Solo Freelance</span>
+                    </label>
+                </div>
             </div>
 
             <div class="overflow-x-auto">
@@ -560,12 +592,13 @@
         };
 
         let matrizGobernanzaActual = { ...GOBERNANZA_ESTATUS_DEFAULT };
+        let gobernanzaM9Actual = { moduloActivo: true, soloFreelance: false };
 
         // NORMALIZADOR CANÓNICO ÚNICO: ELIMINA ACENTOS, ESPACIOS, GUIONES Y CARACTERES NO ALFANUMÉRICOS
         function sanitizarKey(str) {
             return (str || "").toString().toLowerCase().trim()
                 .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-                .replace(/[^a-z0-9]/g, ""); // Convierte "ju_young", "Ju Young", "JU-YOUNG" en "juyoung"
+                .replace(/[^a-z0-9]/g, "");
         }
 
         // CONSTRUCCIÓN DEL DICCIONARIO CANÓNICO DE EMPRESAS
@@ -825,6 +858,22 @@
             }
         }
 
+        function actualizarBadgeEstadoM9Header() {
+            const badge = document.getElementById("badgeEstadoM9Header");
+            if (!badge) return;
+
+            if (gobernanzaM9Actual.moduloActivo === false) {
+                badge.className = "cursor-pointer bg-rose-500/20 text-rose-300 text-[11px] px-2.5 py-0.5 rounded-full font-mono font-bold border border-rose-500/40 flex items-center gap-1.5 transition";
+                badge.innerHTML = `<i class="fas fa-ban text-rose-400"></i> M9: Deshabilitado`;
+            } else if (gobernanzaM9Actual.soloFreelance === true) {
+                badge.className = "cursor-pointer bg-amber-500/20 text-amber-300 text-[11px] px-2.5 py-0.5 rounded-full font-mono font-bold border border-amber-500/40 flex items-center gap-1.5 transition";
+                badge.innerHTML = `<i class="fas fa-user-astronaut text-amber-400"></i> M9: Solo Freelance`;
+            } else {
+                badge.className = "cursor-pointer bg-slate-800/80 text-slate-300 text-[11px] px-2.5 py-0.5 rounded-full font-mono font-bold border border-white/10 flex items-center gap-1.5 transition";
+                badge.innerHTML = `<i class="fas fa-network-wired text-orange-400"></i> M9: Estándar`;
+            }
+        }
+
         function inicializarEscuchasTiempoReal() {
             const badge = document.getElementById("badgeFirebaseStatus");
             onValue(ref(db, ".info/connected"), snap => {
@@ -863,6 +912,11 @@
 
             onValue(ref(db, "configuracion_sistema/gobernanza_estatus"), snap => {
                 matrizGobernanzaActual = snap.exists() ? snap.val() : { ...GOBERNANZA_ESTATUS_DEFAULT };
+            });
+
+            onValue(ref(db, "configuracion_sistema/gobernanza_m9"), snap => {
+                gobernanzaM9Actual = snap.exists() ? snap.val() : { moduloActivo: true, soloFreelance: false };
+                actualizarBadgeEstadoM9Header();
             });
 
             onValue(ref(db, "postulantes"), snap => {
@@ -1489,6 +1543,17 @@
 
             const puedeEditar = usuarioSesion.nivel >= 4;
 
+            const chkActivo = document.getElementById("chkM9ModuloActivo");
+            const chkSoloFree = document.getElementById("chkM9SoloFreelance");
+            if (chkActivo) {
+                chkActivo.checked = gobernanzaM9Actual.moduloActivo !== false;
+                chkActivo.disabled = !puedeEditar;
+            }
+            if (chkSoloFree) {
+                chkSoloFree.checked = gobernanzaM9Actual.soloFreelance === true;
+                chkSoloFree.disabled = !puedeEditar;
+            }
+
             LISTA_ESTATUS_CATALOGO.forEach(e => {
                 const conf = matrizGobernanzaActual[e.id] || { n1_n2: false, n3: false, n4_n5: true };
                 const disabledAttr = puedeEditar ? "" : "disabled";
@@ -1519,6 +1584,7 @@
         function restablecerGobernanzaDefault() {
             if (usuarioSesion.nivel < 4) return alert("Exclusivo de Supervisión y Dirección.");
             matrizGobernanzaActual = { ...GOBERNANZA_ESTATUS_DEFAULT };
+            gobernanzaM9Actual = { moduloActivo: true, soloFreelance: false };
             abrirModalGobernanza();
         }
 
@@ -1536,17 +1602,29 @@
                 };
             });
 
+            const m9Activo = document.getElementById("chkM9ModuloActivo")?.checked ?? true;
+            const m9SoloFreelance = document.getElementById("chkM9SoloFreelance")?.checked ?? false;
+
             try {
                 await set(ref(db, "configuracion_sistema/gobernanza_estatus"), nuevaMatriz);
+                await set(ref(db, "configuracion_sistema/gobernanza_m9"), {
+                    moduloActivo: m9Activo,
+                    soloFreelance: m9SoloFreelance,
+                    actualizadoPor: usuarioSesion.nombre,
+                    uidEjecutor: usuarioSesion.uid,
+                    timestamp: serverTimestamp()
+                });
                 await push(ref(db, 'modulo_7_logs'), {
                     modulo: "M3_SUPERVISION",
                     evento: "ACTUALIZACION_GOBERNANZA",
                     supervisor: usuarioSesion.nombre,
                     uidEjecutor: usuarioSesion.uid,
+                    m9Activo,
+                    m9SoloFreelance,
                     timestamp: serverTimestamp()
                 });
                 cerrarModalGobernanza();
-                alert("✅ Gobernanza sincronizada con éxito en tiempo real para M3 Agenda.");
+                alert("✅ Gobernanza sincronizada con éxito en tiempo real para M3 Agenda y M9 Freelance.");
             } catch (err) {
                 alert("Error guardando gobernanza: " + err.message);
             }
