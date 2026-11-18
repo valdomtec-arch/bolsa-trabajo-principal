@@ -66,10 +66,9 @@
         ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: #ea580c; }
 
+        /* NOTA: Se omite transform en el body para no romper position:fixed de los modales */
         .smooth-scroll {
-            transform: translateZ(0);
-            backface-visibility: hidden;
-            will-change: scroll-position;
+            scroll-behavior: smooth;
         }
 
         .glass-panel {
@@ -99,6 +98,35 @@
         .sla-tag-red { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.5); }
 
         .touch-target { min-height: 42px; min-width: 42px; }
+
+        /* ESTILO ALMANAQUE PREMIUM (INPUT DATE DARK CYBER) */
+        input[type="date"] {
+            color-scheme: dark;
+        }
+        .almanaque-premium {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.14) 0%, rgba(15, 23, 42, 0.95) 100%);
+            border: 1px solid rgba(16, 185, 129, 0.45);
+            color: #6ee7b7;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-weight: 700;
+            border-radius: 0.55rem;
+            padding: 3px 8px;
+            font-size: 11.5px;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 10px -2px rgba(16, 185, 129, 0.25);
+            cursor: pointer;
+        }
+        .almanaque-premium:hover, .almanaque-premium:focus {
+            border-color: #34d399;
+            box-shadow: 0 0 12px rgba(16, 185, 129, 0.45);
+            outline: none;
+            color: #ffffff;
+        }
+        .almanaque-premium::-webkit-calendar-picker-indicator {
+            filter: invert(75%) sepia(55%) saturate(480%) hue-rotate(110deg) brightness(95%) contrast(90%);
+            cursor: pointer;
+            padding: 2px;
+        }
     </style>
 </head>
 <body class="bg-cyber-bg text-slate-200 font-sans min-h-screen antialiased selection:bg-cyber-accent selection:text-white p-2.5 sm:p-4 md:p-6 text-[13.5px] sm:text-sm leading-relaxed smooth-scroll">
@@ -356,16 +384,16 @@
 
     </div>
 
-    <!-- MODAL EXPEDIENTE: VENTANA FLOTANTE ELEVADA -->
-    <div id="modalEditar" class="hidden fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 md:p-8 z-50 transition-opacity">
-        <div class="bg-cyber-card border-2 border-cyber-accent/80 rounded-2xl shadow-2xl shadow-black max-w-lg w-full flex flex-col max-h-[84vh] animate-in fade-in zoom-in-95 duration-150">
+    <!-- MODAL EXPEDIENTE: VENTANA FLOTANTE ESTRICTAMENTE CENTRADA EN VIEWPORT -->
+    <div id="modalEditar" class="hidden fixed inset-0 z-[9999] bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+        <div class="bg-cyber-card border-2 border-cyber-accent/80 rounded-2xl shadow-2xl shadow-black max-w-lg w-full flex flex-col max-h-[88vh] my-auto relative">
             
-            <div class="p-4 border-b border-cyber-border flex items-center justify-between bg-cyber-cardAlt/80 rounded-t-2xl flex-shrink-0">
+            <div class="p-4 border-b border-cyber-border flex items-center justify-between bg-cyber-cardAlt/90 rounded-t-2xl flex-shrink-0">
                 <div class="pr-2">
                     <h2 class="text-sm sm:text-base font-bold text-white flex items-center gap-2">
                         <i class="fas fa-user-shield text-cyber-accent"></i> Expediente del Postulante
                     </h2>
-                    <p class="text-xs text-slate-400">Actualización en tiempo real de cita, transporte y titular asignado.</p>
+                    <p class="text-xs text-slate-400">Actualización en tiempo real de registro, cita, transporte y titular.</p>
                 </div>
                 <button type="button" onclick="cerrarModal()" class="text-slate-400 hover:text-white text-2xl font-bold p-1 leading-none touch-target" title="Cerrar ventana">&times;</button>
             </div>
@@ -449,7 +477,19 @@
                         </select>
                     </div>
                 </div>
+
+                <!-- FECHA DE REGISTRO DEL CANDIDATO (RETROACTIVIDAD 15 DÍAS) -->
+                <div class="bg-cyber-bg p-3 rounded-xl border border-cyan-500/30 space-y-1.5">
+                    <div class="flex items-center justify-between">
+                        <label class="text-xs font-mono uppercase text-cyber-cyan font-bold flex items-center gap-1.5">
+                            <i class="fas fa-calendar-plus"></i> Fecha de Registro del Candidato
+                        </label>
+                        <span class="text-[10px] font-mono text-slate-400 bg-cyber-card px-2 py-0.5 rounded border border-cyber-border">Retroactividad máx. 15 días</span>
+                    </div>
+                    <input type="date" id="editFechaRegistro" class="w-full bg-cyber-card border border-cyan-500/40 text-cyan-200 font-mono font-bold rounded-xl p-2 focus:outline-none focus:border-cyber-cyan touch-target text-xs sm:text-sm">
+                </div>
                 
+                <!-- PROGRAMACIÓN DE CITA (RETROACTIVIDAD 15 DÍAS) -->
                 <div class="bg-cyber-bg p-3 rounded-xl border border-amber-500/30 space-y-2">
                     <div class="flex items-center justify-between border-b border-cyber-border pb-1.5">
                         <span class="text-xs sm:text-sm font-mono uppercase text-amber-400 font-bold flex items-center gap-1.5">
@@ -464,8 +504,8 @@
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                         <div>
-                            <label class="block text-xs text-slate-400 mb-1 font-mono uppercase font-bold">Fecha de Cita</label>
-                            <input type="date" id="editAgendaFecha" class="w-full bg-cyber-card border border-cyber-border text-white rounded-xl p-2 focus:outline-none focus:border-cyber-accent touch-target text-xs sm:text-sm">
+                            <label class="block text-xs text-slate-400 mb-1 font-mono uppercase font-bold">Fecha de Cita (Máx -15d)</label>
+                            <input type="date" id="editAgendaFecha" class="w-full bg-cyber-card border border-cyber-border text-white rounded-xl p-2 focus:outline-none focus:border-cyber-accent touch-target text-xs sm:text-sm font-mono">
                         </div>
 
                         <div>
@@ -512,18 +552,18 @@
                 </div>
             </div>
 
-            <div class="p-3.5 sm:p-4 border-t border-cyber-border flex justify-end gap-2 bg-cyber-cardAlt/80 rounded-b-2xl flex-shrink-0">
+            <div class="p-3.5 sm:p-4 border-t border-cyber-border flex justify-end gap-2 bg-cyber-cardAlt/90 rounded-b-2xl flex-shrink-0">
                 <button type="button" onclick="cerrarModal()" class="px-3.5 py-2 border border-cyber-border rounded-xl text-xs sm:text-sm font-bold text-slate-400 hover:bg-slate-800 transition touch-target">Cancelar</button>
                 <button type="button" id="btnGuardarExpediente" onclick="guardarCambiosAdmin()" class="px-4 py-2 bg-cyber-accent hover:bg-cyber-accentHover text-slate-950 font-black rounded-xl text-xs sm:text-sm uppercase transition shadow touch-target">Guardar Cambios</button>
             </div>
         </div>
     </div>
 
-    <!-- MODAL RECORDATORIOS DE ENTREVISTA -->
-    <div id="modalConfirmacionLote" class="hidden fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 md:p-8 z-50 transition-opacity">
-        <div class="bg-cyber-card border-2 border-emerald-500/70 rounded-2xl shadow-2xl shadow-black max-w-xl w-full flex flex-col max-h-[82vh] animate-in fade-in zoom-in-95 duration-150">
+    <!-- MODAL RECORDATORIOS DE ENTREVISTA: ESTRICTAMENTE CENTRADO EN VIEWPORT -->
+    <div id="modalConfirmacionLote" class="hidden fixed inset-0 z-[9999] bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+        <div class="bg-cyber-card border-2 border-emerald-500/70 rounded-2xl shadow-2xl shadow-black max-w-xl w-full flex flex-col max-h-[85vh] my-auto relative">
             
-            <div class="p-4 border-b border-cyber-border flex items-center justify-between bg-cyber-cardAlt/80 rounded-t-2xl flex-shrink-0">
+            <div class="p-4 border-b border-cyber-border flex items-center justify-between bg-cyber-cardAlt/90 rounded-t-2xl flex-shrink-0">
                 <div class="flex items-center gap-2">
                     <span class="bg-emerald-500/20 text-emerald-400 p-2 rounded-xl border border-emerald-500/30">
                         <i class="fa-brands fa-whatsapp text-lg"></i>
@@ -556,7 +596,7 @@
                 </div>
             </div>
 
-            <div class="p-3.5 sm:p-4 border-t border-cyber-border flex justify-between items-center bg-cyber-cardAlt/80 rounded-b-2xl flex-shrink-0">
+            <div class="p-3.5 sm:p-4 border-t border-cyber-border flex justify-between items-center bg-cyber-cardAlt/90 rounded-b-2xl flex-shrink-0">
                 <button type="button" onclick="cerrarModalLote()" class="px-3 py-1.5 border border-cyber-border rounded-xl text-xs sm:text-sm font-bold text-slate-400 hover:bg-slate-800 transition">Cerrar</button>
                 <button type="button" id="btnEjecutarLoteEnvio" onclick="ejecutarDespachoRecordatorios()" class="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 text-white font-black rounded-xl text-xs sm:text-sm uppercase transition shadow-glow-whatsapp flex items-center gap-1.5">
                     <i class="fa-brands fa-whatsapp text-sm sm:text-base"></i> Disparar Lote Pendientes
@@ -566,8 +606,8 @@
     </div>
 
     <!-- MODAL ALERTA DISUASORIA: POLÍTICA OBLIGATORIA DE BLOQUEO DE DUPLICIDAD (M3) -->
-    <div id="modalBloqueoDuplicidadM3" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-[#0f172a] border-2 border-rose-500 rounded-2xl shadow-2xl shadow-rose-950/50 max-w-lg w-full p-6 text-center space-y-4">
+    <div id="modalBloqueoDuplicidadM3" class="fixed inset-0 bg-black/85 backdrop-blur-md z-[9999] hidden flex items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-[#0f172a] border-2 border-rose-500 rounded-2xl shadow-2xl shadow-rose-950/50 max-w-lg w-full p-6 text-center space-y-4 my-auto">
             <div class="w-16 h-16 mx-auto rounded-full bg-rose-500/10 border border-rose-500/40 flex items-center justify-center text-rose-500 text-3xl">
                 <i class="fas fa-triangle-exclamation animate-pulse"></i>
             </div>
@@ -661,7 +701,6 @@
         let catalogoVacantesDetalles = {};
         let catalogoRutasCache = {};
 
-        // MAPA CANÓNICO MULTI-LLAVE PARA IDENTIFICACIÓN DETERMINISTA
         let mapaEmpresasCanonico = {};
 
         let chartSexoInstance = null;
@@ -692,14 +731,38 @@
             equipoDescendenteIds: []
         };
 
-        // NORMALIZADOR CANÓNICO ÚNICO: REMUEVE ACENTOS, GUIONES Y ESPACIOS
+        // HELPERS DE FECHA Y RETROACTIVIDAD DE 15 DÍAS
+        function obtenerFechaHoyStr() {
+            const d = new Date();
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
+
+        function obtenerFechaHaceDiasStr(dias) {
+            const d = new Date();
+            d.setDate(d.getDate() - dias);
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
+
+        function validarRetroactividad15Dias(fechaStr, permitirFuturo = false) {
+            if (!fechaStr) return { valida: true };
+            const minStr = obtenerFechaHaceDiasStr(15);
+            const hoyStr = obtenerFechaHoyStr();
+            if (fechaStr < minStr) {
+                return { valida: false, msg: `La fecha (${fechaStr}) excede el límite máximo de 15 días de retroactividad (${minStr}).` };
+            }
+            if (!permitirFuturo && fechaStr > hoyStr) {
+                return { valida: false, msg: `No se permiten fechas futuras posteriores a hoy (${hoyStr}).` };
+            }
+            return { valida: true };
+        }
+
+        // NORMALIZADOR CANÓNICO ÚNICO
         function sanitizarKey(str) {
             return (str || "").toString().toLowerCase().trim()
                 .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-                .replace(/[^a-z0-9]/g, ""); // Convierte "Ju Young", "ju_young" o "JU-YOUNG" en "juyoung"
+                .replace(/[^a-z0-9]/g, "");
         }
 
-        // GENERADOR DEL ENLACE CANÓNICO DIRECTO AL ACUSE DIGITAL EN VIVO
         function generarLinkAcuse(candidatoId) {
             try {
                 const loc = window.location;
@@ -859,16 +922,26 @@
                     return;
                 }
 
-                await update(ref(db, `postulantes/${id}`), {
+                const pActual = todosLosPostulantes[id] || {};
+                const payload = {
                     estatus: nuevoEstatus,
                     ultimaActualizacion: new Date().toISOString()
-                });
+                };
+
+                // Si pasa a luz verde "Contratado", fijar la fecha del movimiento automáticamente si no tiene una
+                if (nuevoEstatus === "Contratado") {
+                    const fechaActualContratacion = extraerFechaEstandar(pActual.fechaContratacion);
+                    payload.fechaContratacion = fechaActualContratacion || obtenerFechaHoyStr();
+                }
+
+                await update(ref(db, `postulantes/${id}`), payload);
 
                 await push(ref(db, 'modulo_7_logs'), {
                     modulo: "M3_AGENDA",
                     evento: "CAMBIO_RAPIDO_ESTATUS",
                     candidatoId: id,
                     nuevoEstatus: nuevoEstatus,
+                    fechaContratacion: payload.fechaContratacion || null,
                     ejecutadoPor: usuarioSesion.nombre,
                     uidEjecutor: usuarioSesion.uid,
                     timestamp: serverTimestamp()
@@ -879,7 +952,38 @@
             }
         }
 
-        // RENDERIZADO VISUAL CON LEGIBILIDAD CALIBRADA A 14PX Y BOTÓN DE ACCESO AL ACUSE
+        // ACTUALIZAR FECHA DE CONTRATACIÓN CON RETROACTIVIDAD DE 15 DÍAS (ALMANAQUE PREMIUM)
+        async function actualizarFechaContratacion(id, nuevaFecha) {
+            try {
+                RBAC.asegurar('m3_agenda', 'editar');
+                const validacion = validarRetroactividad15Dias(nuevaFecha, false);
+                if (!validacion.valida) {
+                    alert(`⛔ ${validacion.msg}`);
+                    cargarPostulantes();
+                    return;
+                }
+
+                await update(ref(db, `postulantes/${id}`), {
+                    fechaContratacion: nuevaFecha,
+                    ultimaActualizacion: new Date().toISOString()
+                });
+
+                await push(ref(db, 'modulo_7_logs'), {
+                    modulo: "M3_AGENDA",
+                    evento: "EDICION_FECHA_CONTRATACION",
+                    candidatoId: id,
+                    nuevaFechaContratacion: nuevaFecha,
+                    ejecutadoPor: usuarioSesion.nombre,
+                    uidEjecutor: usuarioSesion.uid,
+                    timestamp: serverTimestamp()
+                });
+            } catch (e) {
+                alert("Error al actualizar fecha de contratación: " + e.message);
+                cargarPostulantes();
+            }
+        }
+
+        // RENDERIZADO VISUAL CON ALMANAQUE PREMIUM BAJO EL SEMÁFORO CONTRATADO
         function renderizarPaginaActual() {
             const totalItems = listaCandidatosFiltrados.length;
             const totalPaginas = Math.ceil(totalItems / ELEMENTOS_POR_PAGINA) || 1;
@@ -904,12 +1008,47 @@
             let htmlDesktop = "";
             let htmlMobile = "";
 
+            const minRetro15Str = obtenerFechaHaceDiasStr(15);
+            const hoyStr = obtenerFechaHoyStr();
+
             items.forEach(({ id, p, estatus, horas, sexoReal, edadReal, nombreComercialFinal, divisionEmpresa, vacNombre, rutaCapturada, recId }) => {
                 const recNombre = catalogoUsuarios[recId]?.nombre || p.reclutadorNombre || p.asesor || "Sin Asignar";
                 const cita = p.diaEntrevista || p.fechaEntrevista || "Sin programar";
                 const badgeDiv = getDivisionBadgeM3(divisionEmpresa);
                 const opcionesSelect = construirOpcionesSelectEstatus(estatus);
                 const linkAcuse = generarLinkAcuse(id);
+
+                // Bloque Almanaque Premium debajo del semáforo cuando está en "Contratado"
+                const fechaContratacionVal = extraerFechaEstandar(p.fechaContratacion) || hoyStr;
+                const bloqueAlmanaqueContratadoDesktop = (estatus === "Contratado") ? `
+                    <div class="mt-1.5 flex flex-col gap-0.5 bg-emerald-950/30 border border-emerald-500/30 rounded-lg p-1.5">
+                        <span class="text-[9.5px] font-mono uppercase tracking-wider text-emerald-400 font-bold flex items-center gap-1">
+                            <i class="fas fa-calendar-check"></i> Fecha Contratación
+                        </span>
+                        <input type="date" 
+                               value="${fechaContratacionVal}" 
+                               min="${minRetro15Str}" 
+                               max="${hoyStr}"
+                               onchange="actualizarFechaContratacion('${id}', this.value)"
+                               title="Editar fecha de contratación (Retroactividad máx. 15 días)"
+                               class="almanaque-premium w-full">
+                    </div>
+                ` : "";
+
+                const bloqueAlmanaqueContratadoMobile = (estatus === "Contratado") ? `
+                    <div class="mt-1.5 flex items-center justify-between gap-2 bg-emerald-950/30 border border-emerald-500/30 rounded-lg px-2.5 py-1.5">
+                        <span class="text-[10px] font-mono uppercase text-emerald-400 font-bold flex items-center gap-1">
+                            <i class="fas fa-calendar-check"></i> Contratado el:
+                        </span>
+                        <input type="date" 
+                               value="${fechaContratacionVal}" 
+                               min="${minRetro15Str}" 
+                               max="${hoyStr}"
+                               onchange="actualizarFechaContratacion('${id}', this.value)"
+                               title="Editar fecha de contratación (Retroactividad máx. 15 días)"
+                               class="almanaque-premium">
+                    </div>
+                ` : "";
 
                 let slaBadge = `<span class="sla-tag-green px-2 py-0.5 rounded-full font-mono text-[11px] font-bold">${Math.floor(horas)}h OK</span>`;
                 if (horas > 48) {
@@ -925,13 +1064,14 @@
                     ? `<span class="text-xs text-emerald-400 font-mono font-medium" title="CURP Validada"><i class="fas fa-check-circle"></i> ${curpVal}</span>`
                     : `<span class="text-xs text-rose-400 font-mono font-bold" title="CURP Temporal"><i class="fas fa-triangle-exclamation"></i> ${curpVal || 'S/CURP'}</span>`;
 
-                // FILA ESCRITORIO CON ACCESO AL ACUSE Y FUENTE DE 14PX
+                // FILA ESCRITORIO
                 htmlDesktop += `
                     <tr class="hover:bg-slate-800/40 transition">
-                        <td class="p-3 pl-4">
-                            <select onchange="cambioRapidoEstatus('${id}', this.value)" class="bg-cyber-bg border border-cyber-border rounded-lg text-xs sm:text-sm p-1.5 text-slate-200">
+                        <td class="p-3 pl-4 align-top">
+                            <select onchange="cambioRapidoEstatus('${id}', this.value)" class="w-full bg-cyber-bg border border-cyber-border rounded-lg text-xs sm:text-sm p-1.5 text-slate-200">
                                 ${opcionesSelect}
                             </select>
+                            ${bloqueAlmanaqueContratadoDesktop}
                         </td>
                         <td class="p-3">
                             <div class="flex items-center gap-1.5 flex-wrap">
@@ -972,7 +1112,7 @@
                     </tr>
                 `;
 
-                // TARJETA MÓVIL CON FUENTE DE 14PX Y ACCIÓN AL ACUSE
+                // TARJETA MÓVIL
                 htmlMobile += `
                     <div class="bg-cyber-cardAlt p-3.5 rounded-xl border border-cyber-border space-y-2">
                         <div class="flex justify-between items-start gap-1">
@@ -1002,22 +1142,25 @@
                             <span class="text-slate-400 text-[11px] uppercase font-bold"><i class="fas fa-headset me-1 text-cyber-accent"></i> Asesor:</span>
                             <span class="text-white font-medium truncate max-w-[170px]">${recNombre}</span>
                         </div>
-                        <div class="pt-1.5 flex items-center gap-1 border-t border-cyber-border/40">
-                            <select onchange="cambioRapidoEstatus('${id}', this.value)" class="bg-cyber-bg border border-cyber-border rounded-lg text-xs sm:text-sm p-1.5 text-slate-200 flex-1 touch-target">
-                                ${opcionesSelect}
-                            </select>
-                            <a href="${linkAcuse}" target="_blank" title="Ver Acuse" class="p-2 bg-blue-600/30 text-blue-300 border border-blue-500/40 rounded-lg touch-target flex items-center justify-center">
-                                <i class="fa-solid fa-file-invoice text-sm sm:text-base"></i>
-                            </a>
-                            <button type="button" onclick="dispararNotificacionDirectaIndividual('${id}')" class="p-2 bg-emerald-600 rounded-lg text-white touch-target flex items-center justify-center">
-                                <i class="fa-brands fa-whatsapp text-sm sm:text-base"></i>
-                            </button>
-                            <button type="button" onclick="abrirModalEditar('${id}')" class="p-2 bg-slate-800 rounded-lg text-slate-200 touch-target flex items-center justify-center">
-                                <i class="fas fa-pen-to-square text-sm sm:text-base"></i>
-                            </button>
-                            <button type="button" onclick="eliminarPostulante('${id}')" class="p-2 bg-rose-500/20 rounded-lg text-rose-400 touch-target flex items-center justify-center">
-                                <i class="fas fa-trash text-sm sm:text-base"></i>
-                            </button>
+                        <div class="pt-1.5 border-t border-cyber-border/40 space-y-1.5">
+                            <div class="flex items-center gap-1">
+                                <select onchange="cambioRapidoEstatus('${id}', this.value)" class="bg-cyber-bg border border-cyber-border rounded-lg text-xs sm:text-sm p-1.5 text-slate-200 flex-1 touch-target">
+                                    ${opcionesSelect}
+                                </select>
+                                <a href="${linkAcuse}" target="_blank" title="Ver Acuse" class="p-2 bg-blue-600/30 text-blue-300 border border-blue-500/40 rounded-lg touch-target flex items-center justify-center">
+                                    <i class="fa-solid fa-file-invoice text-sm sm:text-base"></i>
+                                </a>
+                                <button type="button" onclick="dispararNotificacionDirectaIndividual('${id}')" class="p-2 bg-emerald-600 rounded-lg text-white touch-target flex items-center justify-center">
+                                    <i class="fa-brands fa-whatsapp text-sm sm:text-base"></i>
+                                </button>
+                                <button type="button" onclick="abrirModalEditar('${id}')" class="p-2 bg-slate-800 rounded-lg text-slate-200 touch-target flex items-center justify-center">
+                                    <i class="fas fa-pen-to-square text-sm sm:text-base"></i>
+                                </button>
+                                <button type="button" onclick="eliminarPostulante('${id}')" class="p-2 bg-rose-500/20 rounded-lg text-rose-400 touch-target flex items-center justify-center">
+                                    <i class="fas fa-trash text-sm sm:text-base"></i>
+                                </button>
+                            </div>
+                            ${bloqueAlmanaqueContratadoMobile}
                         </div>
                     </div>
                 `;
@@ -1428,6 +1571,9 @@
             const p = todosLosPostulantes[id];
             if (!p) return;
 
+            const minRetro15 = obtenerFechaHaceDiasStr(15);
+            const hoyStr = obtenerFechaHoyStr();
+
             document.getElementById("editId").value = id;
             
             let nombres = p.nombres || "";
@@ -1474,11 +1620,22 @@
             const paradaGuardada = p.paradaTransporte || p.parada || "SIN_PARADA";
             poblarRutasYParadasEnModal(rutaGuardada, paradaGuardada);
 
+            // Configurar Fecha de Registro con tope de 15 días de retroactividad
+            const inputReg = document.getElementById("editFechaRegistro");
+            const fechaRegActual = extraerFechaEstandar(p.fechaRegistro) || hoyStr;
+            inputReg.min = (fechaRegActual < minRetro15) ? fechaRegActual : minRetro15;
+            inputReg.max = hoyStr;
+            inputReg.value = fechaRegActual;
+
+            // Configurar Fecha de Cita con tope de 15 días de retroactividad
             const citaRaw = p.diaEntrevista || p.fechaEntrevista || "";
             let fechaExtraida = extraerFechaEstandar(citaRaw.split(" ")[0]) || citaRaw.split(" ")[0] || "";
             let horaExtraida = citaRaw.includes(" ") ? citaRaw.split(" ").slice(1).join(" ") : "08:00 AM";
 
-            document.getElementById("editAgendaFecha").value = fechaExtraida;
+            const inputCita = document.getElementById("editAgendaFecha");
+            inputCita.min = (fechaExtraida && fechaExtraida < minRetro15) ? fechaExtraida : minRetro15;
+            inputCita.value = fechaExtraida;
+
             parsearHoraAlModal(horaExtraida);
             document.getElementById("originalAgendaFecha").value = fechaExtraida;
             document.getElementById("originalAgendaHora").value = horaExtraida;
@@ -1619,6 +1776,10 @@
             const telefono = document.getElementById("editTelefono").value.trim().replace(/\D/g, '');
             const nuevoEstatus = document.getElementById("editEstatus").value;
 
+            const fechaRegistroNueva = document.getElementById("editFechaRegistro").value;
+            const fechaCita = document.getElementById("editAgendaFecha").value;
+            const horaCita = document.getElementById("editAgendaHora").value;
+
             if (!puedeModificarEstatus(nuevoEstatus)) {
                 alert(`⛔ GOBERNANZA: Tu nivel de usuario no tiene permitido asentar el estatus "${nuevoEstatus}".`);
                 return;
@@ -1627,6 +1788,26 @@
             if (!nombres || !apellidos || curp.length !== 18 || telefono.length !== 10) {
                 alert("Completa todos los campos obligatorios:\n• Nombres y Apellidos\n• CURP oficial de 18 caracteres\n• Teléfono de 10 dígitos numéricos");
                 return;
+            }
+
+            // Validar retroactividad de 15 días en Fecha de Registro (si se modificó)
+            const registroPrevio = extraerFechaEstandar(todosLosPostulantes[id]?.fechaRegistro);
+            if (fechaRegistroNueva && fechaRegistroNueva !== registroPrevio) {
+                const valReg = validarRetroactividad15Dias(fechaRegistroNueva, false);
+                if (!valReg.valida) {
+                    alert(`⛔ Fecha de Registro inválida:\n${valReg.msg}`);
+                    return;
+                }
+            }
+
+            // Validar retroactividad de 15 días en Fecha de Cita (si se modificó)
+            const origFecha = document.getElementById("originalAgendaFecha").value;
+            if (fechaCita && fechaCita !== origFecha) {
+                const valCita = validarRetroactividad15Dias(fechaCita, true);
+                if (!valCita.valida) {
+                    alert(`⛔ Fecha de Cita inválida:\n${valCita.msg}`);
+                    return;
+                }
             }
 
             const nombreCompleto = `${nombres} ${apellidos}`.trim();
@@ -1705,15 +1886,11 @@
                     ? asesorDestino.coordinadoresIds 
                     : (asesorDestino.coordinadorPadreId ? [asesorDestino.coordinadorPadreId] : []);
 
-                const fechaCita = document.getElementById("editAgendaFecha").value;
-                const horaCita = document.getElementById("editAgendaHora").value;
-
                 const empSelCanonico = sanitizarKey(document.getElementById("editEmpresa").value);
                 const metaEmpresa = mapaEmpresasCanonico[empSelCanonico] || {};
                 const nombreComercialDefinitivo = metaEmpresa.nombreComercial || document.getElementById("editEmpresa").value;
                 const divisionDefinitiva = metaEmpresa.division || "centro";
 
-                const origFecha = document.getElementById("originalAgendaFecha").value;
                 const origHora = document.getElementById("originalAgendaHora").value;
                 const seReprogramoCita = (fechaCita !== origFecha) || (horaCita !== origHora);
 
@@ -1730,6 +1907,7 @@
                     sexo: resolverSexoCandidato(null, curp, nombreCompleto),
                     edad: resolverEdadCandidato(null, curp),
                     estatus: nuevoEstatus,
+                    fechaRegistro: fechaRegistroNueva || obtenerFechaHoyStr(),
                     empresaId: empSelCanonico,
                     empresa: nombreComercialDefinitivo,
                     division: divisionDefinitiva,
@@ -1754,6 +1932,11 @@
                     ultimaActualizacion: new Date().toISOString()
                 };
 
+                if (nuevoEstatus === "Contratado") {
+                    const fechaContPrevia = extraerFechaEstandar(todosLosPostulantes[id]?.fechaContratacion);
+                    updates.fechaContratacion = fechaContPrevia || obtenerFechaHoyStr();
+                }
+
                 if (seReprogramoCita) {
                     updates.recordatorioCitaEnviado = false;
                     updates.recordatorioFechaCita = null;
@@ -1767,7 +1950,7 @@
                     candidatoId: id,
                     ejecutadoPor: usuarioSesion.nombre,
                     uidEjecutor: usuarioSesion.uid,
-                    detalle: `Actualización: ${updates.nombre} | Empresa: ${nombreComercialDefinitivo} | Transporte: ${rutaTextoFinal}`,
+                    detalle: `Actualización: ${updates.nombre} | Empresa: ${nombreComercialDefinitivo} | Registro: ${updates.fechaRegistro}`,
                     timestamp: serverTimestamp()
                 });
 
@@ -1822,6 +2005,8 @@
                     "Vacante": vacNombre,
                     "Transporte": rutaCapturada || "Traslado Propio",
                     "Estatus": estatus,
+                    "Fecha Registro": extraerFechaEstandar(p.fechaRegistro) || "",
+                    "Fecha Contratación": p.fechaContratacion || "",
                     "Cita": p.diaEntrevista || p.fechaEntrevista || "",
                     "Horas Inactividad": Math.floor(horas),
                     "Link Acuse Digital": generarLinkAcuse(id)
@@ -1950,7 +2135,6 @@
             return { success: true };
         }
 
-        // DISPARO DE NOTIFICACIÓN DIRECTA CON LINK AL ACUSE VIVO
         async function dispararNotificacionDirectaIndividual(id) {
             const p = todosLosPostulantes[id];
             if (!p) return;
@@ -2197,6 +2381,7 @@
         };
 
         window.cambioRapidoEstatus = cambioRapidoEstatus;
+        window.actualizarFechaContratacion = actualizarFechaContratacion;
         window.abrirModalEditar = abrirModalEditar;
         window.cerrarModal = cerrarModal;
         window.alCambiarDivision = alCambiarDivision;
