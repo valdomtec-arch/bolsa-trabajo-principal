@@ -708,7 +708,6 @@
             };
         }
 
-        // Resuelve el UID del asesor que registró / intentó registrar el expediente (por UID o por Nombre)
         function resolverAsesorPorUidONombre(uidCandidato, nombreTexto) {
             if (uidCandidato && catalogoUsuarios[uidCandidato]) {
                 return {
@@ -1065,12 +1064,10 @@
                 const telInt10 = extraerTelefono10Digitos(l.telefonoIntentado);
                 const nomInt = (l.candidatoIntentado || l.nombreCandidato || "").trim();
 
-                // Agrupar múltiples intentos bloqueados de la misma persona para no inflar la tabla
                 const firmaCandidato = `${normalizarTextoPlano(nomInt)}|${telInt10}|${esCurpOficialValida(curpInt) ? curpInt : ''}`;
                 if (firmasLogsAgrupadas.has(firmaCandidato)) return;
                 firmasLogsAgrupadas.add(firmaCandidato);
 
-                // Buscar expediente original en postulantes
                 let origId = l.expedienteOriginalId || l.expedienteExistenteId || null;
                 let origData = origId ? todosPostulantes[origId] : null;
 
@@ -1090,7 +1087,7 @@
                     }
                 }
 
-                // Verificar si ya existe un registro liberado por Dirección para este candidato (para no reabrir logs viejos)
+                // Verificar si ya existe un registro liberado por Dirección para este candidato
                 const yaExisteLiberado = Object.entries(todosPostulantes).some(([pid, p]) => {
                     if (!p || pid === origId || p.homonimoAutorizado !== true) return false;
                     const cP = (p.curp || "").toUpperCase().trim();
@@ -1102,7 +1099,6 @@
                 });
                 if (yaExisteLiberado) return;
 
-                // Verificar si el supuesto choque nominal ya no aplica bajo la regla exacta de Nombre + 2 Apellidos
                 const camposColision = [];
                 if (origData) {
                     const cP = (origData.curp || "").toUpperCase().trim();
@@ -1267,7 +1263,7 @@
 
             const puedeDictaminar = usuarioSesion && usuarioSesion.nivel >= 4;
 
-            listaConflictosDuplicidad.forEach((c, idx) => {
+            listaConflictosDuplicidad.forEach((c) => {
                 const fechaStr = c.timestamp ? new Date(c.timestamp).toLocaleString('es-MX') : "Reciente";
                 const badgesChoque = c.camposColision.map(campo => 
                     `<span class="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 font-mono text-[11px] font-bold"><i class="fas fa-bolt me-1"></i>${escapeHtml(campo)}</span>`
@@ -1499,8 +1495,29 @@
                 const ahoraIso = new Date().toISOString();
                 const hoyStr = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`;
                 let secIdFinal = conflicto.secundario.id;
+                const esRegistroExistente = Boolean(secIdFinal && todosPostulantes[secIdFinal]);
 
-                if (secIdFinal && todosPostulantes[secIdFinal]) {
+                // Resolver el ID del expediente titular original antes de armar los updates
+                let origIdReal = conflicto.original.id;
+                if (!origIdReal || !todosPostulantes[origIdReal]) {
+                    const curpOrig = (conflicto.original.curp || "").toUpperCase().trim();
+                    const telOrig10 = extraerTelefono10Digitos(conflicto.original.telefono);
+                    const nomOrig = conflicto.original.nombre || "";
+                    const encontradoOrig = Object.entries(todosPostulantes).find(([pid, p]) => {
+                        if (!p || pid === secIdFinal) return false;
+                        const cP = (p.curp || "").toUpperCase().trim();
+                        const tP10 = extraerTelefono10Digitos(p.telefono);
+                        const nP = p.nombre || "";
+                        return (esCurpOficialValida(curpOrig) && esCurpOficialValida(cP) && cP === curpOrig) ||
+                               (telOrig10.length === 10 && tP10 === telOrig10) ||
+                               (nomOrig && esMismaPersonaPorNombre(nP, nomOrig));
+                    });
+                    if (encontradoOrig) origIdReal = encontradoOrig[0];
+                }
+
+                const tieneOriginalValido = Boolean(origIdReal && todosPostulantes[origIdReal]);
+
+                if (esRegistroExistente) {
                     if (destinoUid) updates[`postulantes/${secIdFinal}/reclutadorId`] = destinoUid;
                     updates[`postulantes/${secIdFinal}/reclutadorNombre`] = destinoNombre;
                     updates[`postulantes/${secIdFinal}/asesor`] = destinoNombre;
@@ -1514,12 +1531,18 @@
                     updates[`postulantes/${secIdFinal}/homonimoAutorizado`] = true;
                     updates[`postulantes/${secIdFinal}/autorizadoPorDireccion`] = usuarioSesion.nombre;
                     updates[`postulantes/${secIdFinal}/ultimaActualizacion`] = ahoraIso;
+
+                    if (tieneOriginalValido && origIdReal !== secIdFinal) {
+                        updates[`postulantes/${origIdReal}/homonimoAutorizado`] = true;
+                        updates[`postulantes/${origIdReal}/paresLiberados/${secIdFinal}`] = true;
+                        updates[`postulantes/${secIdFinal}/paresLiberados/${origIdReal}`] = true;
+                    }
                 } else {
                     const nuevoRef = push(ref(db, 'postulantes'));
                     secIdFinal = nuevoRef.key;
                     const empMeta = resolverEmpresaCandidato({ empresa: conflicto.secundario.empresa });
 
-                    updates[`postulantes/${secIdFinal}`] = {
+                    const nuevoExpediente = {
                         id: secIdFinal,
                         nombre: conflicto.secundario.nombre,
                         curp: conflicto.secundario.curp !== "S/CURP" ? conflicto.secundario.curp : "",
@@ -1543,30 +1566,14 @@
                         homonimoAutorizado: true,
                         autorizadoPorDireccion: usuarioSesion.nombre
                     };
-                }
 
-                // Resolver el ID del expediente titular original para grabar la lista blanca mutua paresLiberados
-                let origIdReal = conflicto.original.id;
-                if (!origIdReal || !todosPostulantes[origIdReal]) {
-                    const curpOrig = (conflicto.original.curp || "").toUpperCase().trim();
-                    const telOrig10 = extraerTelefono10Digitos(conflicto.original.telefono);
-                    const nomOrig = conflicto.original.nombre || "";
-                    const encontradoOrig = Object.entries(todosPostulantes).find(([pid, p]) => {
-                        if (!p || pid === secIdFinal) return false;
-                        const cP = (p.curp || "").toUpperCase().trim();
-                        const tP10 = extraerTelefono10Digitos(p.telefono);
-                        const nP = p.nombre || "";
-                        return (esCurpOficialValida(curpOrig) && esCurpOficialValida(cP) && cP === curpOrig) ||
-                               (telOrig10.length === 10 && tP10 === telOrig10) ||
-                               (nomOrig && esMismaPersonaPorNombre(nP, nomOrig));
-                    });
-                    if (encontradoOrig) origIdReal = encontradoOrig[0];
-                }
+                    if (tieneOriginalValido && origIdReal !== secIdFinal) {
+                        nuevoExpediente.paresLiberados = { [origIdReal]: true };
+                        updates[`postulantes/${origIdReal}/homonimoAutorizado`] = true;
+                        updates[`postulantes/${origIdReal}/paresLiberados/${secIdFinal}`] = true;
+                    }
 
-                if (origIdReal && todosPostulantes[origIdReal] && secIdFinal && origIdReal !== secIdFinal) {
-                    updates[`postulantes/${origIdReal}/homonimoAutorizado`] = true;
-                    updates[`postulantes/${origIdReal}/paresLiberados/${secIdFinal}`] = true;
-                    updates[`postulantes/${secIdFinal}/paresLiberados/${origIdReal}`] = true;
+                    updates[`postulantes/${secIdFinal}`] = nuevoExpediente;
                 }
 
                 aplicarCierreCascadaLogs(updates, conflicto, "NO_ES_DUPLICADO_LIBERADO_Y_ASIGNADO", ahoraIso, {
