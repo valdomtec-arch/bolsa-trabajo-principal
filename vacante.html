@@ -692,6 +692,39 @@
             min-height: 44px;
         }
 
+        /* RADAR ANTI-DUPLICIDAD EN VIVO (EXCLUSIVO MODO ASISTIDO) */
+        .radar-asistido-box {
+            display: none;
+            padding: 10px 12px;
+            border-radius: 10px;
+            margin-bottom: 14px;
+            font-size: 0.76rem;
+            line-height: 1.4;
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            background: rgba(4, 8, 20, 0.65);
+            color: #cbd5e1;
+            gap: 9px;
+            align-items: flex-start;
+        }
+
+        .radar-asistido-box.estado-ok {
+            border-color: rgba(16, 185, 129, 0.45);
+            background: rgba(6, 78, 59, 0.25);
+            color: #6ee7b7;
+        }
+
+        .radar-asistido-box.estado-parcial {
+            border-color: rgba(245, 158, 11, 0.45);
+            background: rgba(120, 53, 15, 0.25);
+            color: #fcd34d;
+        }
+
+        .radar-asistido-box.estado-alerta {
+            border-color: rgba(239, 68, 68, 0.65);
+            background: rgba(127, 29, 29, 0.35);
+            color: #fca5a5;
+        }
+
         /* CHECKBOX Y AVISO DE PRIVACIDAD LFPDPPP */
         .privacy-consent-group {
             display: flex;
@@ -997,16 +1030,29 @@
                             <span><i class="fa-solid fa-headset text-purple-400 me-1"></i> Soy Asesor / Captura Asistida</span>
                         </label>
                     </div>
+
+                    <!-- RADAR ANTI-DUPLICIDAD EN VIVO (VISIBLE SOLO EN MODO ASISTIDO PARA PROTEGER PRIVACIDAD LFPDPPP) -->
+                    <div id="radarDuplicidadAsistidoBox" class="radar-asistido-box">
+                        <i id="radarAsistidoIcono" class="fas fa-radar" style="color:#38bdf8; margin-top:2px;"></i>
+                        <div style="flex:1; min-width:0;">
+                            <strong id="radarAsistidoTitulo" style="display:block; text-transform:uppercase; font-size:0.72rem; color:#38bdf8;">
+                                Radar Anti-Duplicidad Activo
+                            </strong>
+                            <span id="radarAsistidoDetalle">
+                                Captura Nombre + 2 Apellidos, Celular o CURP para verificar disponibilidad en tiempo real.
+                            </span>
+                        </div>
+                    </div>
                     
                     <form id="formPostulacion" onsubmit="enviarPostulacion(event)">
                         <div class="form-group">
-                            <label for="postNombre">Nombre Completo del Candidato:</label>
-                            <input type="text" id="postNombre" required placeholder="Ej: Juan Antonio Pérez Domínguez">
+                            <label for="postNombre">Nombre Completo (Nombre + 2 Apellidos):</label>
+                            <input type="text" id="postNombre" required placeholder="Ej: Juan Antonio Pérez Domínguez" oninput="ejecutarRadarAsistidoEnVivo()">
                         </div>
 
                         <div class="form-group">
                             <label for="postTelefono">Teléfono Celular (10 dígitos):</label>
-                            <input type="tel" id="postTelefono" required pattern="[0-9]{10}" maxlength="10" placeholder="Ej: 8112345678">
+                            <input type="tel" id="postTelefono" required pattern="[0-9]{10}" maxlength="10" placeholder="Ej: 8112345678" oninput="this.value=this.value.replace(/\D/g,''); ejecutarRadarAsistidoEnVivo();">
                         </div>
 
                         <!-- CURP FLEXIBLE -->
@@ -1015,7 +1061,7 @@
                                 <span>CURP (Opcional - 18 caracteres):</span>
                                 <span style="font-size: 0.7rem; color: var(--wf-accent-blue); text-transform: none; font-weight: 500;">Voluntario</span>
                             </label>
-                            <input type="text" id="postCurp" maxlength="18" style="text-transform: uppercase;" placeholder="Si no cuentas con ella, puedes dejarla en blanco" oninput="alCambiarCurpInput()">
+                            <input type="text" id="postCurp" maxlength="18" style="text-transform: uppercase;" placeholder="Si no cuentas con ella, puedes dejarla en blanco" oninput="alCambiarCurpInput(); ejecutarRadarAsistidoEnVivo();">
                         </div>
 
                         <!-- SELECTOR DE SEXO (SI OMITEN CURP) -->
@@ -1203,7 +1249,18 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // UTILIDADES CANÓNICAS DE TEXTO Y TELEFONÍA
+    // =========================================================================
+    // UTILIDADES CANÓNICAS Y MOTOR EXACTO DE IDENTIDAD NOMINAL (NOMBRE + 2 APELLIDOS)
+    // =========================================================================
+    function escapeHtml(str) {
+        return String(str ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
     const sanitizarClave = (str) => {
         if (!str) return "";
         return String(str).toLowerCase().trim()
@@ -1225,13 +1282,53 @@
             .replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ");
     }
 
-    function sanitizarTelefonoUniversal(tel) {
+    function obtenerTokensIdentidad(nombreCompleto) {
+        const conectores = new Set(["de", "del", "la", "las", "los", "y", "e", "san", "sta", "santa"]);
+        return normalizarTextoPlano(nombreCompleto)
+            .split(' ')
+            .filter(w => w.length > 0 && !conectores.has(w));
+    }
+
+    function esMismaPersonaPorNombre(nomA, nomB) {
+        const tokensA = obtenerTokensIdentidad(nomA);
+        const tokensB = obtenerTokensIdentidad(nomB);
+
+        if (tokensA.length === 0 || tokensB.length === 0) return false;
+        if (tokensA.length !== tokensB.length) return false;
+
+        const ordenA = [...tokensA].sort().join("|");
+        const ordenB = [...tokensB].sort().join("|");
+        return ordenA === ordenB;
+    }
+
+    function tieneCoincidenciaParcialNombre(nomA, nomB) {
+        const tokensA = obtenerTokensIdentidad(nomA);
+        const tokensB = obtenerTokensIdentidad(nomB);
+        if (tokensA.length < 2 || tokensB.length < 2) return false;
+        const comunes = tokensA.filter(t => tokensB.includes(t));
+        return comunes.length >= 2 && !esMismaPersonaPorNombre(nomA, nomB);
+    }
+
+    function extraerTelefono10Digitos(tel) {
         if (!tel) return "";
-        let d = tel.toString().replace(/\D/g, '');
-        if (d.length === 10) return "52" + d;
-        if (d.length === 11 && d.startsWith("1")) return "52" + d.substring(1);
-        if (d.length >= 12 && d.startsWith("52")) return d;
-        return d;
+        const d = tel.toString().replace(/\D/g, '');
+        if (d.length < 10) return "";
+        return d.slice(-10);
+    }
+
+    function sanitizarTelefonoUniversal(tel) {
+        const d10 = extraerTelefono10Digitos(tel);
+        return d10 ? ("52" + d10) : "";
+    }
+
+    function generarLinkAcuse(candidatoId) {
+        try {
+            const loc = window.location;
+            const basePath = loc.pathname.substring(0, loc.pathname.lastIndexOf('/') + 1);
+            return `${loc.origin}${basePath}acuse.html?id=${encodeURIComponent(candidatoId)}`;
+        } catch (e) {
+            return `https://valdomtec-arch.github.io/bolsa-trabajo-principal/acuse.html?id=${encodeURIComponent(candidatoId)}`;
+        }
     }
 
     function dispararWhatsAppDirecto(telefono, mensaje) {
@@ -1294,6 +1391,11 @@
     let markerUsuario = null;
     let lineaRutaMapa = null;
     let listaTodasLasParadasFlat = []; 
+
+    // Caché en memoria exclusivo para el Radar en Modo Asistido
+    let cachePostulantesAsistido = null;
+    let cacheHistoricoAsistido = null;
+    let radarDebounceTimer = null;
 
     window.addEventListener('DOMContentLoaded', () => {
         const inputFecha = document.getElementById('postFechaEntrevista');
@@ -1436,9 +1538,30 @@
         }
     }
 
-    function alternarModoAsistido() {
+    async function alternarModoAsistido() {
         const esAsistido = document.getElementById('chkModoAsistido').checked;
         const btn = document.getElementById('btnSubmitForm');
+        const radarBox = document.getElementById('radarDuplicidadAsistidoBox');
+
+        if (radarBox) {
+            radarBox.style.display = esAsistido ? 'flex' : 'none';
+        }
+
+        if (esAsistido && (!cachePostulantesAsistido || !cacheHistoricoAsistido)) {
+            try {
+                const [snapP, snapH] = await Promise.all([
+                    db.ref('postulantes').once('value'),
+                    db.ref('postulantes_historico').once('value')
+                ]);
+                cachePostulantesAsistido = snapP.val() || {};
+                cacheHistoricoAsistido = snapH.val() || {};
+            } catch (e) {
+                console.warn("No se pudo precargar caché de radar asistido:", e);
+            }
+        }
+
+        if (esAsistido) ejecutarRadarAsistidoEnVivo();
+
         if (btn.disabled) return;
 
         if (esAsistido) {
@@ -1450,18 +1573,136 @@
         }
     }
 
+    function evaluarDuplicidadUnificada(curpRaw, telRaw, nombreRaw, dataPost, dataHist) {
+        const curpBuscar = (curpRaw || '').trim().toUpperCase();
+        const regexCurpOficial = /^[A-Z]{4}\d{6}[HM][A-Z]{2}[B-DF-HJ-NP-TV-Z]{3}[A-Z\d]\d$/;
+        const esCurpOficial = curpBuscar.length === 18 && regexCurpOficial.test(curpBuscar) && !curpBuscar.startsWith("CURPX");
+        const tel10 = extraerTelefono10Digitos(telRaw);
+        const nombre = (nombreRaw || '').trim();
+
+        let colision = null;
+        let homonimosParciales = 0;
+
+        for (const [id, post] of Object.entries(dataPost || {})) {
+            if (!post) continue;
+
+            const curpReg = (post.curp || '').trim().toUpperCase();
+            const telReg10 = extraerTelefono10Digitos(post.telefono);
+            const nomReg = post.nombre || `${post.nombres || ''} ${post.apellidos || ''}`.trim();
+
+            if (esCurpOficial && curpReg.length === 18 && !curpReg.startsWith("CURPX") && curpReg === curpBuscar) {
+                colision = { id, origen: 'ACTIVO', motivo: `CURP oficial coincide con expediente activo (${curpReg})`, postulante: post };
+                break;
+            }
+            if (tel10.length === 10 && telReg10.length === 10 && telReg10 === tel10) {
+                colision = { id, origen: 'ACTIVO', motivo: `Número celular coincide con expediente activo (${tel10})`, postulante: post };
+                break;
+            }
+            if (nombre && esMismaPersonaPorNombre(nomReg, nombre)) {
+                colision = { id, origen: 'ACTIVO', motivo: `Nombre y dos apellidos coinciden exactamente en cartera activa`, postulante: post };
+                break;
+            }
+            if (nombre && tieneCoincidenciaParcialNombre(nomReg, nombre)) {
+                homonimosParciales++;
+            }
+        }
+
+        if (!colision) {
+            for (const [id, hist] of Object.entries(dataHist || {})) {
+                if (!hist || hist.bloqueado !== true) continue;
+
+                const hCurp = (hist.curp || '').trim().toUpperCase();
+                const hTel10 = extraerTelefono10Digitos(hist.telefono);
+                const hNom = (hist.nombre || '').trim();
+
+                if ((esCurpOficial && hCurp === curpBuscar) ||
+                    (tel10.length === 10 && hTel10 === tel10) ||
+                    (nombre && esMismaPersonaPorNombre(hNom, nombre))) {
+                    colision = {
+                        id,
+                        origen: 'LISTA_NEGRA',
+                        motivo: `Candidato vetado en Lista Negra M3.3 (${hist.notaBloqueo || hist.causaDescarte || 'Bloqueado'})`,
+                        postulante: { ...hist, estatus: '⛔ VETADO EN LISTA NEGRA' }
+                    };
+                    break;
+                }
+            }
+        }
+
+        return { colision, homonimosParciales };
+    }
+
+    function ejecutarRadarAsistidoEnVivo() {
+        const esAsistido = document.getElementById('chkModoAsistido')?.checked;
+        const box = document.getElementById('radarDuplicidadAsistidoBox');
+        if (!esAsistido || !box) return;
+
+        clearTimeout(radarDebounceTimer);
+        radarDebounceTimer = setTimeout(() => {
+            const nombre = document.getElementById('postNombre').value.trim();
+            const tel10 = extraerTelefono10Digitos(document.getElementById('postTelefono').value);
+            const curp = document.getElementById('postCurp').value.trim().toUpperCase();
+
+            const icono = document.getElementById('radarAsistidoIcono');
+            const titulo = document.getElementById('radarAsistidoTitulo');
+            const detalle = document.getElementById('radarAsistidoDetalle');
+
+            if (nombre.length < 4 && tel10.length < 10 && curp.length < 18) {
+                box.className = "radar-asistido-box";
+                icono.className = "fas fa-radar";
+                icono.style.color = "#38bdf8";
+                titulo.style.color = "#38bdf8";
+                titulo.textContent = "Radar Anti-Duplicidad Activo";
+                detalle.textContent = "Captura Nombre + 2 Apellidos, Celular o CURP para verificar disponibilidad en tiempo real.";
+                return;
+            }
+
+            const { colision, homonimosParciales } = evaluarDuplicidadUnificada(
+                curp, tel10, nombre, cachePostulantesAsistido || {}, cacheHistoricoAsistido || {}
+            );
+
+            if (colision) {
+                const pEx = colision.postulante || {};
+                const titular = escapeHtml(pEx.reclutadorNombre || pEx.asesor || "Asesor Asignado");
+                const emp = escapeHtml(pEx.empresa || "Empresa registrada");
+                const est = escapeHtml(pEx.estatus || "Activo");
+
+                box.className = "radar-asistido-box estado-alerta";
+                icono.className = "fas fa-triangle-exclamation";
+                icono.style.color = "#f87171";
+                titulo.style.color = "#fca5a5";
+                titulo.textContent = "⛔ Alerta Temprana: Registro Existente";
+                detalle.innerHTML = `${escapeHtml(colision.motivo)}. Titular: <b>${titular}</b> (${emp} • ${est}).`;
+            } else if (homonimosParciales > 0) {
+                box.className = "radar-asistido-box estado-parcial";
+                icono.className = "fas fa-user-check";
+                icono.style.color = "#fbbf24";
+                titulo.style.color = "#fcd34d";
+                titulo.textContent = "🟡 Homónimo Parcial • Apto para Captura";
+                detalle.textContent = `${homonimosParciales} registro(s) con apellido similar, pero nombre + dos apellidos distintos.`;
+            } else {
+                box.className = "radar-asistido-box estado-ok";
+                icono.className = "fas fa-circle-check";
+                icono.style.color = "#34d399";
+                titulo.style.color = "#6ee7b7";
+                titulo.textContent = "🟢 Identidad Disponible • Sin Duplicidad";
+                detalle.textContent = "Sin registros previos en cartera activa ni bloqueos en Lista Negra M3.3.";
+            }
+        }, 180);
+    }
+
     function renderizarUbicacionEmpresa(lugar, mapaUrl) {
         const contenedor = document.getElementById('mainEmpresaLugarContainer');
         const urlDestino = mapaUrl || (lugar && lugar.startsWith('http') ? lugar : "");
 
         if (urlDestino) {
             contenedor.innerHTML = `
-                <a href="${urlDestino}" target="_blank" class="btn-mapa-header">
+                <a href="${escapeHtml(urlDestino)}" target="_blank" class="btn-mapa-header">
                     <i class="fa-solid fa-map-location-dot"></i> Ver Ubicación en Google Maps
                 </a>
             `;
         } else if (lugar) {
-            contenedor.innerHTML = `<i class="fa-solid fa-location-dot"></i> <span>${lugar}</span>`;
+            contenedor.innerHTML = `<i class="fa-solid fa-location-dot"></i> <span>${escapeHtml(lugar)}</span>`;
         } else {
             contenedor.innerHTML = `<i class="fa-solid fa-location-dot"></i> <span>Ubicación no especificada</span>`;
         }
@@ -1667,9 +1908,9 @@
                             cardItem.onclick = () => renderizarPuestoEspecifico(key);
                             cardItem.innerHTML = `
                                 <div class="vacante-item-info">
-                                    <h2><span class="vacante-circle-dot"></span> <span>${nombreMostrarPuesto}</span></h2>
+                                    <h2><span class="vacante-circle-dot"></span> <span>${escapeHtml(nombreMostrarPuesto)}</span></h2>
                                     <p>
-                                        <i class="fa-solid fa-money-bill-wave" style="color:var(--green-whatsapp)"></i> ${vac.salario || 'No especificado'}
+                                        <i class="fa-solid fa-money-bill-wave" style="color:var(--green-whatsapp)"></i> ${escapeHtml(vac.salario || 'No especificado')}
                                         ${badgePuestoHtml}
                                     </p>
                                 </div>
@@ -1886,13 +2127,13 @@
                 marker.bindPopup(`
                     <div class="popup-parada-card">
                         <div style="font-size:10.5px; text-transform:uppercase; color:#38bdf8; font-weight:800;">
-                            ${p.nombreRuta}
+                            ${escapeHtml(p.nombreRuta)}
                         </div>
                         <div style="font-weight:700; font-size:12px; color:#ffffff; margin: 2px 0;">
-                            #${numeroMostrar} - ${p.nombre}
+                            #${numeroMostrar} - ${escapeHtml(p.nombre)}
                         </div>
                         <div style="color:#cbd5e1; font-size:11px; margin-bottom:4px;">
-                            <i class="fa-regular fa-clock" style="color:#fbbf24;"></i> ${p.horario || 'Horario a confirmar'}
+                            <i class="fa-regular fa-clock" style="color:#fbbf24;"></i> ${escapeHtml(p.horario || 'Horario a confirmar')}
                         </div>
                         <a href="${urlGoogleMaps}" target="_blank" class="btn-popup-gmaps">
                             <i class="fa-solid fa-diamond-turn-right"></i> Abrir en Maps
@@ -2018,7 +2259,7 @@
                 fillColor: '#ea580c',
                 fillOpacity: 0.9,
                 radius: 8
-            }).addTo(mapLeaflet).bindPopup(`<b>Origen:</b> ${etiquetaOrigen}`).openPopup();
+            }).addTo(mapLeaflet).bindPopup(`<b>Origen:</b> ${escapeHtml(etiquetaOrigen)}`).openPopup();
 
             const latDest = parseFloat(paradaMasCercana.lat);
             const lngDest = parseFloat(paradaMasCercana.lng);
@@ -2317,42 +2558,21 @@
         return { edad: isNaN(edadCalculada) ? "Indistinto" : String(edadCalculada), sexo: sexo };
     }
 
-    // AUDITORÍA Y BÚSQUEDA EXHAUSTIVA DE DUPLICIDAD
+    // AUDITORÍA Y BÚSQUEDA EXHAUSTIVA DE DUPLICIDAD (CARTERA ACTIVA + LISTA NEGRA M3.3)
     async function detectarDuplicidadActiva(curp, telefono, nombreCompleto) {
         try {
-            const snapPost = await db.ref('postulantes').once('value');
-            if (!snapPost.exists()) return null;
+            const [snapPost, snapHist] = await Promise.all([
+                db.ref('postulantes').once('value'),
+                db.ref('postulantes_historico').once('value')
+            ]);
+            const dataPost = snapPost.exists() ? snapPost.val() : {};
+            const dataHist = snapHist.exists() ? snapHist.val() : {};
 
-            const todos = snapPost.val();
-            const curpBuscar = (curp || '').trim().toUpperCase();
-            const telBuscar = (telefono || '').trim().replace(/\D/g, '');
-            const nomBuscarNorm = normalizarTextoPlano(nombreCompleto);
+            cachePostulantesAsistido = dataPost;
+            cacheHistoricoAsistido = dataHist;
 
-            for (const [id, post] of Object.entries(todos)) {
-                if (!post) continue;
-
-                const curpReg = (post.curp || '').trim().toUpperCase();
-                const telReg = (post.telefono || '').replace(/\D/g, '');
-                const nomRegNorm = normalizarTextoPlano(post.nombre || `${post.nombres || ''} ${post.apellidos || ''}`);
-
-                let motivoCoincidencia = "";
-
-                if (curpBuscar && curpBuscar.length === 18 && !curpBuscar.startsWith("CURPX") && curpReg === curpBuscar) {
-                    motivoCoincidencia = `CURP oficial coincide con expediente (${curpReg})`;
-                } else if (telBuscar && telBuscar.length === 10 && telReg === telBuscar) {
-                    motivoCoincidencia = `Número celular coincide con expediente (${telReg})`;
-                } else if (nomBuscarNorm.length >= 8 && nomRegNorm === nomBuscarNorm) {
-                    motivoCoincidencia = `Nombre idéntico detectado en cartera activa`;
-                }
-
-                if (motivoCoincidencia) {
-                    return {
-                        id,
-                        motivo: motivoCoincidencia,
-                        postulante: post
-                    };
-                }
-            }
+            const { colision } = evaluarDuplicidadUnificada(curp, telefono, nombreCompleto, dataPost, dataHist);
+            return colision;
         } catch (err) {
             console.error("Error validando duplicidad:", err);
         }
@@ -2376,7 +2596,7 @@
         }
 
         const nombre = document.getElementById('postNombre').value.trim();
-        const telefono = document.getElementById('postTelefono').value.trim().replace(/\D/g, '');
+        const telefono = extraerTelefono10Digitos(document.getElementById('postTelefono').value);
         let curp = document.getElementById('postCurp').value.trim().toUpperCase();
         const selSexoManual = document.getElementById('postSexoManual');
         const fechaEntrevista = document.getElementById('postFechaEntrevista').value;
@@ -2387,6 +2607,11 @@
         const esModoAsistido = document.getElementById('chkModoAsistido').checked;
         
         const puntoElegido = inputOcultoPunto.value ? inputOcultoPunto.value : "Traslado Propio / Sin Ruta";
+
+        if (telefono.length !== 10) {
+            alert("⚠️ El teléfono celular debe contener exactamente 10 dígitos numéricos.");
+            return;
+        }
 
         if (tieneRutasHabilitadas && !inputOcultoPunto.value) { 
             alert("⚠️ Por favor selecciona una Ruta y tu Parada correspondiente."); 
@@ -2417,8 +2642,8 @@
         btnSubmit.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Auditando expediente y verificando políticas...`;
 
         try {
-            // VERIFICACIÓN ESTRICTA DE DUPLICIDAD
-            const duplicado = await detectarDuplicidadActiva(curp, telefono, nombre);
+            // VERIFICACIÓN ESTRICTA DE DUPLICIDAD (CARTERA ACTIVA + LISTA NEGRA M3.3)
+            const duplicado = await detectarDuplicidadActiva(esCurpGenerada ? "" : curp, telefono, nombre);
 
             if (duplicado) {
                 const postExistente = duplicado.postulante;
@@ -2428,8 +2653,8 @@
 
                 const opcionSel = selectReclutador.options[selectReclutador.selectedIndex];
                 const asesorIntento = opcionSel ? (opcionSel.dataset.nombreReal || selectReclutador.value) : "No especificado";
+                const asesorIntentoUid = opcionSel ? (opcionSel.dataset.reclutadorId || null) : null;
 
-                // REGISTRO DE AUDITORÍA CRÍTICO PARA EL DIRECTOR
                 await db.ref('modulo_7_logs').push({
                     modulo: "M1_VACANTE_PORTAL",
                     evento: "INTENTO_DUPLICIDAD_BLOQUEADO",
@@ -2437,26 +2662,29 @@
                     candidatoIntentado: nombre,
                     curpIntentada: curp,
                     telefonoIntentado: telefono,
+                    empresaIntentada: nombreEmpresaMaestro || empresaLimpia,
+                    vacanteIntentada: datosVacanteGlobal ? (datosVacanteGlobal.nombreVacante || datosVacanteGlobal.puesto || "General") : "General",
+                    expedienteOriginalId: duplicado.id,
                     expedienteExistenteId: duplicado.id,
                     titularRegistrado: titularActual,
                     asesorQueIntentoRegistrar: esModoAsistido ? asesorIntento : "Intento Portal Público/Asistido",
+                    uidEjecutor: asesorIntentoUid,
                     alertaDirector: true,
                     sancion: "CANDIDATO_NO_SUJETO_A_COBRO_O_ASIGNACION",
                     timestamp: firebase.database.ServerValue.TIMESTAMP
                 });
 
-                // DESPLIEGUE DE ALERTA DISUASORIA SEVERA
                 document.getElementById('txtDetalleCandidatoExistente').innerHTML = `
-                    <strong>Expediente Existente:</strong> ${postExistente.nombre || nombre}<br>
-                    <strong>Causa de Bloqueo:</strong> ${duplicado.motivo}<br>
-                    <strong>Titular Asignado:</strong> ${titularActual} (${empresaExistente})<br>
-                    <strong>Estatus Actual:</strong> ${estatusExistente}
+                    <strong>Expediente Existente:</strong> ${escapeHtml(postExistente.nombre || nombre)}<br>
+                    <strong>Causa de Bloqueo:</strong> ${escapeHtml(duplicado.motivo)}<br>
+                    <strong>Titular Asignado:</strong> ${escapeHtml(titularActual)} (${escapeHtml(empresaExistente)})<br>
+                    <strong>Estatus Actual:</strong> ${escapeHtml(estatusExistente)}
                 `;
                 document.getElementById('modalBloqueoDuplicidad').style.display = 'flex';
 
                 btnSubmit.disabled = false;
                 alternarModoAsistido();
-                return; // ABORTA POR COMPLETO SIN ESCRIBIR EN POSTULANTES
+                return;
             }
 
             // NUEVO CANDIDATO AUTORIZADO
@@ -2476,7 +2704,7 @@
             const vacanteNombreFinal = datosVacanteGlobal ? (datosVacanteGlobal.nombreVacante || datosVacanteGlobal.puesto || "General") : "General";
             const empresaNombreFinal = nombreEmpresaMaestro || (datosVacanteGlobal ? datosVacanteGlobal.nombreComercial : empresaLimpia.toUpperCase());
 
-            const urlAcuseDigital = `https://valdomtec-arch.github.io/bolsa-trabajo-principal/acuse.html?folio=${timestampId}&vacante=${encodeURIComponent(vacanteNombreFinal)}&empresa=${encodeURIComponent(empresaNombreFinal)}`;
+            const urlAcuseDigital = generarLinkAcuse(timestampId);
 
             let supervisoresArray = [];
             let supervisorPadreIdFinal = (objetoEmpresaRaw && objetoEmpresaRaw.supervisorId) ? objetoEmpresaRaw.supervisorId : null;
@@ -2538,8 +2766,11 @@
                 timestamp: firebase.database.ServerValue.TIMESTAMP
             };
 
-            // ESCRITURA EXCLUSIVA COMO NUEVO REGISTRO
             await db.ref(`postulantes/${timestampId}`).set(payloadPostulante);
+
+            if (cachePostulantesAsistido) {
+                cachePostulantesAsistido[timestampId] = payloadPostulante;
+            }
 
             await db.ref('modulo_7_logs').push({
                 modulo: "VACANTE_PUBLICO",
@@ -2578,8 +2809,8 @@
             document.getElementById('btnDispararWaAsesor').onclick = () => dispararWhatsAppDirecto(telReclutadorLimpio, msgParaAsesor);
 
             document.getElementById('txtModalDualResumen').innerHTML = `
-                Folio: <strong style="color:var(--wf-accent-blue);">${timestampId}</strong><br>
-                Candidato: <b>${nombre}</b> | Asesor: <b>${nombreReclutadorCorto}</b>
+                Folio: <strong style="color:var(--wf-accent-blue);">${escapeHtml(timestampId)}</strong><br>
+                Candidato: <b>${escapeHtml(nombre)}</b> | Asesor: <b>${escapeHtml(nombreReclutadorCorto)}</b>
             `;
 
             document.getElementById('modalNotificacionDual').style.display = 'flex';
