@@ -394,7 +394,7 @@
                         <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/40">Autoridad Exclusiva N4 - N5</span>
                     </h3>
                     <p class="text-[11.5px] text-slate-400 mt-0.5">
-                        Analiza el dato exacto de colisión y los reclutadores implicados. Dictamina si se purga a Histórico o si se libera y asigna como registro válido.
+                        Analiza el dato exacto de colisión. Si dictaminas "No es Duplicado", se acredita por default al asesor que lo registró (o al que elijas en el desplegable) y desaparece al instante de este panel.
                     </p>
                 </div>
             </div>
@@ -410,7 +410,7 @@
 
             <div class="flex justify-between items-center pt-2 border-t border-white/10 flex-wrap gap-2 flex-shrink-0">
                 <span class="text-[11px] text-slate-400 font-mono">
-                    * Al dictaminar "No es Duplicado", el conflicto se depura en cascada y desaparece de inmediato de esta bandeja.
+                    * Por default se conserva al asesor que registró el expediente; puedes cambiarlo en el desplegable solo si deseas reasignarlo.
                 </span>
                 <button type="button" onclick="cerrarModalAuditoriaDuplicidades()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition">
                     Cerrar Panel
@@ -708,6 +708,34 @@
             };
         }
 
+        // Resuelve el UID del asesor que registró / intentó registrar el expediente (por UID o por Nombre)
+        function resolverAsesorPorUidONombre(uidCandidato, nombreTexto) {
+            if (uidCandidato && catalogoUsuarios[uidCandidato]) {
+                return {
+                    uid: uidCandidato,
+                    nombre: catalogoUsuarios[uidCandidato].nombre || catalogoUsuarios[uidCandidato].email || nombreTexto || "Asesor"
+                };
+            }
+            const nomNorm = normalizarTextoPlano(nombreTexto || "");
+            if (nomNorm) {
+                const match = Object.entries(catalogoUsuarios).find(([, u]) => {
+                    if (!u) return false;
+                    return normalizarTextoPlano(u.nombre || "") === nomNorm ||
+                           (u.nombre && nomNorm.includes(normalizarTextoPlano(u.nombre)));
+                });
+                if (match) {
+                    return {
+                        uid: match[0],
+                        nombre: match[1].nombre || match[1].email || nombreTexto
+                    };
+                }
+            }
+            return {
+                uid: uidCandidato || "",
+                nombre: nombreTexto || "Asesor Registrante"
+            };
+        }
+
         function generarLinkAcuse(candidatoId) {
             const loc = window.location;
             const basePath = loc.pathname.substring(0, loc.pathname.lastIndexOf('/') + 1);
@@ -936,6 +964,7 @@
 
             onValue(ref(db, "usuarios_reclutadores"), snap => {
                 catalogoUsuarios = snap.val() || {};
+                procesarConflictosDuplicidad();
                 solicitarRenderizado();
             });
 
@@ -989,6 +1018,36 @@
             return false;
         }
 
+        function actualizarBadgesYBannerDuplicidad() {
+            const total = listaConflictosDuplicidad.length;
+            const badgeCount = document.getElementById("txtConteoDuplicidadesHeader");
+            const btnAlerta = document.getElementById("btnAlertaDuplicidades");
+            const banner = document.getElementById("bannerAlertaDuplicidadesDirector");
+
+            if (badgeCount) badgeCount.textContent = total;
+
+            if (total > 0) {
+                btnAlerta?.classList.remove("bg-rose-500/10", "border-rose-500/30");
+                btnAlerta?.classList.add("bg-rose-600/30", "border-rose-500", "animate-pulse");
+
+                banner?.classList.remove("hidden");
+                const ultimo = listaConflictosDuplicidad[0];
+                const txtResumen = document.getElementById("txtResumenBannerDuplicidad");
+                if (txtResumen && ultimo) {
+                    txtResumen.textContent = `Hay ${total} conflicto(s) pendiente(s) de dictamen. Último: ${ultimo.secundario.nombre} vs ${ultimo.original.nombre} (Choque en: ${ultimo.camposColision.join(", ")}).`;
+                }
+            } else {
+                btnAlerta?.classList.add("bg-rose-500/10", "border-rose-500/30");
+                btnAlerta?.classList.remove("bg-rose-600/30", "border-rose-500", "animate-pulse");
+                banner?.classList.add("hidden");
+            }
+
+            const modalEl = document.getElementById("modalAuditoriaDuplicidades");
+            if (modalEl && !modalEl.classList.contains("hidden")) {
+                renderizarTarjetasDuplicidades();
+            }
+        }
+
         function procesarConflictosDuplicidad() {
             listaConflictosDuplicidad = [];
             const firmasLogsAgrupadas = new Set();
@@ -1012,7 +1071,7 @@
                 firmasLogsAgrupadas.add(firmaCandidato);
 
                 // Buscar expediente original en postulantes
-                let origId = l.expedienteOriginalId || null;
+                let origId = l.expedienteOriginalId || l.expedienteExistenteId || null;
                 let origData = origId ? todosPostulantes[origId] : null;
 
                 if (!origData) {
@@ -1030,6 +1089,18 @@
                         origData = encontrado[1];
                     }
                 }
+
+                // Verificar si ya existe un registro liberado por Dirección para este candidato (para no reabrir logs viejos)
+                const yaExisteLiberado = Object.entries(todosPostulantes).some(([pid, p]) => {
+                    if (!p || pid === origId || p.homonimoAutorizado !== true) return false;
+                    const cP = (p.curp || "").toUpperCase().trim();
+                    const tP10 = extraerTelefono10Digitos(p.telefono);
+                    const nP = p.nombre || "";
+                    return (esCurpOficialValida(curpInt) && esCurpOficialValida(cP) && cP === curpInt) ||
+                           (telInt10.length === 10 && tP10 === telInt10) ||
+                           (nomInt && esMismaPersonaPorNombre(nP, nomInt));
+                });
+                if (yaExisteLiberado) return;
 
                 // Verificar si el supuesto choque nominal ya no aplica bajo la regla exacta de Nombre + 2 Apellidos
                 const camposColision = [];
@@ -1049,11 +1120,13 @@
                     camposColision.push(l.motivo);
                 }
 
-                // Si fue un falso positivo histórico de la regla vieja (ej. apellidos distintos y sin choque de CURP/Tel), lo omitimos
                 if (origData && camposColision.length === 0) return;
-
-                // Si el par ya fue liberado por Dirección, omitirlo
                 if (origId && l.candidatoEditadoId && sonParesYaLiberados(origId, l.candidatoEditadoId)) return;
+
+                const secPost = (l.candidatoEditadoId && todosPostulantes[l.candidatoEditadoId]) ? todosPostulantes[l.candidatoEditadoId] : null;
+                const asesorSecRawUid = secPost?.reclutadorId || l.uidEjecutor || "";
+                const asesorSecRawNom = secPost?.reclutadorNombre || l.asesorQueIntentoRegistrar || l.ejecutadoPor || "Asesor";
+                const asesorSecResuelto = resolverAsesorPorUidONombre(asesorSecRawUid, asesorSecRawNom);
 
                 listaConflictosDuplicidad.push({
                     conflictoId: `LOG_${logId}`,
@@ -1071,7 +1144,7 @@
                         vacante: origData?.nombreVacante || origData?.vacante || "Vacante",
                         estatus: origData ? normalizarEstatus(origData.estatus || origData.status) : "Activo",
                         reclutadorId: origData?.reclutadorId || "",
-                        reclutadorNombre: origData?.reclutadorNombre || l.titularRegistrado || l.titularActivo || "Titular Registrado"
+                        reclutadorNombre: catalogoUsuarios[origData?.reclutadorId]?.nombre || origData?.reclutadorNombre || l.titularRegistrado || l.titularActivo || "Titular Registrado"
                     },
                     secundario: {
                         id: l.candidatoEditadoId || null,
@@ -1080,8 +1153,8 @@
                         telefono: telInt10 || l.telefonoIntentado || "S/TEL",
                         empresa: l.empresaIntentada || "Empresa Destino",
                         vacante: l.vacanteIntentada || "Vacante Solicitada",
-                        reclutadorId: l.uidEjecutor || "",
-                        reclutadorNombre: l.asesorQueIntentoRegistrar || l.ejecutadoPor || "Asesor"
+                        reclutadorId: asesorSecResuelto.uid,
+                        reclutadorNombre: asesorSecResuelto.nombre
                     }
                 });
             });
@@ -1102,7 +1175,6 @@
                     const [idB, pB] = entradasActivas[j];
                     if (!pB) continue;
 
-                    // Ignorar pares ya dictaminados como No Duplicados por Dirección
                     if (sonParesYaLiberados(idA, idB)) continue;
 
                     const curpB = (pB.curp || "").toUpperCase().trim();
@@ -1128,6 +1200,8 @@
                         const fechaA = new Date(pA.fechaRegistro || 0).getTime() || 0;
                         const fechaB = new Date(pB.fechaRegistro || 0).getTime() || 0;
                         const [origId, origP, secId, secP] = (fechaA <= fechaB) ? [idA, pA, idB, pB] : [idB, pB, idA, pA];
+
+                        const asesorSecResuelto = resolverAsesorPorUidONombre(secP.reclutadorId || "", secP.reclutadorNombre || secP.asesor || "Asesor Secundario");
 
                         listaConflictosDuplicidad.push({
                             conflictoId: `ACT_${origId}_${secId}`,
@@ -1155,8 +1229,8 @@
                                 empresa: resolverEmpresaCandidato(secP).nombreComercial,
                                 vacante: secP.nombreVacante || secP.vacante || "Vacante",
                                 estatus: normalizarEstatus(secP.estatus || secP.status),
-                                reclutadorId: secP.reclutadorId || "",
-                                reclutadorNombre: catalogoUsuarios[secP.reclutadorId]?.nombre || secP.reclutadorNombre || "Asesor Secundario"
+                                reclutadorId: asesorSecResuelto.uid,
+                                reclutadorNombre: asesorSecResuelto.nombre
                             }
                         });
                     }
@@ -1164,32 +1238,7 @@
             }
 
             listaConflictosDuplicidad.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-
-            const total = listaConflictosDuplicidad.length;
-            const badgeCount = document.getElementById("txtConteoDuplicidadesHeader");
-            const btnAlerta = document.getElementById("btnAlertaDuplicidades");
-            const banner = document.getElementById("bannerAlertaDuplicidadesDirector");
-
-            badgeCount.textContent = total;
-
-            if (total > 0) {
-                btnAlerta.classList.remove("bg-rose-500/10", "border-rose-500/30");
-                btnAlerta.classList.add("bg-rose-600/30", "border-rose-500", "animate-pulse");
-
-                banner.classList.remove("hidden");
-                const ultimo = listaConflictosDuplicidad[0];
-                document.getElementById("txtResumenBannerDuplicidad").textContent = 
-                    `Hay ${total} conflicto(s) pendiente(s) de dictamen. Último: ${ultimo.secundario.nombre} vs ${ultimo.original.nombre} (Choque en: ${ultimo.camposColision.join(", ")}).`;
-            } else {
-                btnAlerta.classList.add("bg-rose-500/10", "border-rose-500/30");
-                btnAlerta.classList.remove("bg-rose-600/30", "border-rose-500", "animate-pulse");
-                banner.classList.add("hidden");
-            }
-
-            const modalEl = document.getElementById("modalAuditoriaDuplicidades");
-            if (modalEl && !modalEl.classList.contains("hidden")) {
-                renderizarTarjetasDuplicidades();
-            }
+            actualizarBadgesYBannerDuplicidad();
         }
 
         function abrirModalAuditoriaDuplicidades() {
@@ -1218,13 +1267,6 @@
 
             const puedeDictaminar = usuarioSesion && usuarioSesion.nivel >= 4;
 
-            let opcionesReclutadores = '<option value="">-- Seleccionar Asesor para Asignar --</option>';
-            Object.entries(catalogoUsuarios).forEach(([uId, u]) => {
-                if (u && u.estatus === 'Activo') {
-                    opcionesReclutadores += `<option value="${escapeHtml(uId)}">${escapeHtml(u.nombre || u.email)}</option>`;
-                }
-            });
-
             listaConflictosDuplicidad.forEach((c, idx) => {
                 const fechaStr = c.timestamp ? new Date(c.timestamp).toLocaleString('es-MX') : "Reciente";
                 const badgesChoque = c.camposColision.map(campo => 
@@ -1235,18 +1277,34 @@
                     ? `<span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-mono text-[10px] font-bold">DUPLICADO EN CARTERA ACTIVA</span>`
                     : `<span class="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-mono text-[10px] font-bold">INTENTO BLOQUEADO (${escapeHtml(c.modulo)})</span>`;
 
+                // Construir opciones del selector con el asesor que registró preseleccionado por default
+                const asesorDefaultUid = c.secundario.reclutadorId || "";
+                const asesorDefaultNombre = c.secundario.reclutadorNombre || "Asesor que registró";
+                let opcionesReclutadores = "";
+
+                if (asesorDefaultUid && catalogoUsuarios[asesorDefaultUid]) {
+                    opcionesReclutadores += `<option value="${escapeHtml(asesorDefaultUid)}" selected>✓ ${escapeHtml(catalogoUsuarios[asesorDefaultUid].nombre || asesorDefaultNombre)} (Asesor que registró - Por default)</option>`;
+                } else {
+                    opcionesReclutadores += `<option value="${escapeHtml(asesorDefaultUid)}" selected>✓ ${escapeHtml(asesorDefaultNombre)} (Asesor que registró - Por default)</option>`;
+                }
+
+                Object.entries(catalogoUsuarios).forEach(([uId, u]) => {
+                    if (!u || u.estatus !== 'Activo' || uId === asesorDefaultUid) return;
+                    opcionesReclutadores += `<option value="${escapeHtml(uId)}">Reasignar a: ${escapeHtml(u.nombre || u.email)}</option>`;
+                });
+
                 const controlesDictamen = puedeDictaminar ? `
                     <div class="pt-3 border-t border-white/10 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-2.5 bg-[#06101e]/70 p-2.5 rounded-xl">
-                        <button type="button" onclick="dictaminarConfirmarDuplicado(${idx})" class="px-3.5 py-2 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition shadow">
-                            <i class="fas fa-box-archive"></i> Sí es Duplicado (Respaldar en Histórico y Limpiar)
+                        <button type="button" onclick="dictaminarConfirmarDuplicado('${escapeHtml(c.conflictoId)}')" class="px-3.5 py-2 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition shadow">
+                            <i class="fas fa-box-archive"></i> Sí es Duplicado (Respaldar en Histórico)
                         </button>
 
-                        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 flex-1 lg:max-w-lg">
-                            <select id="selReclutadorDictamen_${idx}" class="flex-1 bg-[#0b1329] border border-emerald-500/40 text-white rounded-lg px-2.5 py-2 text-xs font-bold focus:outline-none focus:border-emerald-400">
+                        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 flex-1 lg:max-w-xl">
+                            <select id="selReclutadorDictamen_${escapeHtml(c.conflictoId)}" title="Por default queda con el asesor que lo registró; cámbialo solo si deseas asignarlo a otro asesor" class="flex-1 bg-[#0b1329] border border-emerald-500/40 text-emerald-200 rounded-lg px-2.5 py-2 text-xs font-bold focus:outline-none focus:border-emerald-400">
                                 ${opcionesReclutadores}
                             </select>
-                            <button type="button" onclick="dictaminarNoEsDuplicadoYAsignar(${idx})" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black rounded-lg text-xs flex items-center justify-center gap-1.5 transition shadow whitespace-nowrap">
-                                <i class="fas fa-user-check"></i> No es Duplicado → Asignar
+                            <button type="button" onclick="dictaminarNoEsDuplicadoYAsignar('${escapeHtml(c.conflictoId)}')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black rounded-lg text-xs flex items-center justify-center gap-1.5 transition shadow whitespace-nowrap">
+                                <i class="fas fa-user-check"></i> No es Duplicado
                             </button>
                         </div>
                     </div>
@@ -1293,7 +1351,7 @@
                             <div class="font-mono text-[11px] text-slate-300">CURP: <b class="text-rose-300">${escapeHtml(c.secundario.curp)}</b> • Tel: <b>${escapeHtml(c.secundario.telefono)}</b></div>
                             <div class="text-[11px] text-slate-400">Empresa: <b class="text-white">${escapeHtml(c.secundario.empresa)}</b> (${escapeHtml(c.secundario.vacante)})</div>
                             <div class="pt-1 text-xs font-mono text-rose-300 bg-rose-950/40 px-2 py-1 rounded border border-rose-500/20">
-                                <i class="fas fa-user-pen me-1"></i> Reclutador Implicado: <b>${escapeHtml(c.secundario.reclutadorNombre)}</b>
+                                <i class="fas fa-user-pen me-1"></i> Registrado por: <b>${escapeHtml(c.secundario.reclutadorNombre)}</b>
                             </div>
                         </div>
                     </div>
@@ -1301,11 +1359,6 @@
                     ${controlesDictamen}
                 `;
                 contenedor.appendChild(card);
-
-                if (puedeDictaminar && c.secundario.reclutadorId) {
-                    const selEl = document.getElementById(`selReclutadorDictamen_${idx}`);
-                    if (selEl) selEl.value = c.secundario.reclutadorId;
-                }
             });
         }
 
@@ -1324,6 +1377,7 @@
             const nomObj = conflicto.secundario.nombre;
             const telObj10 = extraerTelefono10Digitos(conflicto.secundario.telefono);
             const curpObj = (conflicto.secundario.curp || "").toUpperCase().trim();
+            const origIdObj = conflicto.original.id || null;
 
             Object.entries(todosLogsSistema).forEach(([lKey, lVal]) => {
                 if (!lVal || lVal.resueltoPorDireccion === true) return;
@@ -1333,10 +1387,12 @@
                 const lNom = lVal.candidatoIntentado || lVal.nombreCandidato || "";
                 const lTel10 = extraerTelefono10Digitos(lVal.telefonoIntentado);
                 const lCurp = (lVal.curpIntentada || "").toUpperCase().trim();
+                const lOrigId = lVal.expedienteOriginalId || lVal.expedienteExistenteId || null;
 
                 const coincide = (nomObj && lNom && esMismaPersonaPorNombre(nomObj, lNom)) ||
                                  (telObj10.length === 10 && lTel10 === telObj10) ||
-                                 (esCurpOficialValida(curpObj) && lCurp === curpObj);
+                                 (esCurpOficialValida(curpObj) && lCurp === curpObj) ||
+                                 (origIdObj && lOrigId === origIdObj);
 
                 if (coincide) {
                     updates[`modulo_7_logs/${lKey}/resueltoPorDireccion`] = true;
@@ -1351,12 +1407,12 @@
         }
 
         // DICTAMEN 1: CONFIRMAR QUE SÍ ES DUPLICADO -> RESPALDAR EN HISTÓRICO Y PURGAR EN CASCADA
-        async function dictaminarConfirmarDuplicado(idx) {
+        async function dictaminarConfirmarDuplicado(conflictoId) {
             if (!usuarioSesion || usuarioSesion.nivel < 4) {
                 return alert("⛔ Acción exclusiva para Supervisión y Dirección (Nivel 4 y 5).");
             }
 
-            const conflicto = listaConflictosDuplicidad[idx];
+            const conflicto = listaConflictosDuplicidad.find(c => c.conflictoId === conflictoId);
             if (!conflicto) return;
 
             if (!confirm(`¿Confirmas que "${conflicto.secundario.nombre}" SÍ ES DUPLICADO de "${conflicto.original.nombre}"?\n\n• El expediente titular original quedará intacto.\n• El registro sobrante se respaldará en M3.3 Histórico y desaparecerá de esta tabla.`)) {
@@ -1383,6 +1439,10 @@
 
                 aplicarCierreCascadaLogs(updates, conflicto, "DUPLICADO_CONFIRMADO_ARCHIVADO", ahoraIso);
 
+                // Purga inmediata en memoria y DOM
+                listaConflictosDuplicidad = listaConflictosDuplicidad.filter(c => c.conflictoId !== conflictoId);
+                actualizarBadgesYBannerDuplicidad();
+
                 await update(ref(db), updates);
 
                 await push(ref(db, 'modulo_7_logs'), {
@@ -1403,25 +1463,36 @@
             }
         }
 
-        // DICTAMEN 2: NO ES DUPLICADO -> LIBERAR PAR, ASIGNAR Y ELIMINAR DEL CUADRO DE CONFLICTOS
-        async function dictaminarNoEsDuplicadoYAsignar(idx) {
+        // DICTAMEN 2: NO ES DUPLICADO -> CONSERVA ASESOR QUE LO REGISTRÓ POR DEFAULT (O EL REASIGNADO), PIDE CONFIRMACIÓN Y DESAPARECE DEL PANEL
+        async function dictaminarNoEsDuplicadoYAsignar(conflictoId) {
             if (!usuarioSesion || usuarioSesion.nivel < 4) {
                 return alert("⛔ Acción exclusiva para Supervisión y Dirección (Nivel 4 y 5).");
             }
 
-            const conflicto = listaConflictosDuplicidad[idx];
+            const conflicto = listaConflictosDuplicidad.find(c => c.conflictoId === conflictoId);
             if (!conflicto) return;
 
-            const selEl = document.getElementById(`selReclutadorDictamen_${idx}`);
-            const destinoUid = selEl ? selEl.value : "";
-            if (!destinoUid) {
-                return alert("⚠️ Por favor selecciona el Asesor al que se le asignará este candidato para seguirlo trabajando.");
-            }
+            const selEl = document.getElementById(`selReclutadorDictamen_${conflictoId}`);
+            const destinoUid = selEl ? selEl.value : (conflicto.secundario.reclutadorId || "");
 
-            const asesorDestino = catalogoUsuarios[destinoUid] || {};
-            const destinoNombre = asesorDestino.nombre || "Asesor Autorizado";
-            const supsArray = Array.isArray(asesorDestino.supervisoresIds) ? asesorDestino.supervisoresIds : (asesorDestino.supervisorPadreId ? [asesorDestino.supervisorPadreId] : []);
-            const coordsArray = Array.isArray(asesorDestino.coordinadoresIds) ? asesorDestino.coordinadoresIds : (asesorDestino.coordinadorPadreId ? [asesorDestino.coordinadorPadreId] : []);
+            const asesorDestino = (destinoUid && catalogoUsuarios[destinoUid]) ? catalogoUsuarios[destinoUid] : null;
+            const destinoNombre = asesorDestino
+                ? (asesorDestino.nombre || asesorDestino.email)
+                : (conflicto.secundario.reclutadorNombre || "Asesor Registrante");
+
+            const esMismoAsesorOriginal = !destinoUid || destinoUid === conflicto.secundario.reclutadorId;
+            const mensajeConfirmacion = esMismoAsesorOriginal
+                ? `¿Confirmas que "${conflicto.secundario.nombre}" NO ES DUPLICADO?\n\n• Desaparecerá de inmediato de este panel de conflictos.\n• Quedará habilitado en Agenda M3 a nombre del asesor que lo registró: ${destinoNombre}.`
+                : `¿Confirmas que "${conflicto.secundario.nombre}" NO ES DUPLICADO y deseas reasignarlo?\n\n• Desaparecerá de inmediato de este panel de conflictos.\n• Quedará habilitado en Agenda M3 a nombre de: ${destinoNombre}.`;
+
+            if (!confirm(mensajeConfirmacion)) return;
+
+            const supsArray = asesorDestino
+                ? (Array.isArray(asesorDestino.supervisoresIds) ? asesorDestino.supervisoresIds : (asesorDestino.supervisorPadreId ? [asesorDestino.supervisorPadreId] : []))
+                : [];
+            const coordsArray = asesorDestino
+                ? (Array.isArray(asesorDestino.coordinadoresIds) ? asesorDestino.coordinadoresIds : (asesorDestino.coordinadorPadreId ? [asesorDestino.coordinadorPadreId] : []))
+                : [];
 
             try {
                 const updates = {};
@@ -1430,14 +1501,16 @@
                 let secIdFinal = conflicto.secundario.id;
 
                 if (secIdFinal && todosPostulantes[secIdFinal]) {
-                    updates[`postulantes/${secIdFinal}/reclutadorId`] = destinoUid;
+                    if (destinoUid) updates[`postulantes/${secIdFinal}/reclutadorId`] = destinoUid;
                     updates[`postulantes/${secIdFinal}/reclutadorNombre`] = destinoNombre;
                     updates[`postulantes/${secIdFinal}/asesor`] = destinoNombre;
-                    updates[`postulantes/${secIdFinal}/telefonoAsesor`] = asesorDestino.telefono || "";
-                    updates[`postulantes/${secIdFinal}/supervisorPadreId`] = supsArray[0] || null;
-                    updates[`postulantes/${secIdFinal}/supervisoresIds`] = supsArray;
-                    updates[`postulantes/${secIdFinal}/coordinadorPadreId`] = coordsArray[0] || null;
-                    updates[`postulantes/${secIdFinal}/coordinadoresIds`] = coordsArray;
+                    if (asesorDestino) {
+                        updates[`postulantes/${secIdFinal}/telefonoAsesor`] = asesorDestino.telefono || "";
+                        updates[`postulantes/${secIdFinal}/supervisorPadreId`] = supsArray[0] || null;
+                        updates[`postulantes/${secIdFinal}/supervisoresIds`] = supsArray;
+                        updates[`postulantes/${secIdFinal}/coordinadorPadreId`] = coordsArray[0] || null;
+                        updates[`postulantes/${secIdFinal}/coordinadoresIds`] = coordsArray;
+                    }
                     updates[`postulantes/${secIdFinal}/homonimoAutorizado`] = true;
                     updates[`postulantes/${secIdFinal}/autorizadoPorDireccion`] = usuarioSesion.nombre;
                     updates[`postulantes/${secIdFinal}/ultimaActualizacion`] = ahoraIso;
@@ -1459,10 +1532,10 @@
                         estatus: "Postulado",
                         fechaRegistro: hoyStr,
                         ultimaActualizacion: ahoraIso,
-                        reclutadorId: destinoUid,
+                        reclutadorId: destinoUid || null,
                         reclutadorNombre: destinoNombre,
                         asesor: destinoNombre,
-                        telefonoAsesor: asesorDestino.telefono || "",
+                        telefonoAsesor: asesorDestino?.telefono || "",
                         supervisorPadreId: supsArray[0] || null,
                         supervisoresIds: supsArray,
                         coordinadorPadreId: coordsArray[0] || null,
@@ -1472,16 +1545,37 @@
                     };
                 }
 
-                // Registrar lista blanca mutua entre Original y Secundario para que nunca vuelvan a aparecer como conflicto
-                if (conflicto.original.id && todosPostulantes[conflicto.original.id] && secIdFinal) {
-                    updates[`postulantes/${conflicto.original.id}/homonimoAutorizado`] = true;
-                    updates[`postulantes/${conflicto.original.id}/paresLiberados/${secIdFinal}`] = true;
-                    updates[`postulantes/${secIdFinal}/paresLiberados/${conflicto.original.id}`] = true;
+                // Resolver el ID del expediente titular original para grabar la lista blanca mutua paresLiberados
+                let origIdReal = conflicto.original.id;
+                if (!origIdReal || !todosPostulantes[origIdReal]) {
+                    const curpOrig = (conflicto.original.curp || "").toUpperCase().trim();
+                    const telOrig10 = extraerTelefono10Digitos(conflicto.original.telefono);
+                    const nomOrig = conflicto.original.nombre || "";
+                    const encontradoOrig = Object.entries(todosPostulantes).find(([pid, p]) => {
+                        if (!p || pid === secIdFinal) return false;
+                        const cP = (p.curp || "").toUpperCase().trim();
+                        const tP10 = extraerTelefono10Digitos(p.telefono);
+                        const nP = p.nombre || "";
+                        return (esCurpOficialValida(curpOrig) && esCurpOficialValida(cP) && cP === curpOrig) ||
+                               (telOrig10.length === 10 && tP10 === telOrig10) ||
+                               (nomOrig && esMismaPersonaPorNombre(nP, nomOrig));
+                    });
+                    if (encontradoOrig) origIdReal = encontradoOrig[0];
+                }
+
+                if (origIdReal && todosPostulantes[origIdReal] && secIdFinal && origIdReal !== secIdFinal) {
+                    updates[`postulantes/${origIdReal}/homonimoAutorizado`] = true;
+                    updates[`postulantes/${origIdReal}/paresLiberados/${secIdFinal}`] = true;
+                    updates[`postulantes/${secIdFinal}/paresLiberados/${origIdReal}`] = true;
                 }
 
                 aplicarCierreCascadaLogs(updates, conflicto, "NO_ES_DUPLICADO_LIBERADO_Y_ASIGNADO", ahoraIso, {
                     asignadoA: destinoNombre
                 });
+
+                // Eliminar del cuadro de conflictos en memoria y DOM al instante
+                listaConflictosDuplicidad = listaConflictosDuplicidad.filter(c => c.conflictoId !== conflictoId);
+                actualizarBadgesYBannerDuplicidad();
 
                 await update(ref(db), updates);
 
@@ -1496,7 +1590,7 @@
                     timestamp: serverTimestamp()
                 });
 
-                alert(`✅ Dictamen aplicado: "${conflicto.secundario.nombre}" fue liberado sin conflicto, eliminado de la bandeja de duplicidades y asignado a ${destinoNombre}.`);
+                alert(`✅ Dictamen aplicado: "${conflicto.secundario.nombre}" fue eliminado del cuadro de conflictos y habilitado en Agenda M3 a nombre de ${destinoNombre}.`);
             } catch (err) {
                 alert("Error al liberar y asignar candidato: " + err.message);
             }
