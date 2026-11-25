@@ -183,21 +183,21 @@
             </div>
         </div>
 
-        <!-- RADAR FINANCIERO DE COBRANZA & GARANTÍAS (INTEGRACIÓN M5.2) -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div class="glass-card border-l-4 border-l-emerald-500 p-4 rounded-2xl shadow">
+        <!-- RADAR FINANCIERO DE COBRANZA, GARANTÍAS & UTILIDAD NETA (HOMOLOGADO M1 + M5 + M5.2) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="gridRadarFinancieroM4">
+            <div class="glass-card border-l-4 border-l-emerald-500 p-4 rounded-2xl shadow col-boveda-m4">
                 <span class="text-xs font-mono uppercase text-emerald-400 font-bold block flex items-center gap-1.5">
-                    <i class="fas fa-money-bill-trend-up"></i> Facturación Liberada (≥15d)
+                    <i class="fas fa-money-bill-trend-up"></i> Facturación Liberada
                 </span>
-                <div class="text-2xl font-black text-white font-mono mt-1" id="kpiFacturacionLiberada">$0.00 MXN</div>
+                <div class="text-xl sm:text-2xl font-black text-white font-mono mt-1" id="kpiFacturacionLiberada">$0.00 MXN</div>
                 <p class="text-[11px] text-slate-400 mt-0.5" id="kpiFacturacionDetalle">0 garantías de cliente superadas</p>
             </div>
 
-            <div class="glass-card border-l-4 border-l-purple-500 p-4 rounded-2xl shadow">
+            <div class="glass-card border-l-4 border-l-purple-500 p-4 rounded-2xl shadow col-boveda-m4">
                 <span class="text-xs font-mono uppercase text-purple-400 font-bold block flex items-center gap-1.5">
-                    <i class="fas fa-vault"></i> Cartera en Garantía (<15d)
+                    <i class="fas fa-vault"></i> Cartera en Garantía
                 </span>
-                <div class="text-2xl font-black text-purple-300 font-mono mt-1" id="kpiCarteraEnGarantia">$0.00 MXN</div>
+                <div class="text-xl sm:text-2xl font-black text-purple-300 font-mono mt-1" id="kpiCarteraEnGarantia">$0.00 MXN</div>
                 <p class="text-[11px] text-slate-400 mt-0.5" id="kpiCarteraGarantiaDetalle">0 candidatos activos en periodo de prueba</p>
             </div>
 
@@ -205,8 +205,16 @@
                 <span class="text-xs font-mono uppercase text-cyan-400 font-bold block flex items-center gap-1.5">
                     <i class="fas fa-hand-holding-dollar"></i> Comisiones por Dispersar (≥3d)
                 </span>
-                <div class="text-2xl font-black text-cyan-300 font-mono mt-1" id="kpiComisionesPorDispersar">$0.00 MXN</div>
+                <div class="text-xl sm:text-2xl font-black text-cyan-300 font-mono mt-1" id="kpiComisionesPorDispersar">$0.00 MXN</div>
                 <p class="text-[11px] text-slate-400 mt-0.5" id="kpiComisionesDetalle">0 aprobadas para pago al staff</p>
+            </div>
+
+            <div class="glass-card border-l-4 border-l-amber-400 p-4 rounded-2xl shadow col-boveda-m4">
+                <span class="text-xs font-mono uppercase text-amber-300 font-bold block flex items-center gap-1.5">
+                    <i class="fas fa-sack-dollar"></i> Utilidad Neta Agencia
+                </span>
+                <div class="text-xl sm:text-2xl font-black text-amber-400 font-mono mt-1" id="kpiUtilidadNetaM4">$0.00 MXN</div>
+                <p class="text-[11px] text-slate-400 mt-0.5" id="kpiMargenNetoDetalle">Margen neto consolidado: 0%</p>
             </div>
         </div>
 
@@ -358,7 +366,7 @@
                     <h2 class="text-base sm:text-lg font-bold text-white flex items-center gap-2">
                         <i class="fas fa-heart-pulse text-cyber-accent"></i> Desempeño y Health Score del Personal Operativo (Staff M5)
                     </h2>
-                    <p class="text-slate-400 text-xs mt-0.5">Cálculo integral sobre colocaciones, pre-filtro médico, descartes y apego a SLA.</p>
+                    <p class="text-slate-400 text-xs mt-0.5">Cálculo integral sobre colocaciones, rentabilidad generada, pre-filtro médico, descartes y apego a SLA.</p>
                 </div>
             </div>
             
@@ -369,6 +377,7 @@
                             <th class="p-3">Colaborador / Rol</th>
                             <th class="p-3 text-center">Gestionados</th>
                             <th class="p-3 text-center">Colocados</th>
+                            <th class="p-3 text-center col-boveda-m4">Rentabilidad / Comisión</th>
                             <th class="p-3 text-center">Filtro Médico</th>
                             <th class="p-3 text-center">Filtro Entrevista</th>
                             <th class="p-3 text-center">Conversión</th>
@@ -377,7 +386,7 @@
                         </tr>
                     </thead>
                     <tbody id="tablaHealthScoreStaff" class="divide-y divide-slate-800/60 text-slate-300">
-                        <tr><td colspan="8" class="p-6 text-center text-slate-500 font-mono">Calculando rendimiento del personal...</td></tr>
+                        <tr><td colspan="9" class="p-6 text-center text-slate-500 font-mono">Calculando rendimiento del personal...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -539,13 +548,13 @@
         let globalStaff = {};
         let globalRutas = {};
         let globalDirectivas = {};
+        let globalTarifasVacantes = {}; // Nodo privado de Bóveda M1
 
         let usuarioSesion = null;
 
         const TARIFA_COMISION_DEFECTO = 750;
-        const TARIFA_CLIENTE_DEFECTO = 3500;
+        const TARIFA_CLIENTE_DEFECTO = 0;
 
-        // DECLARACIÓN EXPLÍCITA DE LA FUNCIÓN DEL MOTOR PRESCRIPTIVO
         function ejecutarAccionPrescrita() {
             const btnAccion = document.getElementById("btnCopilotAccion");
             if (btnAccion && typeof btnAccion.onclick === 'function') {
@@ -555,7 +564,6 @@
             }
         }
 
-        // ENLAZAR FUNCIONES AL ÁMBITO GLOBAL WINDOW
         window.alCambiarFiltro = alCambiarFiltro;
         window.abrirModalEmitirDirectiva = abrirModalEmitirDirectiva;
         window.cerrarModalDirectiva = cerrarModalDirectiva;
@@ -579,7 +587,73 @@
                 .replace(/^_|_$/g, "");
         }
 
-        // NORMALIZACIÓN CANÓNICA DE ESTATUS (HOMOLOGADO CON M3 Y M3.2)
+        function limpiarUltra(str) {
+            return (str || "").toLowerCase().trim()
+                .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+                .replace(/[^a-z0-9]/g, "");
+        }
+
+        // =========================================================================
+        // MOTOR RESOLUTOR FINANCIERO UNIFICADO (HOMOLOGADO CON M1, M3, M5 Y M5.2)
+        // =========================================================================
+        function resolverFinanzasM4(p) {
+            const empRaw = p.empresaId || p.empresa || "";
+            const empUltra = limpiarUltra(empRaw);
+            let empKeyMatch = "";
+
+            for (const [k, empObj] of Object.entries(globalEmpresas)) {
+                if (k === empRaw || limpiarUltra(k) === empUltra || limpiarUltra(empObj?.nombre || "") === empUltra) {
+                    empKeyMatch = k;
+                    break;
+                }
+            }
+            if (!empKeyMatch) empKeyMatch = sanitizarKey(empRaw);
+
+            const vacRaw = p.puestoId || p.vacanteId || p.nombreVacante || p.vacante || "";
+            const vacUltra = limpiarUltra(vacRaw);
+            const nodoTarifasEmp = globalTarifasVacantes[empKeyMatch] || {};
+            const vacsTarifas = nodoTarifasEmp.vacantes || {};
+
+            let tarifaVacanteObj = null;
+            for (const [vId, vObj] of Object.entries(vacsTarifas)) {
+                if (vId === vacRaw || limpiarUltra(vId) === vacUltra || limpiarUltra(vObj?.nombreVacante || "") === vacUltra) {
+                    tarifaVacanteObj = vObj;
+                    break;
+                }
+            }
+
+            const tarifaCliente = (p.tarifaFacturable !== undefined && p.tarifaFacturable !== null && Number(p.tarifaFacturable) > 0)
+                ? parseFloat(p.tarifaFacturable)
+                : (parseFloat(tarifaVacanteObj?.tarifaCliente) || TARIFA_CLIENTE_DEFECTO);
+
+            const diasGarantia = (p.diasGarantia !== undefined && p.diasGarantia !== null)
+                ? parseInt(p.diasGarantia)
+                : (tarifaVacanteObj?.garantiaDias !== undefined ? parseInt(tarifaVacanteObj.garantiaDias) : (parseInt(nodoTarifasEmp.garantiaDefaultDias) || 15));
+
+            const recId = p.reclutadorId || p.agenteId || "";
+            const recData = globalStaff[recId] || {};
+
+            let comisionBase = 0;
+            if (p.comisionBaseSnapshot !== undefined && p.comisionBaseSnapshot !== null && Number(p.comisionBaseSnapshot) > 0) {
+                comisionBase = parseFloat(p.comisionBaseSnapshot);
+            } else if (p.comisionLiquidada && p.montoComision !== undefined && Number(p.montoComision) > 0) {
+                const bonoPrev = parseFloat(p.bonoExtraComision) || 0;
+                comisionBase = Math.max(0, parseFloat(p.montoComision) - bonoPrev);
+            } else if (recData && recData.comisionValor !== undefined && Number(recData.comisionValor) > 0) {
+                const tipo = recData.comisionTipo || 'fijo';
+                const val = parseFloat(recData.comisionValor) || 0;
+                comisionBase = (tipo === 'porcentaje') ? ((tarifaCliente * val) / 100) : val;
+            } else {
+                comisionBase = TARIFA_COMISION_DEFECTO;
+            }
+
+            const bonoExtra = parseFloat(p.bonoExtraComision) || 0;
+            const montoComision = comisionBase + bonoExtra;
+            const utilidadNeta = tarifaCliente - montoComision;
+
+            return { tarifaCliente, montoComision, utilidadNeta, diasGarantia };
+        }
+
         function normalizarEstatus(str) {
             if (!str) return "Postulado";
             const s = str.toString().trim().toLowerCase()
@@ -655,13 +729,18 @@
                         return;
                     }
 
+                    const tieneBoveda = nivel >= 5 
+                        || u.accesoBovedaM1 === true 
+                        || !!(u.permisosModulos && u.permisosModulos['m1_boveda_tarifas']?.ver);
+
                     usuarioSesion = {
                         uid: user.uid,
                         nombre: u.nombre || user.email,
                         email: user.email,
                         rol: u.nombreRol || "Dirección",
                         nivel: nivel,
-                        scope: u.scope || "regional"
+                        scope: u.scope || "regional",
+                        puedeVerFinanzasCliente: tieneBoveda || nivel >= 4
                     };
 
                     document.getElementById("userInfoM4").innerHTML = `
@@ -671,6 +750,12 @@
                     document.getElementById("badgeScopeM4").textContent = usuarioSesion.nivel >= 5 
                         ? "Scope: Global Total" 
                         : `Scope: Regional (Nivel ${usuarioSesion.nivel})`;
+
+                    if (!usuarioSesion.puedeVerFinanzasCliente) {
+                        document.querySelectorAll(".col-boveda-m4").forEach(el => el.classList.add("hidden"));
+                        const gridRadar = document.getElementById("gridRadarFinancieroM4");
+                        if (gridRadar) gridRadar.className = "grid grid-cols-1 gap-4";
+                    }
 
                     iniciarEscuchasRealtime();
 
@@ -770,6 +855,7 @@
                 globalStaff = data.usuarios_reclutadores || {};
                 globalRutas = data.rutas || data.rutas_transporte || {};
                 globalDirectivas = data.directivas_ejecutivas || {};
+                globalTarifasVacantes = data.tarifas_vacantes || {};
 
                 poblarSelectoresFiltros();
                 procesarMetricasYGraficos();
@@ -826,7 +912,7 @@
                 const mun = extraerMunicipioDeRuta(ruta);
 
                 if (divSel !== "todas" && divEmp !== divSel) return false;
-                if (empSel !== "TODAS" && empKey !== empSel.toLowerCase()) return false;
+                if (empSel !== "TODAS" && limpiarUltra(empKey) !== limpiarUltra(empSel)) return false;
                 if (munSel !== "TODOS" && mun !== munSel) return false;
 
                 return true;
@@ -839,6 +925,7 @@
             let facturableLiberadoMonto = 0, facturableLiberadoCount = 0;
             let garantiaEnProcesoMonto = 0, garantiaEnProcesoCount = 0;
             let comisionesPorDispersarMonto = 0, comisionesPorDispersarCount = 0;
+            let ingresoBrutoTotal = 0, utilidadNetaTotal = 0;
 
             const conteoVacantes = {};
             const conteoEmpresas = {};
@@ -848,25 +935,27 @@
                 const est = normalizarEstatus(p.estatus || p.status);
                 const fechaRef = p.fechaIngreso || p.fechaContratacion || p.diaEntrevista || p.fechaRegistro;
                 const dias = calcularDiasEnPlanta(fechaRef);
-
-                const tarifaFact = parseFloat(p.tarifaFacturable || TARIFA_CLIENTE_DEFECTO);
-                const comisionAsesor = parseFloat(p.montoComision || TARIFA_COMISION_DEFECTO);
+                const fin = resolverFinanzasM4(p);
 
                 if (est === "Contratado" || est === "Trabajando" || est === "Proceso Terminado") {
                     cColocados++;
 
-                    // Regla Día 15 Facturación Cliente
-                    if (dias >= 15 && !p.garantiaReclamada) {
-                        facturableLiberadoMonto += tarifaFact;
-                        facturableLiberadoCount++;
-                    } else if (!p.garantiaReclamada) {
-                        garantiaEnProcesoMonto += tarifaFact;
-                        garantiaEnProcesoCount++;
+                    if (!p.garantiaReclamada) {
+                        ingresoBrutoTotal += fin.tarifaCliente;
+                        utilidadNetaTotal += fin.utilidadNeta;
+
+                        if (dias >= fin.diasGarantia) {
+                            facturableLiberadoMonto += fin.tarifaCliente;
+                            facturableLiberadoCount++;
+                        } else {
+                            garantiaEnProcesoMonto += fin.tarifaCliente;
+                            garantiaEnProcesoCount++;
+                        }
                     }
 
                     // Regla Día 3 Comisión Staff
                     if (dias >= 3 && !p.comisionLiquidada) {
-                        comisionesPorDispersarMonto += comisionAsesor;
+                        comisionesPorDispersarMonto += fin.montoComision;
                         comisionesPorDispersarCount++;
                     }
                 } else if (est === "No Apto Medico") {
@@ -902,13 +991,17 @@
             });
 
             document.getElementById("kpiFacturacionLiberada").textContent = `$${facturableLiberadoMonto.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN`;
-            document.getElementById("kpiFacturacionDetalle").textContent = `${facturableLiberadoCount} garantías de cliente cumplidas (≥15d)`;
+            document.getElementById("kpiFacturacionDetalle").textContent = `${facturableLiberadoCount} garantías de cliente cumplidas`;
 
             document.getElementById("kpiCarteraEnGarantia").textContent = `$${garantiaEnProcesoMonto.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN`;
-            document.getElementById("kpiCarteraGarantiaDetalle").textContent = `${garantiaEnProcesoCount} candidatos activos en planta (<15d)`;
+            document.getElementById("kpiCarteraGarantiaDetalle").textContent = `${garantiaEnProcesoCount} candidatos activos en periodo de prueba`;
 
             document.getElementById("kpiComisionesPorDispersar").textContent = `$${comisionesPorDispersarMonto.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN`;
             document.getElementById("kpiComisionesDetalle").textContent = `${comisionesPorDispersarCount} comisiones aprobadas para pago (≥3d)`;
+
+            document.getElementById("kpiUtilidadNetaM4").textContent = `$${utilidadNetaTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN`;
+            const pctMargen = ingresoBrutoTotal > 0 ? Math.round((utilidadNetaTotal / ingresoBrutoTotal) * 100) : 0;
+            document.getElementById("kpiMargenNetoDetalle").textContent = `Margen neto consolidado: ${pctMargen}%`;
 
             document.getElementById("kpiContratadosTotal").textContent = cColocados;
             const efectividadGlobal = postulantesArr.length > 0 ? Math.round((cColocados / postulantesArr.length) * 100) : 0;
@@ -968,7 +1061,8 @@
 
             const staffEntries = Object.entries(globalStaff);
             if (staffEntries.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-500 font-mono">No hay colaboradores registrados en M5.</td></tr>`;
+                const cols = usuarioSesion?.puedeVerFinanzasCliente ? 9 : 8;
+                tbody.innerHTML = `<tr><td colspan="${cols}" class="p-6 text-center text-slate-500 font-mono">No hay colaboradores registrados en M5.</td></tr>`;
                 return;
             }
 
@@ -985,6 +1079,8 @@
                 let noAptoMed = 0;
                 let noAptoEnt = 0;
                 let desfasadosSla = 0;
+                let utilidadGenerada = 0;
+                let comisionDevengada = 0;
 
                 postulantesArr.forEach(p => {
                     const esResponsable = (p.reclutadorId === uid) || (p.agenteId === uid);
@@ -992,8 +1088,14 @@
                         asignados++;
                         const est = normalizarEstatus(p.estatus || p.status);
                         
-                        if (est === "Contratado" || est === "Trabajando" || est === "Proceso Terminado") colocados++;
-                        else if (est === "No Apto Medico") noAptoMed++;
+                        if (est === "Contratado" || est === "Trabajando" || est === "Proceso Terminado") {
+                            colocados++;
+                            if (!p.garantiaReclamada) {
+                                const fin = resolverFinanzasM4(p);
+                                utilidadGenerada += fin.utilidadNeta;
+                                comisionDevengada += fin.montoComision;
+                            }
+                        } else if (est === "No Apto Medico") noAptoMed++;
                         else if (est === "No Apto Entrevista") noAptoEnt++;
 
                         if (['Postulado', 'En Proceso', 'Entrevista', 'Inducción'].includes(est)) {
@@ -1014,6 +1116,16 @@
                 if (score < 50) scoreBadgeClass = "bg-rose-500/10 text-rose-400 border-rose-500/30 animate-pulse";
                 else if (score < 75) scoreBadgeClass = "bg-amber-500/10 text-amber-400 border-amber-500/30";
 
+                let celdaRentabilidadHTML = "";
+                if (usuarioSesion?.puedeVerFinanzasCliente) {
+                    celdaRentabilidadHTML = `
+                        <td class="p-3 text-center font-mono">
+                            <div class="text-emerald-400 font-bold text-[11px]">Neto: $${utilidadGenerada.toLocaleString('es-MX')}</div>
+                            <div class="text-slate-400 text-[10px]">Com: $${comisionDevengada.toLocaleString('es-MX')}</div>
+                        </td>
+                    `;
+                }
+
                 tbody.innerHTML += `
                     <tr class="hover:bg-slate-800/40 border-b border-slate-800/40 transition-colors">
                         <td class="p-3">
@@ -1022,6 +1134,7 @@
                         </td>
                         <td class="p-3 text-center font-mono font-bold">${asignados}</td>
                         <td class="p-3 text-center font-mono font-bold text-emerald-400">${colocados}</td>
+                        ${celdaRentabilidadHTML}
                         <td class="p-3 text-center font-mono text-rose-400">${noAptoMed}</td>
                         <td class="p-3 text-center font-mono text-purple-400">${noAptoEnt}</td>
                         <td class="p-3 text-center font-mono font-bold text-cyan-400">${tasaCierre}%</td>
@@ -1261,20 +1374,30 @@
             const postulantesArr = Object.values(globalPostulantes);
             let colocados = 0;
             let enProceso = 0;
+            let utilidadNetaTotal = 0;
 
             postulantesArr.forEach(p => {
                 const est = normalizarEstatus(p.estatus || p.status);
-                if (est === "Contratado" || est === "Trabajando" || est === "Proceso Terminado") colocados++;
-                else if (['En Proceso', 'Entrevista', 'Inducción'].includes(est)) enProceso++;
+                if (est === "Contratado" || est === "Trabajando" || est === "Proceso Terminado") {
+                    colocados++;
+                    if (!p.garantiaReclamada) {
+                        utilidadNetaTotal += resolverFinanzasM4(p).utilidadNeta;
+                    }
+                } else if (['En Proceso', 'Entrevista', 'Inducción'].includes(est)) enProceso++;
             });
 
             const totalEmpresas = Object.keys(globalEmpresas).length;
             const directivasPendientes = Object.values(globalDirectivas).filter(d => d.estatusCiclo !== "Ejecutado").length;
 
+            const lineaFinanciera = usuarioSesion?.puedeVerFinanzasCliente
+                ? `• 💰 *Utilidad Neta Proyectada:* $${utilidadNetaTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN\n`
+                : '';
+
             const reporte = `📊 *FLASH REPORT EJECUTIVO - ERP RECLUTAMIENTO* 🏛️\n` +
                             `📅 *Fecha:* ${new Date().toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}\n\n` +
                             `• 🟢 *Ingresos Confirmados:* ${colocados} colocadas\n` +
                             `• 🟡 *En Proceso Activo:* ${enProceso} candidatos en evaluación\n` +
+                            `${lineaFinanciera}` +
                             `• 🏢 *Empresas Activas:* ${totalEmpresas} cuentas monitoreadas\n` +
                             `• 📋 *Directivas Pendientes:* ${directivasPendientes} en ejecución\n\n` +
                             `_Generado en tiempo real desde el Módulo 4 de Inteligencia Directiva._`;
