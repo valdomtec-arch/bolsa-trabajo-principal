@@ -5,11 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Módulo 4: Métricas - Ápice Estratégico & Torre de Control Directiva</title>
     <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="[https://cdn.tailwindcss.com](https://cdn.tailwindcss.com)"></script>
     <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="[https://cdn.jsdelivr.net/npm/chart.js](https://cdn.jsdelivr.net/npm/chart.js)"></script>
     <!-- FontAwesome Iconos -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="[https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css](https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css)">
     
     <script>
         tailwind.config = {
@@ -506,7 +506,6 @@
                 </div>
 
                 <div id="modalExpHistorialRespuestas" class="space-y-2 max-h-40 overflow-y-auto pr-1">
-                    <!-- Respuestas dinámicas -->
                 </div>
             </div>
 
@@ -521,14 +520,14 @@
 
     <!-- FIREBASE SDK V10 MODULAR -->
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getDatabase, ref, get, set, update, push, onValue, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { initializeApp } from "[https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js](https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js)";
+        import { getAuth, onAuthStateChanged, signOut } from "[https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js](https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js)";
+        import { getDatabase, ref, get, set, update, push, onValue, serverTimestamp } from "[https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js](https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js)";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDxgP1YnycCEqkQ2vr3SPkwc9QMhtG8Zqw",
             authDomain: "bolsa-de-trabajo-a52e4.firebaseapp.com",
-            databaseURL: "https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com",
+            databaseURL: "[https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com](https://bolsa-de-trabajo-a52e4-default-rtdb.firebaseio.com)",
             projectId: "bolsa-de-trabajo-a52e4",
             storageBucket: "bolsa-de-trabajo-a52e4.firebasestorage.app",
             messagingSenderId: "592492733212",
@@ -548,11 +547,12 @@
         let globalStaff = {};
         let globalRutas = {};
         let globalDirectivas = {};
-        let globalTarifasVacantes = {}; // Nodo privado de Bóveda M1
+        let globalTarifasVacantes = {};
 
         let usuarioSesion = null;
 
-        const TARIFA_COMISION_DEFECTO = 750;
+        // CERO VALORES INVENTADOS: Si no hay tarifa configurada en M1 o M5, el valor real es 0
+        const TARIFA_COMISION_DEFECTO = 0;
         const TARIFA_CLIENTE_DEFECTO = 0;
 
         function ejecutarAccionPrescrita() {
@@ -594,7 +594,7 @@
         }
 
         // =========================================================================
-        // MOTOR RESOLUTOR FINANCIERO UNIFICADO (HOMOLOGADO CON M1, M3, M5 Y M5.2)
+        // MOTOR RESOLUTOR FINANCIERO HOMOLOGADO (CERO VALORES INVENTADOS)
         // =========================================================================
         function resolverFinanzasM4(p) {
             const empRaw = p.empresaId || p.empresa || "";
@@ -609,10 +609,19 @@
             }
             if (!empKeyMatch) empKeyMatch = sanitizarKey(empRaw);
 
+            let nodoTarifasEmp = globalTarifasVacantes[empKeyMatch] || null;
+            if (!nodoTarifasEmp) {
+                for (const [k, v] of Object.entries(globalTarifasVacantes)) {
+                    if (limpiarUltra(k) === empUltra) {
+                        nodoTarifasEmp = v;
+                        break;
+                    }
+                }
+            }
+
             const vacRaw = p.puestoId || p.vacanteId || p.nombreVacante || p.vacante || "";
             const vacUltra = limpiarUltra(vacRaw);
-            const nodoTarifasEmp = globalTarifasVacantes[empKeyMatch] || {};
-            const vacsTarifas = nodoTarifasEmp.vacantes || {};
+            const vacsTarifas = nodoTarifasEmp?.vacantes || {};
 
             let tarifaVacanteObj = null;
             for (const [vId, vObj] of Object.entries(vacsTarifas)) {
@@ -622,27 +631,37 @@
                 }
             }
 
-            const tarifaCliente = (p.tarifaFacturable !== undefined && p.tarifaFacturable !== null && Number(p.tarifaFacturable) > 0)
-                ? parseFloat(p.tarifaFacturable)
-                : (parseFloat(tarifaVacanteObj?.tarifaCliente) || TARIFA_CLIENTE_DEFECTO);
+            const tieneAjusteManual = p.ajusteFinancieroManual === true;
+            const estaLiquidada = p.comisionLiquidada === true;
+            const tarifaVivo = parseFloat(tarifaVacanteObj?.tarifaCliente) || 0;
+
+            let tarifaCliente = 0;
+            if ((tieneAjusteManual || estaLiquidada) && p.tarifaFacturable !== undefined && p.tarifaFacturable !== null) {
+                tarifaCliente = parseFloat(p.tarifaFacturable) || 0;
+            } else if (tarifaVivo > 0) {
+                tarifaCliente = tarifaVivo;
+            } else if (p.tarifaFacturable !== undefined && Number(p.tarifaFacturable) > 0) {
+                tarifaCliente = parseFloat(p.tarifaFacturable) || 0;
+            } else {
+                tarifaCliente = TARIFA_CLIENTE_DEFECTO;
+            }
 
             const diasGarantia = (p.diasGarantia !== undefined && p.diasGarantia !== null)
                 ? parseInt(p.diasGarantia)
-                : (tarifaVacanteObj?.garantiaDias !== undefined ? parseInt(tarifaVacanteObj.garantiaDias) : (parseInt(nodoTarifasEmp.garantiaDefaultDias) || 15));
+                : (tarifaVacanteObj?.garantiaDias !== undefined ? parseInt(tarifaVacanteObj.garantiaDias) : (parseInt(nodoTarifasEmp?.garantiaDefaultDias) || 15));
 
             const recId = p.reclutadorId || p.agenteId || "";
             const recData = globalStaff[recId] || {};
 
             let comisionBase = 0;
-            if (p.comisionBaseSnapshot !== undefined && p.comisionBaseSnapshot !== null && Number(p.comisionBaseSnapshot) > 0) {
-                comisionBase = parseFloat(p.comisionBaseSnapshot);
-            } else if (p.comisionLiquidada && p.montoComision !== undefined && Number(p.montoComision) > 0) {
-                const bonoPrev = parseFloat(p.bonoExtraComision) || 0;
-                comisionBase = Math.max(0, parseFloat(p.montoComision) - bonoPrev);
+            if ((tieneAjusteManual || estaLiquidada) && p.comisionBaseSnapshot !== undefined && p.comisionBaseSnapshot !== null) {
+                comisionBase = parseFloat(p.comisionBaseSnapshot) || 0;
             } else if (recData && recData.comisionValor !== undefined && Number(recData.comisionValor) > 0) {
                 const tipo = recData.comisionTipo || 'fijo';
                 const val = parseFloat(recData.comisionValor) || 0;
                 comisionBase = (tipo === 'porcentaje') ? ((tarifaCliente * val) / 100) : val;
+            } else if (p.comisionBaseSnapshot !== undefined && Number(p.comisionBaseSnapshot) > 0) {
+                comisionBase = parseFloat(p.comisionBaseSnapshot) || 0;
             } else {
                 comisionBase = TARIFA_COMISION_DEFECTO;
             }
@@ -945,16 +964,20 @@
                         utilidadNetaTotal += fin.utilidadNeta;
 
                         if (dias >= fin.diasGarantia) {
-                            facturableLiberadoMonto += fin.tarifaCliente;
-                            facturableLiberadoCount++;
+                            if (fin.tarifaCliente > 0) {
+                                facturableLiberadoMonto += fin.tarifaCliente;
+                                facturableLiberadoCount++;
+                            }
                         } else {
-                            garantiaEnProcesoMonto += fin.tarifaCliente;
-                            garantiaEnProcesoCount++;
+                            if (fin.tarifaCliente > 0) {
+                                garantiaEnProcesoMonto += fin.tarifaCliente;
+                                garantiaEnProcesoCount++;
+                            }
                         }
                     }
 
                     // Regla Día 3 Comisión Staff
-                    if (dias >= 3 && !p.comisionLiquidada) {
+                    if (dias >= 3 && !p.comisionLiquidada && fin.montoComision > 0) {
                         comisionesPorDispersarMonto += fin.montoComision;
                         comisionesPorDispersarCount++;
                     }
@@ -1299,7 +1322,7 @@
                                       `📋 *Folio:* ${folio}\n` +
                                       `📌 *Instrucción:* ${instruccion}\n\n` +
                                       `Favor de ingresar al ERP para confirmar de recibido y actualizar tu avance.`;
-                    window.open(`https://wa.me/${telefonoFinal}?text=${encodeURIComponent(mensajeWA)}`, '_blank');
+                    window.open(`[https://wa.me/$](https://wa.me/$){telefonoFinal}?text=${encodeURIComponent(mensajeWA)}`, '_blank');
                 }
 
                 alert(`Directiva ${folio} registrada y notificada con éxito.`);
@@ -1406,7 +1429,7 @@
                 navigator.clipboard.writeText(reporte);
                 alert("📋 Flash Report Ejecutivo copiado al portapapeles. Abriendo WhatsApp...");
             }
-            window.open(`https://wa.me/?text=${encodeURIComponent(reporte)}`, '_blank');
+            window.open(`[https://wa.me/?text=$](https://wa.me/?text=$){encodeURIComponent(reporte)}`, '_blank');
         }
     </script>
 </body>
