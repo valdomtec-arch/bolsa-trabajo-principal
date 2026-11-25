@@ -404,7 +404,7 @@
                 <input type="hidden" id="originalAgendaFecha">
                 <input type="hidden" id="originalAgendaHora">
 
-                <!-- RADAR ANTI-DUPLICIDAD EN VIVO EN EDICIÓN (TOQUE MAESTRO) -->
+                <!-- RADAR ANTI-DUPLICIDAD EN VIVO EN EDICIÓN -->
                 <div id="radarDuplicidadVivoM3" class="bg-cyber-bg border border-cyan-500/25 rounded-xl p-2.5 text-[11px] font-mono flex items-start gap-2 transition-all">
                     <i id="radarIconoM3" class="fas fa-radar text-cyan-400 text-xs mt-0.5"></i>
                     <div class="space-y-0.5 flex-1">
@@ -710,7 +710,7 @@
         let catalogoRoles = {};
         let catalogoVacantesDetalles = {};
         let catalogoRutasCache = {};
-        let catalogoTarifasVacantesCache = {}; // Lectura silenciosa para congelamiento contable
+        let catalogoTarifasVacantesCache = {};
 
         let mapaEmpresasCanonico = {};
 
@@ -751,7 +751,6 @@
                 .replace(/'/g, '&#39;');
         }
 
-        // HELPERS DE FECHA Y RETROACTIVIDAD DE 15 DÍAS
         function obtenerFechaHoyStr() {
             const d = new Date();
             return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -776,7 +775,6 @@
             return { valida: true };
         }
 
-        // NORMALIZADOR CANÓNICO ÚNICO
         function sanitizarKey(str) {
             return (str || "").toString().toLowerCase().trim()
                 .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
@@ -784,11 +782,11 @@
         }
 
         // =========================================================================
-        // CONGELAMIENTO SILENCIOSO DE TARIFAS AL CONTRATAR (SNAPSHOT CONTABLE)
+        // CONGELAMIENTO SILENCIOSO DE TARIFAS AL CONTRATAR (CERO VALORES INVENTADOS)
         // =========================================================================
         function generarSnapshotFinanciero(postulanteActual, empCanonico, vacNombre, recId) {
-            // Si ya tiene tarifa congelada previamente, respetar el snapshot histórico
-            if (postulanteActual && Number(postulanteActual.tarifaFacturable) > 0 && Number(postulanteActual.comisionBaseSnapshot) > 0) {
+            // Si ya tiene ajuste manual o liquidación previa, respetar los montos establecidos
+            if (postulanteActual && (postulanteActual.ajusteFinancieroManual === true || postulanteActual.comisionLiquidada === true)) {
                 return {};
             }
 
@@ -814,23 +812,17 @@
                 }
             }
 
-            const tarifaCliente = (postulanteActual && Number(postulanteActual.tarifaFacturable) > 0)
-                ? parseFloat(postulanteActual.tarifaFacturable)
-                : (parseFloat(tarifaVacanteObj?.tarifaCliente) || 0);
+            const tarifaCliente = parseFloat(tarifaVacanteObj?.tarifaCliente) || 0;
+            const diasGarantia = tarifaVacanteObj?.garantiaDias !== undefined
+                ? parseInt(tarifaVacanteObj.garantiaDias)
+                : (parseInt(nodoTarifasEmp?.garantiaDefaultDias) || 15);
 
-            const diasGarantia = (postulanteActual && postulanteActual.diasGarantia !== undefined)
-                ? parseInt(postulanteActual.diasGarantia)
-                : (tarifaVacanteObj?.garantiaDias !== undefined ? parseInt(tarifaVacanteObj.garantiaDias) : (parseInt(nodoTarifasEmp?.garantiaDefaultDias) || 15));
-
-            // 2. Calcular comisión base del reclutador según tabulador M5 (fijo o porcentaje)
+            // 2. Calcular comisión base del reclutador según tabulador M5 (fijo o porcentaje) — Fallback 0
             const recData = catalogoUsuarios[recId] || {};
             let comisionBase = 0;
-            let esquemaTxt = "Base Defecto";
+            let esquemaTxt = "Sin tabulador en M5";
 
-            if (postulanteActual && Number(postulanteActual.comisionBaseSnapshot) > 0) {
-                comisionBase = parseFloat(postulanteActual.comisionBaseSnapshot);
-                esquemaTxt = postulanteActual.esquemaComisionSnapshot || "Tarifa Congelada";
-            } else if (recData && Number(recData.comisionValor) > 0) {
+            if (recData && Number(recData.comisionValor) > 0) {
                 const tipo = recData.comisionTipo || 'fijo';
                 const val = parseFloat(recData.comisionValor) || 0;
                 if (tipo === 'porcentaje') {
@@ -840,9 +832,6 @@
                     comisionBase = val;
                     esquemaTxt = `Fijo M5 ($${val.toLocaleString('es-MX')})`;
                 }
-            } else {
-                comisionBase = 750;
-                esquemaTxt = "Base Defecto ($750)";
             }
 
             const bonoPrevio = parseFloat(postulanteActual?.bonoExtraComision) || 0;
@@ -855,7 +844,7 @@
                 montoComision: montoComisionTotal,
                 esquemaComisionSnapshot: esquemaTxt,
                 utilidadNetaSnapshot: tarifaCliente - montoComisionTotal,
-                fechaSnapshotFinanciero: postulanteActual?.fechaSnapshotFinanciero || new Date().toISOString()
+                fechaSnapshotFinanciero: new Date().toISOString()
             };
         }
 
@@ -913,9 +902,6 @@
             };
         }
 
-        // =========================================================================
-        // MOTOR EXACTO DE IDENTIDAD NOMINAL (NOMBRE + 2 APELLIDOS) & TEL 10 DÍGITOS
-        // =========================================================================
         function normalizarTextoPlano(str) {
             if (!str) return "";
             return str.toString()
@@ -1141,7 +1127,6 @@
                     const fechaActualContratacion = extraerFechaEstandar(pActual.fechaContratacion);
                     payload.fechaContratacion = fechaActualContratacion || obtenerFechaHoyStr();
 
-                    // Congelamiento financiero silencioso al contratar
                     const infoEmp = resolverEmpresaCandidato(pActual);
                     const snapFin = generarSnapshotFinanciero(
                         pActual,
@@ -2154,7 +2139,6 @@
                     const fechaContPrevia = extraerFechaEstandar(pPrevio.fechaContratacion);
                     updates.fechaContratacion = fechaContPrevia || obtenerFechaHoyStr();
 
-                    // Congelamiento financiero silencioso al contratar
                     const snapFin = generarSnapshotFinanciero(
                         pPrevio,
                         empSelCanonico,
