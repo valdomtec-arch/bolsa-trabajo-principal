@@ -710,6 +710,7 @@
         let catalogoRoles = {};
         let catalogoVacantesDetalles = {};
         let catalogoRutasCache = {};
+        let catalogoTarifasVacantesCache = {}; // Lectura silenciosa para congelamiento contable
 
         let mapaEmpresasCanonico = {};
 
@@ -780,6 +781,82 @@
             return (str || "").toString().toLowerCase().trim()
                 .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
                 .replace(/[^a-z0-9]/g, "");
+        }
+
+        // =========================================================================
+        // CONGELAMIENTO SILENCIOSO DE TARIFAS AL CONTRATAR (SNAPSHOT CONTABLE)
+        // =========================================================================
+        function generarSnapshotFinanciero(postulanteActual, empCanonico, vacNombre, recId) {
+            // Si ya tiene tarifa congelada previamente, respetar el snapshot histórico
+            if (postulanteActual && Number(postulanteActual.tarifaFacturable) > 0 && Number(postulanteActual.comisionBaseSnapshot) > 0) {
+                return {};
+            }
+
+            // 1. Buscar tarifa de la vacante en Bóveda M1 (tarifas_vacantes)
+            let nodoTarifasEmp = catalogoTarifasVacantesCache[empCanonico] || null;
+            if (!nodoTarifasEmp) {
+                for (const [k, v] of Object.entries(catalogoTarifasVacantesCache)) {
+                    if (sanitizarKey(k) === empCanonico) {
+                        nodoTarifasEmp = v;
+                        break;
+                    }
+                }
+            }
+
+            const vacsTarifas = nodoTarifasEmp?.vacantes || {};
+            const vacUltra = sanitizarKey(vacNombre || postulanteActual?.puestoId || "");
+            let tarifaVacanteObj = null;
+
+            for (const [vId, vObj] of Object.entries(vacsTarifas)) {
+                if (sanitizarKey(vId) === vacUltra || sanitizarKey(vObj?.nombreVacante || "") === vacUltra) {
+                    tarifaVacanteObj = vObj;
+                    break;
+                }
+            }
+
+            const tarifaCliente = (postulanteActual && Number(postulanteActual.tarifaFacturable) > 0)
+                ? parseFloat(postulanteActual.tarifaFacturable)
+                : (parseFloat(tarifaVacanteObj?.tarifaCliente) || 0);
+
+            const diasGarantia = (postulanteActual && postulanteActual.diasGarantia !== undefined)
+                ? parseInt(postulanteActual.diasGarantia)
+                : (tarifaVacanteObj?.garantiaDias !== undefined ? parseInt(tarifaVacanteObj.garantiaDias) : (parseInt(nodoTarifasEmp?.garantiaDefaultDias) || 15));
+
+            // 2. Calcular comisión base del reclutador según tabulador M5 (fijo o porcentaje)
+            const recData = catalogoUsuarios[recId] || {};
+            let comisionBase = 0;
+            let esquemaTxt = "Base Defecto";
+
+            if (postulanteActual && Number(postulanteActual.comisionBaseSnapshot) > 0) {
+                comisionBase = parseFloat(postulanteActual.comisionBaseSnapshot);
+                esquemaTxt = postulanteActual.esquemaComisionSnapshot || "Tarifa Congelada";
+            } else if (recData && Number(recData.comisionValor) > 0) {
+                const tipo = recData.comisionTipo || 'fijo';
+                const val = parseFloat(recData.comisionValor) || 0;
+                if (tipo === 'porcentaje') {
+                    comisionBase = (tarifaCliente * val) / 100;
+                    esquemaTxt = `${val}% de $${tarifaCliente.toLocaleString('es-MX')}`;
+                } else {
+                    comisionBase = val;
+                    esquemaTxt = `Fijo M5 ($${val.toLocaleString('es-MX')})`;
+                }
+            } else {
+                comisionBase = 750;
+                esquemaTxt = "Base Defecto ($750)";
+            }
+
+            const bonoPrevio = parseFloat(postulanteActual?.bonoExtraComision) || 0;
+            const montoComisionTotal = comisionBase + bonoPrevio;
+
+            return {
+                tarifaFacturable: tarifaCliente,
+                diasGarantia: diasGarantia,
+                comisionBaseSnapshot: comisionBase,
+                montoComision: montoComisionTotal,
+                esquemaComisionSnapshot: esquemaTxt,
+                utilidadNetaSnapshot: tarifaCliente - montoComisionTotal,
+                fechaSnapshotFinanciero: postulanteActual?.fechaSnapshotFinanciero || new Date().toISOString()
+            };
         }
 
         function generarLinkAcuse(candidatoId) {
@@ -897,7 +974,6 @@
             for (const [key, post] of Object.entries(todosLosPostulantes)) {
                 if (key === excludeId || !post) continue;
 
-                // Si Dirección dictaminó explícitamente este par como homónimo autorizado, no bloquear
                 const pOrig = todosLosPostulantes[excludeId];
                 if (pOrig?.paresLiberados?.[key] === true || post?.paresLiberados?.[excludeId] === true) continue;
 
@@ -1064,6 +1140,16 @@
                 if (nuevoEstatus === "Contratado") {
                     const fechaActualContratacion = extraerFechaEstandar(pActual.fechaContratacion);
                     payload.fechaContratacion = fechaActualContratacion || obtenerFechaHoyStr();
+
+                    // Congelamiento financiero silencioso al contratar
+                    const infoEmp = resolverEmpresaCandidato(pActual);
+                    const snapFin = generarSnapshotFinanciero(
+                        pActual,
+                        infoEmp.idCanonico,
+                        pActual.nombreVacante || pActual.vacante || "",
+                        pActual.reclutadorId || pActual.agenteId || ""
+                    );
+                    Object.assign(payload, snapFin);
                 }
 
                 await update(ref(db, `postulantes/${id}`), payload);
@@ -2064,8 +2150,18 @@
                 };
 
                 if (nuevoEstatus === "Contratado") {
-                    const fechaContPrevia = extraerFechaEstandar(todosLosPostulantes[id]?.fechaContratacion);
+                    const pPrevio = todosLosPostulantes[id] || {};
+                    const fechaContPrevia = extraerFechaEstandar(pPrevio.fechaContratacion);
                     updates.fechaContratacion = fechaContPrevia || obtenerFechaHoyStr();
+
+                    // Congelamiento financiero silencioso al contratar
+                    const snapFin = generarSnapshotFinanciero(
+                        pPrevio,
+                        empSelCanonico,
+                        document.getElementById("editVacante").value,
+                        recId
+                    );
+                    Object.assign(updates, snapFin);
                 }
 
                 if (seReprogramoCita) {
@@ -2439,6 +2535,10 @@
 
                     onValue(ref(db, "rutas"), (s) => {
                         catalogoRutasCache = s.val() || {};
+                    });
+
+                    onValue(ref(db, "tarifas_vacantes"), (s) => {
+                        catalogoTarifasVacantesCache = s.val() || {};
                     });
 
                     onValue(ref(db, `usuarios_reclutadores/${user.uid}`), (snapUser) => {
