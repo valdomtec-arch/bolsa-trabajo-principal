@@ -390,7 +390,7 @@
             </label>
           </div>
 
-          <!-- NUEVO BLOQUE FINANCIERO DUAL: TABULADOR DE COMISIÓN POR RECLUTADOR / FREELANCE -->
+          <!-- BLOQUE FINANCIERO DUAL: TABULADOR DE COMISIÓN POR RECLUTADOR / FREELANCE -->
           <div id="boxTabuladorComision" class="p-4 rounded-2xl border border-emerald-500/40 bg-emerald-950/20 space-y-3 shadow-inner">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-emerald-500/20 pb-2.5">
               <div class="flex items-center gap-2">
@@ -435,7 +435,7 @@
             </div>
           </div>
 
-          <!-- NUEVO BLOQUE VIP: LLAVE DE BÓVEDA COMERCIAL M1 (GOBERNANZA DINÁMICA - SOLO MASTER ADMIN) -->
+          <!-- BLOQUE VIP: LLAVE DE BÓVEDA COMERCIAL M1 (GOBERNANZA DINÁMICA - SOLO MASTER ADMIN) -->
           <div id="boxLlaveBovedaM1" class="hidden p-4 rounded-2xl border border-amber-400/50 bg-gradient-to-r from-amber-950/30 via-slate-950/80 to-amber-950/20 space-y-3 shadow-md">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
               <div class="flex items-start gap-2.5">
@@ -694,9 +694,14 @@
               Define los privilegios CRUD para cada módulo del ERP, incluyendo la Bóveda Comercial de M1 (`m1_boveda_tarifas`).
             </p>
           </div>
-          <button onclick="abrirModalCrearRol()" id="btnCrearNuevoRol" class="px-4 py-2 rounded-xl bg-cyber-purple hover:bg-purple-600 text-white font-bold text-xs uppercase tracking-wider transition shadow-md touch-target flex items-center gap-1.5">
-            <i class="fas fa-plus"></i> Crear Nuevo Rol
-          </button>
+          <div class="flex items-center gap-2 flex-wrap">
+            <button onclick="sincronizarTodosLosRolesConStaff()" id="btnSincronizarTodoRBAC" class="px-4 py-2 rounded-xl bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/40 font-bold text-xs uppercase tracking-wider transition shadow-md touch-target flex items-center gap-1.5" title="Recalcula y sincroniza los permisos de todos los usuarios activos con sus roles asignados">
+              <i class="fas fa-rotate"></i> Sincronizar Toda la Matriz
+            </button>
+            <button onclick="abrirModalCrearRol()" id="btnCrearNuevoRol" class="px-4 py-2 rounded-xl bg-cyber-purple hover:bg-purple-600 text-white font-bold text-xs uppercase tracking-wider transition shadow-md touch-target flex items-center gap-1.5">
+              <i class="fas fa-plus"></i> Crear Nuevo Rol
+            </button>
+          </div>
         </div>
 
         <div class="overflow-x-auto">
@@ -802,9 +807,9 @@
         </div>
 
         <div>
-          <div class="flex justify-between items-center mb-1.5">
+          <div class="flex justify-between items-center mb-1.5 flex-wrap gap-2">
             <label class="text-xs font-mono uppercase text-amber-400 font-bold flex items-center gap-1.5">
-              <i class="fas fa-lock"></i> Matriz de Permisos por Módulo (Incluye Bóveda Comercial M1 y M8)
+              <i class="fas fa-lock"></i> Matriz de Permisos por Módulo (Incluye Bóveda Comercial M1, M8 y M9)
             </label>
             <span class="text-[10px] font-mono text-slate-400" id="lblTotalModulosMatriz">0 módulos detectados</span>
           </div>
@@ -918,6 +923,11 @@
       { id: 'm9_portal_freelance', label: 'M9: Portal Externo Freelance', orden: 13 }
     ];
 
+    const ALIAS_MODULOS = {
+      'm8_creador_modulos': ['m8_creador'],
+      'm9_portal_freelance': ['m9_freelance', 'm9_freelance_portal']
+    };
+
     let catalogoModulosVivos = [...MODULOS_CONTINGENCIA];
 
     let usuarioSesion = {
@@ -939,6 +949,55 @@
 
     let metricasVisibles = localStorage.getItem('m5_metricas_visibles') !== 'false';
 
+    // =========================================================================
+    // MOTOR COMPILADOR CANÓNICO DE PERMISOS RBAC (SIN HUÉRFANOS NI HERENCIA SUCIA)
+    // =========================================================================
+    function resolverPermisoEnMapa(mapaPermisos, moduloId, accion) {
+      if (!mapaPermisos || typeof mapaPermisos !== 'object') return false;
+      if (mapaPermisos[moduloId] && typeof mapaPermisos[moduloId] === 'object') {
+        return Boolean(mapaPermisos[moduloId][accion]);
+      }
+      const aliases = ALIAS_MODULOS[moduloId] || [];
+      for (const alias of aliases) {
+        if (mapaPermisos[alias] && typeof mapaPermisos[alias] === 'object') {
+          return Boolean(mapaPermisos[alias][accion]);
+        }
+      }
+      return false;
+    }
+
+    function compilarMatrizPermisosLimpia(fuentePermisos, nivelJerarquico) {
+      const nivelNum = parseInt(nivelJerarquico, 10) || 2;
+      const esMaster = nivelNum >= 5;
+      const modulosProtegidos = new Set(['m7_logs', 'm8_creador_modulos', 'm8_creador']);
+      const matrizLimpia = {};
+
+      catalogoModulosVivos.forEach(m => {
+        const esProtegido = modulosProtegidos.has(m.id);
+
+        const ver = esMaster ? true : resolverPermisoEnMapa(fuentePermisos, m.id, 'ver');
+        const crear = esMaster ? true : (esProtegido ? false : resolverPermisoEnMapa(fuentePermisos, m.id, 'crear'));
+        const editar = esMaster ? true : (esProtegido ? false : resolverPermisoEnMapa(fuentePermisos, m.id, 'editar'));
+        const eliminar = esMaster ? true : (esProtegido ? false : resolverPermisoEnMapa(fuentePermisos, m.id, 'eliminar'));
+
+        const reglaModulo = {
+          ver: Boolean(ver),
+          crear: Boolean(crear),
+          editar: Boolean(editar),
+          eliminar: Boolean(eliminar)
+        };
+
+        matrizLimpia[m.id] = { ...reglaModulo };
+
+        const aliases = ALIAS_MODULOS[m.id] || [];
+        aliases.forEach(alias => {
+          matrizLimpia[alias] = { ...reglaModulo };
+        });
+      });
+
+      return matrizLimpia;
+    }
+
     const RBAC = {
       puede(moduloId, accion) {
         if (!usuarioSesion.uid) return false;
@@ -950,15 +1009,11 @@
 
         const rolVivo = globalRoles[usuarioSesion.rolId];
         if (rolVivo && rolVivo.permisos) {
-          if (rolVivo.permisos[moduloId]) return !!rolVivo.permisos[moduloId][accion];
-          if (moduloId === 'm8_creador_modulos' && rolVivo.permisos['m8_creador']) return !!rolVivo.permisos['m8_creador'][accion];
+          return resolverPermisoEnMapa(rolVivo.permisos, moduloId, accion);
         }
 
-        if (usuarioSesion.rawUser?.permisosModulos?.[moduloId]) {
-          return !!usuarioSesion.rawUser.permisosModulos[moduloId][accion];
-        }
-        if (moduloId === 'm8_creador_modulos' && usuarioSesion.rawUser?.permisosModulos?.['m8_creador']) {
-          return !!usuarioSesion.rawUser.permisosModulos['m8_creador'][accion];
+        if (usuarioSesion.rawUser?.permisosModulos) {
+          return resolverPermisoEnMapa(usuarioSesion.rawUser.permisosModulos, moduloId, accion);
         }
 
         return false;
@@ -1122,23 +1177,21 @@
         }
 
         const modulosAutorizados = [];
-        const perms = u.permisosModulos || rol.permisos || {};
+        const perms = rol.permisos || u.permisosModulos || {};
         catalogoModulosVivos.forEach(m => {
-          if (perms[m.id]?.ver || (m.id === 'm8_creador_modulos' && perms['m8_creador']?.ver) || nivel >= 5) {
+          if (nivel >= 5 || resolverPermisoEnMapa(perms, m.id, 'ver')) {
             modulosAutorizados.push(m.label.split(':')[0]);
           }
         });
         const modulosTexto = modulosAutorizados.length > 0 ? modulosAutorizados.join(", ") : "Ninguno";
 
-        // Esquema de comisión
         const comType = u.comisionTipo || 'fijo';
         const comVal = Number(u.comisionValor) || 0;
         const comisionTexto = comVal > 0 
           ? (comType === 'porcentaje' ? `${comVal}% sobre vacante` : `$${comVal.toFixed(2)} MXN fijo`)
           : "Sin comisión ($0)";
 
-        // Llave bóveda M1
-        const bovedaTxt = (nivel >= 5 || u.accesoBovedaM1 === true || perms['m1_boveda_tarifas']?.ver)
+        const bovedaTxt = (nivel >= 5 || u.accesoBovedaM1 === true || resolverPermisoEnMapa(perms, 'm1_boveda_tarifas', 'ver'))
           ? `AUTORIZADO (${(u.alcanceBovedaM1 || 'total').toUpperCase()})`
           : "BLOQUEADO";
 
@@ -1271,7 +1324,9 @@
 
               const modalRol = document.getElementById('modalRolDinamico');
               if (modalRol && !modalRol.classList.contains('hidden')) {
-                renderizarMatrizCrudModal();
+                const rolEditandoId = document.getElementById('rolIdHidden').value;
+                renderizarMatrizCrudModal(rolEditandoId ? globalRoles[rolEditandoId]?.permisos : null);
+                alCambiarNivelEnModalRol();
               }
             } catch (err) {
               console.warn("Advertencia al sincronizar módulos dinámicos en M5:", err);
@@ -1300,6 +1355,7 @@
             aplicarGobernanzaInterfazM5();
             poblarSelectorRoles();
             renderizarTablaRolesDinamicos();
+            aplicarFiltrosDirectorioStaff();
           });
 
           onValue(ref(db, 'empresas'), (snap) => {
@@ -1332,8 +1388,10 @@
     function aplicarGobernanzaInterfazM5() {
       if (!RBAC.puede('m5_staff', 'crear') || usuarioSesion.nivel < 5) {
         document.getElementById('btnCrearNuevoRol')?.classList.add('hidden');
+        document.getElementById('btnSincronizarTodoRBAC')?.classList.add('hidden');
       } else {
         document.getElementById('btnCrearNuevoRol')?.classList.remove('hidden');
+        document.getElementById('btnSincronizarTodoRBAC')?.classList.remove('hidden');
       }
 
       const seccionForm = document.getElementById('seccionFormularioStaff');
@@ -1343,7 +1401,6 @@
         seccionForm?.classList.remove('hidden');
       }
 
-      // Mostrar el bloque de Llave VIP Bóveda Comercial M1 solo a Nivel 5 (Master Admin / Director)
       const boxBoveda = document.getElementById('boxLlaveBovedaM1');
       if (usuarioSesion.nivel >= 5) {
         boxBoveda?.classList.remove('hidden');
@@ -1362,6 +1419,7 @@
 
     function poblarSelectorRoles() {
       const select = document.getElementById('selectRolDinamico');
+      const valorActual = select.value;
       select.innerHTML = '<option value="">-- Selecciona un Rol Dinámico --</option>';
 
       Object.entries(globalRoles).forEach(([k, r]) => {
@@ -1372,6 +1430,10 @@
         opt.textContent = `${r.nombre} (Nivel ${r.nivelJerarquico} • ${r.scope.toUpperCase()})`;
         select.appendChild(opt);
       });
+
+      if (valorActual && globalRoles[valorActual]) {
+        select.value = valorActual;
+      }
     }
 
     function getDivisionBadgeM5(divRaw) {
@@ -1384,6 +1446,9 @@
 
     function poblarCheckboxesEmpresas() {
       const cont = document.getElementById('contenedorEmpresasCheckboxes');
+      const marcadasPrevias = new Set();
+      document.querySelectorAll('.chk-empresa:checked').forEach(cb => marcadasPrevias.add(cb.value));
+
       cont.innerHTML = '';
 
       const keys = Object.keys(globalEmpresas);
@@ -1396,13 +1461,14 @@
         const emp = globalEmpresas[k];
         const nom = typeof emp === 'object' ? (emp.nombreComercial || emp.nombre || k) : emp;
         const divEmp = typeof emp === 'object' ? (emp.division || 'centro') : 'centro';
+        const isChecked = marcadasPrevias.has(k) ? 'checked' : '';
 
         const divWrapper = document.createElement('label');
         divWrapper.setAttribute('data-division-empresa', divEmp.toLowerCase());
         divWrapper.className = "flex items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-900/60 hover:bg-slate-800/80 cursor-pointer border border-cyber-border/40 text-xs text-slate-200 transition-opacity";
         divWrapper.innerHTML = `
           <div class="flex items-center gap-2 truncate">
-            <input type="checkbox" value="${k}" onchange="alCambiarEmpresaCheckbox(this, '${k}')" class="chk-empresa rounded bg-cyber-bg border-cyber-border text-cyber-accent focus:ring-0">
+            <input type="checkbox" value="${k}" ${isChecked} onchange="alCambiarEmpresaCheckbox(this, '${k}')" class="chk-empresa rounded bg-cyber-bg border-cyber-border text-cyber-accent focus:ring-0">
             <span class="truncate font-medium">${nom}</span>
           </div>
           <span class="text-[9px] font-mono text-slate-400 uppercase border border-slate-700 px-1.5 py-0.5 rounded shrink-0">${divEmp}</span>
@@ -1431,6 +1497,11 @@
       const contSup = document.getElementById('contenedorSupervisoresCheckboxes');
       const contCoord = document.getElementById('contenedorCoordinadoresCheckboxes');
 
+      const supsPrevios = new Set();
+      document.querySelectorAll('.chk-supervisor:checked').forEach(cb => supsPrevios.add(cb.value));
+      const coordsPrevios = new Set();
+      document.querySelectorAll('.chk-coordinador:checked').forEach(cb => coordsPrevios.add(cb.value));
+
       contSup.innerHTML = '';
       contCoord.innerHTML = '';
 
@@ -1445,14 +1516,14 @@
         if (u.nivel === 4) {
           cSup++;
           label.innerHTML = `
-            <input type="checkbox" value="${uid}" class="chk-supervisor rounded bg-cyber-bg border-cyber-border text-cyber-purple focus:ring-0" onchange="actualizarConteoMandos()">
+            <input type="checkbox" value="${uid}" ${supsPrevios.has(uid) ? 'checked' : ''} class="chk-supervisor rounded bg-cyber-bg border-cyber-border text-cyber-purple focus:ring-0" onchange="actualizarConteoMandos()">
             <span class="text-slate-200 font-medium">${u.nombre}</span>
           `;
           contSup.appendChild(label);
         } else if (u.nivel === 3) {
           cCoord++;
           label.innerHTML = `
-            <input type="checkbox" value="${uid}" class="chk-coordinador rounded bg-cyber-bg border-cyber-border text-cyber-cyan focus:ring-0" onchange="alCambiarCoordinadorMatricial(this, '${uid}')">
+            <input type="checkbox" value="${uid}" ${coordsPrevios.has(uid) ? 'checked' : ''} class="chk-coordinador rounded bg-cyber-bg border-cyber-border text-cyber-cyan focus:ring-0" onchange="alCambiarCoordinadorMatricial(this, '${uid}')">
             <span class="text-slate-200 font-medium">${u.nombre}</span>
           `;
           contCoord.appendChild(label);
@@ -1597,12 +1668,11 @@
         lblSwitch.className = "ml-3 text-xs font-mono font-bold text-slate-400";
       }
 
-      // Si el rol ya tiene permiso de bóveda M1 en su plantilla, pre-marcar visualmente
       if (usuarioSesion.nivel >= 5) {
-        const tieneBovedaPorRol = nivel >= 5 || !!(rol.permisos && rol.permisos['m1_boveda_tarifas'] && rol.permisos['m1_boveda_tarifas'].ver);
+        const tieneBovedaPorRol = nivel >= 5 || resolverPermisoEnMapa(rol.permisos, 'm1_boveda_tarifas', 'ver');
         document.getElementById('chkAccesoBovedaM1').checked = tieneBovedaPorRol;
         if (tieneBovedaPorRol) {
-          const puedeEditarPorRol = nivel >= 5 || !!(rol.permisos && rol.permisos['m1_boveda_tarifas'] && rol.permisos['m1_boveda_tarifas'].editar);
+          const puedeEditarPorRol = nivel >= 5 || resolverPermisoEnMapa(rol.permisos, 'm1_boveda_tarifas', 'editar');
           document.getElementById('selectAlcanceBovedaM1').value = puedeEditarPorRol ? 'total' : 'lectura';
         }
         toggleAlcanceBovedaM1();
@@ -1755,11 +1825,9 @@
           ? true 
           : document.getElementById('chkOperaComoReclutador').checked;
 
-        // Tabulador de comisiones del reclutador
         const comisionTipo = operaComoReclutadorFinal ? document.getElementById('selectTipoComision').value : 'fijo';
         const comisionValor = operaComoReclutadorFinal ? (parseFloat(document.getElementById('inputValorComision').value) || 0) : 0;
 
-        // Llave VIP Bóveda Comercial M1
         let accesoBovedaM1Final = false;
         let alcanceBovedaM1Final = 'lectura';
 
@@ -1771,40 +1839,8 @@
           alcanceBovedaM1Final = globalStaff[uidFinal].alcanceBovedaM1 || 'lectura';
         }
 
-        const permisosModulosInyectados = {};
-        
-        if (rol.permisos && typeof rol.permisos === 'object') {
-          Object.entries(rol.permisos).forEach(([mId, p]) => {
-            let canCrear = p.crear || false;
-            let canEditar = p.editar || false;
-            let canEliminar = p.eliminar || false;
-
-            if (nivelJerarquico < 5 && (mId === 'm7_logs' || mId === 'm8_creador_modulos' || mId === 'm8_creador')) {
-              canCrear = false;
-              canEditar = false;
-              canEliminar = false;
-            }
-
-            permisosModulosInyectados[mId] = {
-              ver: p.ver || false,
-              crear: canCrear,
-              editar: canEditar,
-              eliminar: canEliminar
-            };
-          });
-        }
-
-        catalogoModulosVivos.forEach(m => {
-          if (!permisosModulosInyectados[m.id]) {
-            const pRol = (rol.permisos && rol.permisos[m.id]) ? rol.permisos[m.id] : { ver: false, crear: false, editar: false, eliminar: false };
-            permisosModulosInyectados[m.id] = {
-              ver: pRol.ver || false,
-              crear: (nivelJerarquico >= 5 ? (pRol.crear || false) : false),
-              editar: (nivelJerarquico >= 5 ? (pRol.editar || false) : false),
-              eliminar: (nivelJerarquico >= 5 ? (pRol.eliminar || false) : false)
-            };
-          }
-        });
+        // Compilación limpia y exacta desde la plantilla del rol asignado
+        const permisosModulosInyectados = compilarMatrizPermisosLimpia(rol.permisos || {}, nivelJerarquico);
 
         // Sincronizar permiso granular m1_boveda_tarifas con la Llave VIP
         if (accesoBovedaM1Final) {
@@ -1836,7 +1872,6 @@
           scope: rol.scope,
           operaComoReclutador: operaComoReclutadorFinal,
 
-          // Datos financieros de comisión y llave Bóveda M1
           comisionTipo: comisionTipo,
           comisionValor: comisionValor,
           accesoBovedaM1: accesoBovedaM1Final,
@@ -1867,18 +1902,20 @@
               }
 
               if (payload.nivel === 3) {
-                Object.entries(globalStaff).forEach(async ([recUid, rec]) => {
+                const updatesRecs = {};
+                Object.entries(globalStaff).forEach(([recUid, rec]) => {
                   if (rec.nivel <= 2 && Array.isArray(rec.empresas) && rec.empresas.includes(empKey)) {
-                    const coordsPrev = Array.isArray(rec.coordinadoresIds) ? rec.coordinadoresIds : [];
+                    const coordsPrev = Array.isArray(rec.coordinadoresIds) ? [...rec.coordinadoresIds] : [];
                     if (!coordsPrev.includes(uidFinal)) {
                       coordsPrev.push(uidFinal);
-                      await update(ref(db, `usuarios_reclutadores/${recUid}`), { 
-                        coordinadoresIds: coordsPrev,
-                        coordinadorPadreId: coordsPrev[0]
-                      });
+                      updatesRecs[`usuarios_reclutadores/${recUid}/coordinadoresIds`] = coordsPrev;
+                      updatesRecs[`usuarios_reclutadores/${recUid}/coordinadorPadreId`] = coordsPrev[0];
                     }
                   }
                 });
+                if (Object.keys(updatesRecs).length > 0) {
+                  await update(ref(db), updatesRecs);
+                }
               }
             }
           }
@@ -2047,7 +2084,6 @@
             : `<span class="bg-slate-800 text-slate-400 border border-slate-700 text-[10px] font-mono px-2 py-0.5 rounded"><i class="fas fa-eye me-1"></i>Solo Mando</span>`;
         }
 
-        // Badge de comisión y Llave Bóveda M1
         const comVal = Number(u.comisionValor) || 0;
         const comTipo = u.comisionTipo || 'fijo';
         let badgeComisionHTML = '';
@@ -2059,8 +2095,9 @@
           badgeComisionHTML = `<span class="text-slate-500 text-[11px] font-mono">No aplica (Mando)</span>`;
         }
 
-        const tieneBoveda = nivel >= 5 || u.accesoBovedaM1 === true || !!(u.permisosModulos && u.permisosModulos['m1_boveda_tarifas']?.ver);
-        const alcanceBov = (nivel >= 5 || u.alcanceBovedaM1 === 'total' || u.permisosModulos?.['m1_boveda_tarifas']?.editar) ? 'Total' : 'Lectura';
+        const permsEfectivos = rol.permisos || u.permisosModulos || {};
+        const tieneBoveda = nivel >= 5 || u.accesoBovedaM1 === true || resolverPermisoEnMapa(permsEfectivos, 'm1_boveda_tarifas', 'ver');
+        const alcanceBov = (nivel >= 5 || u.alcanceBovedaM1 === 'total' || resolverPermisoEnMapa(permsEfectivos, 'm1_boveda_tarifas', 'editar')) ? 'Total' : 'Lectura';
         const badgeBovedaHTML = tieneBoveda
           ? `<span class="bg-amber-500/15 text-amber-300 border border-amber-400/40 text-[10px] font-mono px-2 py-0.5 rounded font-bold inline-flex items-center gap-1 mt-1"><i class="fas fa-vault"></i> Bóveda M1 (${alcanceBov})</span>`
           : '';
@@ -2379,6 +2416,8 @@
       document.querySelectorAll('.chk-agil').forEach(c => todosOpciones.push(c.value));
 
       try {
+        const updatesBatch = {};
+
         if (tipoMando === 'SUPERVISOR') {
           for (let coordUid of todosOpciones) {
             const coord = globalStaff[coordUid];
@@ -2391,10 +2430,8 @@
               sups = sups.filter(id => id !== mandoUid);
             }
 
-            await update(ref(db, `usuarios_reclutadores/${coordUid}`), {
-              supervisoresIds: sups,
-              supervisorPadreId: sups[0] || null
-            });
+            updatesBatch[`usuarios_reclutadores/${coordUid}/supervisoresIds`] = sups;
+            updatesBatch[`usuarios_reclutadores/${coordUid}/supervisorPadreId`] = sups[0] || null;
           }
         } else {
           for (let recUid of todosOpciones) {
@@ -2408,11 +2445,13 @@
               coords = coords.filter(id => id !== mandoUid);
             }
 
-            await update(ref(db, `usuarios_reclutadores/${recUid}`), {
-              coordinadoresIds: coords,
-              coordinadorPadreId: coords[0] || null
-            });
+            updatesBatch[`usuarios_reclutadores/${recUid}/coordinadoresIds`] = coords;
+            updatesBatch[`usuarios_reclutadores/${recUid}/coordinadorPadreId`] = coords[0] || null;
           }
+        }
+
+        if (Object.keys(updatesBatch).length > 0) {
+          await update(ref(db), updatesBatch);
         }
 
         await push(ref(db, 'modulo_7_logs'), {
@@ -2437,9 +2476,13 @@
       tbody.innerHTML = '';
 
       Object.entries(globalRoles).forEach(([id, r]) => {
+        const nivelRol = parseInt(r.nivelJerarquico, 10) || 2;
         let modulosActivos = 'Sin módulos';
-        if (r.permisos && typeof r.permisos === 'object') {
-          const permitidos = Object.keys(r.permisos).filter(m => r.permisos[m] && r.permisos[m].ver);
+
+        if (nivelRol >= 5) {
+          modulosActivos = `${catalogoModulosVivos.length} módulos habilitados (Acceso Total)`;
+        } else if (r.permisos && typeof r.permisos === 'object') {
+          const permitidos = catalogoModulosVivos.filter(m => resolverPermisoEnMapa(r.permisos, m.id, 'ver'));
           modulosActivos = permitidos.length > 0 
             ? `${permitidos.length} módulos habilitados` 
             : 'Sin módulos';
@@ -2448,12 +2491,12 @@
         tbody.innerHTML += `
           <tr class="hover:bg-slate-900/40 border-b border-cyber-border/30">
             <td class="p-4 font-bold text-white text-sm">${r.nombre}</td>
-            <td class="p-4 text-center"><span class="px-2.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-xs">N${r.nivelJerarquico}</span></td>
+            <td class="p-4 text-center"><span class="px-2.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-xs">N${nivelRol}</span></td>
             <td class="p-4 text-center text-cyber-cyan uppercase font-bold text-xs">${r.scope}</td>
             <td class="p-4 text-slate-300 text-xs">${modulosActivos}</td>
-            <td class="p-4 text-right">
+            <td class="p-4 text-right space-x-1">
               ${usuarioSesion.nivel >= 5 ? `
-              <button onclick="editarRolPlantilla('${id}')" class="p-2 rounded-lg bg-cyber-purple/20 hover:bg-cyber-purple text-purple-300 hover:text-white border border-purple-500/30">
+              <button onclick="editarRolPlantilla('${id}')" class="p-2 rounded-lg bg-cyber-purple/20 hover:bg-cyber-purple text-purple-300 hover:text-white border border-purple-500/30 transition" title="Editar Matriz del Rol">
                 <i class="fas fa-pen text-xs"></i>
               </button>` : '<span class="text-slate-600 text-xs">—</span>'}
             </td>
@@ -2462,46 +2505,58 @@
       });
     }
 
-    function renderizarMatrizCrudModal() {
+    function renderizarMatrizCrudModal(permisosExistentes = null) {
       const tbody = document.getElementById('matrizCrudTbody');
       tbody.innerHTML = '';
 
       document.getElementById('lblTotalModulosMatriz').textContent = `${catalogoModulosVivos.length} módulos registrados`;
 
       catalogoModulosVivos.forEach(m => {
+        const chkVer = permisosExistentes && resolverPermisoEnMapa(permisosExistentes, m.id, 'ver') ? 'checked' : '';
+        const chkCrear = permisosExistentes && resolverPermisoEnMapa(permisosExistentes, m.id, 'crear') ? 'checked' : '';
+        const chkEditar = permisosExistentes && resolverPermisoEnMapa(permisosExistentes, m.id, 'editar') ? 'checked' : '';
+        const chkBorrar = permisosExistentes && resolverPermisoEnMapa(permisosExistentes, m.id, 'eliminar') ? 'checked' : '';
+
         tbody.innerHTML += `
           <tr class="hover:bg-slate-900/40 border-b border-cyber-border/30">
             <td class="p-2.5 text-left pl-3 text-slate-200 font-bold">
               <span class="text-white">${m.label}</span>
               <span class="text-[9px] text-slate-500 font-mono block">ID: ${m.id}</span>
             </td>
-            <td class="p-2.5"><input type="checkbox" id="m_ver_${m.id}" class="crud-check rounded bg-cyber-bg border-cyber-border text-cyber-purple focus:ring-0"></td>
-            <td class="p-2.5"><input type="checkbox" id="m_crear_${m.id}" class="crud-check rounded bg-cyber-bg border-cyber-border text-cyber-purple focus:ring-0"></td>
-            <td class="p-2.5"><input type="checkbox" id="m_editar_${m.id}" class="crud-check rounded bg-cyber-bg border-cyber-border text-cyber-purple focus:ring-0"></td>
-            <td class="p-2.5"><input type="checkbox" id="m_borrar_${m.id}" class="crud-check rounded bg-cyber-bg border-cyber-border text-cyber-purple focus:ring-0"></td>
+            <td class="p-2.5"><input type="checkbox" id="m_ver_${m.id}" ${chkVer} class="crud-check rounded bg-cyber-bg border-cyber-border text-cyber-purple focus:ring-0"></td>
+            <td class="p-2.5"><input type="checkbox" id="m_crear_${m.id}" ${chkCrear} class="crud-check rounded bg-cyber-bg border-cyber-border text-cyber-purple focus:ring-0"></td>
+            <td class="p-2.5"><input type="checkbox" id="m_editar_${m.id}" ${chkEditar} class="crud-check rounded bg-cyber-bg border-cyber-border text-cyber-purple focus:ring-0"></td>
+            <td class="p-2.5"><input type="checkbox" id="m_borrar_${m.id}" ${chkBorrar} class="crud-check rounded bg-cyber-bg border-cyber-border text-cyber-purple focus:ring-0"></td>
           </tr>
         `;
       });
     }
 
     window.alCambiarNivelEnModalRol = () => {
-      const nivel = parseInt(document.getElementById('rolInputNivel').value);
+      const nivel = parseInt(document.getElementById('rolInputNivel').value, 10) || 2;
       const modulosCriticos = ['m7_logs', 'm8_creador_modulos', 'm8_creador'];
+
+      if (nivel >= 5) {
+        catalogoModulosVivos.forEach(m => {
+          ['ver', 'crear', 'editar', 'borrar'].forEach(acc => {
+            const el = document.getElementById(`m_${acc}_${m.id}`);
+            if (el) {
+              el.checked = true;
+              el.disabled = false;
+            }
+          });
+        });
+        return;
+      }
 
       modulosCriticos.forEach(mKey => {
         const chkBorrar = document.getElementById(`m_borrar_${mKey}`);
         const chkEditar = document.getElementById(`m_editar_${mKey}`);
         const chkCrear = document.getElementById(`m_crear_${mKey}`);
 
-        if (nivel < 5) {
-          if (chkBorrar) { chkBorrar.checked = false; chkBorrar.disabled = true; }
-          if (chkEditar) { chkEditar.checked = false; chkEditar.disabled = true; }
-          if (chkCrear) { chkCrear.checked = false; chkCrear.disabled = true; }
-        } else {
-          if (chkBorrar) chkBorrar.disabled = false;
-          if (chkEditar) chkEditar.disabled = false;
-          if (chkCrear) chkCrear.disabled = false;
-        }
+        if (chkBorrar) { chkBorrar.checked = false; chkBorrar.disabled = true; }
+        if (chkEditar) { chkEditar.checked = false; chkEditar.disabled = true; }
+        if (chkCrear) { chkCrear.checked = false; chkCrear.disabled = true; }
       });
     };
 
@@ -2512,7 +2567,7 @@
       document.getElementById('formModalRol').reset();
       document.getElementById('rolIdHidden').value = '';
       document.getElementById('modalRolTitulo').innerHTML = `Crear Nuevo Rol Dinámico`;
-      renderizarMatrizCrudModal();
+      renderizarMatrizCrudModal(null);
       alCambiarNivelEnModalRol();
       document.getElementById('modalRolDinamico').classList.remove('hidden');
     };
@@ -2529,25 +2584,9 @@
       document.getElementById('rolInputNivel').value = r.nivelJerarquico || 2;
       document.getElementById('rolInputScope').value = r.scope || 'regional';
 
-      renderizarMatrizCrudModal();
-
-      if (r.permisos && typeof r.permisos === 'object') {
-        Object.entries(r.permisos).forEach(([mId, p]) => {
-          if (document.getElementById(`m_ver_${mId}`)) document.getElementById(`m_ver_${mId}`).checked = !!p.ver;
-          if (document.getElementById(`m_crear_${mId}`)) document.getElementById(`m_crear_${mId}`).checked = !!p.crear;
-          if (document.getElementById(`m_editar_${mId}`)) document.getElementById(`m_editar_${mId}`).checked = !!p.editar;
-          if (document.getElementById(`m_borrar_${mId}`)) document.getElementById(`m_borrar_${mId}`).checked = !!p.eliminar;
-
-          if (mId === 'm8_creador' && document.getElementById(`m_ver_m8_creador_modulos`)) {
-            document.getElementById(`m_ver_m8_creador_modulos`).checked = !!p.ver;
-            document.getElementById(`m_crear_m8_creador_modulos`).checked = !!p.crear;
-            document.getElementById(`m_editar_m8_creador_modulos`).checked = !!p.editar;
-            document.getElementById(`m_borrar_m8_creador_modulos`).checked = !!p.eliminar;
-          }
-        });
-      }
-
+      renderizarMatrizCrudModal(r.permisos || {});
       alCambiarNivelEnModalRol();
+
       document.getElementById('modalRolTitulo').innerHTML = `Editar: ${r.nombre}`;
       document.getElementById('modalRolDinamico').classList.remove('hidden');
     };
@@ -2555,6 +2594,50 @@
     window.cerrarModalRol = () => {
       document.getElementById('modalRolDinamico').classList.add('hidden');
     };
+
+    function construirUpdatesPropagacionRol(rolId, nombre, nivel, scope, permisosCompilados) {
+      const updatesUsuarios = {};
+      let usuariosSincronizados = 0;
+
+      const tieneBovedaEnRol = nivel >= 5 || resolverPermisoEnMapa(permisosCompilados, 'm1_boveda_tarifas', 'ver');
+      const alcanceBovedaEnRol = (nivel >= 5 || resolverPermisoEnMapa(permisosCompilados, 'm1_boveda_tarifas', 'editar')) ? 'total' : 'lectura';
+
+      Object.entries(globalStaff).forEach(([uid, u]) => {
+        if (!u || u.rolId !== rolId) return;
+
+        const permisosFinalesUsuario = JSON.parse(JSON.stringify(permisosCompilados));
+
+        // Conservar Llave VIP individual de Bóveda Comercial si el usuario la tenía activa de forma personalizada
+        if (u.accesoBovedaM1 === true && !tieneBovedaEnRol) {
+          const esTotalVip = u.alcanceBovedaM1 === 'total';
+          permisosFinalesUsuario['m1_boveda_tarifas'] = {
+            ver: true,
+            crear: esTotalVip,
+            editar: esTotalVip,
+            eliminar: esTotalVip
+          };
+        } else if (tieneBovedaEnRol) {
+          updatesUsuarios[`usuarios_reclutadores/${uid}/accesoBovedaM1`] = true;
+          updatesUsuarios[`usuarios_reclutadores/${uid}/alcanceBovedaM1`] = alcanceBovedaEnRol;
+        } else {
+          updatesUsuarios[`usuarios_reclutadores/${uid}/accesoBovedaM1`] = false;
+          updatesUsuarios[`usuarios_reclutadores/${uid}/alcanceBovedaM1`] = 'lectura';
+        }
+
+        if (scope === 'global') {
+          updatesUsuarios[`usuarios_reclutadores/${uid}/empresas`] = ["TODAS"];
+        }
+
+        updatesUsuarios[`usuarios_reclutadores/${uid}/permisosModulos`] = permisosFinalesUsuario;
+        updatesUsuarios[`usuarios_reclutadores/${uid}/scope`] = scope;
+        updatesUsuarios[`usuarios_reclutadores/${uid}/nivel`] = nivel;
+        updatesUsuarios[`usuarios_reclutadores/${uid}/nombreRol`] = nombre;
+        updatesUsuarios[`usuarios_reclutadores/${uid}/updatedAt`] = serverTimestamp();
+        usuariosSincronizados++;
+      });
+
+      return { updatesUsuarios, usuariosSincronizados };
+    }
 
     window.guardarPlantillaRol = async (e) => {
       e.preventDefault();
@@ -2564,29 +2647,21 @@
 
       const rolId = document.getElementById('rolIdHidden').value;
       const nombre = document.getElementById('rolInputNombre').value.trim();
-      const nivel = parseInt(document.getElementById('rolInputNivel').value);
+      const nivel = parseInt(document.getElementById('rolInputNivel').value, 10) || 2;
       const scope = document.getElementById('rolInputScope').value;
 
-      const permisos = (rolId && globalRoles[rolId]?.permisos) ? { ...globalRoles[rolId].permisos } : {};
-
+      // Lectura limpia y determinista exclusivamente desde el estado de los checkboxes de la matriz
+      const lecturaCheckboxes = {};
       catalogoModulosVivos.forEach(m => {
-        let ver = document.getElementById(`m_ver_${m.id}`)?.checked || false;
-        let crear = document.getElementById(`m_crear_${m.id}`)?.checked || false;
-        let editar = document.getElementById(`m_editar_${m.id}`)?.checked || false;
-        let borrar = document.getElementById(`m_borrar_${m.id}`)?.checked || false;
-
-        if (nivel < 5 && (m.id === 'm7_logs' || m.id === 'm8_creador_modulos' || m.id === 'm8_creador')) {
-          crear = false;
-          editar = false;
-          borrar = false;
-        }
-
-        permisos[m.id] = { ver, crear, editar, eliminar: borrar };
-
-        if (m.id === 'm8_creador_modulos') {
-          permisos['m8_creador'] = { ver, crear, editar, eliminar: borrar };
-        }
+        lecturaCheckboxes[m.id] = {
+          ver: Boolean(document.getElementById(`m_ver_${m.id}`)?.checked),
+          crear: Boolean(document.getElementById(`m_crear_${m.id}`)?.checked),
+          editar: Boolean(document.getElementById(`m_editar_${m.id}`)?.checked),
+          eliminar: Boolean(document.getElementById(`m_borrar_${m.id}`)?.checked)
+        };
       });
+
+      const permisos = compilarMatrizPermisosLimpia(lecturaCheckboxes, nivel);
 
       const payloadRol = {
         nombre,
@@ -2600,7 +2675,7 @@
         let finalRolId = rolId;
 
         if (rolId) {
-          await update(ref(db, `roles_dinamicos/${rolId}`), payloadRol);
+          await set(ref(db, `roles_dinamicos/${rolId}`), payloadRol);
         } else {
           const newRef = push(ref(db, 'roles_dinamicos'));
           await set(newRef, payloadRol);
@@ -2609,36 +2684,11 @@
 
         let usuariosSincronizados = 0;
         if (finalRolId) {
-          const updatesUsuarios = {};
-          const tieneBovedaEnRol = nivel >= 5 || !!(permisos['m1_boveda_tarifas'] && permisos['m1_boveda_tarifas'].ver);
-          const alcanceBovedaEnRol = (nivel >= 5 || !!(permisos['m1_boveda_tarifas'] && permisos['m1_boveda_tarifas'].editar)) ? 'total' : 'lectura';
-          
-          Object.entries(globalStaff).forEach(([uid, u]) => {
-            if (u.rolId === finalRolId) {
-              const permisosFinalesUsuario = { ...permisos };
-              if (u.accesoBovedaM1 === true && !tieneBovedaEnRol) {
-                const esTotalVip = u.alcanceBovedaM1 === 'total';
-                permisosFinalesUsuario['m1_boveda_tarifas'] = {
-                  ver: true,
-                  crear: esTotalVip,
-                  editar: esTotalVip,
-                  eliminar: esTotalVip
-                };
-              } else if (tieneBovedaEnRol) {
-                updatesUsuarios[`usuarios_reclutadores/${uid}/accesoBovedaM1`] = true;
-                updatesUsuarios[`usuarios_reclutadores/${uid}/alcanceBovedaM1`] = alcanceBovedaEnRol;
-              }
+          const prop = construirUpdatesPropagacionRol(finalRolId, nombre, nivel, scope, permisos);
+          usuariosSincronizados = prop.usuariosSincronizados;
 
-              updatesUsuarios[`usuarios_reclutadores/${uid}/permisosModulos`] = permisosFinalesUsuario;
-              updatesUsuarios[`usuarios_reclutadores/${uid}/scope`] = scope;
-              updatesUsuarios[`usuarios_reclutadores/${uid}/nivel`] = nivel;
-              updatesUsuarios[`usuarios_reclutadores/${uid}/nombreRol`] = nombre;
-              usuariosSincronizados++;
-            }
-          });
-
-          if (Object.keys(updatesUsuarios).length > 0) {
-            await update(ref(db), updatesUsuarios);
+          if (Object.keys(prop.updatesUsuarios).length > 0) {
+            await update(ref(db), prop.updatesUsuarios);
           }
         }
 
@@ -2647,14 +2697,61 @@
           evento: "GUARDADO_Y_PROPAGACION_ROL",
           ejecutadoPor: usuarioSesion.nombre,
           uidEjecutor: usuarioSesion.uid,
-          detalle: `Se actualizó la matriz del rol "${nombre}" (N${nivel} • ${scope}) y se sincronizó en vivo hacia ${usuariosSincronizados} colaboradores vinculados.`,
+          detalle: `Se actualizó y limpió la matriz del rol "${nombre}" (N${nivel} • ${scope}) propagando permisos exactos a ${usuariosSincronizados} colaborador(es).`,
           timestamp: serverTimestamp()
         });
 
         cerrarModalRol();
-        alert(`✅ Matriz de Rol guardada exitosamente.\n\nSe sincronizaron en tiempo real los permisos de ${usuariosSincronizados} colaborador(es).`);
+        alert(`✅ Matriz de Rol guardada y limpia.\n\nSe sincronizaron en tiempo real los permisos exactos de ${usuariosSincronizados} colaborador(es).`);
       } catch (err) {
         alert("Error al guardar y propagar rol: " + err.message);
+      }
+    };
+
+    window.sincronizarTodosLosRolesConStaff = async () => {
+      if (usuarioSesion.nivel < 5) {
+        return alert("Solo Master Administrador (Nivel 5) puede ejecutar una sincronización global.");
+      }
+
+      if (!confirm("¿Deseas recompilar y sincronizar en tiempo real la matriz de permisos de TODOS los roles hacia todos los usuarios vinculados en Firebase?")) {
+        return;
+      }
+
+      try {
+        const updatesGlobales = {};
+        let totalUsuarios = 0;
+
+        Object.entries(globalRoles).forEach(([rolId, r]) => {
+          if (!r || typeof r !== 'object') return;
+          const nivel = parseInt(r.nivelJerarquico, 10) || 2;
+          const nombre = r.nombre || 'Colaborador';
+          const scope = r.scope || 'regional';
+          const permisosLimpios = compilarMatrizPermisosLimpia(r.permisos || {}, nivel);
+
+          updatesGlobales[`roles_dinamicos/${rolId}/permisos`] = permisosLimpios;
+          updatesGlobales[`roles_dinamicos/${rolId}/updatedAt`] = serverTimestamp();
+
+          const prop = construirUpdatesPropagacionRol(rolId, nombre, nivel, scope, permisosLimpios);
+          Object.assign(updatesGlobales, prop.updatesUsuarios);
+          totalUsuarios += prop.usuariosSincronizados;
+        });
+
+        if (Object.keys(updatesGlobales).length > 0) {
+          await update(ref(db), updatesGlobales);
+        }
+
+        await push(ref(db, 'modulo_7_logs'), {
+          modulo: "M5_STAFF",
+          evento: "SINCRONIZACION_GLOBAL_RBAC",
+          ejecutadoPor: usuarioSesion.nombre,
+          uidEjecutor: usuarioSesion.uid,
+          detalle: `Se recompiló y propagó toda la matriz de roles dinámicos hacia ${totalUsuarios} cuentas de staff.`,
+          timestamp: serverTimestamp()
+        });
+
+        alert(`✅ Sincronización Global RBAC completada.\n\nSe actualizaron ${totalUsuarios} colaborador(es) con las reglas exactas de sus roles.`);
+      } catch (err) {
+        alert("Error durante la sincronización global: " + err.message);
       }
     };
 
@@ -2717,17 +2814,15 @@
         actualizarTextoSwitchReclutador();
       }
 
-      // Cargar tabulador de comisión
       document.getElementById('selectTipoComision').value = u.comisionTipo || 'fijo';
       document.getElementById('inputValorComision').value = u.comisionValor || 0;
       actualizarInterfazComisionReclutador();
       actualizarVisibilidadBloqueComision();
 
-      // Cargar Llave VIP Bóveda M1
       if (usuarioSesion.nivel >= 5) {
-        const tieneBov = nivel >= 5 || u.accesoBovedaM1 === true || !!(u.permisosModulos && u.permisosModulos['m1_boveda_tarifas']?.ver);
+        const tieneBov = nivel >= 5 || u.accesoBovedaM1 === true || resolverPermisoEnMapa(u.permisosModulos, 'm1_boveda_tarifas', 'ver');
         document.getElementById('chkAccesoBovedaM1').checked = tieneBov;
-        document.getElementById('selectAlcanceBovedaM1').value = u.alcanceBovedaM1 || (u.permisosModulos?.['m1_boveda_tarifas']?.editar ? 'total' : 'lectura');
+        document.getElementById('selectAlcanceBovedaM1').value = u.alcanceBovedaM1 || (resolverPermisoEnMapa(u.permisosModulos, 'm1_boveda_tarifas', 'editar') ? 'total' : 'lectura');
         toggleAlcanceBovedaM1();
       }
 
