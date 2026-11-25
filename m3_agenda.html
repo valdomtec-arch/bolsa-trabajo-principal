@@ -90,7 +90,7 @@
         .badge-div-norte { background: rgba(56, 189, 248, 0.12); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); }
         .badge-div-centro { background: rgba(168, 85, 247, 0.12); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3); }
         .badge-div-sur { background: rgba(34, 197, 94, 0.12); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); }
-        .badge-div-none { background: rgba(148, 163, 184, 0.12); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.3); }
+        .badge-div-none { background: rgba(245, 158, 11, 0.14); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.35); }
 
         .sla-tag-green { background: rgba(16, 185, 129, 0.12); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
         .sla-tag-amber { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); }
@@ -215,6 +215,26 @@
             </button>
         </div>
 
+        <!-- ALERTA DE EXPEDIENTES SIN EMPRESA / VACANTE ASIGNADA -->
+        <div id="bannerAlertaSinEmpresa" class="hidden bg-gradient-to-r from-amber-950/80 via-amber-900/40 to-cyber-card border border-amber-500/50 p-3.5 rounded-2xl shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-amber-500/20 border border-amber-500/40 rounded-xl text-amber-400 text-base flex-shrink-0">
+                    <i class="fas fa-building-circle-exclamation"></i>
+                </div>
+                <div>
+                    <h4 class="text-xs sm:text-sm font-bold text-amber-300 uppercase tracking-wider font-mono flex items-center gap-1.5">
+                        Expedientes Pendientes de Empresa / Vacante
+                    </h4>
+                    <p class="text-xs sm:text-sm text-slate-300 mt-0.5" id="txtAlertaSinEmpresaDetalle">
+                        Existen registros provenientes de portal o captura rápida sin empresa asignada.
+                    </p>
+                </div>
+            </div>
+            <button type="button" onclick="filtrarSinEmpresaRapido()" class="w-full sm:w-auto bg-amber-600 hover:bg-amber-500 text-slate-950 font-mono font-black text-xs sm:text-sm px-3.5 py-2 rounded-xl transition flex items-center justify-center gap-1.5 shadow touch-target">
+                <i class="fas fa-filter"></i> Ver Sin Empresa
+            </button>
+        </div>
+
         <!-- EMBUDO FACTURABLE (KPIS) -->
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
             <div class="bg-cyber-card p-3 rounded-2xl border border-red-500/20 shadow">
@@ -291,6 +311,7 @@
                     </label>
                     <select id="filtroEmpresa" onchange="alCambiarEmpresa()" class="w-full bg-cyber-bg border border-cyber-border rounded-xl p-2 text-xs sm:text-sm text-white focus:outline-none focus:border-cyber-accent touch-target font-bold">
                         <option value="TODAS">-- Todas las Empresas --</option>
+                        <option value="SIN_EMPRESA">⚠️ Sin Empresa / Por Asignar</option>
                     </select>
                 </div>
                 <div>
@@ -690,6 +711,14 @@
             { id: "Proceso Terminado", nombre: "⭐ Terminado (Éxito)" }
         ];
 
+        const ESTADOS_EXIGEN_EMPRESA_VACANTE = [
+            "Entrevista",
+            "Inducción",
+            "Contratado",
+            "Trabajando",
+            "Proceso Terminado"
+        ];
+
         const GOBERNANZA_ESTATUS_DEFAULT = {
             "Postulado": { n1_n2: true, n3: true, n4_n5: true },
             "En Proceso": { n1_n2: true, n3: true, n4_n5: true },
@@ -782,15 +811,46 @@
         }
 
         // =========================================================================
+        // DETECTOR DE PLACEHOLDERS / VALORES GENÉRICOS DEL PORTAL PÚBLICO O ASISTIDO
+        // =========================================================================
+        function esTextoPlaceholder(valor) {
+            const key = sanitizarKey(valor);
+            if (!key) return true;
+            const invalidosExactos = new Set([
+                "sinempresa",
+                "sinvacante",
+                "empresadestino",
+                "vacantesolicitada",
+                "puestosolicitado",
+                "intentoportal",
+                "intentoportalpublico",
+                "intentoportalasistido",
+                "intentoportalpublicoasistido",
+                "portalpublico",
+                "portalasistido",
+                "carterageneral",
+                "pendiente",
+                "porasignar",
+                "seleccionar",
+                "null",
+                "undefined",
+                "na"
+            ]);
+            if (invalidosExactos.has(key)) return true;
+            if (key.includes("empresadestino") || key.includes("vacantesolicitada") || key.includes("intentoportal")) {
+                return true;
+            }
+            return false;
+        }
+
+        // =========================================================================
         // CONGELAMIENTO SILENCIOSO DE TARIFAS AL CONTRATAR (CERO VALORES INVENTADOS)
         // =========================================================================
         function generarSnapshotFinanciero(postulanteActual, empCanonico, vacNombre, recId) {
-            // Si ya tiene ajuste manual o liquidación previa, respetar los montos establecidos
             if (postulanteActual && (postulanteActual.ajusteFinancieroManual === true || postulanteActual.comisionLiquidada === true)) {
                 return {};
             }
 
-            // 1. Buscar tarifa de la vacante en Bóveda M1 (tarifas_vacantes)
             let nodoTarifasEmp = catalogoTarifasVacantesCache[empCanonico] || null;
             if (!nodoTarifasEmp) {
                 for (const [k, v] of Object.entries(catalogoTarifasVacantesCache)) {
@@ -817,7 +877,6 @@
                 ? parseInt(tarifaVacanteObj.garantiaDias)
                 : (parseInt(nodoTarifasEmp?.garantiaDefaultDias) || 15);
 
-            // 2. Calcular comisión base del reclutador según tabulador M5 (fijo o porcentaje) — Fallback 0
             const recData = catalogoUsuarios[recId] || {};
             let comisionBase = 0;
             let esquemaTxt = "Sin tabulador en M5";
@@ -862,6 +921,8 @@
             mapaEmpresasCanonico = {};
             Object.entries(catalogoEmpresas).forEach(([idOriginal, dataEmp]) => {
                 const idLimpio = sanitizarKey(idOriginal);
+                if (esTextoPlaceholder(idLimpio)) return;
+
                 const nomComercial = dataEmp.nombreComercial || dataEmp.nombre || idOriginal;
                 const nomLimpio = sanitizarKey(nomComercial);
                 const division = (dataEmp.division || 'centro').toLowerCase();
@@ -875,30 +936,71 @@
                 };
 
                 mapaEmpresasCanonico[idLimpio] = meta;
-                if (nomLimpio && !mapaEmpresasCanonico[nomLimpio]) {
+                if (nomLimpio && !esTextoPlaceholder(nomLimpio) && !mapaEmpresasCanonico[nomLimpio]) {
                     mapaEmpresasCanonico[nomLimpio] = meta;
                 }
             });
         }
 
         function resolverEmpresaCandidato(postulante) {
-            if (!postulante) return { idCanonico: "sinempresa", nombreComercial: "Sin Empresa", division: "centro" };
-
-            const candEmpId = sanitizarKey(postulante.empresaId || "");
-            const candEmpNom = sanitizarKey(postulante.empresa || "");
-
-            if (candEmpId && mapaEmpresasCanonico[candEmpId]) {
-                return mapaEmpresasCanonico[candEmpId];
-            }
-            if (candEmpNom && mapaEmpresasCanonico[candEmpNom]) {
-                return mapaEmpresasCanonico[candEmpNom];
+            if (!postulante) {
+                return {
+                    idCanonico: "sinempresa",
+                    nombreComercial: "Sin Empresa Asignada",
+                    division: "sin_div",
+                    sinEmpresaReal: true,
+                    origenPlaceholder: ""
+                };
             }
 
-            const nombreFallback = postulante.empresa || postulante.empresaId || "Sin Empresa";
+            const rawEmpId = postulante.empresaId || "";
+            const rawEmpNom = postulante.empresa || "";
+            const candEmpId = sanitizarKey(rawEmpId);
+            const candEmpNom = sanitizarKey(rawEmpNom);
+
+            if (!esTextoPlaceholder(candEmpId) && mapaEmpresasCanonico[candEmpId]) {
+                return { ...mapaEmpresasCanonico[candEmpId], sinEmpresaReal: false, origenPlaceholder: "" };
+            }
+            if (!esTextoPlaceholder(candEmpNom) && mapaEmpresasCanonico[candEmpNom]) {
+                return { ...mapaEmpresasCanonico[candEmpNom], sinEmpresaReal: false, origenPlaceholder: "" };
+            }
+
+            if (esTextoPlaceholder(rawEmpId) && esTextoPlaceholder(rawEmpNom)) {
+                const textoCrudo = (rawEmpNom || rawEmpId || "").toString().trim();
+                const esIntentoPortal = sanitizarKey(textoCrudo).includes("intentoportal") ||
+                                        sanitizarKey(postulante.origen || "").includes("portal") ||
+                                        sanitizarKey(postulante.fuente || "").includes("portal");
+                return {
+                    idCanonico: "sinempresa",
+                    nombreComercial: "Sin Empresa Asignada",
+                    division: (postulante.division || "sin_div").toLowerCase(),
+                    sinEmpresaReal: true,
+                    origenPlaceholder: esIntentoPortal ? "Portal Público / Asistido" : (textoCrudo || "")
+                };
+            }
+
+            const nombreFallback = (!esTextoPlaceholder(rawEmpNom) ? rawEmpNom : rawEmpId) || "Sin Empresa Asignada";
             return {
                 idCanonico: candEmpId || candEmpNom || "sinempresa",
                 nombreComercial: nombreFallback,
-                division: (postulante.division || 'centro').toLowerCase()
+                division: (postulante.division || 'centro').toLowerCase(),
+                sinEmpresaReal: false,
+                origenPlaceholder: ""
+            };
+        }
+
+        function resolverVacanteCandidato(postulante) {
+            if (!postulante) return { nombreVacante: "Vacante por asignar", sinVacanteReal: true };
+            const rawVac = (postulante.nombreVacante || postulante.vacante || "").toString().trim();
+            if (esTextoPlaceholder(rawVac)) {
+                return {
+                    nombreVacante: "Vacante por asignar",
+                    sinVacanteReal: true
+                };
+            }
+            return {
+                nombreVacante: rawVac,
+                sinVacanteReal: false
             };
         }
 
@@ -1010,7 +1112,8 @@
             if (colision) {
                 const [, dupData] = colision;
                 const titular = escapeHtml(dupData.reclutadorNombre || dupData.asesor || "Asesor Asignado");
-                const emp = escapeHtml(dupData.empresa || "Empresa registrada");
+                const empInfo = resolverEmpresaCandidato(dupData);
+                const emp = escapeHtml(empInfo.nombreComercial);
                 const est = escapeHtml(normalizarEstatus(dupData.estatus || dupData.status));
 
                 box.className = "bg-rose-950/40 border border-rose-500/60 rounded-xl p-2.5 text-[11px] font-mono flex items-start gap-2 transition-all";
@@ -1118,6 +1221,16 @@
                 }
 
                 const pActual = todosLosPostulantes[id] || {};
+                const infoEmp = resolverEmpresaCandidato(pActual);
+                const infoVac = resolverVacanteCandidato(pActual);
+
+                // CANDADO DE INTEGRIDAD: Bloquear avance de embudo si no tiene empresa o vacante real
+                if (ESTADOS_EXIGEN_EMPRESA_VACANTE.includes(nuevoEstatus) && (infoEmp.sinEmpresaReal || infoVac.sinVacanteReal)) {
+                    alert(`⛔ EXPEDIENTE INCOMPLETO:\nNo puedes avanzar a "${nuevoEstatus}" sin asignar primero una Empresa y Vacante real.\n\nHaz clic en el botón de Editar (✏️) del candidato para completar su asignación.`);
+                    cargarPostulantes();
+                    return;
+                }
+
                 const payload = {
                     estatus: nuevoEstatus,
                     ultimaActualizacion: new Date().toISOString()
@@ -1127,11 +1240,10 @@
                     const fechaActualContratacion = extraerFechaEstandar(pActual.fechaContratacion);
                     payload.fechaContratacion = fechaActualContratacion || obtenerFechaHoyStr();
 
-                    const infoEmp = resolverEmpresaCandidato(pActual);
                     const snapFin = generarSnapshotFinanciero(
                         pActual,
                         infoEmp.idCanonico,
-                        pActual.nombreVacante || pActual.vacante || "",
+                        infoVac.nombreVacante,
                         pActual.reclutadorId || pActual.agenteId || ""
                     );
                     Object.assign(payload, snapFin);
@@ -1185,6 +1297,14 @@
             }
         }
 
+        function filtrarSinEmpresaRapido() {
+            document.getElementById("filtroDivision").value = "TODAS";
+            document.getElementById("filtroEmpresa").value = "SIN_EMPRESA";
+            document.getElementById("filtroVacante").value = "TODAS";
+            paginaActual = 1;
+            cargarPostulantes();
+        }
+
         function renderizarPaginaActual() {
             const totalItems = listaCandidatosFiltrados.length;
             const totalPaginas = Math.ceil(totalItems / ELEMENTOS_POR_PAGINA) || 1;
@@ -1212,7 +1332,7 @@
             const minRetro15Str = obtenerFechaHaceDiasStr(15);
             const hoyStr = obtenerFechaHoyStr();
 
-            items.forEach(({ id, p, estatus, horas, sexoReal, edadReal, nombreComercialFinal, divisionEmpresa, vacNombre, rutaCapturada, recId }) => {
+            items.forEach(({ id, p, estatus, horas, sexoReal, edadReal, sinEmpresaReal, origenPlaceholder, sinVacanteReal, nombreComercialFinal, divisionEmpresa, vacNombre, rutaCapturada, recId }) => {
                 const recNombre = escapeHtml(catalogoUsuarios[recId]?.nombre || p.reclutadorNombre || p.asesor || "Sin Asignar");
                 const cita = escapeHtml(p.diaEntrevista || p.fechaEntrevista || "Sin programar");
                 const badgeDiv = getDivisionBadgeM3(divisionEmpresa);
@@ -1264,8 +1384,26 @@
                     ? `<span class="text-xs text-emerald-400 font-mono font-medium" title="CURP Validada"><i class="fas fa-check-circle"></i> ${escapeHtml(curpVal)}</span>`
                     : `<span class="text-xs text-rose-400 font-mono font-bold" title="CURP Temporal"><i class="fas fa-triangle-exclamation"></i> ${escapeHtml(curpVal || 'S/CURP')}</span>`;
 
+                // Renderizado limpio y diferenciado cuando falta Empresa o Vacante real
+                const tituloEmpresaDesktop = sinEmpresaReal
+                    ? `<span class="inline-flex items-center gap-1 text-amber-300 font-black text-[13px] bg-amber-500/15 border border-amber-500/40 px-2 py-0.5 rounded-md"><i class="fas fa-triangle-exclamation text-amber-400"></i> Sin Empresa Asignada</span>`
+                    : `<b class="text-white text-[14px]">${escapeHtml(nombreComercialFinal)}</b>`;
+
+                const subtituloVacanteDesktop = sinVacanteReal
+                    ? `<div class="text-xs text-slate-400 italic mt-0.5">Vacante por asignar${origenPlaceholder ? ` • <span class="text-cyan-400 not-italic font-mono text-[10.5px]">${escapeHtml(origenPlaceholder)}</span>` : ''}</div>`
+                    : `<div class="text-xs text-cyber-accent font-semibold mt-0.5">${escapeHtml(vacNombre)}</div>`;
+
+                const bloqueEmpresaMobile = sinEmpresaReal
+                    ? `<div class="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-lg px-2 py-1 font-bold flex items-center justify-between gap-1">
+                           <span><i class="fas fa-triangle-exclamation me-1 text-amber-400"></i> Sin Empresa / Vacante</span>
+                           ${origenPlaceholder ? `<span class="text-[10px] font-mono text-cyan-300">${escapeHtml(origenPlaceholder)}</span>` : ''}
+                       </div>`
+                    : `<div class="text-xs sm:text-sm text-slate-300">
+                           <strong class="text-cyber-accent font-semibold">${escapeHtml(vacNombre)}</strong> (${escapeHtml(nombreComercialFinal)})
+                       </div>`;
+
                 htmlDesktop += `
-                    <tr class="hover:bg-slate-800/40 transition">
+                    <tr class="hover:bg-slate-800/40 transition ${sinEmpresaReal ? 'bg-amber-950/10' : ''}">
                         <td class="p-3 pl-4 align-top">
                             <select onchange="cambioRapidoEstatus('${escapeHtml(id)}', this.value)" class="w-full bg-cyber-bg border border-cyber-border rounded-lg text-xs sm:text-sm p-1.5 text-slate-200">
                                 ${opcionesSelect}
@@ -1287,9 +1425,9 @@
                             <div class="text-xs text-slate-400 mt-0.5">${escapeHtml(sexoReal)} • ${edadReal} años</div>
                         </td>
                         <td class="p-3">
-                            <div class="flex items-center gap-1.5">${badgeDiv} <b class="text-white text-[14px]">${escapeHtml(nombreComercialFinal)}</b></div>
-                            <div class="text-xs text-cyber-accent font-semibold">${escapeHtml(vacNombre)}</div>
-                            <div class="text-[11px] text-amber-300">📍 ${escapeHtml(rutaCapturada || 'Traslado Propio')}</div>
+                            <div class="flex items-center gap-1.5 flex-wrap">${badgeDiv} ${tituloEmpresaDesktop}</div>
+                            ${subtituloVacanteDesktop}
+                            <div class="text-[11px] text-amber-300 mt-0.5">📍 ${escapeHtml(rutaCapturada || 'Traslado Propio')}</div>
                         </td>
                         <td class="p-3 font-mono text-slate-300 text-xs sm:text-sm">${recNombre}</td>
                         <td class="p-3 text-center pr-4">
@@ -1300,7 +1438,7 @@
                                 <button type="button" onclick="dispararNotificacionDirectaIndividual('${escapeHtml(id)}')" title="Enviar WhatsApp con Acuse" class="p-2 rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500 hover:text-slate-950 transition touch-target flex items-center justify-center">
                                     <i class="fa-brands fa-whatsapp text-sm sm:text-base"></i>
                                 </button>
-                                <button type="button" onclick="abrirModalEditar('${escapeHtml(id)}')" title="Editar Expediente" class="p-2 rounded-lg bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500 hover:text-slate-950 transition touch-target flex items-center justify-center">
+                                <button type="button" onclick="abrirModalEditar('${escapeHtml(id)}')" title="Editar Expediente" class="p-2 rounded-lg ${sinEmpresaReal ? 'bg-amber-500 text-slate-950 animate-pulse' : 'bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500 hover:text-slate-950'} transition touch-target flex items-center justify-center">
                                     <i class="fas fa-pen-to-square text-sm sm:text-base"></i>
                                 </button>
                                 <button type="button" onclick="eliminarPostulante('${escapeHtml(id)}')" title="Eliminar" class="p-2 rounded-lg bg-rose-500/20 text-rose-400 hover:bg-rose-500 hover:text-white transition touch-target flex items-center justify-center">
@@ -1312,7 +1450,7 @@
                 `;
 
                 htmlMobile += `
-                    <div class="bg-cyber-cardAlt p-3.5 rounded-xl border border-cyber-border space-y-2">
+                    <div class="bg-cyber-cardAlt p-3.5 rounded-xl border ${sinEmpresaReal ? 'border-amber-500/50' : 'border-cyber-border'} space-y-2">
                         <div class="flex justify-between items-start gap-1">
                             <div>
                                 <div class="font-bold text-white text-[14px] leading-tight flex items-center gap-1.5 flex-wrap">
@@ -1326,9 +1464,7 @@
                             </div>
                             ${badgeDiv}
                         </div>
-                        <div class="text-xs sm:text-sm text-slate-300">
-                            <strong class="text-cyber-accent font-semibold">${escapeHtml(vacNombre)}</strong> (${escapeHtml(nombreComercialFinal)})
-                        </div>
+                        ${bloqueEmpresaMobile}
                         <div class="text-xs text-amber-300 font-mono">
                             <i class="fas fa-bus-simple me-1"></i> ${escapeHtml(rutaCapturada || 'Traslado Propio')}
                         </div>
@@ -1351,7 +1487,7 @@
                                 <button type="button" onclick="dispararNotificacionDirectaIndividual('${escapeHtml(id)}')" class="p-2 bg-emerald-600 rounded-lg text-white touch-target flex items-center justify-center">
                                     <i class="fa-brands fa-whatsapp text-sm sm:text-base"></i>
                                 </button>
-                                <button type="button" onclick="abrirModalEditar('${escapeHtml(id)}')" class="p-2 bg-slate-800 rounded-lg text-slate-200 touch-target flex items-center justify-center">
+                                <button type="button" onclick="abrirModalEditar('${escapeHtml(id)}')" class="p-2 ${sinEmpresaReal ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-slate-200'} rounded-lg touch-target flex items-center justify-center">
                                     <i class="fas fa-pen-to-square text-sm sm:text-base"></i>
                                 </button>
                                 <button type="button" onclick="eliminarPostulante('${escapeHtml(id)}')" class="p-2 bg-rose-500/20 rounded-lg text-rose-400 touch-target flex items-center justify-center">
@@ -1467,7 +1603,7 @@
             if (div === "norte") return `<span class="badge-division badge-div-norte"><i class="fas fa-compass"></i> Norte</span>`;
             if (div === "centro") return `<span class="badge-division badge-div-centro"><i class="fas fa-location-crosshairs"></i> Centro</span>`;
             if (div === "sur") return `<span class="badge-division badge-div-sur"><i class="fas fa-map-pin"></i> Sur</span>`;
-            return `<span class="badge-division badge-div-none">Sin Div</span>`;
+            return `<span class="badge-division badge-div-none"><i class="fas fa-circle-question"></i> Sin Div</span>`;
         }
 
         function obtenerFechaMananaStr() {
@@ -1581,8 +1717,9 @@
             const filtroOperador = document.getElementById("filtroOperador");
             const editReclutador = document.getElementById("editReclutador");
             const divSel = document.getElementById("filtroDivision").value.toLowerCase();
+            const valorPrevioEmp = filtroEmpresa.value;
 
-            filtroEmpresa.innerHTML = '<option value="TODAS">-- Todas las Empresas --</option>';
+            filtroEmpresa.innerHTML = '<option value="TODAS">-- Todas las Empresas --</option><option value="SIN_EMPRESA">⚠️ Sin Empresa / Por Asignar</option>';
             filtroOperador.innerHTML = '<option value="TODOS">-- Todos en mi Célula --</option>';
             editReclutador.innerHTML = '<option value="">-- Seleccionar Asesor --</option>';
 
@@ -1590,7 +1727,7 @@
 
             Object.entries(catalogoEmpresas).forEach(([k, emp]) => {
                 const idCanonico = sanitizarKey(k);
-                if (empresasProcesadas.has(idCanonico)) return;
+                if (esTextoPlaceholder(idCanonico) || empresasProcesadas.has(idCanonico)) return;
                 empresasProcesadas.add(idCanonico);
 
                 if (usuarioSesion.todasLasEmpresas || usuarioSesion.empresas.includes(idCanonico)) {
@@ -1601,6 +1738,10 @@
                     }
                 }
             });
+
+            if (valorPrevioEmp && Array.from(filtroEmpresa.options).some(o => o.value === valorPrevioEmp)) {
+                filtroEmpresa.value = valorPrevioEmp;
+            }
 
             usuarioSesion.equipoDescendenteIds.forEach(uUid => {
                 const u = catalogoUsuarios[uUid];
@@ -1630,9 +1771,14 @@
 
         function actualizarFiltroVacantes() {
             const filtroVacante = document.getElementById("filtroVacante");
-            const empSelCanonico = sanitizarKey(document.getElementById("filtroEmpresa").value);
+            const rawEmpFiltro = document.getElementById("filtroEmpresa").value;
+            const empSelCanonico = sanitizarKey(rawEmpFiltro);
             filtroVacante.innerHTML = '<option value="TODAS">-- Todas las Vacantes --</option>';
             const vacantesSet = new Set();
+
+            if (rawEmpFiltro === "SIN_EMPRESA") {
+                return;
+            }
 
             if (catalogoVacantesDetalles) {
                 if (empSelCanonico === "todas" || !empSelCanonico) {
@@ -1640,7 +1786,7 @@
                         if (typeof empVac === 'object' && empVac !== null) {
                             Object.values(empVac).forEach(v => { 
                                 const tit = v.nombreVacante || v.puesto;
-                                if (tit) vacantesSet.add(tit); 
+                                if (tit && !esTextoPlaceholder(tit)) vacantesSet.add(tit); 
                             });
                         }
                     });
@@ -1649,7 +1795,7 @@
                         if (sanitizarKey(keyNodo) === empSelCanonico && typeof empVac === 'object' && empVac !== null) {
                             Object.values(empVac).forEach(v => {
                                 const tit = v.nombreVacante || v.puesto;
-                                if (tit) vacantesSet.add(tit);
+                                if (tit && !esTextoPlaceholder(tit)) vacantesSet.add(tit);
                             });
                         }
                     });
@@ -1686,7 +1832,8 @@
             regenerarMapaEmpresasCanonico();
 
             const divFiltro = document.getElementById("filtroDivision").value.toLowerCase();
-            const empFiltroCanonico = sanitizarKey(document.getElementById("filtroEmpresa").value);
+            const rawEmpFiltro = document.getElementById("filtroEmpresa").value;
+            const empFiltroCanonico = sanitizarKey(rawEmpFiltro);
             const vacFiltro = document.getElementById("filtroVacante").value;
             const opFiltro = document.getElementById("filtroOperador").value;
             const busq = document.getElementById("buscadorVivo").value.toLowerCase().trim();
@@ -1695,9 +1842,10 @@
             let metricaEdad = { "18-25": 0, "26-35": 0, "36-45": 0, "46+": 0 };
             
             let cPost = 0, cProc = 0, cInd = 0, cCont = 0, cTerm = 0, cDecl = 0;
-            let total = 0, totalDesfasados = 0;
+            let total = 0, totalDesfasados = 0, totalSinEmpresaActivos = 0;
 
             const estadosVigilanSLA = ['Postulado', 'En Proceso', 'Entrevista', 'Inducción'];
+            const estadosActivosCartera = ['Postulado', 'En Proceso', 'Entrevista', 'Inducción', 'Contratado', 'Trabajando'];
             listaCandidatosFiltrados = [];
 
             Object.entries(todosLosPostulantes).forEach(([id, p]) => {
@@ -1707,9 +1855,14 @@
                 const empIdCanonico = infoEmpresa.idCanonico;
                 const nombreComercialFinal = infoEmpresa.nombreComercial;
                 const divisionEmpresa = infoEmpresa.division;
+                const sinEmpresaReal = infoEmpresa.sinEmpresaReal;
+                const origenPlaceholder = infoEmpresa.origenPlaceholder;
+
+                const infoVacante = resolverVacanteCandidato(p);
+                const vacNombre = infoVacante.nombreVacante;
+                const sinVacanteReal = infoVacante.sinVacanteReal;
 
                 const recId = p.reclutadorId || p.agenteId || "";
-                const vacNombre = p.nombreVacante || p.vacante || "Sin Vacante";
                 const rutaCapturada = p.rutaTransporteSeleccionada || p.rutaNombre || p.ruta || "";
 
                 const estatus = normalizarEstatus(p.estatus || p.status);
@@ -1717,15 +1870,25 @@
                 const estaEnSLA = estadosVigilanSLA.includes(estatus);
 
                 if (estaEnSLA && horas > 24) totalDesfasados++;
+                if (estadosActivosCartera.includes(estatus) && (sinEmpresaReal || sinVacanteReal)) {
+                    totalSinEmpresaActivos++;
+                }
+
                 if (filtroSoloDesfasadosActivo && (!estaEnSLA || horas <= 24)) return;
 
                 if (busq) {
-                    const str = `${p.nombre || ''} ${p.curp || ''} ${p.telefono || ''} ${vacNombre} ${rutaCapturada}`.toLowerCase();
+                    const str = `${p.nombre || ''} ${p.curp || ''} ${p.telefono || ''} ${nombreComercialFinal} ${vacNombre} ${rutaCapturada} ${origenPlaceholder}`.toLowerCase();
                     if (!str.includes(busq)) return;
                 }
 
                 if (divFiltro !== "todas" && divisionEmpresa !== divFiltro) return;
-                if (empFiltroCanonico !== "todas" && empIdCanonico !== empFiltroCanonico) return;
+
+                if (rawEmpFiltro === "SIN_EMPRESA") {
+                    if (!sinEmpresaReal && !sinVacanteReal) return;
+                } else if (empFiltroCanonico !== "todas" && empIdCanonico !== empFiltroCanonico) {
+                    return;
+                }
+
                 if (vacFiltro !== "TODAS" && vacNombre.toLowerCase() !== vacFiltro.toLowerCase()) return;
                 if (opFiltro !== "TODOS" && recId !== opFiltro) return;
 
@@ -1748,7 +1911,10 @@
                 else metricaEdad["46+"]++;
 
                 listaCandidatosFiltrados.push({
-                    id, p, estatus, horas, sexoReal, edadReal, empIdCanonico, nombreComercialFinal, divisionEmpresa, vacNombre, rutaCapturada, recId
+                    id, p, estatus, horas, sexoReal, edadReal,
+                    empIdCanonico, nombreComercialFinal, divisionEmpresa,
+                    sinEmpresaReal, origenPlaceholder, sinVacanteReal,
+                    vacNombre, rutaCapturada, recId
                 });
             });
 
@@ -1766,6 +1932,14 @@
                 document.getElementById("txtAlertaSlaDetalle").textContent = `Existen ${totalDesfasados} candidato(s) activo(s) con más de 24h sin actualización.`;
             } else {
                 bannerSla.classList.add("hidden");
+            }
+
+            const bannerSinEmp = document.getElementById("bannerAlertaSinEmpresa");
+            if (totalSinEmpresaActivos > 0) {
+                bannerSinEmp.classList.remove("hidden");
+                document.getElementById("txtAlertaSinEmpresaDetalle").textContent = `Hay ${totalSinEmpresaActivos} candidato(s) activo(s) sin Empresa o Vacante asignada (Portal Público / Captura Rápida).`;
+            } else {
+                bannerSinEmp.classList.add("hidden");
             }
 
             const detalles = document.getElementById("detailsGraficas");
@@ -1815,16 +1989,24 @@
 
             Object.entries(catalogoEmpresas).forEach(([eKey, eVal]) => {
                 const idCanonico = sanitizarKey(eKey);
-                if (empresasProcesadasModal.has(idCanonico)) return;
+                if (esTextoPlaceholder(idCanonico) || empresasProcesadasModal.has(idCanonico)) return;
                 empresasProcesadasModal.add(idCanonico);
 
                 const nombreOficial = eVal.nombreComercial || eVal.nombre || eKey;
                 editEmpresa.innerHTML += `<option value="${escapeHtml(idCanonico)}">${escapeHtml(nombreOficial)}</option>`;
             });
 
-            editEmpresa.value = infoEmpActual.idCanonico !== "sinempresa" ? infoEmpActual.idCanonico : "SIN_EMPRESA";
+            if (!infoEmpActual.sinEmpresaReal && infoEmpActual.idCanonico !== "sinempresa") {
+                if (!empresasProcesadasModal.has(infoEmpActual.idCanonico)) {
+                    editEmpresa.innerHTML += `<option value="${escapeHtml(infoEmpActual.idCanonico)}">${escapeHtml(infoEmpActual.nombreComercial)}</option>`;
+                }
+                editEmpresa.value = infoEmpActual.idCanonico;
+            } else {
+                editEmpresa.value = "SIN_EMPRESA";
+            }
 
-            poblarVacantesEnModal(p.nombreVacante || p.vacante);
+            const infoVacActual = resolverVacanteCandidato(p);
+            poblarVacantesEnModal(infoVacActual.sinVacanteReal ? "" : infoVacActual.nombreVacante);
             
             const rutaGuardada = p.rutaTransporteSeleccionada || p.rutaNombre || p.ruta || "SIN_RUTA";
             const paradaGuardada = p.paradaTransporte || p.parada || "SIN_PARADA";
@@ -1872,12 +2054,21 @@
                     if (sanitizarKey(keyNodo) === empSelCanonico && typeof empVac === 'object' && empVac !== null) {
                         Object.values(empVac).forEach(v => {
                             const tit = v.nombreVacante || v.puesto;
-                            if (tit) editVacante.innerHTML += `<option value="${escapeHtml(tit)}">${escapeHtml(tit)}</option>`;
+                            if (tit && !esTextoPlaceholder(tit)) {
+                                editVacante.innerHTML += `<option value="${escapeHtml(tit)}">${escapeHtml(tit)}</option>`;
+                            }
                         });
                     }
                 });
             }
-            if (vacanteActual) editVacante.value = vacanteActual;
+            if (vacanteActual && !esTextoPlaceholder(vacanteActual)) {
+                if (!Array.from(editVacante.options).some(o => o.value === vacanteActual)) {
+                    editVacante.innerHTML += `<option value="${escapeHtml(vacanteActual)}">${escapeHtml(vacanteActual)}</option>`;
+                }
+                editVacante.value = vacanteActual;
+            } else {
+                editVacante.value = "SIN_VACANTE";
+            }
         }
 
         function poblarRutasYParadasEnModal(rutaActual, paradaActual) {
@@ -1985,12 +2176,22 @@
             const telefono = extraerTelefono10Digitos(document.getElementById("editTelefono").value);
             const nuevoEstatus = document.getElementById("editEstatus").value;
 
+            const rawEmpresaSelect = document.getElementById("editEmpresa").value;
+            const rawVacanteSelect = document.getElementById("editVacante").value;
+            const tieneEmpresaValida = !esTextoPlaceholder(rawEmpresaSelect);
+            const tieneVacanteValida = !esTextoPlaceholder(rawVacanteSelect);
+
             const fechaRegistroNueva = document.getElementById("editFechaRegistro").value;
             const fechaCita = document.getElementById("editAgendaFecha").value;
             const horaCita = document.getElementById("editAgendaHora").value;
 
             if (!puedeModificarEstatus(nuevoEstatus)) {
                 alert(`⛔ GOBERNANZA: Tu nivel de usuario no tiene permitido asentar el estatus "${nuevoEstatus}".`);
+                return;
+            }
+
+            if (ESTADOS_EXIGEN_EMPRESA_VACANTE.includes(nuevoEstatus) && (!tieneEmpresaValida || !tieneVacanteValida)) {
+                alert(`⛔ EXPEDIENTE INCOMPLETO:\nPara guardar con estatus "${nuevoEstatus}", debes seleccionar obligatoriamente una Empresa Asignada y una Vacante Asignada válidas.`);
                 return;
             }
 
@@ -2033,7 +2234,7 @@
                     const [dupId, dupData] = duplicadoActivo;
                     const asesorTitular = dupData.reclutadorNombre || dupData.asesor || "Asesor no especificado";
                     const estatusDup = normalizarEstatus(dupData.estatus || dupData.status);
-                    const empDup = dupData.empresa || "Empresa registrada";
+                    const empDup = resolverEmpresaCandidato(dupData).nombreComercial;
 
                     await push(ref(db, 'modulo_7_logs'), {
                         modulo: "M3_AGENDA",
@@ -2088,10 +2289,15 @@
                     ? asesorDestino.coordinadoresIds 
                     : (asesorDestino.coordinadorPadreId ? [asesorDestino.coordinadorPadreId] : []);
 
-                const empSelCanonico = sanitizarKey(document.getElementById("editEmpresa").value);
-                const metaEmpresa = mapaEmpresasCanonico[empSelCanonico] || {};
-                const nombreComercialDefinitivo = metaEmpresa.nombreComercial || document.getElementById("editEmpresa").value;
-                const divisionDefinitiva = metaEmpresa.division || "centro";
+                const empSelCanonico = tieneEmpresaValida ? sanitizarKey(rawEmpresaSelect) : "";
+                const metaEmpresa = empSelCanonico ? (mapaEmpresasCanonico[empSelCanonico] || {}) : {};
+                const nombreComercialDefinitivo = tieneEmpresaValida
+                    ? (metaEmpresa.nombreComercial || rawEmpresaSelect)
+                    : "";
+                const divisionDefinitiva = tieneEmpresaValida
+                    ? (metaEmpresa.division || "centro")
+                    : "";
+                const vacanteDefinitiva = tieneVacanteValida ? rawVacanteSelect : "";
 
                 const origHora = document.getElementById("originalAgendaHora").value;
                 const seReprogramoCita = (fechaCita !== origFecha) || (horaCita !== origHora);
@@ -2113,8 +2319,8 @@
                     empresaId: empSelCanonico,
                     empresa: nombreComercialDefinitivo,
                     division: divisionDefinitiva,
-                    nombreVacante: document.getElementById("editVacante").value,
-                    vacante: document.getElementById("editVacante").value,
+                    nombreVacante: vacanteDefinitiva,
+                    vacante: vacanteDefinitiva,
                     rutaTransporteSeleccionada: rutaTextoFinal,
                     rutaNombre: rutaElegida,
                     ruta: rutaTextoFinal,
@@ -2142,7 +2348,7 @@
                     const snapFin = generarSnapshotFinanciero(
                         pPrevio,
                         empSelCanonico,
-                        document.getElementById("editVacante").value,
+                        vacanteDefinitiva,
                         recId
                     );
                     Object.assign(updates, snapFin);
@@ -2161,14 +2367,14 @@
                     candidatoId: id,
                     ejecutadoPor: usuarioSesion.nombre,
                     uidEjecutor: usuarioSesion.uid,
-                    detalle: `Actualización: ${updates.nombre} | Empresa: ${nombreComercialDefinitivo} | Registro: ${updates.fechaRegistro}`,
+                    detalle: `Actualización: ${updates.nombre} | Empresa: ${nombreComercialDefinitivo || 'Sin Empresa'} | Registro: ${updates.fechaRegistro}`,
                     timestamp: serverTimestamp()
                 });
 
                 cerrarModal();
                 alert(`✅ Expediente guardado exitosamente.\n` +
                       `• Candidato: ${updates.nombre}\n` +
-                      `• Empresa: ${nombreComercialDefinitivo}\n` +
+                      `• Empresa: ${nombreComercialDefinitivo || 'Pendiente de asignar'}\n` +
                       `• Transporte: ${rutaTextoFinal}\n` +
                       `• Su Acuse Digital se ha sincronizado en tiempo real.`);
             } catch (err) {
@@ -2244,12 +2450,13 @@
                 listaEl.innerHTML = `<div class="text-slate-400 italic p-4 text-center">No hay entrevistas para mañana.</div>`;
             } else {
                 todosAgendadosManana.forEach(c => {
+                    const vacLimpia = resolverVacanteCandidato(c).nombreVacante;
                     const fila = document.createElement("div");
                     fila.className = "flex justify-between items-center p-2 rounded-lg bg-cyber-card border border-cyber-border";
                     fila.innerHTML = `
                         <div>
                             <strong class="text-white text-xs sm:text-sm">${escapeHtml(c.nombre)}</strong>
-                            <div class="text-[11px] text-slate-400">${escapeHtml(c.nombreVacante || c.vacante)} • 📱 ${escapeHtml(c.telefono)}</div>
+                            <div class="text-[11px] text-slate-400">${escapeHtml(vacLimpia)} • 📱 ${escapeHtml(c.telefono)}</div>
                         </div>
                         <div class="flex items-center gap-1.5">
                             <a href="${generarLinkAcuse(c.id)}" target="_blank" title="Ver Acuse" class="px-2 py-1 bg-blue-600/30 text-blue-300 border border-blue-500/40 rounded text-xs flex items-center justify-center">
@@ -2276,8 +2483,9 @@
 
             const mananaStr = obtenerFechaMananaStr();
             const linkAcuse = generarLinkAcuse(candidatoId);
+            const vacLimpia = resolverVacanteCandidato(c).nombreVacante;
             const mensaje = `Hola *${c.nombre}*, confirmamos tu entrevista programada para *MAÑANA* (${mananaStr}) ` +
-                            `para la vacante *${c.nombreVacante || c.vacante}*.\n\n` +
+                            `para la vacante *${vacLimpia}*.\n\n` +
                             `📄 *Consulta tu Acuse Oficial de Cita aquí:*\n${linkAcuse}\n\n` +
                             `Por favor confirma tu asistencia.`;
 
@@ -2348,9 +2556,10 @@
             if (!p) return;
 
             const nombreCompleto = p.nombre || `${p.nombres || ''} ${p.apellidos || ''}`.trim() || 'Candidato';
-            const vacNombre = p.nombreVacante || p.vacante || 'la vacante';
+            const infoVac = resolverVacanteCandidato(p);
+            const vacNombre = infoVac.sinVacanteReal ? 'la vacante disponible' : infoVac.nombreVacante;
             const infoEmp = resolverEmpresaCandidato(p);
-            const empNom = infoEmp.nombreComercial;
+            const empNom = infoEmp.sinEmpresaReal ? 'nuestra empresa cliente' : infoEmp.nombreComercial;
             const estatus = normalizarEstatus(p.estatus || p.status);
             const cita = p.diaEntrevista || p.fechaEntrevista || 'Pendiente de definir';
             const ruta = p.rutaTransporteSeleccionada || p.rutaNombre || p.ruta;
@@ -2594,6 +2803,7 @@
 
         window.cambioRapidoEstatus = cambioRapidoEstatus;
         window.actualizarFechaContratacion = actualizarFechaContratacion;
+        window.filtrarSinEmpresaRapido = filtrarSinEmpresaRapido;
         window.abrirModalEditar = abrirModalEditar;
         window.cerrarModal = cerrarModal;
         window.alCambiarDivision = alCambiarDivision;
