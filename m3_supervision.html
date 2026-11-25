@@ -168,13 +168,13 @@
             </button>
         </div>
 
-        <!-- RADAR FINANCIERO TRIPARTITO -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+        <!-- RADAR FINANCIERO HOMOLOGADO CON BÓVEDA M1 + TABULADOR M5 + M5.2 -->
+        <div id="radarFinancieroM3Sup" class="grid grid-cols-1 md:grid-cols-3 gap-3.5">
             <!-- 1. En Tránsito -->
             <div class="bg-gradient-to-r from-emerald-950/40 to-[#0b1329] border border-emerald-500/30 p-4 rounded-xl shadow flex items-center justify-between">
                 <div class="space-y-1">
                     <span class="text-[11px] font-mono uppercase text-emerald-400 font-black flex items-center gap-1.5">
-                        <i class="fas fa-sack-dollar"></i> Volumen en Tránsito
+                        <i class="fas fa-sack-dollar"></i> Volumen en Tránsito (Bóveda M1)
                     </span>
                     <div class="text-xl sm:text-2xl font-black text-white font-mono" id="txtCapitalEnTransito">$0.00 MXN</div>
                     <p class="text-[11.5px] text-slate-400">Potencial de facturación en evaluación activa.</p>
@@ -194,14 +194,14 @@
                 <div class="text-2xl text-rose-500/30 pr-1"><i class="fas fa-hand-holding-dollar"></i></div>
             </div>
 
-            <!-- 3. Facturación Consolidada -->
+            <!-- 3. Facturación Consolidada & Utilidad Neta -->
             <div class="bg-gradient-to-r from-cyan-950/40 to-[#0b1329] border border-cyan-500/40 p-4 rounded-xl shadow flex items-center justify-between">
                 <div class="space-y-1">
                     <span class="text-[11px] font-mono uppercase text-cyan-400 font-black flex items-center gap-1.5">
-                        <i class="fas fa-circle-check"></i> Facturación Consolidada
+                        <i class="fas fa-circle-check"></i> Facturación & Utilidad Neta
                     </span>
                     <div class="text-xl sm:text-2xl font-black text-cyan-300 font-mono" id="txtCapitalConsolidado">$0.00 MXN</div>
-                    <p class="text-[11px] text-slate-400" id="txtColocadosFacturablesDetalle">0 ingresos cerrados con éxito.</p>
+                    <p class="text-[11.5px] text-emerald-300 font-mono font-bold" id="txtColocadosFacturablesDetalle">0 colocados • Neto: $0.00</p>
                 </div>
                 <div class="text-2xl text-cyan-500/30 pr-1"><i class="fas fa-award"></i></div>
             </div>
@@ -556,6 +556,7 @@
         let catalogoRoles = {};
         let catalogoEmpresas = {};
         let catalogoVacantes = {};
+        let catalogoTarifasVacantes = {}; // Nodo privado Bóveda M1: tarifas_vacantes/{empresaKey}
         let todosPostulantes = {};
         let todosLogsSistema = {};
         let equipoAuditableIds = [];
@@ -619,6 +620,63 @@
             return (str || "").toString().toLowerCase().trim()
                 .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
                 .replace(/[^a-z0-9]/g, "");
+        }
+
+        // =========================================================================
+        // MOTOR RESOLUTOR FINANCIERO UNIFICADO (HOMOLOGADO CON M1, M3, M4, M5 Y M5.2)
+        // =========================================================================
+        function resolverFinanzasM3Sup(p) {
+            const infoEmp = resolverEmpresaCandidato(p);
+            const empCanonico = infoEmp.idCanonico;
+
+            let nodoTarifasEmp = catalogoTarifasVacantes[empCanonico] || null;
+            if (!nodoTarifasEmp) {
+                for (const [k, v] of Object.entries(catalogoTarifasVacantes)) {
+                    if (sanitizarKey(k) === empCanonico) {
+                        nodoTarifasEmp = v;
+                        break;
+                    }
+                }
+            }
+
+            const vacsTarifas = nodoTarifasEmp?.vacantes || {};
+            const vacRaw = p.puestoId || p.vacanteId || p.nombreVacante || p.vacante || "";
+            const vacUltra = sanitizarKey(vacRaw);
+
+            let tarifaVacanteObj = null;
+            for (const [vId, vObj] of Object.entries(vacsTarifas)) {
+                if (sanitizarKey(vId) === vacUltra || sanitizarKey(vObj?.nombreVacante || "") === vacUltra) {
+                    tarifaVacanteObj = vObj;
+                    break;
+                }
+            }
+
+            const tarifaCliente = (p.tarifaFacturable !== undefined && p.tarifaFacturable !== null && Number(p.tarifaFacturable) > 0)
+                ? parseFloat(p.tarifaFacturable)
+                : (parseFloat(tarifaVacanteObj?.tarifaCliente) || 0);
+
+            const recId = p.reclutadorId || p.agenteId || p.asesorId || "";
+            const recData = catalogoUsuarios[recId] || {};
+
+            let comisionBase = 0;
+            if (p.comisionBaseSnapshot !== undefined && p.comisionBaseSnapshot !== null && Number(p.comisionBaseSnapshot) > 0) {
+                comisionBase = parseFloat(p.comisionBaseSnapshot);
+            } else if (p.comisionLiquidada && p.montoComision !== undefined && Number(p.montoComision) > 0) {
+                const bonoPrev = parseFloat(p.bonoExtraComision) || 0;
+                comisionBase = Math.max(0, parseFloat(p.montoComision) - bonoPrev);
+            } else if (recData && recData.comisionValor !== undefined && Number(recData.comisionValor) > 0) {
+                const tipo = recData.comisionTipo || 'fijo';
+                const val = parseFloat(recData.comisionValor) || 0;
+                comisionBase = (tipo === 'porcentaje') ? ((tarifaCliente * val) / 100) : val;
+            } else {
+                comisionBase = 750;
+            }
+
+            const bonoExtra = parseFloat(p.bonoExtraComision) || 0;
+            const montoComision = comisionBase + bonoExtra;
+            const utilidadNeta = tarifaCliente - montoComision;
+
+            return { tarifaCliente, montoComision, utilidadNeta };
         }
 
         // =========================================================================
@@ -902,6 +960,10 @@
                             return;
                         }
 
+                        const tieneBoveda = nivel >= 5 
+                            || u.accesoBovedaM1 === true 
+                            || !!(u.permisosModulos && u.permisosModulos['m1_boveda_tarifas']?.ver);
+
                         usuarioSesion = {
                             uid: user.uid,
                             nombre: u.nombre || user.email,
@@ -910,7 +972,8 @@
                             nivel: nivel,
                             scope: u.scope || "regional",
                             telefono: u.telefono || "",
-                            esDirector: (u.nombreRol || '').toLowerCase().includes('director') || (u.rol || '').toLowerCase().includes('director')
+                            esDirector: (u.nombreRol || '').toLowerCase().includes('director') || (u.rol || '').toLowerCase().includes('director'),
+                            puedeVerFinanzasCliente: tieneBoveda || nivel >= 4
                         };
 
                         document.getElementById("loaderSeguridadSup").classList.add("hidden");
@@ -920,6 +983,11 @@
                         document.getElementById("userInfoSup").innerHTML = `
                             <i class="fas fa-user-shield"></i> Supervisor: <b>${escapeHtml(usuarioSesion.nombre)}</b> (${escapeHtml(usuarioSesion.rol)} - N${usuarioSesion.nivel})
                         `;
+
+                        // Ocultar Radar Financiero de tarifas de clientes si no tiene Llave VIP ni Nivel >= 4
+                        if (!usuarioSesion.puedeVerFinanzasCliente) {
+                            document.getElementById("radarFinancieroM3Sup")?.classList.add("hidden");
+                        }
 
                         inicializarEscuchasTiempoReal();
                     } catch (e) {
@@ -983,6 +1051,14 @@
                 catalogoVacantes = snap.val() || {};
                 solicitarRenderizado();
             });
+
+            // Escuchar nodo privado de Bóveda Comercial si tiene permiso financiero
+            if (usuarioSesion.puedeVerFinanzasCliente) {
+                onValue(ref(db, "tarifas_vacantes"), snap => {
+                    catalogoTarifasVacantes = snap.val() || {};
+                    solicitarRenderizado();
+                });
+            }
 
             onValue(ref(db, "configuracion_sistema/gobernanza_estatus"), snap => {
                 matrizGobernanzaActual = snap.exists() ? snap.val() : { ...GOBERNANZA_ESTATUS_DEFAULT };
@@ -1051,7 +1127,6 @@
             listaConflictosDuplicidad = [];
             const firmasLogsAgrupadas = new Set();
 
-            // 1. Revisar intentos bloqueados en bitácora que sigan pendientes de dictamen
             const entradasLogs = Object.entries(todosLogsSistema).sort((a, b) => (b[1]?.timestamp || 0) - (a[1]?.timestamp || 0));
 
             entradasLogs.forEach(([logId, l]) => {
@@ -1087,7 +1162,6 @@
                     }
                 }
 
-                // Verificar si ya existe un registro liberado por Dirección para este candidato
                 const yaExisteLiberado = Object.entries(todosPostulantes).some(([pid, p]) => {
                     if (!p || pid === origId || p.homonimoAutorizado !== true) return false;
                     const cP = (p.curp || "").toUpperCase().trim();
@@ -1155,7 +1229,6 @@
                 });
             });
 
-            // 2. Escaneo activo en cartera con la regla exacta (CURP oficial, Tel 10 dígitos, o Nombre + 2 Apellidos exactos)
             const entradasActivas = Object.entries(todosPostulantes);
             const paresYaDetectados = new Set();
 
@@ -1273,7 +1346,6 @@
                     ? `<span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-mono text-[10px] font-bold">DUPLICADO EN CARTERA ACTIVA</span>`
                     : `<span class="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-mono text-[10px] font-bold">INTENTO BLOQUEADO (${escapeHtml(c.modulo)})</span>`;
 
-                // Construir opciones del selector con el asesor que registró preseleccionado por default
                 const asesorDefaultUid = c.secundario.reclutadorId || "";
                 const asesorDefaultNombre = c.secundario.reclutadorNombre || "Asesor que registró";
                 let opcionesReclutadores = "";
@@ -1358,7 +1430,6 @@
             });
         }
 
-        // Helper para cerrar en cascada todos los logs pendientes del mismo candidato
         function aplicarCierreCascadaLogs(updates, conflicto, dictamenCodigo, ahoraIso, extraFields = {}) {
             if (conflicto.logId) {
                 updates[`modulo_7_logs/${conflicto.logId}/resueltoPorDireccion`] = true;
@@ -1402,7 +1473,6 @@
             });
         }
 
-        // DICTAMEN 1: CONFIRMAR QUE SÍ ES DUPLICADO -> RESPALDAR EN HISTÓRICO Y PURGAR EN CASCADA
         async function dictaminarConfirmarDuplicado(conflictoId) {
             if (!usuarioSesion || usuarioSesion.nivel < 4) {
                 return alert("⛔ Acción exclusiva para Supervisión y Dirección (Nivel 4 y 5).");
@@ -1435,7 +1505,6 @@
 
                 aplicarCierreCascadaLogs(updates, conflicto, "DUPLICADO_CONFIRMADO_ARCHIVADO", ahoraIso);
 
-                // Purga inmediata en memoria y DOM
                 listaConflictosDuplicidad = listaConflictosDuplicidad.filter(c => c.conflictoId !== conflictoId);
                 actualizarBadgesYBannerDuplicidad();
 
@@ -1459,7 +1528,6 @@
             }
         }
 
-        // DICTAMEN 2: NO ES DUPLICADO -> CONSERVA ASESOR QUE LO REGISTRÓ POR DEFAULT (O EL REASIGNADO), PIDE CONFIRMACIÓN Y DESAPARECE DEL PANEL
         async function dictaminarNoEsDuplicadoYAsignar(conflictoId) {
             if (!usuarioSesion || usuarioSesion.nivel < 4) {
                 return alert("⛔ Acción exclusiva para Supervisión y Dirección (Nivel 4 y 5).");
@@ -1497,7 +1565,6 @@
                 let secIdFinal = conflicto.secundario.id;
                 const esRegistroExistente = Boolean(secIdFinal && todosPostulantes[secIdFinal]);
 
-                // Resolver el ID del expediente titular original antes de armar los updates
                 let origIdReal = conflicto.original.id;
                 if (!origIdReal || !todosPostulantes[origIdReal]) {
                     const curpOrig = (conflicto.original.curp || "").toUpperCase().trim();
@@ -1580,7 +1647,6 @@
                     asignadoA: destinoNombre
                 });
 
-                // Eliminar del cuadro de conflictos en memoria y DOM al instante
                 listaConflictosDuplicidad = listaConflictosDuplicidad.filter(c => c.conflictoId !== conflictoId);
                 actualizarBadgesYBannerDuplicidad();
 
@@ -1714,34 +1780,6 @@
             return isNaN(diff) ? 999 : Math.max(0, diff / (1000 * 60 * 60));
         }
 
-        function extraerTarifaColocacion(empresaId, vacanteNombre) {
-            const empKey = sanitizarKey(empresaId);
-            let nodoVacantes = null;
-
-            if (catalogoVacantes[empKey]) {
-                nodoVacantes = catalogoVacantes[empKey];
-            } else {
-                for (const [k, v] of Object.entries(catalogoVacantes)) {
-                    if (sanitizarKey(k) === empKey) {
-                        nodoVacantes = v;
-                        break;
-                    }
-                }
-            }
-
-            if (nodoVacantes && typeof nodoVacantes === 'object') {
-                const lista = Object.values(nodoVacantes);
-                for (let v of lista) {
-                    const nom = (v.nombreVacante || v.puesto || '').toLowerCase().trim();
-                    if (nom === (vacanteNombre || '').toLowerCase().trim()) {
-                        const tarifaNum = parseFloat(v.tarifaFacturable || v.costoColocacion || v.tarifa || 2500);
-                        return isNaN(tarifaNum) ? 2500 : tarifaNum;
-                    }
-                }
-            }
-            return 2500;
-        }
-
         function cambiarPaginaColaboradores(delta) {
             const totalPaginas = Math.ceil(listaColaboradoresProcesados.length / COLABORADORES_POR_PAGINA) || 1;
             const nueva = paginaColaboradores + delta;
@@ -1760,7 +1798,7 @@
 
             let globalTotal = 0, globalColocados = 0, globalMed = 0, globalEnt = 0, globalDecl = 0;
             let globalV = 0, globalA = 0, globalR = 0;
-            let globalCapitalTransito = 0, globalCapitalRiesgo = 0, globalCapitalConsolidado = 0;
+            let globalCapitalTransito = 0, globalCapitalRiesgo = 0, globalCapitalConsolidado = 0, globalUtilidadNeta = 0;
 
             let chartLabels = [], chartDataV = [], chartDataA = [], chartDataR = [];
             const arrayPostulantes = Object.entries(todosPostulantes).map(([k, v]) => ({ ...v, _id: k }));
@@ -1801,12 +1839,15 @@
 
                 cands.forEach(c => {
                     const est = normalizarEstatus(c.estatus || c.status);
-                    const infoEmpCand = resolverEmpresaCandidato(c);
-                    const tarifa = extraerTarifaColocacion(infoEmpCand.idCanonico, c.nombreVacante || c.vacante);
+                    const fin = resolverFinanzasM3Sup(c);
+                    const tarifa = fin.tarifaCliente;
 
                     if (est === "Contratado" || est === "Trabajando" || est === "Proceso Terminado") {
                         colocados++;
-                        globalCapitalConsolidado += tarifa;
+                        if (!c.garantiaReclamada) {
+                            globalCapitalConsolidado += tarifa;
+                            globalUtilidadNeta += fin.utilidadNeta;
+                        }
                     } else if (est === "No Apto Medico") {
                         noAptoMed++;
                     } else if (est === "No Apto Entrevista") {
@@ -1849,7 +1890,7 @@
             document.getElementById("txtCapitalEnTransito").textContent = `$${globalCapitalTransito.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN`;
             document.getElementById("txtCapitalEnRiesgo").textContent = `$${globalCapitalRiesgo.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN`;
             document.getElementById("txtCapitalConsolidado").textContent = `$${globalCapitalConsolidado.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN`;
-            document.getElementById("txtColocadosFacturablesDetalle").textContent = `${globalColocados} colocados facturables cerrados.`;
+            document.getElementById("txtColocadosFacturablesDetalle").textContent = `${globalColocados} colocados • Utilidad Neta: $${globalUtilidadNeta.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`;
 
             document.getElementById("kpiCarteraTotal").textContent = globalTotal;
             const tasaGlobal = globalTotal > 0 ? Math.round((globalColocados / globalTotal) * 100) : 0;
