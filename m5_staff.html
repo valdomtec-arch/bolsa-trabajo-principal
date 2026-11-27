@@ -176,7 +176,7 @@
             <i class="fas fa-shield-halved"></i> Módulo 5 • Staff & Jerarquías Matriciales
           </span>
           <span id="badgeConexionServer" class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-mono font-bold px-3 py-1 rounded-full flex items-center gap-1.5">
-            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Nodo Canónico En Línea
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Gobernanza Estricta Activa
           </span>
           <span id="badgeJerarquiaActual" class="bg-cyber-cyan/10 text-cyber-cyan border border-cyber-cyan/30 text-xs font-mono font-bold px-3 py-1 rounded-full">
             Verificando Sesión...
@@ -186,7 +186,7 @@
           Estructura Matricial, Staff & Gobernanza Dinámica
         </h1>
         <p class="text-slate-300 text-xs sm:text-sm">
-          Administración centralizada de usuarios, tabulador de comisiones por reclutador, llaves VIP de bóveda comercial y control de roles RBAC en tiempo real.
+          Administración centralizada de usuarios, tabulador de comisiones por reclutador, llaves VIP de bóveda comercial y control estricto de roles RBAC en tiempo real.
         </p>
       </div>
     </header>
@@ -691,7 +691,7 @@
               <i class="fas fa-shield-virus"></i> Motor de Roles & Matriz de Gobernanza Dinámica
             </h2>
             <p class="text-xs text-slate-300">
-              Define los privilegios CRUD para cada módulo del ERP, incluyendo la Bóveda Comercial de M1 (`m1_boveda_tarifas`).
+              Define los privilegios CRUD estrictos para cada módulo del ERP. Solo Master Administrador conserva bypass global; el resto de roles obedecen exactamente esta matriz.
             </p>
           </div>
           <div class="flex items-center gap-2 flex-wrap">
@@ -773,7 +773,7 @@
             <h3 id="modalRolTitulo" class="text-sm sm:text-base font-black uppercase text-cyber-purple tracking-wide">
               Configurar Rol Dinámico
             </h3>
-            <span class="text-[10px] text-slate-400 font-mono">Sincronización directa con modulos_config</span>
+            <span class="text-[10px] text-slate-400 font-mono">Sincronización estricta con admin.html y modulos_config</span>
           </div>
         </div>
         <button onclick="cerrarModalRol()" class="text-slate-400 hover:text-white text-lg font-bold p-1 touch-target">✕</button>
@@ -925,7 +925,10 @@
 
     const ALIAS_MODULOS = {
       'm8_creador_modulos': ['m8_creador'],
-      'm9_portal_freelance': ['m9_freelance', 'm9_freelance_portal']
+      'm8_creador': ['m8_creador_modulos'],
+      'm9_portal_freelance': ['m9_freelance', 'm9_freelance_portal'],
+      'm9_freelance': ['m9_portal_freelance', 'm9_freelance_portal'],
+      'm9_freelance_portal': ['m9_portal_freelance', 'm9_freelance']
     };
 
     let catalogoModulosVivos = [...MODULOS_CONTINGENCIA];
@@ -949,26 +952,34 @@
 
     let metricasVisibles = localStorage.getItem('m5_metricas_visibles') !== 'false';
 
+    function esMasterAdministrador(u, rolObj) {
+      if (!u) return false;
+      const nivelUsuario = parseInt(u.nivel, 10) || 1;
+      const nivelRol = rolObj ? (parseInt(rolObj.nivelJerarquico, 10) || 1) : 1;
+      const nombreRol = (rolObj?.nombre || u.nombreRol || '').toLowerCase();
+      return nivelUsuario >= 5 || nivelRol >= 5 || nombreRol.includes('master');
+    }
+
     // =========================================================================
-    // MOTOR COMPILADOR CANÓNICO DE PERMISOS RBAC (SIN HUÉRFANOS NI HERENCIA SUCIA)
+    // MOTOR COMPILADOR CANÓNICO DE PERMISOS RBAC (MATRIZ ESTRICTA)
     // =========================================================================
     function resolverPermisoEnMapa(mapaPermisos, moduloId, accion) {
       if (!mapaPermisos || typeof mapaPermisos !== 'object') return false;
       if (mapaPermisos[moduloId] && typeof mapaPermisos[moduloId] === 'object') {
-        return Boolean(mapaPermisos[moduloId][accion]);
+        return mapaPermisos[moduloId][accion] === true;
       }
       const aliases = ALIAS_MODULOS[moduloId] || [];
       for (const alias of aliases) {
         if (mapaPermisos[alias] && typeof mapaPermisos[alias] === 'object') {
-          return Boolean(mapaPermisos[alias][accion]);
+          return mapaPermisos[alias][accion] === true;
         }
       }
       return false;
     }
 
-    function compilarMatrizPermisosLimpia(fuentePermisos, nivelJerarquico) {
+    function compilarMatrizPermisosLimpia(fuentePermisos, nivelJerarquico, nombreRol = '') {
       const nivelNum = parseInt(nivelJerarquico, 10) || 2;
-      const esMaster = nivelNum >= 5;
+      const esMaster = nivelNum >= 5 || (nombreRol || '').toLowerCase().includes('master');
       const modulosProtegidos = new Set(['m7_logs', 'm8_creador_modulos', 'm8_creador']);
       const matrizLimpia = {};
 
@@ -1001,13 +1012,14 @@
     const RBAC = {
       puede(moduloId, accion) {
         if (!usuarioSesion.uid) return false;
-        if (usuarioSesion.nivel >= 5) return true;
+        const rolVivo = globalRoles[usuarioSesion.rolId];
+
+        if (esMasterAdministrador(usuarioSesion, rolVivo)) return true;
 
         if ((moduloId === 'm7_logs' || moduloId === 'm8_creador_modulos' || moduloId === 'm8_creador') && (accion === 'editar' || accion === 'eliminar')) {
           return false;
         }
 
-        const rolVivo = globalRoles[usuarioSesion.rolId];
         if (rolVivo && rolVivo.permisos) {
           return resolverPermisoEnMapa(rolVivo.permisos, moduloId, accion);
         }
@@ -1154,6 +1166,7 @@
         const u = globalStaff[uid];
         const rol = globalRoles[u.rolId] || {};
         const nivel = parseInt(u.nivel || rol.nivelJerarquico || 2);
+        const esMaster = esMasterAdministrador(u, rol);
 
         const sups = Array.isArray(u.supervisoresIds) 
           ? u.supervisoresIds.map(id => globalStaff[id]?.nombre || id).filter(Boolean)
@@ -1179,7 +1192,7 @@
         const modulosAutorizados = [];
         const perms = rol.permisos || u.permisosModulos || {};
         catalogoModulosVivos.forEach(m => {
-          if (nivel >= 5 || resolverPermisoEnMapa(perms, m.id, 'ver')) {
+          if (esMaster || resolverPermisoEnMapa(perms, m.id, 'ver')) {
             modulosAutorizados.push(m.label.split(':')[0]);
           }
         });
@@ -1191,7 +1204,7 @@
           ? (comType === 'porcentaje' ? `${comVal}% sobre vacante` : `$${comVal.toFixed(2)} MXN fijo`)
           : "Sin comisión ($0)";
 
-        const bovedaTxt = (nivel >= 5 || u.accesoBovedaM1 === true || resolverPermisoEnMapa(perms, 'm1_boveda_tarifas', 'ver'))
+        const bovedaTxt = (esMaster || u.accesoBovedaM1 === true || resolverPermisoEnMapa(perms, 'm1_boveda_tarifas', 'ver'))
           ? `AUTORIZADO (${(u.alcanceBovedaM1 || 'total').toUpperCase()})`
           : "BLOQUEADO";
 
@@ -1348,9 +1361,10 @@
             candado.classList.add('hidden');
             panel.classList.remove('hidden');
 
-            badgeJerarquia.textContent = usuarioSesion.nivel >= 5 
-              ? "Jerarquía: Master Administrador (Nivel 5)" 
-              : `Jerarquía: ${val.nombreRol || 'Mando'} (Nivel ${usuarioSesion.nivel})`;
+            const rolActivo = globalRoles[usuarioSesion.rolId];
+            badgeJerarquia.textContent = esMasterAdministrador(usuarioSesion, rolActivo)
+              ? "Jerarquía: Master Administrador (Nivel 5 • Bypass Autorizado)" 
+              : `Jerarquía: ${val.nombreRol || 'Mando'} (Nivel ${usuarioSesion.nivel} • Estricto)`;
 
             aplicarGobernanzaInterfazM5();
             poblarSelectorRoles();
@@ -1386,7 +1400,10 @@
     }
 
     function aplicarGobernanzaInterfazM5() {
-      if (!RBAC.puede('m5_staff', 'crear') || usuarioSesion.nivel < 5) {
+      const rolActivo = globalRoles[usuarioSesion.rolId];
+      const esMaster = esMasterAdministrador(usuarioSesion, rolActivo);
+
+      if (!RBAC.puede('m5_staff', 'crear') || !esMaster) {
         document.getElementById('btnCrearNuevoRol')?.classList.add('hidden');
         document.getElementById('btnSincronizarTodoRBAC')?.classList.add('hidden');
       } else {
@@ -1402,7 +1419,7 @@
       }
 
       const boxBoveda = document.getElementById('boxLlaveBovedaM1');
-      if (usuarioSesion.nivel >= 5) {
+      if (esMaster) {
         boxBoveda?.classList.remove('hidden');
       } else {
         boxBoveda?.classList.add('hidden');
@@ -1420,10 +1437,13 @@
     function poblarSelectorRoles() {
       const select = document.getElementById('selectRolDinamico');
       const valorActual = select.value;
+      const rolActivo = globalRoles[usuarioSesion.rolId];
+      const esMaster = esMasterAdministrador(usuarioSesion, rolActivo);
+
       select.innerHTML = '<option value="">-- Selecciona un Rol Dinámico --</option>';
 
       Object.entries(globalRoles).forEach(([k, r]) => {
-        if (usuarioSesion.nivel < 5 && r.nivelJerarquico >= 5) return;
+        if (!esMaster && r.nivelJerarquico >= 5) return;
 
         const opt = document.createElement('option');
         opt.value = k;
@@ -1668,7 +1688,8 @@
         lblSwitch.className = "ml-3 text-xs font-mono font-bold text-slate-400";
       }
 
-      if (usuarioSesion.nivel >= 5) {
+      const rolActivo = globalRoles[usuarioSesion.rolId];
+      if (esMasterAdministrador(usuarioSesion, rolActivo)) {
         const tieneBovedaPorRol = nivel >= 5 || resolverPermisoEnMapa(rol.permisos, 'm1_boveda_tarifas', 'ver');
         document.getElementById('chkAccesoBovedaM1').checked = tieneBovedaPorRol;
         if (tieneBovedaPorRol) {
@@ -1790,6 +1811,8 @@
       const nivelJerarquico = parseInt(rol.nivelJerarquico) || 2;
       const nombreRol = (rol.nombre || '').toLowerCase();
       const esRRHH = nombreRol.includes('rrhh') || nombreRol.includes('recursos humanos');
+      const rolActivo = globalRoles[usuarioSesion.rolId];
+      const ejecutorEsMaster = esMasterAdministrador(usuarioSesion, rolActivo);
 
       let supervisoresFinales = [];
       let coordinadoresFinales = [];
@@ -1831,7 +1854,7 @@
         let accesoBovedaM1Final = false;
         let alcanceBovedaM1Final = 'lectura';
 
-        if (usuarioSesion.nivel >= 5) {
+        if (ejecutorEsMaster) {
           accesoBovedaM1Final = nivelJerarquico >= 5 ? true : document.getElementById('chkAccesoBovedaM1').checked;
           alcanceBovedaM1Final = nivelJerarquico >= 5 ? 'total' : document.getElementById('selectAlcanceBovedaM1').value;
         } else if (!isNew && globalStaff[uidFinal]) {
@@ -1839,10 +1862,8 @@
           alcanceBovedaM1Final = globalStaff[uidFinal].alcanceBovedaM1 || 'lectura';
         }
 
-        // Compilación limpia y exacta desde la plantilla del rol asignado
-        const permisosModulosInyectados = compilarMatrizPermisosLimpia(rol.permisos || {}, nivelJerarquico);
+        const permisosModulosInyectados = compilarMatrizPermisosLimpia(rol.permisos || {}, nivelJerarquico, rol.nombre || '');
 
-        // Sincronizar permiso granular m1_boveda_tarifas con la Llave VIP
         if (accesoBovedaM1Final) {
           const esTotal = alcanceBovedaM1Final === 'total';
           permisosModulosInyectados['m1_boveda_tarifas'] = {
@@ -1851,7 +1872,7 @@
             editar: esTotal,
             eliminar: esTotal
           };
-        } else if (usuarioSesion.nivel >= 5) {
+        } else if (ejecutorEsMaster) {
           permisosModulosInyectados['m1_boveda_tarifas'] = {
             ver: false,
             crear: false,
@@ -2071,6 +2092,7 @@
         const u = globalStaff[uid];
         const rol = globalRoles[u.rolId] || {};
         const nivel = u.nivel || rol.nivelJerarquico || 2;
+        const esMaster = esMasterAdministrador(u, rol);
         const nombreRolRaw = (rol.nombre || u.nombreRol || 'Colaborador').toLowerCase();
         const esRRHH = nombreRolRaw.includes('rrhh') || nombreRolRaw.includes('recursos humanos');
         const esActivo = u.estatus === 'Activo';
@@ -2096,8 +2118,8 @@
         }
 
         const permsEfectivos = rol.permisos || u.permisosModulos || {};
-        const tieneBoveda = nivel >= 5 || u.accesoBovedaM1 === true || resolverPermisoEnMapa(permsEfectivos, 'm1_boveda_tarifas', 'ver');
-        const alcanceBov = (nivel >= 5 || u.alcanceBovedaM1 === 'total' || resolverPermisoEnMapa(permsEfectivos, 'm1_boveda_tarifas', 'editar')) ? 'Total' : 'Lectura';
+        const tieneBoveda = esMaster || u.accesoBovedaM1 === true || resolverPermisoEnMapa(permsEfectivos, 'm1_boveda_tarifas', 'ver');
+        const alcanceBov = (esMaster || u.alcanceBovedaM1 === 'total' || resolverPermisoEnMapa(permsEfectivos, 'm1_boveda_tarifas', 'editar')) ? 'Total' : 'Lectura';
         const badgeBovedaHTML = tieneBoveda
           ? `<span class="bg-amber-500/15 text-amber-300 border border-amber-400/40 text-[10px] font-mono px-2 py-0.5 rounded font-bold inline-flex items-center gap-1 mt-1"><i class="fas fa-vault"></i> Bóveda M1 (${alcanceBov})</span>`
           : '';
@@ -2116,7 +2138,7 @@
         let bloqueMandoHTML = '';
         let bloqueMandoMobileHTML = '';
 
-        if (nivel >= 5) {
+        if (esMaster) {
           bloqueMandoHTML = `<span class="text-amber-400 font-bold font-mono"><i class="fas fa-crown me-1"></i>Dirección Suprema</span>`;
           bloqueMandoMobileHTML = `<div><strong class="text-amber-400">Jerarquía:</strong> Máxima Autoridad</div>`;
         } else if (nivel === 4 || esRRHH) {
@@ -2473,19 +2495,22 @@
 
     function renderizarTablaRolesDinamicos() {
       const tbody = document.getElementById('tablaRolesDinamicosBody');
+      const rolActivo = globalRoles[usuarioSesion.rolId];
+      const ejecutorEsMaster = esMasterAdministrador(usuarioSesion, rolActivo);
       tbody.innerHTML = '';
 
       Object.entries(globalRoles).forEach(([id, r]) => {
         const nivelRol = parseInt(r.nivelJerarquico, 10) || 2;
+        const rolEsMaster = nivelRol >= 5 || (r.nombre || '').toLowerCase().includes('master');
         let modulosActivos = 'Sin módulos';
 
-        if (nivelRol >= 5) {
-          modulosActivos = `${catalogoModulosVivos.length} módulos habilitados (Acceso Total)`;
+        if (rolEsMaster) {
+          modulosActivos = `${catalogoModulosVivos.length} módulos habilitados (Master • Acceso Total)`;
         } else if (r.permisos && typeof r.permisos === 'object') {
           const permitidos = catalogoModulosVivos.filter(m => resolverPermisoEnMapa(r.permisos, m.id, 'ver'));
           modulosActivos = permitidos.length > 0 
-            ? `${permitidos.length} módulos habilitados` 
-            : 'Sin módulos';
+            ? `${permitidos.length} módulos habilitados (Estricto)` 
+            : 'Sin módulos (Bloqueado)';
         }
 
         tbody.innerHTML += `
@@ -2495,7 +2520,7 @@
             <td class="p-4 text-center text-cyber-cyan uppercase font-bold text-xs">${r.scope}</td>
             <td class="p-4 text-slate-300 text-xs">${modulosActivos}</td>
             <td class="p-4 text-right space-x-1">
-              ${usuarioSesion.nivel >= 5 ? `
+              ${ejecutorEsMaster ? `
               <button onclick="editarRolPlantilla('${id}')" class="p-2 rounded-lg bg-cyber-purple/20 hover:bg-cyber-purple text-purple-300 hover:text-white border border-purple-500/30 transition" title="Editar Matriz del Rol">
                 <i class="fas fa-pen text-xs"></i>
               </button>` : '<span class="text-slate-600 text-xs">—</span>'}
@@ -2534,9 +2559,11 @@
 
     window.alCambiarNivelEnModalRol = () => {
       const nivel = parseInt(document.getElementById('rolInputNivel').value, 10) || 2;
+      const nombreRol = (document.getElementById('rolInputNombre').value || '').toLowerCase();
+      const esMaster = nivel >= 5 || nombreRol.includes('master');
       const modulosCriticos = ['m7_logs', 'm8_creador_modulos', 'm8_creador'];
 
-      if (nivel >= 5) {
+      if (esMaster) {
         catalogoModulosVivos.forEach(m => {
           ['ver', 'crear', 'editar', 'borrar'].forEach(acc => {
             const el = document.getElementById(`m_${acc}_${m.id}`);
@@ -2548,6 +2575,14 @@
         });
         return;
       }
+
+      // Rehabilitar controles en caso de haber bajado de Nivel 5 a un nivel menor
+      catalogoModulosVivos.forEach(m => {
+        ['ver', 'crear', 'editar', 'borrar'].forEach(acc => {
+          const el = document.getElementById(`m_${acc}_${m.id}`);
+          if (el) el.disabled = false;
+        });
+      });
 
       modulosCriticos.forEach(mKey => {
         const chkBorrar = document.getElementById(`m_borrar_${mKey}`);
@@ -2561,8 +2596,9 @@
     };
 
     window.abrirModalCrearRol = () => {
-      if (usuarioSesion.nivel < 5) {
-        return alert("Solo Master Administrador (Nivel 5) puede registrar nuevos roles canónicos.");
+      const rolActivo = globalRoles[usuarioSesion.rolId];
+      if (!esMasterAdministrador(usuarioSesion, rolActivo)) {
+        return alert("Solo Master Administrador puede registrar nuevos roles canónicos.");
       }
       document.getElementById('formModalRol').reset();
       document.getElementById('rolIdHidden').value = '';
@@ -2573,8 +2609,9 @@
     };
 
     window.editarRolPlantilla = (rolId) => {
-      if (usuarioSesion.nivel < 5) {
-        return alert("Solo Master Administrador (Nivel 5) puede editar matrices de roles.");
+      const rolActivo = globalRoles[usuarioSesion.rolId];
+      if (!esMasterAdministrador(usuarioSesion, rolActivo)) {
+        return alert("Solo Master Administrador puede editar matrices de roles.");
       }
       const r = globalRoles[rolId];
       if (!r) return;
@@ -2598,9 +2635,10 @@
     function construirUpdatesPropagacionRol(rolId, nombre, nivel, scope, permisosCompilados) {
       const updatesUsuarios = {};
       let usuariosSincronizados = 0;
+      const esMaster = nivel >= 5 || (nombre || '').toLowerCase().includes('master');
 
-      const tieneBovedaEnRol = nivel >= 5 || resolverPermisoEnMapa(permisosCompilados, 'm1_boveda_tarifas', 'ver');
-      const alcanceBovedaEnRol = (nivel >= 5 || resolverPermisoEnMapa(permisosCompilados, 'm1_boveda_tarifas', 'editar')) ? 'total' : 'lectura';
+      const tieneBovedaEnRol = esMaster || resolverPermisoEnMapa(permisosCompilados, 'm1_boveda_tarifas', 'ver');
+      const alcanceBovedaEnRol = (esMaster || resolverPermisoEnMapa(permisosCompilados, 'm1_boveda_tarifas', 'editar')) ? 'total' : 'lectura';
 
       Object.entries(globalStaff).forEach(([uid, u]) => {
         if (!u || u.rolId !== rolId) return;
@@ -2641,7 +2679,8 @@
 
     window.guardarPlantillaRol = async (e) => {
       e.preventDefault();
-      if (usuarioSesion.nivel < 5) {
+      const rolActivo = globalRoles[usuarioSesion.rolId];
+      if (!esMasterAdministrador(usuarioSesion, rolActivo)) {
         return alert("Acción restringida: Se requiere perfil Master Administrador.");
       }
 
@@ -2650,7 +2689,6 @@
       const nivel = parseInt(document.getElementById('rolInputNivel').value, 10) || 2;
       const scope = document.getElementById('rolInputScope').value;
 
-      // Lectura limpia y determinista exclusivamente desde el estado de los checkboxes de la matriz
       const lecturaCheckboxes = {};
       catalogoModulosVivos.forEach(m => {
         lecturaCheckboxes[m.id] = {
@@ -2661,7 +2699,7 @@
         };
       });
 
-      const permisos = compilarMatrizPermisosLimpia(lecturaCheckboxes, nivel);
+      const permisos = compilarMatrizPermisosLimpia(lecturaCheckboxes, nivel, nombre);
 
       const payloadRol = {
         nombre,
@@ -2697,23 +2735,24 @@
           evento: "GUARDADO_Y_PROPAGACION_ROL",
           ejecutadoPor: usuarioSesion.nombre,
           uidEjecutor: usuarioSesion.uid,
-          detalle: `Se actualizó y limpió la matriz del rol "${nombre}" (N${nivel} • ${scope}) propagando permisos exactos a ${usuariosSincronizados} colaborador(es).`,
+          detalle: `Se actualizó y limpió la matriz del rol "${nombre}" (N${nivel} • ${scope}) propagando permisos estrictos a ${usuariosSincronizados} colaborador(es).`,
           timestamp: serverTimestamp()
         });
 
         cerrarModalRol();
-        alert(`✅ Matriz de Rol guardada y limpia.\n\nSe sincronizaron en tiempo real los permisos exactos de ${usuariosSincronizados} colaborador(es).`);
+        alert(`✅ Matriz de Rol guardada y propagada.\n\nSe sincronizaron en tiempo real los permisos estrictos de ${usuariosSincronizados} colaborador(es) en admin.html.`);
       } catch (err) {
         alert("Error al guardar y propagar rol: " + err.message);
       }
     };
 
     window.sincronizarTodosLosRolesConStaff = async () => {
-      if (usuarioSesion.nivel < 5) {
-        return alert("Solo Master Administrador (Nivel 5) puede ejecutar una sincronización global.");
+      const rolActivo = globalRoles[usuarioSesion.rolId];
+      if (!esMasterAdministrador(usuarioSesion, rolActivo)) {
+        return alert("Solo Master Administrador puede ejecutar una sincronización global.");
       }
 
-      if (!confirm("¿Deseas recompilar y sincronizar en tiempo real la matriz de permisos de TODOS los roles hacia todos los usuarios vinculados en Firebase?")) {
+      if (!confirm("¿Deseas recompilar y sincronizar en tiempo real la matriz estricta de permisos de TODOS los roles hacia todos los usuarios vinculados en Firebase?")) {
         return;
       }
 
@@ -2726,7 +2765,7 @@
           const nivel = parseInt(r.nivelJerarquico, 10) || 2;
           const nombre = r.nombre || 'Colaborador';
           const scope = r.scope || 'regional';
-          const permisosLimpios = compilarMatrizPermisosLimpia(r.permisos || {}, nivel);
+          const permisosLimpios = compilarMatrizPermisosLimpia(r.permisos || {}, nivel, nombre);
 
           updatesGlobales[`roles_dinamicos/${rolId}/permisos`] = permisosLimpios;
           updatesGlobales[`roles_dinamicos/${rolId}/updatedAt`] = serverTimestamp();
@@ -2745,11 +2784,11 @@
           evento: "SINCRONIZACION_GLOBAL_RBAC",
           ejecutadoPor: usuarioSesion.nombre,
           uidEjecutor: usuarioSesion.uid,
-          detalle: `Se recompiló y propagó toda la matriz de roles dinámicos hacia ${totalUsuarios} cuentas de staff.`,
+          detalle: `Se recompiló y propagó toda la matriz estricta de roles dinámicos hacia ${totalUsuarios} cuentas de staff.`,
           timestamp: serverTimestamp()
         });
 
-        alert(`✅ Sincronización Global RBAC completada.\n\nSe actualizaron ${totalUsuarios} colaborador(es) con las reglas exactas de sus roles.`);
+        alert(`✅ Sincronización Global RBAC completada.\n\nSe actualizaron ${totalUsuarios} colaborador(es) con las reglas estrictas de sus roles.`);
       } catch (err) {
         alert("Error durante la sincronización global: " + err.message);
       }
@@ -2778,8 +2817,8 @@
         secStaff.classList.remove('hidden');
         btnStaff.className = "shrink-0 px-5 py-2.5 rounded-xl font-mono text-xs font-bold uppercase transition-all flex items-center gap-2 bg-cyber-accent text-slate-950 shadow-glow-accent touch-target";
       } else if (tab === 'MATRIZ') {
+        secMatriz.className = "shrink-0 px-5 py-2.5 rounded-xl font-mono text-xs font-bold uppercase transition-all flex items-center gap-2 bg-cyber-cyan text-slate-950 shadow-glow-cyan touch-target";
         secMatriz.classList.remove('hidden');
-        btnMatriz.className = "shrink-0 px-5 py-2.5 rounded-xl font-mono text-xs font-bold uppercase transition-all flex items-center gap-2 bg-cyber-cyan text-slate-950 shadow-glow-cyan touch-target";
       } else {
         secRoles.classList.remove('hidden');
         btnRoles.className = "shrink-0 px-5 py-2.5 rounded-xl font-mono text-xs font-bold uppercase transition-all flex items-center gap-2 bg-cyber-purple text-white shadow-md touch-target";
@@ -2819,8 +2858,9 @@
       actualizarInterfazComisionReclutador();
       actualizarVisibilidadBloqueComision();
 
-      if (usuarioSesion.nivel >= 5) {
-        const tieneBov = nivel >= 5 || u.accesoBovedaM1 === true || resolverPermisoEnMapa(u.permisosModulos, 'm1_boveda_tarifas', 'ver');
+      const rolActivo = globalRoles[usuarioSesion.rolId];
+      if (esMasterAdministrador(usuarioSesion, rolActivo)) {
+        const tieneBov = esMasterAdministrador(u, rol) || u.accesoBovedaM1 === true || resolverPermisoEnMapa(u.permisosModulos, 'm1_boveda_tarifas', 'ver');
         document.getElementById('chkAccesoBovedaM1').checked = tieneBov;
         document.getElementById('selectAlcanceBovedaM1').value = u.alcanceBovedaM1 || (resolverPermisoEnMapa(u.permisosModulos, 'm1_boveda_tarifas', 'editar') ? 'total' : 'lectura');
         toggleAlcanceBovedaM1();
@@ -2866,7 +2906,8 @@
       document.getElementById('inputValorComision').value = '0';
       actualizarInterfazComisionReclutador();
 
-      if (usuarioSesion.nivel >= 5) {
+      const rolActivo = globalRoles[usuarioSesion.rolId];
+      if (esMasterAdministrador(usuarioSesion, rolActivo)) {
         document.getElementById('chkAccesoBovedaM1').checked = false;
         document.getElementById('selectAlcanceBovedaM1').value = 'lectura';
         toggleAlcanceBovedaM1();
